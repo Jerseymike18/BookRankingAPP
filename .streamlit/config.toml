@@ -1,0 +1,8 @@
+[theme]
+# Dark "reading ledger": inverted from the old warm-paper look. Dark ground,
+# light ink, the same deep-red library-stamp accent.
+base = "dark"
+primaryColor = "#d4453d"
+backgroundColor = "#1b1714"
+secondaryBackgroundColor = "#241f1a"
+textColor = "#ece6da"

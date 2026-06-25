@@ -252,8 +252,12 @@ def report(p):
     print("NOTE: component scores are an autonomous estimate, not researched.")
 
 
-def build(path=WORKBOOK):
-    books, gw, gcw = load_everything(path)
+def build(source="excel", path=WORKBOOK):
+    if source == "db":
+        import db_loader  # lazy: db_loader imports this module
+        books, gw, gcw = db_loader.load_from_db()
+    else:
+        books, gw, gcw = load_everything(path)
     coeffs, r2, resid_sd = fit_regression(books)
     ginfo = genre_bias_and_trust(books, coeffs)
     upstream = fit_upstream(books)

@@ -143,6 +143,52 @@ def add_book(title, genre, author, scores, series=None, words=None,
 
 
 # ---------------------------------------------------------------------------
+# WRITE: add a researched recommendation
+# ---------------------------------------------------------------------------
+def add_recommendation(title, genre, author, scores, series=None, words=None,
+                       blurb=None, keywords=None, done=0, allow_new_genre=False):
+    """
+    Add a researched (not-yet-read) book to the recommendations table. Same
+    validation discipline as add_book: genre must be known, the 14 component
+    scores are range/completeness checked, and nothing commits on failure.
+    Returns True on success, False otherwise.
+    """
+    con = _connect()
+    try:
+        valid = _valid_genres(con)
+        if genre not in valid and not allow_new_genre:
+            raise ValidationError(
+                f"Genre '{genre}' is not in genre_weights. Either fix the "
+                f"spelling (valid genres: {sorted(valid)}) or pass "
+                f"allow_new_genre=True and add weights for it.")
+        dup = con.execute("SELECT 1 FROM recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if dup:
+            raise ValidationError(
+                f"A recommendation titled '{title}' already exists.")
+        _validate_scores(scores, require_all=True)
+
+        _backup_once()
+        cols = (["title", "genre", "author", "series", "words", "done",
+                 "blurb", "keywords"] + FICTION_COMPONENTS)
+        vals = ([title, genre, author, series, words, 1 if done else 0,
+                 blurb, keywords] + [scores.get(c) for c in FICTION_COMPONENTS])
+        ph = ",".join("?" for _ in cols)
+        con.execute(f'INSERT INTO recommendations '
+                    f'({",".join(chr(34)+c+chr(34) for c in cols)}) '
+                    f'VALUES ({ph})', vals)
+        con.commit()
+        print(f"  ✓ Saved '{title}' to recommendations ({genre}, {author}).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ NOT saved — {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
 # WRITE: change rating(s)
 # ---------------------------------------------------------------------------
 def change_rating(title, new_scores):

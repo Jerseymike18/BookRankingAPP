@@ -2373,5 +2373,43 @@
       "Originality": 5.5
     },
     "conf": "medium"
+  },
+  "The Spear Cuts Through Water": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 9.0,
+      "Narration": 9.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 8.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Priory of the Orange Tree": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 6.0,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 6.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 6.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
   }
 }
