@@ -208,6 +208,12 @@ section = st.sidebar.radio("Section", list(SECTIONS.keys()))
 page = st.sidebar.radio("Go to", SECTIONS[section])
 
 books, gw, gcw = load()
+# Self-heal a stale cache: if the server was started before the reading-log
+# columns (Status/Year) were added, the cached frame predates them. Clear the
+# cache once and reload so the new views don't crash on a missing column.
+if "Status" not in books.columns or "Year" not in books.columns:
+    st.cache_data.clear()
+    books, gw, gcw = load()
 
 # Shared tier palette (the seven bands), reused by both tier-list views.
 TIER_COLORS = {
