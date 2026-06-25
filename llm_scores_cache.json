@@ -1,0 +1,2377 @@
+{
+  "Rosencrantz and Guildenstern are Dead": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 7.5,
+      "Action": 5.0,
+      "Ending": 8.5,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 9.0,
+      "Narration": 8.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 6.0,
+      "Integration": 8.5,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "The Oresteia": {
+    "scores": {
+      "Plot": 9.0,
+      "Entertainment": 7.0,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 9.0,
+      "Narration": 8.0,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 7.5,
+      "Integration": 9.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "The Odyssey": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 7.5,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.0,
+      "Integration": 8.5,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Inferno": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.5,
+      "Action": 7.0,
+      "Ending": 6.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 9.0,
+      "Narration": 8.5,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 9.0,
+      "Integration": 9.0,
+      "Originality": 10.0
+    },
+    "conf": "high"
+  },
+  "Don Quixote": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 7.0,
+      "Action": 6.5,
+      "Ending": 8.5,
+      "Depth": 9.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 9.0,
+      "Prose": 8.0,
+      "Narration": 9.0,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 6.5,
+      "Integration": 7.5,
+      "Originality": 10.0
+    },
+    "conf": "high"
+  },
+  "Neuromancer": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 6.5,
+      "Depth": 6.0,
+      "Emotional Impact": 5.5,
+      "Motivations": 6.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Toll the Hounds": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 9.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.5,
+      "Prose": 8.5,
+      "Narration": 7.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Hero of Ages": {
+    "scores": {
+      "Plot": 9.0,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 9.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 9.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Fires of Vengeance": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 6.5,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.5,
+      "Integration": 7.0,
+      "Originality": 7.0
+    },
+    "conf": "medium"
+  },
+  "Picture of Dorian Gray": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 5.5,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.0,
+      "Prose": 9.0,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 6.5,
+      "Integration": 7.5,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Frankenstein": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 6.5,
+      "Action": 6.0,
+      "Ending": 7.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 6.5,
+      "Integration": 8.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "The Lions of Al-Rassan": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 7.5,
+      "Ending": 9.0,
+      "Depth": 9.0,
+      "Emotional Impact": 9.5,
+      "Motivations": 9.0,
+      "Prose": 9.0,
+      "Narration": 8.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.5,
+      "Integration": 9.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Momo": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 7.5,
+      "Action": 6.5,
+      "Ending": 8.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 7.5,
+      "Integration": 9.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Sailing to Sarantium": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.5,
+      "Action": 6.0,
+      "Ending": 5.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 9.0,
+      "Narration": 8.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.5,
+      "Integration": 9.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Martin Eden": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.5,
+      "Action": 5.0,
+      "Ending": 8.5,
+      "Depth": 9.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 9.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 6.0,
+      "Integration": 7.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Sister Carrie": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 5.5,
+      "Action": 4.0,
+      "Ending": 7.5,
+      "Depth": 8.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.5,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.5,
+      "Integration": 8.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Silence": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.0,
+      "Action": 5.5,
+      "Ending": 8.5,
+      "Depth": 9.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 7.5,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Idiot": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 5.0,
+      "Ending": 7.5,
+      "Depth": 9.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 9.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 7.5,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Death of Ivan Ilyich": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 6.5,
+      "Action": 4.0,
+      "Ending": 9.0,
+      "Depth": 9.5,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.5,
+      "Prose": 8.5,
+      "Narration": 9.0,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 5.0,
+      "Integration": 7.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Notes From a Dead House": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 6.0,
+      "Action": 4.5,
+      "Ending": 6.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 8.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Last Command": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 7.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.0,
+      "Integration": 8.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "This Inevitable Ruin": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.0
+    },
+    "conf": "medium"
+  },
+  "Dark Force Rising": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 6.5,
+      "Depth": 7.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Hyperion": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 7.0,
+      "Ending": 4.5,
+      "Depth": 9.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 8.5,
+      "Narration": 9.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Ender's Game": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 9.0,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Fall of Hyperion": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 7.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Lightbringer": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 5.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 6.5,
+      "Prose": 6.0,
+      "Narration": 6.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 7.0,
+      "Integration": 6.5,
+      "Originality": 6.0
+    },
+    "conf": "high"
+  },
+  "Shadows Upon Time": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.0,
+      "Ending": 7.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "medium"
+  },
+  "Disquiet Gods": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 7.0,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.5,
+      "Prose": 8.0,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "medium"
+  },
+  "Einstein's Dreams": {
+    "scores": {
+      "Plot": 4.5,
+      "Entertainment": 6.5,
+      "Action": 3.0,
+      "Ending": 6.0,
+      "Depth": 5.5,
+      "Emotional Impact": 6.5,
+      "Motivations": 5.0,
+      "Prose": 8.0,
+      "Narration": 7.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 5.5,
+      "Integration": 7.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Station 11": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 6.0,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 8.5,
+      "Narration": 8.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 6.5,
+      "Integration": 8.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Martian Chronicles": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 7.0,
+      "Action": 4.5,
+      "Ending": 7.5,
+      "Depth": 6.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 6.0,
+      "Prose": 9.0,
+      "Narration": 8.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Crippled God": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 9.0,
+      "Emotional Impact": 9.5,
+      "Motivations": 8.5,
+      "Prose": 8.0,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Speaker For The Dead": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 6.0,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 8.5,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Deadhouse Gates": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 8.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 7.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Neverending Story": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 6.5,
+      "Ending": 7.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 9.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 9.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Memories of Ice": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 9.0,
+      "Ending": 9.5,
+      "Depth": 8.5,
+      "Emotional Impact": 9.5,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 7.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "A Memory of Light": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 9.0,
+      "Action": 9.5,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Bonehunters": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 9.0,
+      "Ending": 9.0,
+      "Depth": 8.5,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Gathering Storm": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 9.0,
+      "Action": 9.0,
+      "Ending": 9.5,
+      "Depth": 8.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.5,
+      "Integration": 8.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Heroes": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 7.0,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.5,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Dust of Dreams": {
+    "scores": {
+      "Plot": 5.0,
+      "Entertainment": 5.5,
+      "Action": 7.5,
+      "Ending": 3.0,
+      "Depth": 8.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 7.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 7.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Great Hunt": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 8.0,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 6.5,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Dark Age": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 6.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Lord of Chaos": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 6.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Knife of Dreams": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 7.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Midnight Tides": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 7.5,
+      "Action": 8.0,
+      "Ending": 9.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 8.0,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Words of Radiance": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 9.0,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Reaper's Gale": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 7.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 7.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Two Towers": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.5,
+      "Action": 8.5,
+      "Ending": 6.0,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.5,
+      "Integration": 8.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Return of the King": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 7.5,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 7.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.5,
+      "Integration": 8.5,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Between Two Fires": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 8.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 8.5,
+      "Integration": 9.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Shadow Rising": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 8.5,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Golden Son": {
+    "scores": {
+      "Plot": 9.0,
+      "Entertainment": 9.0,
+      "Action": 9.0,
+      "Ending": 9.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 7.5,
+      "Integration": 8.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Oathbringer": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Rhythm of War": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 6.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Dragon Reborn": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.5,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 6.5,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.0,
+      "Prose": 6.0,
+      "Narration": 7.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.5,
+      "Integration": 7.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Strength of the Few": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 9.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Demon in White": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 7.0,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 7.0,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.5
+    },
+    "conf": "medium"
+  },
+  "House of Chains": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.0,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "The Fires of Heaven": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 7.5,
+      "Action": 8.5,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.0,
+      "Integration": 7.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Way of Kings": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.0,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Gardens of the Moon": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 7.0,
+      "Emotional Impact": 6.0,
+      "Motivations": 6.5,
+      "Prose": 7.0,
+      "Narration": 5.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 9.0,
+      "Integration": 5.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Towers of Midnight": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 6.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 7.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Last Argument of Kings": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.5,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Morning Star": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 8.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Winter's Heart": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 6.0,
+      "Action": 8.5,
+      "Ending": 9.0,
+      "Depth": 7.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.5,
+      "Prose": 6.0,
+      "Narration": 6.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.0,
+      "Integration": 6.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Blade Itself": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 5.0,
+      "Depth": 8.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Ashes of Man": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Fellowship of the Ring": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.5,
+      "Action": 7.5,
+      "Ending": 6.0,
+      "Depth": 6.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 10.0,
+      "Integration": 7.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Kingdoms of Death": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 7.5,
+      "Depth": 8.0,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Before They Are Hanged": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 5.5,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Best Served Cold": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 8.0,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.5,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.5,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Piranesi": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 6.0,
+      "Ending": 8.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 9.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.0,
+      "Integration": 9.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Hobbit": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 7.0,
+      "Depth": 6.0,
+      "Emotional Impact": 7.0,
+      "Motivations": 6.5,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Will of the Many": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 8.0,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Ender's Shadow": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 7.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.0,
+      "Integration": 8.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Butcher's Masquerade": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 7.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.0,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "medium"
+  },
+  "Blindsight": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 6.5,
+      "Action": 7.0,
+      "Ending": 8.0,
+      "Depth": 6.0,
+      "Emotional Impact": 5.5,
+      "Motivations": 7.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.5,
+      "Depth2": 8.5,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Red Rising": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 8.0,
+      "Depth": 6.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.0,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Path of Daggers": {
+    "scores": {
+      "Plot": 5.0,
+      "Entertainment": 5.5,
+      "Action": 7.0,
+      "Ending": 4.0,
+      "Depth": 6.5,
+      "Emotional Impact": 5.5,
+      "Motivations": 6.0,
+      "Prose": 6.0,
+      "Narration": 6.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.0,
+      "Integration": 6.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Final Empire": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 9.0,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.5,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Howling Dark": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 7.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 8.0,
+      "Narration": 8.0,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "medium"
+  },
+  "A Crown of Swords": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 6.0,
+      "Action": 7.0,
+      "Ending": 5.0,
+      "Depth": 7.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.0,
+      "Prose": 6.0,
+      "Narration": 6.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.5,
+      "Integration": 6.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Lies of Locke Lamora": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 9.0,
+      "Action": 8.5,
+      "Ending": 8.0,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Red Country": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 7.5,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.0,
+      "Prose": 8.0,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Crossroads of Twilight": {
+    "scores": {
+      "Plot": 4.5,
+      "Entertainment": 5.0,
+      "Action": 5.5,
+      "Ending": 4.0,
+      "Depth": 6.5,
+      "Emotional Impact": 5.5,
+      "Motivations": 6.0,
+      "Prose": 6.0,
+      "Narration": 5.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 7.5,
+      "Integration": 5.5,
+      "Originality": 6.0
+    },
+    "conf": "high"
+  },
+  "New Spring": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 6.5,
+      "Depth": 6.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.0,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 7.5,
+      "Integration": 7.0,
+      "Originality": 6.0
+    },
+    "conf": "high"
+  },
+  "There Is No Antimemetics Division": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.0,
+      "Depth2": 8.5,
+      "Integration": 9.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "A Parade of Horribles": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.0,
+      "Depth": 6.5,
+      "Emotional Impact": 6.0,
+      "Motivations": 6.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.5,
+      "Integration": 7.0,
+      "Originality": 8.0
+    },
+    "conf": "medium"
+  },
+  "Iron Gold": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 7.5,
+      "Ending": 5.5,
+      "Depth": 7.5,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 6.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.0,
+      "Integration": 6.5,
+      "Originality": 6.0
+    },
+    "conf": "high"
+  },
+  "The Eye of the Bedlam Bride": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "medium"
+  },
+  "The Eye of the World": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.0,
+      "Action": 8.0,
+      "Ending": 8.5,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 6.5,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 7.0,
+      "Originality": 6.0
+    },
+    "conf": "high"
+  },
+  "The Gate of the Feral Gods": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 8.5,
+      "Ending": 7.0,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "medium"
+  },
+  "Project Hail Mary": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 9.0,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 6.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.5,
+      "Integration": 8.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Dungeon Anarchist's Cookbook": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.0,
+      "Depth": 6.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 8.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Warbreaker": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.0,
+      "Action": 7.5,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.5,
+      "Prose": 6.5,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Elantris": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 7.5,
+      "Action": 6.5,
+      "Ending": 8.5,
+      "Depth": 6.5,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.0,
+      "Prose": 6.0,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "Empire of Silence": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.5,
+      "Action": 7.0,
+      "Ending": 6.0,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.5,
+      "Prose": 8.5,
+      "Narration": 8.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 7.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Well of Ascension": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 7.5,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.0,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Carl's Doomsday Scenario": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Twenty Thousand Leagues Under the Sea": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 7.0,
+      "Ending": 5.5,
+      "Depth": 5.0,
+      "Emotional Impact": 5.5,
+      "Motivations": 6.0,
+      "Prose": 7.0,
+      "Narration": 7.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.5,
+      "Integration": 6.0,
+      "Originality": 9.5
+    },
+    "conf": "high"
+  },
+  "Xenocide": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 5.0,
+      "Action": 4.5,
+      "Ending": 6.0,
+      "Depth": 7.5,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.0,
+      "Prose": 6.0,
+      "Narration": 6.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 8.0,
+      "Integration": 6.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Children of the Mind": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 6.0,
+      "Action": 6.5,
+      "Ending": 7.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 6.5,
+      "Prose": 6.5,
+      "Narration": 6.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 7.5,
+      "Integration": 6.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Wind and Truth": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 9.0,
+      "Depth": 8.5,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 8.0
+    },
+    "conf": "high"
+  },
+  "The Fifth Season": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.0,
+      "Action": 7.5,
+      "Ending": 9.0,
+      "Depth": 9.0,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.5,
+      "Prose": 8.5,
+      "Narration": 9.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 9.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Rendezvous with Rama": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 6.0,
+      "Ending": 5.0,
+      "Depth": 4.5,
+      "Emotional Impact": 4.0,
+      "Motivations": 5.0,
+      "Prose": 7.0,
+      "Narration": 7.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 9.0,
+      "Integration": 8.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "The Rage of Dragons": {
+    "scores": {
+      "Plot": 7.5,
+      "Entertainment": 8.5,
+      "Action": 9.0,
+      "Ending": 7.5,
+      "Depth": 6.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.0,
+      "Integration": 7.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Red Seas Under Red Skies": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.5,
+      "Action": 8.0,
+      "Ending": 7.0,
+      "Depth": 7.0,
+      "Emotional Impact": 6.5,
+      "Motivations": 7.0,
+      "Prose": 7.5,
+      "Narration": 7.5,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.5,
+      "Integration": 7.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Dragonbone Chair": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 6.5,
+      "Ending": 5.5,
+      "Depth": 7.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.5,
+      "Prose": 8.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "The Name of the Wind": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 8.5,
+      "Action": 7.0,
+      "Ending": 5.5,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.0,
+      "Prose": 8.5,
+      "Narration": 8.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.0,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Dungeon Crawler Carl": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 9.0,
+      "Action": 8.5,
+      "Ending": 7.5,
+      "Depth": 7.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 8.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Shadows in Flight": {
+    "scores": {
+      "Plot": 5.5,
+      "Entertainment": 6.0,
+      "Action": 5.5,
+      "Ending": 4.5,
+      "Depth": 6.5,
+      "Emotional Impact": 6.0,
+      "Motivations": 6.5,
+      "Prose": 6.5,
+      "Narration": 6.0,
+      "Insights": 6.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 5.0,
+      "Integration": 6.0,
+      "Originality": 5.5
+    },
+    "conf": "medium"
+  },
+  "To Green Angel Tower": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 6.5,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 8.0,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Emperor's Soul": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 9.0,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.0,
+      "Integration": 9.0,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "Edgedancer": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.0,
+      "Action": 7.5,
+      "Ending": 7.5,
+      "Depth": 8.0,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.5,
+      "Prose": 7.0,
+      "Narration": 8.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 7.5,
+      "Integration": 8.0,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Heir to the Empire": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 7.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.0,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Dawnshard": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.0,
+      "Action": 7.5,
+      "Ending": 7.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 8.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Shadows for Silence": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.0,
+      "Action": 8.5,
+      "Ending": 8.5,
+      "Depth": 7.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.5,
+      "Prose": 7.0,
+      "Narration": 7.5,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.0,
+      "Integration": 8.5,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Ironweed": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 5.5,
+      "Action": 4.0,
+      "Ending": 6.5,
+      "Depth": 8.5,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.0,
+      "Prose": 8.5,
+      "Narration": 8.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.5,
+      "Depth2": 7.0,
+      "Integration": 8.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "The Stone of Farewell": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 7.0,
+      "Ending": 5.5,
+      "Depth": 7.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.5,
+      "Prose": 7.5,
+      "Narration": 7.0,
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 8.5,
+      "Integration": 7.5,
+      "Originality": 7.0
+    },
+    "conf": "high"
+  },
+  "Ready Player One": {
+    "scores": {
+      "Plot": 7.0,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 7.0,
+      "Depth": 5.0,
+      "Emotional Impact": 5.5,
+      "Motivations": 6.0,
+      "Prose": 5.5,
+      "Narration": 6.5,
+      "Insights": 5.0,
+      "Thought-Provokingness": 5.5,
+      "Depth2": 7.0,
+      "Integration": 6.0,
+      "Originality": 7.5
+    },
+    "conf": "high"
+  },
+  "Mistborn: Secret History": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 8.5,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.0,
+      "Prose": 7.0,
+      "Narration": 8.0,
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 9.0,
+      "Originality": 8.5
+    },
+    "conf": "high"
+  },
+  "Ready Player Two": {
+    "scores": {
+      "Plot": 4.5,
+      "Entertainment": 5.5,
+      "Action": 5.0,
+      "Ending": 4.0,
+      "Depth": 3.5,
+      "Emotional Impact": 4.0,
+      "Motivations": 4.5,
+      "Prose": 4.5,
+      "Narration": 5.0,
+      "Insights": 3.5,
+      "Thought-Provokingness": 4.0,
+      "Depth2": 6.0,
+      "Integration": 4.5,
+      "Originality": 4.0
+    },
+    "conf": "high"
+  },
+  "The Last Shadow": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 6.5,
+      "Action": 6.0,
+      "Ending": 5.5,
+      "Depth": 6.0,
+      "Emotional Impact": 6.0,
+      "Motivations": 6.5,
+      "Prose": 6.5,
+      "Narration": 6.5,
+      "Insights": 6.0,
+      "Thought-Provokingness": 6.0,
+      "Depth2": 7.0,
+      "Integration": 6.0,
+      "Originality": 5.5
+    },
+    "conf": "medium"
+  }
+}
