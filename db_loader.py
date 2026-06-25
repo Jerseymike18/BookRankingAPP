@@ -75,17 +75,24 @@ def load_from_db(path=DB):
 
     # Books: pull raw rows, rebuild the WCategoryAvg fields the engine expects,
     # and compute the stored WA the same way (so the WA column matches Excel).
+    # year_read/status are read-only passthroughs for the reading-log + derived
+    # views; the engine ignores any column it doesn't reference by name.
     comp_cols = ",".join(f'"{c}"' for c in all_components)
     rows = con.execute(
-        f'SELECT title,genre,author,series,words,{comp_cols} FROM books').fetchall()
+        f'SELECT title,genre,author,series,words,year_read,status,{comp_cols} '
+        f'FROM books').fetchall()
     con.close()
 
     recs = []
     for row in rows:
-        title, genre, author, series, words = row[0], row[1], row[2], row[3], row[4]
-        comp_vals = dict(zip(all_components, row[5:]))
+        (title, genre, author, series, words, year_read, status) = row[:7]
+        comp_vals = dict(zip(all_components, row[7:]))
         rec = {"Book": title.strip(), "Genre": (genre or "Unknown").strip(),
-               "Author": (author or "Unknown").strip()}
+               "Author": (author or "Unknown").strip(),
+               "Series": (series or "").strip().strip("'\""),
+               "Words": words,
+               "Year": int(year_read) if year_read is not None else None,
+               "Status": (status or "finished").strip()}
         # weighted category averages
         for cat in CATEGORY_OF_INTEREST:
             rec["W" + cat] = _weighted_cat_avg(comp_vals, genre, cat, gcw)

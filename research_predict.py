@@ -103,14 +103,52 @@ ALSO include these two keys in the SAME JSON object:
 """
 
 
-def research_rich_plus(client, title, author, genre):
+def _coerce_words(raw):
+    """Coerce the model's word-count estimate into a positive int (or None).
+    Tolerates '150,000', '150000', '150k', '~150000' and plain numbers."""
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        return int(raw) if raw > 0 else None
+    s = str(raw).strip().lower().replace(",", "").replace("~", "")
+    mult = 1
+    if s.endswith("k"):
+        mult, s = 1000, s[:-1]
+    m = re.search(r"\d+(\.\d+)?", s)
+    if not m:
+        return None
+    val = float(m.group()) * mult
+    return int(val) if val > 0 else None
+
+
+def research_rich_plus(client, title, author, genre, allowed_genres=None):
     """One richer-prompt API call that returns the 14 components, a confidence
-    flag, a blurb, and keywords together. Returns (scores, conf, blurb, keywords).
-    Reuses the validated rich prompt (reresearch_and_measure.rich_prompt) and only
-    appends the blurb/keywords request — the component scoring is unchanged."""
-    prompt = rm.rich_prompt(title, author, genre) + _BLURB_KW_INSTRUCTIONS
+    flag, a blurb, keywords, and (Part D) a genre + estimated word count.
+    Returns (scores, conf, blurb, keywords, det_genre, words).
+
+    Reuses the validated rich prompt (reresearch_and_measure.rich_prompt) — the
+    component scoring is unchanged. When `genre` is None and `allowed_genres` is
+    given, the SAME call also picks the book's genre from that list (so the genre
+    always matches your schema, never a variant); when a genre is supplied, it is
+    used as-is and only the word-count estimate is requested. The word count is
+    always an ESTIMATE (the caller shows it as an editable field)."""
+    detect_genre = genre is None
+    base_genre = genre if genre else "to be determined by you"
+    prompt = rm.rich_prompt(title, author, base_genre) + _BLURB_KW_INSTRUCTIONS
+
+    extra = ""
+    if detect_genre and allowed_genres:
+        glist = ", ".join(sorted(allowed_genres))
+        extra += ('\n  "genre": the single best-fitting genre for THIS book, '
+                  'chosen EXACTLY from this list (copy the spelling exactly — '
+                  'never invent or alter a variant):\n    ' + glist)
+    extra += ('\n  "words": your best ESTIMATE of the book\'s total word count as '
+              'a single integer (e.g. 150000). This is only an estimate; the user '
+              'can edit it.')
+    prompt += extra
+
     msg = client.messages.create(
-        model=rm.MODEL, max_tokens=700,
+        model=rm.MODEL, max_tokens=800,
         messages=[{"role": "user", "content": prompt}])
     text = msg.content[0].text.strip()
     text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
@@ -118,24 +156,34 @@ def research_rich_plus(client, title, author, genre):
     conf = data.pop("confidence", "unknown")
     blurb = (data.pop("blurb", "") or "").strip()
     keywords = _normalize_keywords(data.pop("keywords", ""))
+    det_genre = (str(data.pop("genre", "") or "").strip() or None)
+    # Guard the schema constraint: only accept a detected genre that is actually
+    # in your list; otherwise leave it None so the caller can fall back.
+    if det_genre and allowed_genres and det_genre not in set(allowed_genres):
+        det_genre = None
+    words = _coerce_words(data.pop("words", None))
     scores = {c: float(data[c]) for c in LIVE if c in data}
-    return scores, conf, blurb, keywords
+    return scores, conf, blurb, keywords, det_genre, words
 
 
-def research_book(title, author, genre, client, cache):
-    """Return (scores, conf, blurb, keywords, from_cache). On a miss, researches
-    with the RICHER prompt (extended to also yield a blurb + keywords in the same
-    call) and adds it to `cache` in place so the book is never re-researched.
-    Cache entries written by the batch reference script may predate the blurb/
-    keywords fields, so those default to empty strings."""
+def research_book(title, author, genre, client, cache, allowed_genres=None):
+    """Return (scores, conf, blurb, keywords, det_genre, words, from_cache). On a
+    miss, researches with the RICHER prompt (extended to also yield a blurb,
+    keywords, a schema-valid genre, and an estimated word count in the same call)
+    and adds it to `cache` in place so the book is never re-researched. Cache
+    entries written by the batch reference script may predate the blurb/keywords/
+    genre/words fields, so those default to empty/None."""
     if title in cache:
         e = cache[title]
         return (e["scores"], e.get("conf", "?"),
-                e.get("blurb", ""), e.get("keywords", ""), True)
-    scores, conf, blurb, keywords = research_rich_plus(client, title, author, genre)
+                e.get("blurb", ""), e.get("keywords", ""),
+                e.get("genre") or genre, e.get("words"), True)
+    scores, conf, blurb, keywords, det_genre, words = research_rich_plus(
+        client, title, author, genre, allowed_genres)
     cache[title] = {"scores": scores, "conf": conf,
-                    "blurb": blurb, "keywords": keywords}
-    return scores, conf, blurb, keywords, False
+                    "blurb": blurb, "keywords": keywords,
+                    "genre": det_genre or genre, "words": words}
+    return scores, conf, blurb, keywords, det_genre or genre, words, False
 
 
 def generate_blurb_keywords(title, author, genre, client, model=rm.MODEL):

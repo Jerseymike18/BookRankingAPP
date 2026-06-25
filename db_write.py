@@ -52,6 +52,11 @@ FICTION_COMPONENTS = [
 # Worldbuilding components are legitimately optional (blank for realist genres).
 WORLDBUILDING = {"Depth2", "Integration", "Originality"}
 
+# Reading-log status values. 'finished' is the default for every rated book
+# (set as the column default in the schema); the other two are transient states
+# for the Reading Status view.
+VALID_STATUSES = ("finished", "currently-reading", "reading-next")
+
 
 # ---------------------------------------------------------------------------
 # Backup + connection helpers
@@ -238,6 +243,58 @@ def change_rating(title, new_scores):
     except ValidationError as e:
         con.rollback()
         print(f"  ✗ Not updated — {e}")
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# WRITE: reading-log status + year_read (the BookTracker port)
+# ---------------------------------------------------------------------------
+def set_status(title, status):
+    """Set a rated book's reading status (finished / currently-reading /
+    reading-next). Validated against VALID_STATUSES; nothing commits on failure.
+    Returns True on success, False otherwise."""
+    con = _connect()
+    try:
+        if status not in VALID_STATUSES:
+            raise ValidationError(
+                f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
+        row = con.execute("SELECT 1 FROM books WHERE title=?", (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE books SET status=? WHERE title=?", (status, title))
+        con.commit()
+        print(f"  ✓ '{title}' status set to {status}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_year_read(title, year):
+    """Set/edit the year a rated book was read. Range-checked; nothing commits on
+    failure. Returns True on success, False otherwise."""
+    con = _connect()
+    try:
+        if year is not None and not (1900 <= int(year) <= 2100):
+            raise ValidationError(f"Year {year} is out of range (1900-2100).")
+        row = con.execute("SELECT 1 FROM books WHERE title=?", (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE books SET year_read=? WHERE title=?",
+                    (int(year) if year is not None else None, title))
+        con.commit()
+        print(f"  ✓ '{title}' year_read set to {year}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
     finally:
         con.close()
 

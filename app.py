@@ -29,10 +29,13 @@ Needs: predict_engine.py, db_loader.py, db_write.py, books.db in this folder.
 import streamlit as st
 import pandas as pd
 
+import datetime as _dt
+
 import predict_engine as pe
 import db_loader
 import db_write
 import research_predict as rp
+import views
 
 st.set_page_config(page_title="Reading Ledger", page_icon="📖", layout="wide")
 
@@ -189,10 +192,51 @@ st.markdown('<div class="ledger-title">The Reading Ledger</div>', unsafe_allow_h
 st.markdown('<div class="ledger-sub">A working record of books read, rated, and predicted.</div>',
             unsafe_allow_html=True)
 
-page = st.sidebar.radio("Go to", ["Rankings", "Add a Book", "Edit Ratings",
-                                  "Predict", "Read Queue"])
+# Navigation is grouped into sections so the growing page list stays legible:
+#   Log      — the reading-log workflow (status, adding, editing).
+#   Library  — every live-computed view of the rated library.
+#   Stats    — display-only dashboards.
+#   Discover — prediction/research and the read queue.
+SECTIONS = {
+    "Log":      ["Reading Status", "Add a Book", "Edit Ratings"],
+    "Library":  ["Rankings", "Tier List", "Year Views",
+                 "Series Rankings", "Series Tier List"],
+    "Stats":    ["Reading Stats", "Timeline"],
+    "Discover": ["Predict & Research", "Read Queue"],
+}
+section = st.sidebar.radio("Section", list(SECTIONS.keys()))
+page = st.sidebar.radio("Go to", SECTIONS[section])
 
 books, gw, gcw = load()
+
+# Shared tier palette (the seven bands), reused by both tier-list views.
+TIER_COLORS = {
+    "S+": "#d4453d", "S": "#e08a3c", "A": "#d8c24a", "B": "#7fae6f",
+    "C": "#5a9aa8", "D": "#8a7fae", "F": "#8a7d6b",
+}
+
+
+def render_tier_list(df_with_tier, label_col, caption_fmt):
+    """Shared S+/S/A/B/C/D/F renderer for the book and series tier lists.
+    `caption_fmt(row)` returns the small grey line shown under each title."""
+    counts = views.tier_counts(df_with_tier)
+    cap = "  ·  ".join(f"{t}: {counts[t]}" for t in views.TIER_ORDER)
+    st.caption(cap)
+    for tier in views.TIER_ORDER:
+        band = df_with_tier[df_with_tier["Tier"] == tier]
+        if band.empty:
+            continue
+        color = TIER_COLORS.get(tier, "#8a7d6b")
+        st.markdown(
+            f'<div style="margin-top:0.6rem;font-family:Fraunces,serif;'
+            f'font-weight:900;font-size:1.3rem;color:{color}">{tier} '
+            f'<span style="font-family:Inter;font-weight:500;font-size:0.85rem;'
+            f'color:var(--muted)">({len(band)})</span></div>',
+            unsafe_allow_html=True)
+        for _, r in band.iterrows():
+            st.markdown(
+                f"- **{r[label_col]}** — <span style='color:var(--muted)'>"
+                f"{caption_fmt(r)}</span>", unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +287,7 @@ elif page == "Add a Book":
         genre = st.selectbox("Genre", sorted(gw.keys()))
         words = st.number_input("Word count", min_value=0, value=0, step=1000)
         year = st.number_input("Year read", min_value=1900, max_value=2100,
-                               value=2026)
+                               value=_dt.date.today().year)
 
     st.markdown("**Component scores**")
     scores = {}
@@ -309,20 +353,262 @@ elif page == "Edit Ratings":
 
 
 # ---------------------------------------------------------------------------
+# PAGE: Reading Status  (the BookTracker status block + reading-log controls)
+# ---------------------------------------------------------------------------
+elif page == "Reading Status":
+    st.subheader("Reading Status")
+    st.caption("What you're reading now, what's up next, and recently finished — "
+               "plus controls to move books between states and fix their year.")
+
+    def _rank_of(wa):
+        return int((books["WA"] > wa).sum() + 1)
+
+    def _status_block(title, df, empty_msg):
+        st.markdown(f"**{title}**")
+        if df.empty:
+            st.caption(empty_msg)
+            return
+        for _, r in df.iterrows():
+            yr = f" · {int(r['Year'])}" if pd.notna(r["Year"]) else ""
+            st.markdown(
+                f"- **{r['Book']}** — <span style='color:var(--muted)'>"
+                f"{r['Author']} · {r['Genre']}{yr} · WA {r['WA']:.2f} · "
+                f"rank ~{_rank_of(r['WA'])} of {len(books)}</span>",
+                unsafe_allow_html=True)
+
+    reading = books[books["Status"] == "currently-reading"]
+    nxt = books[books["Status"] == "reading-next"]
+    # No per-book read date is stored, so "recently finished" = finished books
+    # from the most recent reading year.
+    finished = books[books["Status"] == "finished"].dropna(subset=["Year"])
+    if not finished.empty:
+        last_year = int(finished["Year"].max())
+        last_read = (finished[finished["Year"] == last_year]
+                     .sort_values("WA", ascending=False))
+    else:
+        last_year, last_read = None, finished
+
+    cols = st.columns(2)
+    with cols[0]:
+        _status_block("📖 Currently reading", reading,
+                      "Nothing marked currently-reading.")
+        _status_block("🔜 Reading next", nxt, "Nothing marked reading-next.")
+    with cols[1]:
+        _status_block(
+            f"✓ Finished in {last_year}" if last_year else "✓ Finished",
+            last_read.head(12),
+            "No finished books with a year set.")
+        if last_year is not None and len(last_read) > 12:
+            st.caption(f"…and {len(last_read) - 12} more finished in {last_year}.")
+
+    st.divider()
+    st.markdown("### Update a book")
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        st.markdown("**Set reading status**")
+        s_book = st.selectbox("Book", sorted(books["Book"].tolist()),
+                              key="status_book")
+        s_status = st.radio("Status", list(db_write.VALID_STATUSES),
+                            key="status_value", horizontal=False)
+        if st.button("Save status"):
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ok = db_write.set_status(s_book, s_status)
+            (st.success if ok else st.error)(
+                buf.getvalue().strip().replace("✓", "").replace("✗", "").strip())
+            if ok:
+                st.cache_data.clear()
+                st.rerun()
+    with sc2:
+        st.markdown("**Set / edit year read**")
+        y_book = st.selectbox("Book", sorted(books["Book"].tolist()),
+                              key="year_book")
+        cur_row = books[books["Book"] == y_book].iloc[0]
+        cur_year = int(cur_row["Year"]) if pd.notna(cur_row["Year"]) \
+            else _dt.date.today().year
+        y_val = st.number_input("Year read", min_value=1900, max_value=2100,
+                                value=cur_year, key="year_value")
+        if st.button("Save year"):
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ok = db_write.set_year_read(y_book, int(y_val))
+            (st.success if ok else st.error)(
+                buf.getvalue().strip().replace("✓", "").replace("✗", "").strip())
+            if ok:
+                st.cache_data.clear()
+                st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Tier List  (S+/S/A/B/C/D/F by Total Average)
+# ---------------------------------------------------------------------------
+elif page == "Tier List":
+    st.subheader("Tier List")
+    st.caption("Books banded by **Total Average** (the unweighted mean of the "
+               "five category averages). S+ = Total Average ≥ 9.5; the rest fall "
+               "into percentile bands (~9 / 15 / 25 / 25 / 15 / 10%).")
+    bt = views.add_total_average(books)
+    tl = views.tier_bands(bt, "Total Average", 9.5)
+    render_tier_list(
+        tl, "Book",
+        lambda r: f"{r['Author']} · {r['Genre']} · "
+                  f"Total Avg {r['Total Average']:.2f} · WA {r['WA']:.2f}")
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Year Views  (books filtered by year_read, ranked)
+# ---------------------------------------------------------------------------
+elif page == "Year Views":
+    st.subheader("Year Views")
+    years = sorted((int(y) for y in books["Year"].dropna().unique()),
+                   reverse=True)
+    if not years:
+        st.info("No books have a year_read set yet.")
+    else:
+        yc, gc = st.columns(2)
+        year = yc.selectbox("Year read", years)
+        yv = views.add_total_average(books[books["Year"] == year])
+        genres = ["All genres"] + sorted(yv["Genre"].unique())
+        pick = gc.selectbox("Filter by genre", genres)
+        view = yv if pick == "All genres" else yv[yv["Genre"] == pick]
+        view = view.sort_values("WA", ascending=False).reset_index(drop=True)
+        view.index = view.index + 1
+        st.caption(f"{len(view)} book(s) read in {year}"
+                   + ("" if pick == "All genres" else f" · {pick}"))
+        show = view[["Book", "Author", "Genre", "WA", "Total Average"]].rename(
+            columns={"Book": "Title", "WA": "Weighted Avg"})
+        show["Weighted Avg"] = show["Weighted Avg"].round(2)
+        show["Total Average"] = show["Total Average"].round(2)
+        st.dataframe(show, use_container_width=True, height=560)
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Series Rankings  (per-series rollup, ranked by average WA)
+# ---------------------------------------------------------------------------
+elif page == "Series Rankings":
+    st.subheader("Series Rankings")
+    st.caption("Rated books aggregated by series, ranked by **average WA**. "
+               "(The old sheet's length-adjusted score isn't cleanly "
+               "recoverable, so book count is shown alongside instead.)")
+    sa = views.series_aggregate(books)
+    if sa.empty:
+        st.info("No multi-book series found.")
+    else:
+        genres = ["All genres"] + sorted(sa["Genre"].unique())
+        pick = st.selectbox("Filter by genre", genres)
+        view = sa if pick == "All genres" else sa[sa["Genre"] == pick]
+        st.caption(f"{len(view)} series")
+        show = view[["Rank", "Series", "Author", "Genre", "Books",
+                     "Avg Total Average", "Avg WA"]].copy()
+        show["Avg Total Average"] = show["Avg Total Average"].round(2)
+        show["Avg WA"] = show["Avg WA"].round(2)
+        st.dataframe(show.set_index("Rank"), use_container_width=True, height=560)
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Series Tier List  (series banded like the book tier list)
+# ---------------------------------------------------------------------------
+elif page == "Series Tier List":
+    st.subheader("Series Tier List")
+    st.caption("Series banded by **average Total Average**. S+ = ≥ 9.0; the rest "
+               "fall into the same percentile bands as the book tier list.")
+    sa = views.series_aggregate(books)
+    if sa.empty:
+        st.info("No multi-book series found.")
+    else:
+        sa = sa.rename(columns={"Avg Total Average": "Total Average"})
+        stl = views.tier_bands(sa, "Total Average", 9.0)
+        render_tier_list(
+            stl, "Series",
+            lambda r: f"{r['Author']} · {int(r['Books'])} books · "
+                      f"Avg Total {r['Total Average']:.2f} · Avg WA {r['Avg WA']:.2f}")
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Reading Stats  (BookTracker summary + genre/author rollups)
+# ---------------------------------------------------------------------------
+elif page == "Reading Stats":
+    st.subheader("Reading Stats")
+    rs = views.reading_stats(books)
+    s = rs["summary"]
+    m = st.columns(4)
+    m[0].metric("Total books", s["total_books"])
+    m[1].metric("Average WA", f"{s['avg_wa']:.2f}")
+    m[2].metric("Average Total Avg", f"{s['avg_total_average']:.2f}")
+    m[3].metric("Average word count",
+                f"{s['avg_words']:,.0f}" if pd.notna(s["avg_words"]) else "—")
+
+    st.markdown("**Per year**")
+    py = rs["per_year"].copy()
+    for c in ["Avg WA", "Avg Total Average"]:
+        py[c] = py[c].round(2)
+    py["Avg Words"] = py["Avg Words"].round(0)
+    st.dataframe(py.set_index("Year"), use_container_width=True)
+
+    st.markdown("**By genre**")
+    bg = rs["by_genre"].copy()
+    for c in ["Avg WA", "Avg Total Average"]:
+        bg[c] = bg[c].round(2)
+    bg["Avg Words"] = bg["Avg Words"].round(0)
+    st.dataframe(bg.reset_index(drop=True), use_container_width=True, height=400)
+
+    st.markdown("**By author**")
+    ba = rs["by_author"].copy()
+    ba["Avg WA"] = ba["Avg WA"].round(2)
+    st.dataframe(ba.reset_index(drop=True), use_container_width=True, height=400)
+
+
+# ---------------------------------------------------------------------------
+# PAGE: Timeline  (reading/rating drift year to year)
+# ---------------------------------------------------------------------------
+elif page == "Timeline":
+    st.subheader("Timeline")
+    st.caption("How your reading and rating shift year to year — book counts, "
+               "average WA, and the five category averages.")
+    tl = views.timeline(books)
+    if tl.empty:
+        st.info("No books have a year_read set yet.")
+    else:
+        show = tl.copy()
+        for c in ["Avg WA", "Story", "Character", "Aesthetics", "Theme",
+                  "Worldbuilding"]:
+            show[c] = show[c].round(2)
+        show["Avg Words"] = show["Avg Words"].round(0)
+        st.dataframe(show.set_index("Year"), use_container_width=True)
+
+        st.markdown("**Books per year**")
+        st.bar_chart(tl.set_index("Year")["Books"])
+        st.markdown("**Category averages per year**")
+        st.line_chart(tl.set_index("Year")[
+            ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"]])
+
+
+# ---------------------------------------------------------------------------
 # PAGE: Predict
 # ---------------------------------------------------------------------------
-elif page == "Predict":
+elif page == "Predict & Research":
     st.subheader("Predict a Book")
     st.caption("An autonomous estimate from your reading history. For books "
                "with few analogs the confidence interval widens accordingly.")
+    GENRE_AUTO = "✨ Auto-detect (during research)"
     c1, c2, c3 = st.columns(3)
     p_title = c1.text_input("Title", "")
     p_author = c2.text_input("Author", "")
-    p_genre = c3.selectbox("Genre", sorted(gw.keys()))
+    p_genre_choice = c3.selectbox(
+        "Genre", [GENRE_AUTO] + sorted(gw.keys()),
+        help="Leave on Auto-detect to enter only title + author — grounded "
+             "research will pick the genre from your list. Pick a genre manually "
+             "to override, or to use the quick (non-LLM) Predict button.")
+    p_genre = None if p_genre_choice == GENRE_AUTO else p_genre_choice
 
     if st.button("Predict"):
         if not p_title or not p_author:
             st.error("Enter at least a title and author.")
+        elif p_genre is None:
+            st.error("The quick estimate needs a genre — pick one above, or use "
+                     "‘Research this book’ below to auto-detect it.")
         else:
             data = engine()
             p = pe.predict(p_title, p_author, p_genre, data)
@@ -369,14 +655,25 @@ elif page == "Predict":
             try:
                 client = rp.get_client()
                 with st.spinner("Researching this book… (one API call)"):
-                    scores, conf, blurb, keywords, from_cache = rp.research_book(
-                        p_title, p_author, p_genre, client, cache)
+                    (scores, conf, blurb, keywords, det_genre, words,
+                     from_cache) = rp.research_book(
+                        p_title, p_author, p_genre, client, cache,
+                        allowed_genres=list(gw_e.keys()))
                 rp.save_cache(cache)
-                res = rp.correct_and_predict(
-                    p_title, p_author, p_genre, scores, conf, resid_sd,
-                    books_e, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
-                    corr_models=get_corr_models())
-                st.session_state["single_research"] = (res, from_cache)
+                # Genre: the user's pick if they made one, else the LLM's schema-
+                # valid detection. Without either we can't correct onto your scale.
+                eff_genre = p_genre or det_genre
+                if eff_genre is None:
+                    st.error("Couldn't auto-detect a genre from your list for "
+                             "this book — pick a genre above and try again.")
+                    st.session_state.pop("single_research", None)
+                else:
+                    res = rp.correct_and_predict(
+                        p_title, p_author, eff_genre, scores, conf, resid_sd,
+                        books_e, gw_e, gcw_e, cache, blurb=blurb,
+                        keywords=keywords, corr_models=get_corr_models())
+                    st.session_state["single_research"] = (
+                        res, from_cache, words, p_genre is None)
             except FileNotFoundError:
                 st.error("apikey.txt not found — add your Anthropic key to research.")
                 st.session_state.pop("single_research", None)
@@ -385,8 +682,10 @@ elif page == "Predict":
                 st.session_state.pop("single_research", None)
 
     if "single_research" in st.session_state:
-        res, from_cache = st.session_state["single_research"]
-        st.markdown(f"**{res['title']}** — {res['author']} · {res['genre']}")
+        res, from_cache, words_est, was_auto = st.session_state["single_research"]
+        genre_note = " · genre auto-detected" if was_auto else ""
+        st.markdown(f"**{res['title']}** — {res['author']} · {res['genre']}"
+                    f"{genre_note}")
         left, right = st.columns([1, 2])
         with left:
             st.markdown(f'<div class="wa-stamp">{res["wa"]:.2f}</div>',
@@ -431,6 +730,14 @@ elif page == "Predict":
         st.markdown("**Keywords**")
         st.write(res.get("keywords") or "_(none generated)_")
 
+        # Word count is an LLM ESTIMATE — pre-filled but editable, never treated
+        # as authoritative. The (possibly corrected) value is what gets stored.
+        st.markdown("**Word count** (LLM estimate — edit if you know better)")
+        words_in = st.number_input(
+            "Estimated word count", min_value=0,
+            value=int(words_est) if words_est else 0, step=1000,
+            key="single_words")
+
         # Save this researched book to recommendations (CORRECTED components
         # stored; its WA/mood score then derive from those, like rated books).
         if st.button("Save to recommendations", key="save_single"):
@@ -439,6 +746,7 @@ elif page == "Predict":
             with contextlib.redirect_stdout(buf):
                 saved_ok = db_write.add_recommendation(
                     res["title"], res["genre"], res["author"], res["scores"],
+                    words=int(words_in) or None,
                     blurb=res.get("blurb") or None,
                     keywords=res.get("keywords") or None)
             if saved_ok:
@@ -513,14 +821,17 @@ elif page == "Predict":
                         title = b.get("title"); author = b.get("author")
                         genre = b.get("genre")
                         try:
-                            scores, conf, blurb, keywords, _ = rp.research_book(
-                                title, author, genre, client, cache)
+                            (scores, conf, blurb, keywords, det_genre, words,
+                             _) = rp.research_book(
+                                title, author, genre, client, cache,
+                                allowed_genres=list(gw_e.keys()))
                             r = rp.correct_and_predict(
-                                title, author, genre, scores, conf, resid_sd,
-                                books_e, gw_e, gcw_e, cache,
+                                title, author, genre or det_genre, scores, conf,
+                                resid_sd, books_e, gw_e, gcw_e, cache,
                                 blurb=blurb, keywords=keywords,
                                 corr_models=get_corr_models())
                             r["series"] = sl["name"]
+                            r["words"] = words
                             results.append(r)
                         except Exception as e:
                             results.append({"title": title, "author": author,
@@ -569,7 +880,7 @@ elif page == "Predict":
                 for r in ok:
                     if db_write.add_recommendation(
                             r["title"], r["genre"], r["author"], r["scores"],
-                            series=r.get("series"),
+                            series=r.get("series"), words=r.get("words"),
                             blurb=r.get("blurb") or None,
                             keywords=r.get("keywords") or None):
                         saved += 1
