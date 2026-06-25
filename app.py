@@ -103,6 +103,14 @@ def engine():
     # build the full predict tuple (not cached — it's cheap and always fresh)
     return pe.build(source="db")
 
+@st.cache_resource
+def get_corr_models():
+    # Correlation-smoothing regressions (your_c ~ LLM of the other 13 components),
+    # trained on your rated books. Stable, so built once per session and reused
+    # across every research call rather than refit per prediction.
+    books_db, _, _ = db_loader.load_from_db()
+    return rp.build_corr_models(books_db, rp.load_cache())
+
 COMPONENTS = db_write.FICTION_COMPONENTS
 
 # ---------------------------------------------------------------------------
@@ -159,6 +167,22 @@ def load_recommendations(_gw, _gcw, _rated_wa):
 
 
 # ---------------------------------------------------------------------------
+# Shared component-detail rendering — used by both Rankings and Recommendations
+# so the 14-component breakdown is laid out identically (grouped by category).
+# ---------------------------------------------------------------------------
+def render_component_breakdown(row, category_components):
+    """Lay out a single book's 14 component scores grouped by category
+    (Story / Character / Aesthetics / Theme / Worldbuilding)."""
+    for cat, comps in category_components.items():
+        st.markdown(f"*{cat}*")
+        cols = st.columns(len(comps))
+        for col, comp in zip(cols, comps):
+            v = row.get(comp)
+            ok = v is not None and not (isinstance(v, float) and pd.isna(v))
+            col.metric(comp, f"{float(v):.2f}" if ok else "—")
+
+
+# ---------------------------------------------------------------------------
 # Header + navigation
 # ---------------------------------------------------------------------------
 st.markdown('<div class="ledger-title">The Reading Ledger</div>', unsafe_allow_html=True)
@@ -178,15 +202,29 @@ if page == "Rankings":
     st.subheader("Rankings")
     genres = ["All genres"] + sorted(books["Genre"].unique())
     pick = st.selectbox("Filter by genre", genres)
+    show_comps = st.checkbox("Show component scores", value=False,
+                             key="rank_show_comps",
+                             help="Append the 14 component columns. Off by "
+                                  "default so the table stays scannable.")
     view = books if pick == "All genres" else books[books["Genre"] == pick]
     view = view.sort_values("WA", ascending=False).reset_index(drop=True)
     view.index = view.index + 1
     show = view[["Book", "Author", "Genre", "WA"]].rename(
         columns={"Book": "Title", "WA": "Weighted Avg"})
     show["Weighted Avg"] = show["Weighted Avg"].round(2)
+    if show_comps:
+        for c in COMPONENTS:
+            show[c] = view[c].round(2)
     st.caption(f"{len(view)} books"
                + ("" if pick == "All genres" else f" in {pick}"))
     st.dataframe(show, use_container_width=True, height=560)
+
+    with st.expander("Inspect a book's component breakdown"):
+        detail = st.selectbox("Book", view["Book"].tolist(),
+                              key="rank_detail_book")
+        brow = view[view["Book"] == detail].iloc[0]
+        st.caption(f"{brow['Author']} · {brow['Genre']} · WA {brow['WA']:.2f}")
+        render_component_breakdown(brow, books.attrs["category_components"])
 
 
 # ---------------------------------------------------------------------------
@@ -307,15 +345,18 @@ elif page == "Predict":
                 col.metric(cat, f"{p['wcats'][cat]:.2f}")
 
     # =====================================================================
-    # GROUNDED RESEARCH — fixes the "two unfamiliar books, same score" flaw
-    # by scoring THIS specific book with the LLM, then auto-blending with the
-    # analog estimate based on how much analog data exists for the author.
+    # GROUNDED RESEARCH — the validated unfamiliar-book method: a RICHER prompt
+    # scores THIS specific book in fine-grained decimals, then an AUTHOR+GENRE
+    # hierarchical correction maps those scores onto your scale. The corrected
+    # components are what get displayed and stored. (component MAE 0.837 vs the
+    # old thin-prompt 1.05, validated leave-one-out against your real scores.)
     # =====================================================================
     st.divider()
     st.markdown("### Grounded research")
-    st.caption("The analog estimate above gives every unread-author book in a "
-               "genre the same score. Research scores *this* book specifically, "
-               "then blends — leaning on research when you have no analogs.")
+    st.caption("Scores *this* book specifically with a detailed rubric, then "
+               "corrects the model's scores onto your scale using your rated "
+               "books in the same genre and by the same author. Two different "
+               "unfamiliar books in a genre get distinct, fine-grained scores.")
 
     # ----- 1. Single-book research --------------------------------------
     if st.button("Research this book"):
@@ -324,18 +365,17 @@ elif page == "Predict":
         else:
             data = engine()
             books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
-            comps = pe.components_of(books_e)
             cache = rp.load_cache()
             try:
-                researcher = rp.get_researcher(comps)
+                client = rp.get_client()
                 with st.spinner("Researching this book… (one API call)"):
-                    scores, conf, from_cache = rp.research_book(
-                        p_title, p_author, p_genre, researcher, cache)
+                    scores, conf, blurb, keywords, from_cache = rp.research_book(
+                        p_title, p_author, p_genre, client, cache)
                 rp.save_cache(cache)
-                analog = pe.predict(p_title, p_author, p_genre, data)
-                res = rp.blend(p_title, p_author, p_genre, scores, conf,
-                               analog["wa_final"], resid_sd, books_e, gcw_e,
-                               coeffs, ginfo, cache, comps)
+                res = rp.correct_and_predict(
+                    p_title, p_author, p_genre, scores, conf, resid_sd,
+                    books_e, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
+                    corr_models=get_corr_models())
                 st.session_state["single_research"] = (res, from_cache)
             except FileNotFoundError:
                 st.error("apikey.txt not found — add your Anthropic key to research.")
@@ -349,34 +389,65 @@ elif page == "Predict":
         st.markdown(f"**{res['title']}** — {res['author']} · {res['genre']}")
         left, right = st.columns([1, 2])
         with left:
-            st.markdown(f'<div class="wa-stamp">{res["blend_wa"]:.2f}</div>',
+            st.markdown(f'<div class="wa-stamp">{res["wa"]:.2f}</div>',
                         unsafe_allow_html=True)
-            st.caption("Blended WA (research + analog)")
+            st.caption("Predicted WA (from corrected components)")
         with right:
             st.write(f"**90% interval:** {res['ci'][0]:.2f} – {res['ci'][1]:.2f}")
             st.write(f"**Predicted rank:** ~{res['rank']} of {res['total']}")
-            st.write(f"**Research WA:** {res['research_wa']:.2f}  ·  "
-                     f"**Analog WA:** {res['analog_wa']:.2f}")
             if from_cache:
                 st.caption("Reused cached research — no API call.")
 
-        # Honesty signal (a): research vs analog lean
-        wr = res["w_research"]
-        st.info(f"**Leaned {wr*100:.0f}% on research, {(1-wr)*100:.0f}% on "
-                f"analogs** — you've rated {res['n_author']} book(s) by this "
-                f"author.")
-        # Honesty signal (b): the model's own confidence in this book
+        # Reliability signal: how well-grounded the author+genre correction was.
+        n_g, n_a = res["n_genre"], res["n_author"]
+        rel = st.success if n_g >= rp.WELL_SAMPLED_GENRE else st.warning
+        rel(f"**Correction grounded in {n_g} rated {res['genre']} book(s) and "
+            f"{n_a} by {res['author']}.**"
+            + ("" if n_g >= rp.WELL_SAMPLED_GENRE else
+               "  Thin genre — the correction leans on your global "
+               "LLM-vs-you deviation, so treat this as lower-reliability."))
+        # The model's own confidence on this specific book.
         conf = str(res["conf"]).lower()
         msg = f"**Model confidence on this book: {res['conf']}**"
         (st.warning if conf in ("low", "unknown", "?") else st.success)(msg)
-        # Taste-correction transparency
-        if res["taste_applied"]:
-            st.caption(f"Applied per-genre taste correction "
-                       f"({res['taste_correction']:+.2f}) learned from "
-                       f"{res['n_genre']} rated {res['genre']} books.")
-        else:
-            st.caption(f"Skipped taste correction — only {res['n_genre']} rated "
-                       f"{res['genre']} book(s) (need ≥{rp.WELL_SAMPLED_GENRE}).")
+
+        # Corrected component scores — fine-grained, author+genre corrected.
+        # These are exactly what gets stored; the Read Queue's mood engine
+        # ranks on them.
+        st.markdown("**Corrected component scores** (author+genre corrected — "
+                    "displayed, stored, and used by the mood engine)")
+        rs = res["scores"]
+        for cat, comps_in in books.attrs["category_components"].items():
+            st.markdown(f"*{cat}*")
+            cols = st.columns(len(comps_in))
+            for col, comp in zip(cols, comps_in):
+                v = rs.get(comp)
+                col.metric(comp, f"{v:.2f}" if v is not None else "—")
+
+        # Blurb + keywords from the SAME research call — stored alongside the
+        # corrected components so they sit naturally with your existing entries.
+        st.markdown("**Blurb**")
+        st.write(res.get("blurb") or "_(none generated)_")
+        st.markdown("**Keywords**")
+        st.write(res.get("keywords") or "_(none generated)_")
+
+        # Save this researched book to recommendations (CORRECTED components
+        # stored; its WA/mood score then derive from those, like rated books).
+        if st.button("Save to recommendations", key="save_single"):
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                saved_ok = db_write.add_recommendation(
+                    res["title"], res["genre"], res["author"], res["scores"],
+                    blurb=res.get("blurb") or None,
+                    keywords=res.get("keywords") or None)
+            if saved_ok:
+                st.success(f"Saved '{res['title']}' to recommendations. "
+                           f"It will appear in the Read Queue mood results.")
+                st.cache_data.clear()
+            else:
+                st.error(buf.getvalue().strip().replace("✗", "").strip()
+                         or "Could not save the book.")
 
     # ----- 2. Series research -------------------------------------------
     st.divider()
@@ -429,27 +500,26 @@ elif page == "Predict":
             if st.button(f"Confirm & research {len(s_books)} books"):
                 data = engine()
                 books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
-                comps = pe.components_of(books_e)
                 cache = rp.load_cache()
                 try:
-                    researcher = rp.get_researcher(comps)
+                    client = rp.get_client()
                 except Exception as e:
-                    researcher = None
+                    client = None
                     st.error(f"Cannot research: {e}")
-                if researcher is not None:
+                if client is not None:
                     results = []
                     prog = st.progress(0.0, text="Researching…")
                     for i, b in enumerate(s_books):
                         title = b.get("title"); author = b.get("author")
                         genre = b.get("genre")
                         try:
-                            scores, conf, _ = rp.research_book(
-                                title, author, genre, researcher, cache)
-                            analog = pe.predict(title, author, genre, data)
-                            r = rp.blend(title, author, genre, scores, conf,
-                                         analog["wa_final"], resid_sd, books_e,
-                                         gcw_e, coeffs, ginfo, cache, comps)
-                            r["scores"] = scores
+                            scores, conf, blurb, keywords, _ = rp.research_book(
+                                title, author, genre, client, cache)
+                            r = rp.correct_and_predict(
+                                title, author, genre, scores, conf, resid_sd,
+                                books_e, gw_e, gcw_e, cache,
+                                blurb=blurb, keywords=keywords,
+                                corr_models=get_corr_models())
                             r["series"] = sl["name"]
                             results.append(r)
                         except Exception as e:
@@ -467,12 +537,26 @@ elif page == "Predict":
         if ok:
             table = pd.DataFrame([{
                 "Book": r["title"], "Author": r["author"], "Genre": r["genre"],
-                "Blended WA": round(r["blend_wa"], 2),
-                "Predicted Rank": r["rank"], "Confidence": r["conf"]}
+                "Predicted WA": round(r["wa"], 2),
+                "Predicted Rank": r["rank"], "Confidence": r["conf"],
+                "Genre n": r["n_genre"], "Author n": r["n_author"]}
                 for r in ok])
             table.index = range(1, len(table) + 1)
             st.markdown("**Researched series**")
             st.dataframe(table, use_container_width=True)
+            st.caption("‘Genre n’ / ‘Author n’ = how many of your rated books "
+                       "grounded each correction; low numbers mean lower "
+                       "correction reliability.")
+
+            # The 14 CORRECTED component scores per book — these are what get
+            # stored and what the Read Queue's mood engine ranks on.
+            st.markdown("**Corrected component scores** (author+genre corrected "
+                        "— stored and used by the mood engine)")
+            comp_table = pd.DataFrame([
+                dict(Book=r["title"],
+                     **{c: r["scores"].get(c) for c in COMPONENTS})
+                for r in ok]).set_index("Book")
+            st.dataframe(comp_table.round(2), use_container_width=True)
         if bad:
             st.warning("Could not research: "
                        + ", ".join(f"{r['title']} ({r['error']})" for r in bad))
@@ -485,7 +569,9 @@ elif page == "Predict":
                 for r in ok:
                     if db_write.add_recommendation(
                             r["title"], r["genre"], r["author"], r["scores"],
-                            series=r.get("series")):
+                            series=r.get("series"),
+                            blurb=r.get("blurb") or None,
+                            keywords=r.get("keywords") or None):
                         saved += 1
             st.success(f"Saved {saved} of {len(ok)} books to recommendations.")
             with st.expander("Details"):
@@ -584,12 +670,65 @@ elif page == "Read Queue":
             st.markdown("**Filtered Results**")
             st.caption(f"{len(view)} book(s)"
                        + ("" if not active else " — ranked by mood match"))
-            show = view[["Book", "Author", "Genre", "Words", "Mood Score",
-                         "Predicted Rank", "Series", "Blurb", "Keywords"]].copy()
+            rec_show_comps = st.checkbox(
+                "Show component scores", value=False, key="rec_show_comps",
+                help="Append the 14 component columns. Off by default so the "
+                     "table stays scannable.")
+            cols_show = ["Book", "Author", "Genre", "Words", "Mood Score",
+                         "Predicted Rank", "Series", "Blurb", "Keywords"]
+            if rec_show_comps:
+                cols_show += [c for c in COMPONENTS]
+            show = view[cols_show].copy()
             show["Mood Score"] = show["Mood Score"].round(2)
+            if rec_show_comps:
+                for c in COMPONENTS:
+                    show[c] = show[c].round(2)
             show = show.reset_index(drop=True)
             show.index = show.index + 1
             st.dataframe(show, use_container_width=True, height=560)
+
+            with st.expander("Inspect a book's component breakdown"):
+                detail = st.selectbox("Book", view["Book"].tolist(),
+                                      key="rec_detail_book")
+                brow = view[view["Book"] == detail].iloc[0]
+                st.caption(f"{brow['Author']} · {brow['Genre']} · "
+                           f"predicted WA {brow['_wa']:.2f}")
+                render_component_breakdown(
+                    brow, books.attrs["category_components"])
+                st.markdown("**Blurb**")
+                st.write(brow["Blurb"] if str(brow["Blurb"]).strip()
+                         else "_none yet_")
+                st.markdown("**Keywords**")
+                st.write(brow["Keywords"] if str(brow["Keywords"]).strip()
+                         else "_none yet_")
+
+                has_meta = (bool(str(brow["Blurb"]).strip())
+                            and bool(str(brow["Keywords"]).strip()))
+                if not has_meta:
+                    st.caption("No blurb/keywords yet (added without research).")
+                    if st.button("Generate blurb & keywords",
+                                 key="gen_meta_btn"):
+                        try:
+                            client = rp.get_client()
+                            with st.spinner("Generating… (one API call)"):
+                                b_new, k_new = rp.generate_blurb_keywords(
+                                    brow["Book"], brow["Author"], brow["Genre"],
+                                    client)
+                            if not b_new and not k_new:
+                                st.warning("The model returned nothing usable "
+                                           "for this (likely obscure) book — "
+                                           "try again or add it manually.")
+                            else:
+                                db_write.set_recommendation_meta(
+                                    brow["Book"], b_new or None, k_new or None)
+                                st.success("Saved blurb & keywords.")
+                                st.cache_data.clear()
+                                st.rerun()
+                        except FileNotFoundError:
+                            st.error("apikey.txt not found — add your "
+                                     "Anthropic key to generate.")
+                        except Exception as e:
+                            st.error(f"Could not generate: {e}")
 
     # ----- TAB: Queue (the original to-read order, editable) ----------------
     with tab_queue:

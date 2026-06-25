@@ -189,6 +189,33 @@ def add_recommendation(title, genre, author, scores, series=None, words=None,
 
 
 # ---------------------------------------------------------------------------
+# WRITE: set a recommendation's blurb / keywords (no score change)
+# ---------------------------------------------------------------------------
+def set_recommendation_meta(title, blurb=None, keywords=None):
+    """Update only the blurb/keywords on an existing recommendation — used to
+    backfill books that were added without going through research. Touches no
+    component scores and no schema. Returns True on success, False otherwise."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No recommendation titled '{title}'.")
+        _backup_once()
+        con.execute("UPDATE recommendations SET blurb=?, keywords=? WHERE title=?",
+                    (blurb, keywords, title))
+        con.commit()
+        print(f"  ✓ Updated blurb/keywords for '{title}'.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
 # WRITE: change rating(s)
 # ---------------------------------------------------------------------------
 def change_rating(title, new_scores):

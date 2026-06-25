@@ -2411,5 +2411,62 @@
       "Originality": 8.0
     },
     "conf": "high"
+  },
+  "Black Sun Rising": {
+    "scores": {
+      "Plot": 8.0,
+      "Entertainment": 8.5,
+      "Action": 7.5,
+      "Ending": 7.0,
+      "Depth": 8.5,
+      "Emotional Impact": 7.5,
+      "Motivations": 8.5,
+      "Prose": 7.5,
+      "Narration": 7.5,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
+  },
+  "When True Night Falls": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 7.0,
+      "Action": 7.5,
+      "Ending": 7.0,
+      "Depth": 7.5,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.5,
+      "Prose": 7.5,
+      "Narration": 7.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 8.5
+    },
+    "conf": "medium"
+  },
+  "Crown of Shadows": {
+    "scores": {
+      "Plot": 8.5,
+      "Entertainment": 8.5,
+      "Action": 8.0,
+      "Ending": 9.0,
+      "Depth": 8.5,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.5,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.0,
+      "Depth2": 9.0,
+      "Integration": 8.5,
+      "Originality": 9.0
+    },
+    "conf": "high"
   }
 }
