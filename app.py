@@ -95,6 +95,57 @@ label, .stMarkdown, [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"]
 
 
 # ---------------------------------------------------------------------------
+# Reliability helpers — grounding-first display of prediction trustworthiness.
+# Data-grounding (genre-n / author-n) is the PRIMARY signal; LLM self-confidence
+# is secondary and labeled as such.
+# ---------------------------------------------------------------------------
+def _grounding_label(n_genre, n_author):
+    """Return (streamlit_fn, headline, detail) for a prediction's grounding."""
+    if n_genre == 0:
+        return (st.warning,
+                "Very thin grounding — treat as a rough guess",
+                f"No rated books in this genre ({n_author} by this author). "
+                "The correction falls back to your global LLM-vs-you deviation, "
+                "which is much less precise than genre- or author-anchored data.")
+    elif n_genre <= 3 and n_author == 0:
+        return (st.warning,
+                "Thin grounding — lean on this less",
+                f"Only {n_genre} rated book(s) in this genre, 0 by this author. "
+                "Correction has little local data to work with.")
+    elif n_genre >= 5 or n_author >= 1:
+        extra = (f", {n_author} by this author" if n_author >= 1
+                 else ", 0 by this author")
+        return (st.success,
+                "Strong grounding",
+                f"Based on {n_genre} rated book(s) in this genre{extra}.")
+    else:
+        return (st.info,
+                "Moderate grounding",
+                f"Based on {n_genre} rated book(s) in this genre, "
+                f"{n_author} by this author.")
+
+
+def _show_grounding(n_genre, n_author, conf):
+    """Render grounding (primary) + LLM conf (secondary) for one predicted book."""
+    fn, headline, detail = _grounding_label(n_genre, n_author)
+    fn(f"**{headline}** — {detail}")
+    st.caption(f"Model self-confidence: {conf}  "
+               "(the model's own assessment of how well it knows this book — "
+               "less reliable than the data-grounding signal above)")
+
+
+def _grounding_str(n_genre, n_author):
+    """Short string label for table columns."""
+    if n_genre == 0:
+        return "very thin"
+    elif n_genre <= 3 and n_author == 0:
+        return "thin"
+    elif n_genre >= 5 or n_author >= 1:
+        return "strong"
+    return "moderate"
+
+
+# ---------------------------------------------------------------------------
 # Data loading (cached so it doesn't reload on every click; cleared on writes)
 # ---------------------------------------------------------------------------
 @st.cache_data
@@ -771,18 +822,8 @@ if page == "Predict" and st.session_state.get("predict_mode") \
             if from_cache:
                 st.caption("Reused cached research — no API call.")
 
-        # Reliability signal: how well-grounded the author+genre correction was.
-        n_g, n_a = res["n_genre"], res["n_author"]
-        rel = st.success if n_g >= rp.WELL_SAMPLED_GENRE else st.warning
-        rel(f"**Correction grounded in {n_g} rated {res['genre']} book(s) and "
-            f"{n_a} by {res['author']}.**"
-            + ("" if n_g >= rp.WELL_SAMPLED_GENRE else
-               "  Thin genre — the correction leans on your global "
-               "LLM-vs-you deviation, so treat this as lower-reliability."))
-        # The model's own confidence on this specific book.
-        conf = str(res["conf"]).lower()
-        msg = f"**Model confidence on this book: {res['conf']}**"
-        (st.warning if conf in ("low", "unknown", "?") else st.success)(msg)
+        # Reliability signal: grounding (primary) then LLM conf (secondary).
+        _show_grounding(res["n_genre"], res["n_author"], res["conf"])
 
         # Corrected component scores — fine-grained, author+genre corrected.
         # These are exactly what gets stored; the Read Queue's mood engine
@@ -923,15 +964,21 @@ if page == "Predict" and st.session_state.get("predict_mode") \
             table = pd.DataFrame([{
                 "Book": r["title"], "Author": r["author"], "Genre": r["genre"],
                 "Predicted WA": round(r["wa"], 2),
-                "Predicted Rank": r["rank"], "Confidence": r["conf"],
-                "Genre n": r["n_genre"], "Author n": r["n_author"]}
+                "Predicted Rank": r["rank"],
+                "Grounding": _grounding_str(r["n_genre"], r["n_author"]),
+                "Genre n": r["n_genre"], "Author n": r["n_author"],
+                "Model self-conf": r["conf"]}
                 for r in ok])
             table.index = range(1, len(table) + 1)
             st.markdown("**Researched series**")
             st.dataframe(table, use_container_width=True)
-            st.caption("‘Genre n’ / ‘Author n’ = how many of your rated books "
-                       "grounded each correction; low numbers mean lower "
-                       "correction reliability.")
+            st.caption(
+                "**Grounding** is the primary reliability signal: how many of "
+                "your rated books anchor the prediction (Genre n / Author n). "
+                "Strong = many genre books or ≥1 by this author; thin/very thin "
+                "= lean on the score less. "
+                "**Model self-conf** is the LLM’s own assessment — less "
+                "reliable than grounding, shown for reference only.")
 
             # The 14 CORRECTED component scores per book — these are what get
             # stored and what the Read Queue's mood engine ranks on.
@@ -1096,16 +1143,22 @@ if page == "Predict" and st.session_state.get("predict_mode") \
             table = pd.DataFrame([{
                 "Book": r["title"], "Author": r["author"], "Genre": r["genre"],
                 "Predicted WA": round(r["wa"], 2),
-                "Predicted Rank": r["rank"], "Confidence": r["conf"],
-                "Genre n": r["n_genre"], "Author n": r["n_author"]}
+                "Predicted Rank": r["rank"],
+                "Grounding": _grounding_str(r["n_genre"], r["n_author"]),
+                "Genre n": r["n_genre"], "Author n": r["n_author"],
+                "Model self-conf": r["conf"]}
                 for r in ok])
             table.index = range(1, len(table) + 1)
             st.markdown("**Discovered books — ranked by your predicted WA**")
             st.dataframe(table, use_container_width=True)
-            st.caption("‘Confidence’ is the model's own certainty on each book; "
-                       "‘Genre n’ / ‘Author n’ = how many of your rated books "
-                       "grounded each correction (low = lower-reliability "
-                       "score). The auto-detected genre is shown per book.")
+            st.caption(
+                "**Grounding** is the primary reliability signal: how many of "
+                "your rated books anchor the prediction (Genre n / Author n). "
+                "Strong = many genre books or ≥1 by this author; thin/very thin "
+                "= lean on the score less. "
+                "**Model self-conf** is the LLM’s own assessment — less "
+                "reliable than grounding, shown for reference only. "
+                "Genre is auto-detected per book.")
 
             # The 14 corrected component scores per book (what gets stored and
             # what the mood engine ranks on) — same view as the series flow.
