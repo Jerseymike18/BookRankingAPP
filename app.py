@@ -999,10 +999,18 @@ if page == "Predict" and st.session_state.get("predict_mode") \
                 client = rp.get_client()
                 read_books = list(zip(books["Book"].tolist(),
                                       books["Author"].tolist()))
+                # Also exclude books already on the TBR (recommendations table),
+                # so Discover never re-suggests something already saved.
+                import sqlite3
+                con = sqlite3.connect(db_write.DB)
+                tbr_books = [((t or "").strip(), (a or "").strip())
+                             for t, a in con.execute(
+                                 "SELECT title, author FROM recommendations")]
+                con.close()
                 with st.spinner("Asking for candidates… (one API call)"):
                     cands = rp.generate_candidates(
                         request.strip(), list(gw.keys()), read_books,
-                        n=int(max_cand), client=client)
+                        tbr_books=tbr_books, n=int(max_cand), client=client)
                 cache = rp.load_cache()
                 for c in cands:
                     c["cached"] = c.get("title") in cache
@@ -1031,8 +1039,9 @@ if page == "Predict" and st.session_state.get("predict_mode") \
                 "Status": "cached" if c.get("cached") else "new"}
                 for i, c in enumerate(cands)]).set_index("#")
             st.dataframe(preview, use_container_width=True)
-            st.caption(f"{len(cands)} candidate(s) · none are in your library. "
-                       f"Scoring them is **{len(cands)} API call(s)** "
+            st.caption(f"{len(cands)} candidate(s) · none are already read or on "
+                       f"your to-read list. Scoring them is **{len(cands)} API "
+                       f"call(s)** "
                        f"({n_cached} already researched — free · {n_new} new, "
                        f"~1¢ and a few seconds each).")
 

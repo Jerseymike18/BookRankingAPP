@@ -335,16 +335,20 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
 # single-book Predict flow. Genres are constrained to your schema, mirroring the
 # auto-genre feature.
 # ---------------------------------------------------------------------------
-def generate_candidates(request, allowed_genres, read_books, n=8,
+def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
                         client=None, model=rm.MODEL, key_path="apikey.txt"):
     """Return a list of {"title","author","genre"} candidate books for `request`.
 
     - `allowed_genres`: your genre list; each candidate's genre is chosen EXACTLY
       from it (a genre outside the list is set to None so the scoring step can
       auto-detect, exactly as single-book research does).
-    - `read_books`: iterable of (title, author) you've already rated, sent so the
-      model avoids suggesting duplicates; returned candidates whose title matches
-      a read book are filtered out as a backstop.
+    - `read_books`: iterable of (title, author) you've already rated.
+    - `tbr_books`: iterable of (title, author) already on your to-read list (the
+      recommendations table), so Discover won't re-suggest something you've
+      already saved (which would also fail to save as a duplicate).
+
+    Both lists are sent to the model so it avoids them, and any returned candidate
+    whose title matches either list is filtered out as a backstop.
 
     This GENERATES ideas only — it does not score or rank. The number actually
     returned may be fewer than `n` (after filtering duplicates / bad genres)."""
@@ -353,8 +357,19 @@ def generate_candidates(request, allowed_genres, read_books, n=8,
     allowed = list(allowed_genres)
     genre_list = ", ".join(sorted(allowed))
     read_pairs = list(read_books)
-    read_titles = {str(t).strip().lower() for t, _ in read_pairs}
-    read_lines = "\n".join(f"- {t} ({a})" for t, a in read_pairs)
+    tbr_pairs = list(tbr_books)
+    avoid_titles = {str(t).strip().lower() for t, _ in read_pairs}
+    avoid_titles |= {str(t).strip().lower() for t, _ in tbr_pairs}
+
+    avoid_sections = (
+        "The reader has ALREADY read the books below. Do NOT suggest any of "
+        "these, and avoid other books they have very likely already read:\n"
+        + "\n".join(f"- {t} ({a})" for t, a in read_pairs))
+    if tbr_pairs:
+        avoid_sections += (
+            "\n\nThe reader has also ALREADY saved these books to their to-read "
+            "list. Do NOT suggest any of these either:\n"
+            + "\n".join(f"- {t} ({a})" for t, a in tbr_pairs))
 
     prompt = f'''You are proposing candidate books for a reader with specific, consistent taste. They will run your suggestions through THEIR OWN scoring engine, so propose CANDIDATES only — no reviews, ratings, or opinions.
 
@@ -363,10 +378,9 @@ REQUEST: {request}
 Choose each book's genre EXACTLY from this list (copy the spelling exactly — never invent or alter a variant):
 {genre_list}
 
-The reader has ALREADY read the books below. Do NOT suggest any of these, and avoid other books they have very likely already read. Aim for fresh suggestions matched to the request and their taste:
-{read_lines}
+{avoid_sections}
 
-Suggest up to {n} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
+Aim for fresh suggestions matched to the request and their taste. Suggest up to {n} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
 
 Respond with ONLY a JSON object — no prose, no markdown:
 {{"candidates": [{{"title": "...", "author": "...", "genre": "..."}}]}}'''
@@ -387,8 +401,8 @@ Respond with ONLY a JSON object — no prose, no markdown:
         if not title:
             continue
         key = title.lower()
-        if key in read_titles or key in seen:
-            continue          # drop books already read, and in-list duplicates
+        if key in avoid_titles or key in seen:
+            continue          # drop already-read/saved books, and in-list dups
         seen.add(key)
         genre = str(c.get("genre", "") or "").strip() or None
         if genre and genre not in allowed_set:
