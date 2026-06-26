@@ -328,6 +328,76 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
 
 
 # ---------------------------------------------------------------------------
+# Discover: idea-generation step. One API call asks the LLM to PROPOSE candidate
+# books for a free-text request, aimed at your taste and avoiding what you've
+# read. It returns candidates ONLY (no scores, no opinions) — your engine scores
+# them downstream via research_book + correct_and_predict, exactly like the
+# single-book Predict flow. Genres are constrained to your schema, mirroring the
+# auto-genre feature.
+# ---------------------------------------------------------------------------
+def generate_candidates(request, allowed_genres, read_books, n=8,
+                        client=None, model=rm.MODEL, key_path="apikey.txt"):
+    """Return a list of {"title","author","genre"} candidate books for `request`.
+
+    - `allowed_genres`: your genre list; each candidate's genre is chosen EXACTLY
+      from it (a genre outside the list is set to None so the scoring step can
+      auto-detect, exactly as single-book research does).
+    - `read_books`: iterable of (title, author) you've already rated, sent so the
+      model avoids suggesting duplicates; returned candidates whose title matches
+      a read book are filtered out as a backstop.
+
+    This GENERATES ideas only — it does not score or rank. The number actually
+    returned may be fewer than `n` (after filtering duplicates / bad genres)."""
+    if client is None:
+        client = anthropic.Anthropic(api_key=rl.load_key(key_path))
+    allowed = list(allowed_genres)
+    genre_list = ", ".join(sorted(allowed))
+    read_pairs = list(read_books)
+    read_titles = {str(t).strip().lower() for t, _ in read_pairs}
+    read_lines = "\n".join(f"- {t} ({a})" for t, a in read_pairs)
+
+    prompt = f'''You are proposing candidate books for a reader with specific, consistent taste. They will run your suggestions through THEIR OWN scoring engine, so propose CANDIDATES only — no reviews, ratings, or opinions.
+
+REQUEST: {request}
+
+Choose each book's genre EXACTLY from this list (copy the spelling exactly — never invent or alter a variant):
+{genre_list}
+
+The reader has ALREADY read the books below. Do NOT suggest any of these, and avoid other books they have very likely already read. Aim for fresh suggestions matched to the request and their taste:
+{read_lines}
+
+Suggest up to {n} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
+
+Respond with ONLY a JSON object — no prose, no markdown:
+{{"candidates": [{{"title": "...", "author": "...", "genre": "..."}}]}}'''
+
+    msg = client.messages.create(
+        model=model, max_tokens=1200,
+        messages=[{"role": "user", "content": prompt}])
+    text = msg.content[0].text.strip()
+    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
+    data = json.loads(text)
+
+    allowed_set = set(allowed)
+    out = []
+    seen = set()
+    for c in data.get("candidates", []):
+        title = str(c.get("title", "") or "").strip()
+        author = str(c.get("author", "") or "").strip()
+        if not title:
+            continue
+        key = title.lower()
+        if key in read_titles or key in seen:
+            continue          # drop books already read, and in-list duplicates
+        seen.add(key)
+        genre = str(c.get("genre", "") or "").strip() or None
+        if genre and genre not in allowed_set:
+            genre = None      # outside your schema -> auto-detect during scoring
+        out.append({"title": title, "author": author, "genre": genre})
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Series listing: one API call, gated behind UI confirmation before research.
 # ---------------------------------------------------------------------------
 def list_series(series_name, allowed_genres, model=rl.MODEL, key_path="apikey.txt"):

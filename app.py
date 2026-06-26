@@ -648,10 +648,21 @@ elif page == "Timeline":
 # ---------------------------------------------------------------------------
 elif page == "Predict":
     st.subheader("Predict")
-    st.caption("One page, two looks at a book: an instant analog-based estimate "
-               "from your reading history (free, no API), and — below — a "
-               "grounded research upgrade that scores the book and corrects it "
-               "onto your scale (one API call).")
+    st.caption("Two entry points into the same engine: name a book you have in "
+               "mind, or ask the LLM to suggest books — either way YOUR validated "
+               "pipeline does the scoring. Pick a mode below.")
+    mode = st.radio(
+        "Mode", ["Predict a book I name", "Discover books to predict"],
+        horizontal=True, key="predict_mode",
+        help="‘Predict a book I name’ scores a single title you enter (and can "
+             "research a whole series). ‘Discover’ asks the LLM to propose "
+             "candidates for a plain-language request, then scores each one "
+             "through the same engine.")
+    st.divider()
+
+# --- MODE: Predict a book I name -------------------------------------------
+if page == "Predict" and st.session_state.get("predict_mode") \
+        == "Predict a book I name":
     GENRE_AUTO = "✨ Auto-detect (during research)"
     c1, c2, c3 = st.columns(3)
     p_title = c1.text_input("Title", "")
@@ -953,10 +964,186 @@ elif page == "Predict":
             st.cache_data.clear()
 
 
+# --- MODE: Discover books to predict ---------------------------------------
+# Same engine as the single-book flow, but the LLM GENERATES the candidates.
+# Flow: free-text request -> LLM proposes candidates (no scores) -> you confirm
+# the spend -> each candidate runs through research_book + correct_and_predict
+# (the exact single-book pipeline, cache-reused) -> ranked by YOUR predicted WA
+# -> save any into recommendations (so they flow into the TBR + mood queue).
+if page == "Predict" and st.session_state.get("predict_mode") \
+        == "Discover books to predict":
+    st.markdown("### Discover books")
+    st.caption("Ask for recommendations in plain language. The LLM proposes "
+               "candidates aimed at your taste — and avoiding what you've already "
+               "read — then YOUR engine scores and ranks each one. The model "
+               "generates ideas; it never rates them.")
+
+    d1, d2 = st.columns([4, 1])
+    request = d1.text_input(
+        "What are you in the mood for?",
+        placeholder="recommend 5 epic fantasy books · a book like Toll the "
+                    "Hounds but in a different genre · underrated sci-fi from "
+                    "the 2010s",
+        key="discover_request")
+    max_cand = d2.number_input("Max", min_value=1, max_value=15, value=8,
+                               step=1, key="discover_max",
+                               help="Upper bound on how many candidates to "
+                                    "generate (each one scored is one API call).")
+
+    # ----- 1. Generate candidates (one idea-generation API call) ------------
+    if st.button("Generate candidates"):
+        if not request.strip():
+            st.error("Type what you're looking for first.")
+        else:
+            try:
+                client = rp.get_client()
+                read_books = list(zip(books["Book"].tolist(),
+                                      books["Author"].tolist()))
+                with st.spinner("Asking for candidates… (one API call)"):
+                    cands = rp.generate_candidates(
+                        request.strip(), list(gw.keys()), read_books,
+                        n=int(max_cand), client=client)
+                cache = rp.load_cache()
+                for c in cands:
+                    c["cached"] = c.get("title") in cache
+                st.session_state["discover_candidates"] = {
+                    "request": request.strip(), "books": cands}
+                st.session_state.pop("discover_results", None)
+            except FileNotFoundError:
+                st.error("apikey.txt not found — add your Anthropic key to discover.")
+            except Exception as e:
+                st.error(f"Candidate generation failed: {e}")
+
+    # ----- 2. Confirmation step (controls cost before scoring) --------------
+    if "discover_candidates" in st.session_state:
+        dc = st.session_state["discover_candidates"]
+        cands = dc["books"]
+        if not cands:
+            st.warning("The model didn't return any fresh candidates for that "
+                       "request — try rephrasing, or widen it.")
+        else:
+            n_cached = sum(1 for c in cands if c.get("cached"))
+            n_new = len(cands) - n_cached
+            st.markdown(f"**Candidates for:** _{dc['request']}_")
+            preview = pd.DataFrame([{
+                "#": i + 1, "Title": c.get("title"), "Author": c.get("author"),
+                "Genre": c.get("genre") or "✨ auto-detect",
+                "Status": "cached" if c.get("cached") else "new"}
+                for i, c in enumerate(cands)]).set_index("#")
+            st.dataframe(preview, use_container_width=True)
+            st.caption(f"{len(cands)} candidate(s) · none are in your library. "
+                       f"Scoring them is **{len(cands)} API call(s)** "
+                       f"({n_cached} already researched — free · {n_new} new, "
+                       f"~1¢ and a few seconds each).")
+
+            if st.button(f"Confirm & score {len(cands)} candidates"):
+                data = engine()
+                books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
+                cache = rp.load_cache()
+                try:
+                    client = rp.get_client()
+                except Exception as e:
+                    client = None
+                    st.error(f"Cannot research: {e}")
+                if client is not None:
+                    results = []
+                    prog = st.progress(0.0, text="Scoring…")
+                    for i, c in enumerate(cands):
+                        title = c.get("title"); author = c.get("author")
+                        genre = c.get("genre")
+                        try:
+                            (scores, conf, blurb, keywords, det_genre, words,
+                             _) = rp.research_book(
+                                title, author, genre, client, cache,
+                                allowed_genres=list(gw_e.keys()))
+                            eff_genre = genre or det_genre
+                            if eff_genre is None:
+                                raise ValueError(
+                                    "couldn't auto-detect a genre from your list")
+                            r = rp.correct_and_predict(
+                                title, author, eff_genre, scores, conf,
+                                resid_sd, books_e, gw_e, gcw_e, cache,
+                                blurb=blurb, keywords=keywords,
+                                corr_models=get_corr_models())
+                            r["words"] = words
+                            results.append(r)
+                        except Exception as e:
+                            results.append({"title": title, "author": author,
+                                            "genre": genre, "error": str(e)})
+                        prog.progress((i + 1) / len(cands),
+                                      text=f"Scored {i+1}/{len(cands)}")
+                    rp.save_cache(cache)
+                    st.session_state["discover_results"] = results
+
+    # ----- 3. Ranked results + save -----------------------------------------
+    if "discover_results" in st.session_state:
+        results = st.session_state["discover_results"]
+        ok = [r for r in results if "error" not in r]
+        bad = [r for r in results if "error" in r]
+        # Ranked by YOUR predicted WA — the whole point: the engine, not the LLM,
+        # orders them.
+        ok.sort(key=lambda r: r["wa"], reverse=True)
+        if ok:
+            table = pd.DataFrame([{
+                "Book": r["title"], "Author": r["author"], "Genre": r["genre"],
+                "Predicted WA": round(r["wa"], 2),
+                "Predicted Rank": r["rank"], "Confidence": r["conf"],
+                "Genre n": r["n_genre"], "Author n": r["n_author"]}
+                for r in ok])
+            table.index = range(1, len(table) + 1)
+            st.markdown("**Discovered books — ranked by your predicted WA**")
+            st.dataframe(table, use_container_width=True)
+            st.caption("‘Confidence’ is the model's own certainty on each book; "
+                       "‘Genre n’ / ‘Author n’ = how many of your rated books "
+                       "grounded each correction (low = lower-reliability "
+                       "score). The auto-detected genre is shown per book.")
+
+            # The 14 corrected component scores per book (what gets stored and
+            # what the mood engine ranks on) — same view as the series flow.
+            st.markdown("**Corrected component scores** (author+genre corrected "
+                        "— stored and used by the mood engine)")
+            comp_table = pd.DataFrame([
+                dict(Book=r["title"],
+                     **{c: r["scores"].get(c) for c in COMPONENTS})
+                for r in ok]).set_index("Book")
+            st.dataframe(comp_table.round(2), use_container_width=True)
+
+            # Save ANY of the scored candidates (selective) into recommendations,
+            # with their corrected components, blurb, and keywords.
+            st.markdown("**Save to your TBR**")
+            to_save = st.multiselect(
+                "Pick the discovered books to save to recommendations",
+                [r["title"] for r in ok], key="discover_save_pick",
+                help="Saved books flow into your TBR and the Read Queue mood "
+                     "results, exactly like a single researched book.")
+            if to_save and st.button("Save selected to recommendations"):
+                import io, contextlib
+                chosen = [r for r in ok if r["title"] in set(to_save)]
+                buf = io.StringIO()
+                saved = 0
+                with contextlib.redirect_stdout(buf):
+                    for r in chosen:
+                        if db_write.add_recommendation(
+                                r["title"], r["genre"], r["author"], r["scores"],
+                                words=r.get("words"),
+                                blurb=r.get("blurb") or None,
+                                keywords=r.get("keywords") or None):
+                            saved += 1
+                st.success(f"Saved {saved} of {len(chosen)} discovered book(s) "
+                           f"to recommendations. They'll appear in the Read "
+                           f"Queue mood results.")
+                with st.expander("Details"):
+                    st.text(buf.getvalue().strip())
+                st.cache_data.clear()
+        if bad:
+            st.warning("Could not score: "
+                       + ", ".join(f"{r['title']} ({r['error']})" for r in bad))
+
+
 # ---------------------------------------------------------------------------
 # PAGE: Read Queue
 # ---------------------------------------------------------------------------
-elif page == "Read Queue":
+if page == "Read Queue":
     st.subheader("Read Queue")
     tab_mood, tab_queue = st.tabs(["Mood Scores", "Queue"])
 
