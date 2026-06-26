@@ -169,6 +169,30 @@ def load_recommendations(_gw, _gcw, _rated_wa):
     return pd.DataFrame(recs)
 
 
+@st.cache_data
+def load_unread_pool():
+    """Titles of UNREAD books — the TBR (recommendations not yet done) plus
+    anything in the read queue — for the Reading Status pickers. Currently-reading
+    and reading-next are by definition unread, so they come from here, NOT from
+    the finished/rated books table. Read-only."""
+    import sqlite3
+    con = sqlite3.connect(db_write.DB)
+    pool = {}
+    for title, author, genre in con.execute(
+            "SELECT title,author,genre FROM recommendations WHERE done=0"):
+        t = (title or "").strip()
+        if t:
+            pool[t] = {"Author": (author or "").strip(),
+                       "Genre": (genre or "").strip()}
+    for (title,) in con.execute(
+            "SELECT title FROM read_queue ORDER BY position"):
+        t = (title or "").strip()
+        if t and t not in pool:
+            pool[t] = {"Author": "", "Genre": ""}
+    con.close()
+    return pool
+
+
 # ---------------------------------------------------------------------------
 # Shared component-detail rendering — used by both Rankings and Recommendations
 # so the 14-component breakdown is laid out identically (grouped by category).
@@ -202,7 +226,7 @@ SECTIONS = {
     "Library":  ["Rankings", "Tier List", "Year Views",
                  "Series Rankings", "Series Tier List"],
     "Stats":    ["Reading Stats", "Timeline"],
-    "Discover": ["Predict & Research", "Read Queue"],
+    "Discover": ["Predict", "Read Queue"],
 }
 section = st.sidebar.radio("Section", list(SECTIONS.keys()))
 page = st.sidebar.radio("Go to", SECTIONS[section])
@@ -340,8 +364,12 @@ elif page == "Edit Ratings":
         cols = st.columns(len(comps))
         for col, comp in zip(cols, comps):
             cur = float(row[comp]) if pd.notna(row[comp]) else 0.0
+            # Key is scoped to the selected book so switching books in the
+            # dropdown instantiates fresh inputs bound to the NEW book's stored
+            # scores, instead of Streamlit preserving the previous book's values.
             new[comp] = col.number_input(comp, min_value=0.0, max_value=10.0,
-                                         value=cur, step=0.1, key=f"edit_{comp}")
+                                         value=cur, step=0.1,
+                                         key=f"edit_{title}_{comp}")
 
     if st.button("Save changes"):
         # only send components that actually changed
@@ -363,29 +391,44 @@ elif page == "Edit Ratings":
 # ---------------------------------------------------------------------------
 elif page == "Reading Status":
     st.subheader("Reading Status")
-    st.caption("What you're reading now, what's up next, and recently finished — "
-               "plus controls to move books between states and fix their year.")
+    st.caption("What you're reading now and what's up next — chosen from your "
+               "UNREAD books (TBR recommendations + read queue) — plus recently "
+               "finished from your rated library.")
 
     def _rank_of(wa):
         return int((books["WA"] > wa).sum() + 1)
 
-    def _status_block(title, df, empty_msg):
-        st.markdown(f"**{title}**")
-        if df.empty:
+    # In-progress and upcoming are UNREAD by definition, so they're picked from
+    # the unread pool (TBR + queue) — never from the finished/rated books table.
+    pool = load_unread_pool()
+    pool_titles = sorted(pool.keys())
+    pool_set = set(pool_titles)
+    # Drop any stale selections (e.g. a book since marked read) so the
+    # multiselect options and stored value stay consistent.
+    for _k in ("currently_reading", "reading_next"):
+        if _k in st.session_state:
+            st.session_state[_k] = [t for t in st.session_state[_k]
+                                    if t in pool_set]
+    reading = st.session_state.get("currently_reading", [])
+    nxt = st.session_state.get("reading_next", [])
+
+    def _meta(title):
+        m = pool.get(title, {})
+        return " · ".join(b for b in (m.get("Author"), m.get("Genre")) if b)
+
+    def _unread_block(header, titles, empty_msg):
+        st.markdown(f"**{header}**")
+        if not titles:
             st.caption(empty_msg)
             return
-        for _, r in df.iterrows():
-            yr = f" · {int(r['Year'])}" if pd.notna(r["Year"]) else ""
-            st.markdown(
-                f"- **{r['Book']}** — <span style='color:var(--muted)'>"
-                f"{r['Author']} · {r['Genre']}{yr} · WA {r['WA']:.2f} · "
-                f"rank ~{_rank_of(r['WA'])} of {len(books)}</span>",
-                unsafe_allow_html=True)
+        for t in titles:
+            meta = _meta(t)
+            tail = (f" — <span style='color:var(--muted)'>{meta}</span>"
+                    if meta else "")
+            st.markdown(f"- **{t}**{tail}", unsafe_allow_html=True)
 
-    reading = books[books["Status"] == "currently-reading"]
-    nxt = books[books["Status"] == "reading-next"]
-    # No per-book read date is stored, so "recently finished" = finished books
-    # from the most recent reading year.
+    # Finished IS the rated library — books carry a year_read, so "recently
+    # finished" = the most recent reading year.
     finished = books[books["Status"] == "finished"].dropna(subset=["Year"])
     if not finished.empty:
         last_year = int(finished["Year"].max())
@@ -396,55 +439,64 @@ elif page == "Reading Status":
 
     cols = st.columns(2)
     with cols[0]:
-        _status_block("📖 Currently reading", reading,
+        _unread_block("📖 Currently reading", reading,
                       "Nothing marked currently-reading.")
-        _status_block("🔜 Reading next", nxt, "Nothing marked reading-next.")
+        _unread_block("🔜 Reading next", nxt, "Nothing marked reading-next.")
     with cols[1]:
-        _status_block(
-            f"✓ Finished in {last_year}" if last_year else "✓ Finished",
-            last_read.head(12),
-            "No finished books with a year set.")
-        if last_year is not None and len(last_read) > 12:
-            st.caption(f"…and {len(last_read) - 12} more finished in {last_year}.")
+        st.markdown(f"**✓ Finished in {last_year}**" if last_year
+                    else "**✓ Finished**")
+        if last_read.empty:
+            st.caption("No finished books with a year set.")
+        else:
+            for _, r in last_read.head(12).iterrows():
+                yr = f" · {int(r['Year'])}" if pd.notna(r["Year"]) else ""
+                st.markdown(
+                    f"- **{r['Book']}** — <span style='color:var(--muted)'>"
+                    f"{r['Author']} · {r['Genre']}{yr} · WA {r['WA']:.2f} · "
+                    f"rank ~{_rank_of(r['WA'])} of {len(books)}</span>",
+                    unsafe_allow_html=True)
+            if len(last_read) > 12:
+                st.caption(f"…and {len(last_read) - 12} more finished "
+                           f"in {last_year}.")
 
     st.divider()
-    st.markdown("### Update a book")
-    sc1, sc2 = st.columns(2)
-    with sc1:
-        st.markdown("**Set reading status**")
-        s_book = st.selectbox("Book", sorted(books["Book"].tolist()),
-                              key="status_book")
-        s_status = st.radio("Status", list(db_write.VALID_STATUSES),
-                            key="status_value", horizontal=False)
-        if st.button("Save status"):
-            import io, contextlib
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                ok = db_write.set_status(s_book, s_status)
-            (st.success if ok else st.error)(
-                buf.getvalue().strip().replace("✓", "").replace("✗", "").strip())
-            if ok:
-                st.cache_data.clear()
-                st.rerun()
-    with sc2:
-        st.markdown("**Set / edit year read**")
-        y_book = st.selectbox("Book", sorted(books["Book"].tolist()),
-                              key="year_book")
-        cur_row = books[books["Book"] == y_book].iloc[0]
-        cur_year = int(cur_row["Year"]) if pd.notna(cur_row["Year"]) \
-            else _dt.date.today().year
-        y_val = st.number_input("Year read", min_value=1900, max_value=2100,
-                                value=cur_year, key="year_value")
-        if st.button("Save year"):
-            import io, contextlib
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                ok = db_write.set_year_read(y_book, int(y_val))
-            (st.success if ok else st.error)(
-                buf.getvalue().strip().replace("✓", "").replace("✗", "").strip())
-            if ok:
-                st.cache_data.clear()
-                st.rerun()
+    st.markdown("### Update what you're reading")
+    if not pool_titles:
+        st.info("No unread books to pick from yet — research books on the "
+                "Predict page or add titles to your read queue, and they'll be "
+                "selectable here.")
+    else:
+        uc1, uc2 = st.columns(2)
+        with uc1:
+            st.multiselect(
+                "📖 Currently reading", pool_titles, key="currently_reading",
+                help="Pick from your unread TBR (researched recommendations) "
+                     "and read queue.")
+        with uc2:
+            st.multiselect(
+                "🔜 Reading next", pool_titles, key="reading_next",
+                help="Pick from your unread TBR (researched recommendations) "
+                     "and read queue.")
+
+    st.divider()
+    st.markdown("### Set / edit year read")
+    y_book = st.selectbox("Book", sorted(books["Book"].tolist()),
+                          key="year_book")
+    cur_row = books[books["Book"] == y_book].iloc[0]
+    cur_year = int(cur_row["Year"]) if pd.notna(cur_row["Year"]) \
+        else _dt.date.today().year
+    y_val = st.number_input("Year read", min_value=1900, max_value=2100,
+                            value=cur_year, key="year_value")
+    if st.button("Save year"):
+        import io, contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.set_year_read(y_book, int(y_val))
+        (st.success if ok else st.error)(
+            buf.getvalue().strip().replace("✓", "").replace("✗", "").strip())
+        if ok:
+            st.cache_data.clear()
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -594,10 +646,12 @@ elif page == "Timeline":
 # ---------------------------------------------------------------------------
 # PAGE: Predict
 # ---------------------------------------------------------------------------
-elif page == "Predict & Research":
-    st.subheader("Predict a Book")
-    st.caption("An autonomous estimate from your reading history. For books "
-               "with few analogs the confidence interval widens accordingly.")
+elif page == "Predict":
+    st.subheader("Predict")
+    st.caption("One page, two looks at a book: an instant analog-based estimate "
+               "from your reading history (free, no API), and — below — a "
+               "grounded research upgrade that scores the book and corrects it "
+               "onto your scale (one API call).")
     GENRE_AUTO = "✨ Auto-detect (during research)"
     c1, c2, c3 = st.columns(3)
     p_title = c1.text_input("Title", "")
@@ -606,35 +660,38 @@ elif page == "Predict & Research":
         "Genre", [GENRE_AUTO] + sorted(gw.keys()),
         help="Leave on Auto-detect to enter only title + author — grounded "
              "research will pick the genre from your list. Pick a genre manually "
-             "to override, or to use the quick (non-LLM) Predict button.")
+             "to override, or to see the instant (non-LLM) estimate.")
     p_genre = None if p_genre_choice == GENRE_AUTO else p_genre_choice
 
-    if st.button("Predict"):
-        if not p_title or not p_author:
-            st.error("Enter at least a title and author.")
-        elif p_genre is None:
-            st.error("The quick estimate needs a genre — pick one above, or use "
-                     "‘Research this book’ below to auto-detect it.")
-        else:
-            data = engine()
-            p = pe.predict(p_title, p_author, p_genre, data)
-            left, right = st.columns([1, 2])
-            with left:
-                st.markdown(f'<div class="wa-stamp">{p["wa_final"]:.2f}</div>',
-                            unsafe_allow_html=True)
-                st.caption("Predicted Weighted Average")
-            with right:
-                st.write(f"**90% interval:** {p['ci'][0]:.2f} – {p['ci'][1]:.2f}")
-                st.write(f"**Predicted rank:** ~{p['rank']} of {p['total']} "
-                         f"(range {p['rank_range'][0]}–{p['rank_range'][1]})")
-                st.write(f"**Estimate basis:** {p['src']} (n={p['n_src']})")
-                if p["n_genre"] < 5:
-                    st.warning(f"Thin genre (n={p['n_genre']}): leaning on "
-                               f"analogs — treat as rough.")
-            st.markdown("**Estimated category averages**")
-            cc = st.columns(4)
-            for col, cat in zip(cc, ["Story", "Character", "Aesthetics", "Theme"]):
-                col.metric(cat, f"{p['wcats'][cat]:.2f}")
+    # --- Instant estimate: shown immediately, no button, no API call ---------
+    st.markdown("### Instant estimate")
+    st.caption("Free quick-look from your analogs — appears as soon as a title, "
+               "author, and genre are set.")
+    if p_title and p_author and p_genre is not None:
+        data = engine()
+        p = pe.predict(p_title, p_author, p_genre, data)
+        left, right = st.columns([1, 2])
+        with left:
+            st.markdown(f'<div class="wa-stamp">{p["wa_final"]:.2f}</div>',
+                        unsafe_allow_html=True)
+            st.caption("Predicted Weighted Average")
+        with right:
+            st.write(f"**90% interval:** {p['ci'][0]:.2f} – {p['ci'][1]:.2f}")
+            st.write(f"**Predicted rank:** ~{p['rank']} of {p['total']} "
+                     f"(range {p['rank_range'][0]}–{p['rank_range'][1]})")
+            st.write(f"**Estimate basis:** {p['src']} (n={p['n_src']})")
+            if p["n_genre"] < 5:
+                st.warning(f"Thin genre (n={p['n_genre']}): leaning on "
+                           f"analogs — treat as rough.")
+        st.markdown("**Estimated category averages**")
+        cc = st.columns(4)
+        for col, cat in zip(cc, ["Story", "Character", "Aesthetics", "Theme"]):
+            col.metric(cat, f"{p['wcats'][cat]:.2f}")
+    elif p_title or p_author:
+        st.info("Pick a genre above to see the instant estimate, or use "
+                "‘Research this book’ below to auto-detect the genre.")
+    else:
+        st.caption("Enter a title and author to see the instant estimate.")
 
     # =====================================================================
     # GROUNDED RESEARCH — the validated unfamiliar-book method: a RICHER prompt

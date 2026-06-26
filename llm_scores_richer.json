@@ -2430,5 +2430,28 @@
       "Originality": 5.8
     },
     "conf": "low"
+  },
+  "The Spear Cuts Through Water": {
+    "scores": {
+      "Plot": 7.8,
+      "Entertainment": 7.4,
+      "Action": 8.1,
+      "Ending": 8.3,
+      "Depth": 8.7,
+      "Emotional Impact": 8.6,
+      "Motivations": 8.4,
+      "Prose": 9.1,
+      "Narration": 9.3,
+      "Insights": 8.2,
+      "Thought-Provokingness": 8.4,
+      "Depth2": 8.5,
+      "Integration": 8.8,
+      "Originality": 9.2
+    },
+    "conf": "high",
+    "blurb": "A genre-bending fantasy epic told through nested narratives\u2014a theater performance, ancestral memory, and direct address\u2014following two warriors escorting a dying god-empress across a tyrannical empire. Stunning prose experimentation for readers who value narrative innovation and emotional resonance over conventional plotting.",
+    "keywords": "literary fantasy, experimental narrative, second-person pov, metafiction, queer protagonists, tyranny and revolution, lyrical prose, nested stories, philippine-inspired, memory and trauma",
+    "genre": "Literary Fantasy",
+    "words": 125000
   }
 }
