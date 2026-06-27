@@ -252,7 +252,7 @@ def report(p):
     print("NOTE: component scores are an autonomous estimate, not researched.")
 
 
-def build(source="excel", path=WORKBOOK):
+def build(source="db", path=WORKBOOK):
     if source == "db":
         import db_loader  # lazy: db_loader imports this module
         books, gw, gcw = db_loader.load_from_db()
