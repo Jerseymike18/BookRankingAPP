@@ -92,7 +92,8 @@ def run_loo(books=None, gw=None, gcw=None):
     Computation is slow (~126 regression refits) — do not call on every request.
     """
     if books is None:
-        books, gw, gcw = pe.load_everything(WORKBOOK)
+        import db_loader
+        books, gw, gcw = db_loader.load_from_db()
 
     n = len(books)
     naive = float(np.abs(books["WA"] - books["WA"].mean()).mean())

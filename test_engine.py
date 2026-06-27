@@ -178,7 +178,8 @@ def test_prediction_sanity():
 # ---------------------------------------------------------------------------
 def test_schema_integrity():
     print("\n5. SCHEMA & DATA INTEGRITY")
-    books, gw, gcw = pe.load_everything()
+    import db_loader
+    books, gw, gcw = db_loader.load_from_db()
     comps = pe.components_of(books)
 
     # every genre present has weights
@@ -207,8 +208,8 @@ def main():
     print("ENGINE TEST SUITE")
     print("=" * 60)
     test_data_loads()
-    test_wa_reproduction("excel")
     test_wa_reproduction("db")
+    test_wa_reproduction("excel")
     test_db_matches_excel()
     test_prediction_sanity()
     test_schema_integrity()
