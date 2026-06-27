@@ -13,6 +13,7 @@ import contextlib
 import json
 import re
 import sqlite3
+from contextlib import asynccontextmanager
 
 # Make the project root importable regardless of where uvicorn is launched from
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +31,46 @@ import db_write
 import predict_engine as pe
 import views as views_mod
 
-app = FastAPI(title="Reading Ledger API", version="1.0")
+# research_predict is optional: it requires apikey.txt and heavy LLM deps.
+# Imported at module level so the import cost is paid once, not per request.
+# Handlers that need it check `_rp` is not None before using.
+try:
+    import research_predict as _rp
+except ImportError:
+    _rp = None  # server starts fine; LLM endpoints return 503
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENGINE CACHE
+# ─────────────────────────────────────────────────────────────────────────────
+# The engine tuple (books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream) is
+# expensive to produce: it reads the DB, fits a regression, and computes genre
+# bias. We build it once at startup and serve all endpoints from the cache.
+# Write endpoints call _invalidate_engine() after a successful db_write so the
+# next read reflects the change.
+
+_engine_cache: tuple | None = None
+
+
+def _get_engine() -> tuple:
+    global _engine_cache
+    if _engine_cache is None:
+        _engine_cache = pe.build(source="db")
+    return _engine_cache
+
+
+def _invalidate_engine() -> None:
+    global _engine_cache
+    _engine_cache = pe.build(source="db")
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    _invalidate_engine()  # warm cache at startup
+    yield
+
+
+app = FastAPI(title="Reading Ledger API", version="1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,7 +95,7 @@ def _clean(val):
 @app.get("/api/books")
 def get_books():
     """Return all rated books with their WA, metadata, and component scores."""
-    books, gw, gcw = db_loader.load_from_db()
+    books, gw, gcw = _get_engine()[:3]
     category_components = books.attrs["category_components"]
 
     # Convert to a list of dicts that JSON can handle cleanly
@@ -100,7 +140,7 @@ def get_books():
 @app.get("/api/genres")
 def get_genres():
     """Distinct genres in the rated library."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     return sorted(books["Genre"].dropna().unique().tolist())
 
 
@@ -116,7 +156,7 @@ def get_valid_genres():
 @app.get("/api/books/{title}/scores")
 def get_book_scores(title: str):
     """Return component scores for a single rated book (for Edit Ratings)."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     row = books[books["Book"] == title]
     if row.empty:
         raise HTTPException(status_code=404, detail=f"Book '{title}' not found")
@@ -149,9 +189,8 @@ class AddBookRequest(BaseModel):
 
 @app.post("/api/books")
 def add_book(req: AddBookRequest):
-    """Add a newly-rated book via db_write.add_book."""
+    """Add a newly-rated book via db_write.add_book, then dequeue it."""
     buf = io.StringIO()
-    error_msg = None
     try:
         with contextlib.redirect_stdout(buf):
             db_write.add_book(
@@ -168,6 +207,22 @@ def add_book(req: AddBookRequest):
     if "✗" in out:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not add book.")
+
+    # Remove the finished book from the queue so slots advance automatically.
+    try:
+        con = sqlite3.connect(db_write.DB)
+        current_queue = [t for (t,) in con.execute(
+            "SELECT title FROM read_queue ORDER BY position")]
+        con.close()
+        title_lower = req.title.strip().lower()
+        new_queue = [t for t in current_queue
+                     if t.strip().lower() != title_lower]
+        if len(new_queue) < len(current_queue):
+            db_write.update_queue(new_queue)
+    except Exception:
+        pass  # dequeue failure is non-fatal; book was still added
+
+    _invalidate_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -190,6 +245,7 @@ def edit_rating(title: str, req: EditRatingRequest):
     if "✗" in out:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not update rating.")
+    _invalidate_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -205,13 +261,11 @@ def lookup_book(req: LookupRequest):
     word count, series, and a blurb. Genre is constrained to the genre_weights
     list. Returns the raw lookup result for the user to confirm before filling.
     """
-    try:
-        import research_predict as rp
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=f"research_predict not available: {e}")
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
 
     try:
-        client = rp.get_client()
+        client = _rp.get_client()
     except FileNotFoundError:
         raise HTTPException(status_code=503, detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
@@ -226,7 +280,7 @@ def lookup_book(req: LookupRequest):
 
     try:
         _scores_raw, _conf, blurb, _keywords, det_genre, words_raw = \
-            rp.research_rich_plus(
+            _rp.research_rich_plus(
                 client, title, hint_author, None,
                 allowed_genres=allowed_genres,
             )
@@ -239,7 +293,7 @@ def lookup_book(req: LookupRequest):
             f'Respond with raw JSON only, no markdown.'
         )
         meta_msg = client.messages.create(
-            model=rp.rm.MODEL, max_tokens=200,
+            model=_rp.rm.MODEL, max_tokens=200,
             messages=[{"role": "user", "content": meta_prompt}]
         )
         meta_text = meta_msg.content[0].text.strip()
@@ -269,7 +323,7 @@ def lookup_book(req: LookupRequest):
 @app.get("/api/tiers")
 def get_tiers(year: Optional[int] = None):
     """Return books with tier assignments (S+/S/A/B/C/D/F), optionally filtered by year_read."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     category_components = books.attrs["category_components"]
 
     if year is not None:
@@ -351,6 +405,7 @@ def delete_book(title: str):
     if "✗" in out:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not delete book.")
+    _invalidate_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -421,12 +476,10 @@ def add_series_to_queue(req: AddSeriesRequest):
     if not series_name:
         raise HTTPException(status_code=422, detail="Series name is required.")
 
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
     try:
-        import research_predict as rp
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    try:
-        client = rp.get_client()
+        client = _rp.get_client()
     except FileNotFoundError:
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
@@ -470,7 +523,7 @@ Rules:
 
     try:
         msg = client.messages.create(
-            model=rp.DISCOVER_MODEL,
+            model=_rp.DISCOVER_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -480,7 +533,6 @@ Rules:
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
-        import json
         data = json.loads(raw)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
@@ -603,7 +655,7 @@ Rules:
 @app.get("/api/read-queue")
 def get_read_queue():
     """Return all not-done recommendations with flat component scores and predicted rank."""
-    books, gw, gcw = db_loader.load_from_db()
+    books, gw, gcw = _get_engine()[:3]
     rated_wa = books["WA"].values
 
     COMPONENTS = db_write.FICTION_COMPONENTS
@@ -661,7 +713,7 @@ def get_read_queue():
 def predict_instant(title: str, author: str, genre: str):
     """Free instant analog prediction — no API call, uses rated-book analogs."""
     try:
-        data = pe.build(source="db")
+        data = _get_engine()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
@@ -698,13 +750,11 @@ def predict_research(req: ResearchRequest):
     author+genre correct → WA roll-up. One LLM API call (or cache hit).
     Returns corrected components, WA, CI, rank, grounding signals.
     """
-    try:
-        import research_predict as rp
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
 
     try:
-        client = rp.get_client()
+        client = _rp.get_client()
     except FileNotFoundError:
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
@@ -712,7 +762,7 @@ def predict_research(req: ResearchRequest):
         raise HTTPException(status_code=503, detail=f"Client error: {e}")
 
     try:
-        data = pe.build(source="db")
+        data = _get_engine()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
@@ -721,13 +771,13 @@ def predict_research(req: ResearchRequest):
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
-    cache = rp.load_cache()
+    cache = _rp.load_cache()
     try:
-        scores, conf, blurb, keywords, det_genre, words, from_cache = rp.research_book(
+        scores, conf, blurb, keywords, det_genre, words, from_cache = _rp.research_book(
             req.title, req.author, req.genre, client, cache,
             allowed_genres=allowed_genres,
         )
-        rp.save_cache(cache)
+        _rp.save_cache(cache)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Research failed: {e}")
 
@@ -737,8 +787,8 @@ def predict_research(req: ResearchRequest):
                             detail="Could not auto-detect a genre — pick one manually.")
 
     try:
-        corr_models = rp.build_corr_models(books_e, cache)
-        res = rp.correct_and_predict(
+        corr_models = _rp.build_corr_models(books_e, cache)
+        res = _rp.correct_and_predict(
             req.title, req.author, eff_genre, scores, conf, resid_sd,
             books_e, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
             corr_models=corr_models,
@@ -781,18 +831,16 @@ class DiscoverRequest(BaseModel):
 @app.post("/api/discover/candidates")
 def discover_candidates(req: DiscoverRequest):
     """Generate candidate book titles for a free-text request (1 API call)."""
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
     try:
-        import research_predict as rp
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    try:
-        client = rp.get_client()
+        client = _rp.get_client()
     except FileNotFoundError:
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
 
-    books, _, _ = db_loader.load_from_db()
-    cache = rp.load_cache()
+    books = _get_engine()[0]
+    cache = _rp.load_cache()
 
     con = sqlite3.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
@@ -803,7 +851,7 @@ def discover_candidates(req: DiscoverRequest):
     read_books = list(zip(books["Book"].tolist(), books["Author"].tolist()))
 
     try:
-        candidates = rp.generate_candidates(
+        candidates = _rp.generate_candidates(
             req.request.strip(), allowed_genres, read_books,
             tbr_books=tbr_books, n=req.max_candidates, client=client,
         )
@@ -841,19 +889,17 @@ class GenerateMetaRequest(BaseModel):
 @app.post("/api/recommendations/generate-meta")
 def generate_recommendation_meta(req: GenerateMetaRequest):
     """Generate blurb + keywords for a recommendation that was added without research."""
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
     try:
-        import research_predict as rp
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    try:
-        client = rp.get_client()
+        client = _rp.get_client()
     except FileNotFoundError:
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Client error: {e}")
     try:
-        blurb, keywords = rp.generate_blurb_keywords(req.title, req.author, req.genre, client)
+        blurb, keywords = _rp.generate_blurb_keywords(req.title, req.author, req.genre, client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
     if not blurb and not keywords:
@@ -875,7 +921,7 @@ def generate_recommendation_meta(req: GenerateMetaRequest):
 @app.get("/api/reading/stats")
 def get_reading_stats():
     """Reading stats: totals, per-year, by-genre, by-author breakdowns."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     rs = views_mod.reading_stats(books)
     s = rs["summary"]
 
@@ -926,51 +972,105 @@ def get_reading_stats():
 
 @app.get("/api/reading/status")
 def get_reading_status():
-    """Unread pool (TBR + queue) and recently-finished rated books."""
-    books, _, _ = db_loader.load_from_db()
+    """Queue-derived reading status: last read, currently reading, reading next."""
+    books, gw, gcw = _get_engine()[:3]
     rated_wa = books["WA"].values
+    total_rated = len(books)
 
-    # Unread pool: recommendations (done=0) + read_queue
+    COMPONENTS = db_write.FICTION_COMPONENTS
+    comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
+
     con = sqlite3.connect(db_write.DB)
-    pool = {}
-    for title, author, genre in con.execute(
-            "SELECT title,author,genre FROM recommendations WHERE done=0"):
-        t = (title or "").strip()
-        if t:
-            pool[t] = {"author": (author or "").strip(), "genre": (genre or "").strip()}
-    for (title,) in con.execute("SELECT title FROM read_queue ORDER BY position"):
-        t = (title or "").strip()
-        if t and t not in pool:
-            pool[t] = {"author": "", "genre": ""}
+
+    # Queue positions 1 and 2
+    queue_titles = [r[0].strip() for r in con.execute(
+        "SELECT title FROM read_queue ORDER BY position LIMIT 2").fetchall()]
+
+    def _slot_from_rec(title: str):
+        """Build a status slot from the recommendations table."""
+        row = con.execute(
+            f'SELECT author, genre, series, words, {comp_cols} '
+            f'FROM recommendations WHERE LOWER(TRIM(title))=LOWER(TRIM(?))',
+            (title,)
+        ).fetchone()
+        if row is None:
+            # In queue but not in recommendations — show name only, no scores
+            return {
+                "title": title, "author": "", "genre": "", "series": "",
+                "has_prediction": False,
+                "wa": None, "rank": None, "total": total_rated,
+                "category_avgs": {},
+            }
+        author, genre, series, words = row[:4]
+        comp_vals = dict(zip(COMPONENTS, row[4:]))
+        has_scores = any(v is not None for v in comp_vals.values())
+        if not has_scores:
+            return {
+                "title": title,
+                "author": (author or "").strip(),
+                "genre": (genre or "").strip(),
+                "series": (series or "").strip().strip("'\""),
+                "has_prediction": False,
+                "wa": None, "rank": None, "total": total_rated,
+                "category_avgs": {},
+            }
+        genre_str = (genre or "Unknown").strip()
+        wa = 0.0
+        category_avgs = {}
+        for cat in db_loader.CATEGORY_OF_INTEREST:
+            wcat = db_loader._weighted_cat_avg(comp_vals, genre_str, cat, gcw)
+            category_avgs[cat] = round(wcat, 2)
+            wa += wcat * ((gw.get(genre_str, {}) or {}).get(cat, 0) or 0)
+        predicted_rank = int((rated_wa > wa).sum() + 1)
+        return {
+            "title": title,
+            "author": (author or "").strip(),
+            "genre": genre_str,
+            "series": (series or "").strip().strip("'\""),
+            "has_prediction": True,
+            "wa": round(wa, 2),
+            "rank": predicted_rank,
+            "total": total_rated,
+            "category_avgs": category_avgs,
+        }
+
+    currently_reading = _slot_from_rec(queue_titles[0]) if len(queue_titles) >= 1 else None
+    reading_next = _slot_from_rec(queue_titles[1]) if len(queue_titles) >= 2 else None
+
+    # Last read: most recently inserted row in books (by rowid)
+    last_row = con.execute(
+        "SELECT title FROM books ORDER BY rowid DESC LIMIT 1"
+    ).fetchone()
     con.close()
 
-    # Recently finished = rated books with year_read
-    finished_books = []
-    finished = books[books["Status"] == "finished"].dropna(subset=["Year"])
-    if not finished.empty:
-        last_year = int(finished["Year"].max())
-        last_read = finished[finished["Year"] == last_year].sort_values("WA", ascending=False)
-        total_rated = len(books)
-        for _, row in last_read.iterrows():
-            rank = int((rated_wa > float(row["WA"])).sum() + 1)
-            finished_books.append({
-                "title": row["Book"],
-                "author": row["Author"],
-                "genre": row["Genre"],
-                "year": int(row["Year"]) if row["Year"] == row["Year"] else None,
-                "wa": round(float(row["WA"]), 2),
+    last_read = None
+    if last_row:
+        lr_title = (last_row[0] or "").strip()
+        match = books[books["Book"].str.strip().str.lower() == lr_title.lower()]
+        if not match.empty:
+            brow = match.iloc[0]
+            wa_val = float(brow["WA"])
+            rank = int((rated_wa > wa_val).sum() + 1)
+            category_avgs = {
+                cat: round(float(brow["W" + cat]), 2)
+                for cat in db_loader.CATEGORY_OF_INTEREST
+            }
+            last_read = {
+                "title": lr_title,
+                "author": str(brow["Author"]),
+                "genre": str(brow["Genre"]),
+                "series": str(brow["Series"]),
+                "has_prediction": False,
+                "wa": round(wa_val, 2),
                 "rank": rank,
                 "total": total_rated,
-            })
-        last_year_val = last_year
-    else:
-        last_year_val = None
+                "category_avgs": category_avgs,
+            }
 
     return {
-        "pool": [{"title": t, "author": m["author"], "genre": m["genre"]}
-                 for t, m in sorted(pool.items())],
-        "last_year": last_year_val,
-        "finished": finished_books,
+        "last_read": last_read,
+        "currently_reading": currently_reading,
+        "reading_next": reading_next,
     }
 
 
@@ -991,6 +1091,7 @@ def set_year_read(req: SetYearRequest):
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
+    _invalidate_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -1001,7 +1102,7 @@ def set_year_read(req: SetYearRequest):
 @app.get("/api/series")
 def get_series():
     """Series rankings: per-series aggregates sorted by Adjusted WA."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     sa = views_mod.series_aggregate(books)
     if sa.empty:
         return {"series": []}
@@ -1023,7 +1124,7 @@ def get_series():
 @app.get("/api/series/tiers")
 def get_series_tiers():
     """Series tier list: same bands as book tier list but by Adjusted WA (S+ >= 9.0)."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     sa = views_mod.series_aggregate(books)
     if sa.empty:
         return {"series": [], "tier_order": views_mod.TIER_ORDER, "tier_counts": {}}
@@ -1052,7 +1153,7 @@ def get_series_tiers():
 @app.get("/api/timeline")
 def get_timeline():
     """Per-year reading timeline: book count, avg WA, five category averages."""
-    books, _, _ = db_loader.load_from_db()
+    books = _get_engine()[0]
     tl = views_mod.timeline(books)
     if tl.empty:
         return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
