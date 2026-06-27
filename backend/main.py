@@ -3,6 +3,25 @@ backend/main.py — FastAPI wrapper around the existing Python engine.
 Run from the project root: uvicorn backend.main:app --reload --port 8000
 The engine modules (db_loader, db_write, predict_engine) must be importable,
 which they are when you run from the BookRankingAPP directory.
+
+─────────────────────────────────────────────────────────────────────────────
+SECURITY POSTURE — localhost single-user only
+─────────────────────────────────────────────────────────────────────────────
+This server is designed to run on 127.0.0.1 (localhost) for one user. It has
+NO authentication and NO authorisation. Every write/delete endpoint (POST
+/api/books, DELETE /api/books/{title}, POST /api/queue, etc.) is intentionally
+open — that is safe on loopback but catastrophically unsafe on a network.
+
+DO NOT:
+  • bind uvicorn to 0.0.0.0 or any non-loopback address
+  • put this behind a reverse proxy that exposes it publicly
+  • deploy to a remote server
+
+...without first adding authentication and tightening CORS to an explicit
+allowlist. The CORS origin and bind host are read from environment variables
+(ALLOWED_ORIGIN, BIND_HOST) so a deliberate change is visible and auditable;
+the defaults are the safe localhost values and must not be altered here.
+─────────────────────────────────────────────────────────────────────────────
 """
 
 import sys
@@ -72,9 +91,14 @@ async def lifespan(app_: FastAPI):
 
 app = FastAPI(title="Reading Ledger API", version="1.0", lifespan=lifespan)
 
+# Safe defaults: localhost only. Override via env vars only for deliberate,
+# network-aware deployments that have also added authentication.
+_ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "http://localhost:3000")
+_BIND_HOST = os.environ.get("BIND_HOST", "127.0.0.1")  # informational; enforced by uvicorn CLI
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[_ALLOWED_ORIGIN],
     allow_methods=["*"],
     allow_headers=["*"],
 )
