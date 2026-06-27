@@ -121,30 +121,41 @@ def tier_counts(df_with_tier):
 _NON_SERIES = {"", "standalone", "none", "n/a"}
 
 
+def _series_adjusted_wa(avg_wa, n):
+    """Spreadsheet formula: avg WA + length bonus − short-series penalty.
+
+    Bonus  = 0.0582 * (1.18^(n-1) - 1)  when n > 1, else 0
+    Penalty= max(0, 3 - n) * 0.2
+    """
+    bonus = 0.0582 * (1.18 ** (n - 1) - 1) if n > 1 else 0.0
+    penalty = max(0, 3 - n) * 0.2
+    return avg_wa + bonus - penalty
+
+
 def series_aggregate(books):
     """Aggregate rated books by series. For each real series, compute the average
-    Total Average, the average WA, and the book count, then rank by average WA
-    (best first). Standalones are excluded.
-
-    The old sheet ranked by an 'adjusted score' that factored series length; that
-    formula isn't cleanly recoverable, so — per the agreed fallback — series are
-    ranked by average WA with the book count shown alongside."""
+    Total Average, the average WA, the length-adjusted WA (spreadsheet formula),
+    and the book count, then rank by adjusted WA (best first). Standalones are
+    excluded."""
     bt = add_total_average(books)
     rows = []
     for series, sub in bt.groupby("Series"):
         if (series or "").strip().lower() in _NON_SERIES:
             continue
+        n = int(len(sub))
+        avg_wa = float(sub["WA"].mean())
         rows.append({
             "Series": series,
-            "Author": sub["Author"].mode().iloc[0] if len(sub) else "",
-            "Genre": sub["Genre"].mode().iloc[0] if len(sub) else "",
-            "Books": int(len(sub)),
+            "Author": sub["Author"].mode().iloc[0] if n else "",
+            "Genre": sub["Genre"].mode().iloc[0] if n else "",
+            "Books": n,
             "Avg Total Average": float(sub["Total Average"].mean()),
-            "Avg WA": float(sub["WA"].mean()),
+            "Avg WA": avg_wa,
+            "Adjusted WA": _series_adjusted_wa(avg_wa, n),
         })
     out = pd.DataFrame(rows)
     if len(out):
-        out = out.sort_values("Avg WA", ascending=False).reset_index(drop=True)
+        out = out.sort_values("Adjusted WA", ascending=False).reset_index(drop=True)
         out.insert(0, "Rank", range(1, len(out) + 1))
     return out
 

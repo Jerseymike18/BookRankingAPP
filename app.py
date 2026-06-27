@@ -273,7 +273,7 @@ st.markdown('<div class="ledger-sub">A working record of books read, rated, and 
 #   Stats    — display-only dashboards.
 #   Discover — prediction/research and the read queue.
 SECTIONS = {
-    "Log":      ["Reading Status", "Add a Book", "Edit Ratings"],
+    "Log":      ["Reading Status", "Add a Book"],
     "Library":  ["Rankings", "Tier List", "Year Views",
                  "Series Rankings", "Series Tier List"],
     "Stats":    ["Reading Stats", "Timeline"],
@@ -327,29 +327,90 @@ if page == "Rankings":
     st.subheader("Rankings")
     genres = ["All genres"] + sorted(books["Genre"].unique())
     pick = st.selectbox("Filter by genre", genres)
-    show_comps = st.checkbox("Show component scores", value=False,
-                             key="rank_show_comps",
-                             help="Append the 14 component columns. Off by "
-                                  "default so the table stays scannable.")
+
     view = books if pick == "All genres" else books[books["Genre"] == pick]
     view = view.sort_values("WA", ascending=False).reset_index(drop=True)
     view.index = view.index + 1
-    show = view[["Book", "Author", "Genre", "WA"]].rename(
-        columns={"Book": "Title", "WA": "Weighted Avg"})
-    show["Weighted Avg"] = show["Weighted Avg"].round(2)
-    if show_comps:
-        for c in COMPONENTS:
-            show[c] = view[c].round(2)
+
     st.caption(f"{len(view)} books"
                + ("" if pick == "All genres" else f" in {pick}"))
-    st.dataframe(show, use_container_width=True, height=560)
 
-    with st.expander("Inspect a book's component breakdown"):
-        detail = st.selectbox("Book", view["Book"].tolist(),
-                              key="rank_detail_book")
-        brow = view[view["Book"] == detail].iloc[0]
-        st.caption(f"{brow['Author']} · {brow['Genre']} · WA {brow['WA']:.2f}")
-        render_component_breakdown(brow, books.attrs["category_components"])
+    # ── Edit / Delete controls ───────────────────────────────────────────────
+    edit_title = st.selectbox("Select a book to edit or delete",
+                              ["— select —"] + view["Book"].tolist(),
+                              key="rank_edit_select")
+
+    if edit_title != "— select —":
+        row = view[view["Book"] == edit_title].iloc[0]
+        st.caption(f"{row['Author']} · {row['Genre']} · WA {row['WA']:.2f}")
+
+        cats = books.attrs["category_components"]
+        new_scores = {}
+        for cat, comps in cats.items():
+            st.markdown(f"*{cat}*")
+            cols = st.columns(len(comps))
+            for col, comp in zip(cols, comps):
+                cur = float(row[comp]) if pd.notna(row[comp]) else 0.0
+                new_scores[comp] = col.number_input(
+                    comp, min_value=0.0, max_value=10.0, value=cur, step=0.1,
+                    key=f"rank_edit_{edit_title}_{comp}")
+
+        save_col, del_col = st.columns([1, 1])
+        if save_col.button("Save changes", key="rank_save"):
+            changed = {c: v for c, v in new_scores.items()
+                       if pd.isna(row[c]) or abs(v - float(row[c])) > 1e-9}
+            if not changed:
+                st.info("No changes to save.")
+            else:
+                import io, contextlib
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    db_write.change_rating(edit_title, changed)
+                out = buf.getvalue().strip()
+                if "✓" in out:
+                    st.success(out.replace("✓", "").strip())
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(out.replace("✗", "").strip())
+
+        # Two-step delete: first click arms it, second click fires.
+        if "rank_delete_armed" not in st.session_state:
+            st.session_state["rank_delete_armed"] = None
+        if st.session_state["rank_delete_armed"] != edit_title:
+            if del_col.button("Delete book", key="rank_del_arm"):
+                st.session_state["rank_delete_armed"] = edit_title
+                st.rerun()
+        else:
+            del_col.warning(f"Delete **{edit_title}** permanently?")
+            dc1, dc2 = del_col.columns(2)
+            if dc1.button("Yes, delete", key="rank_del_confirm"):
+                import io, contextlib
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    db_write.delete_book(edit_title)
+                out = buf.getvalue().strip()
+                st.session_state["rank_delete_armed"] = None
+                if "✓" in out:
+                    st.success(out.replace("✓", "").strip())
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(out.replace("✗", "").strip())
+            if dc2.button("Cancel", key="rank_del_cancel"):
+                st.session_state["rank_delete_armed"] = None
+                st.rerun()
+
+    st.divider()
+
+    # ── Rankings table (all component scores always shown) ───────────────────
+    show = view[["Book", "Author", "Genre", "Series", "WA"]].rename(
+        columns={"Book": "Title", "WA": "Weighted Avg"})
+    show["Weighted Avg"] = show["Weighted Avg"].round(2)
+    show["Series"] = show["Series"].fillna("").astype(str)
+    for c in COMPONENTS:
+        show[c] = view[c].round(2)
+    st.dataframe(show, use_container_width=True, height=560)
 
 
 # ---------------------------------------------------------------------------
@@ -359,16 +420,124 @@ elif page == "Add a Book":
     st.subheader("Add a Book")
     st.caption("Scores are 0–10. Worldbuilding (Depth2 / Integration / "
                "Originality) may be left at 0 for realist genres.")
+
+    # ── Auto-fill section ────────────────────────────────────────────────────
+    with st.expander("🔍 Look up book metadata (optional)", expanded=True):
+        st.caption("Type a title and click Look up — the LLM will find author, "
+                   "genre, word count, and series so you don't have to.")
+        lk_col1, lk_col2 = st.columns([3, 1])
+        lk_title = lk_col1.text_input("Title to look up",
+                                       key="lookup_title",
+                                       placeholder="e.g. The Name of the Wind")
+        lk_author = lk_col2.text_input("Author hint (optional — helps disambiguate)",
+                                        key="lookup_author_hint",
+                                        placeholder="e.g. Rothfuss")
+
+        if st.button("Look up"):
+            if not lk_title.strip():
+                st.error("Enter a title first.")
+            else:
+                try:
+                    client = rp.get_client()
+                    with st.spinner("Looking up book…"):
+                        # Build a minimal author string so the prompt has
+                        # something to anchor on; the LLM will correct it if wrong.
+                        hint_author = lk_author.strip() or "unknown"
+                        scores_raw, conf, blurb, keywords, det_genre, words_raw = \
+                            rp.research_rich_plus(
+                                client,
+                                lk_title.strip(),
+                                hint_author,
+                                None,          # no genre — let the LLM detect it
+                                allowed_genres=list(gw.keys()),
+                            )
+                    # Parse series from the blurb keywords heuristic: ask a
+                    # second tiny structured call for the fields we need.
+                    # Instead, repurpose the blurb to extract series ourselves
+                    # with a lightweight follow-up prompt.
+                    series_raw = ""
+                    author_raw = hint_author if lk_author.strip() else ""
+                    with st.spinner("Fetching author & series details…"):
+                        meta_prompt = (
+                            f'Return ONLY a JSON object with these keys:\n'
+                            f'  "author": the correct full author name for "{lk_title.strip()}"\n'
+                            f'  "series": the series name if the book belongs to one (empty string if standalone)\n'
+                            f'  "series_number": the number within the series as an integer (0 if standalone or unknown)\n'
+                            f'Respond with raw JSON only, no markdown.'
+                        )
+                        meta_msg = client.messages.create(
+                            model=rp.rm.MODEL, max_tokens=200,
+                            messages=[{"role": "user", "content": meta_prompt}])
+                        meta_text = meta_msg.content[0].text.strip()
+                        import re as _re
+                        meta_text = _re.sub(r"^```(json)?|```$", "", meta_text,
+                                            flags=_re.MULTILINE).strip()
+                        import json as _json
+                        meta = _json.loads(meta_text)
+                        author_raw = meta.get("author", hint_author).strip() or hint_author
+                        s_name = meta.get("series", "").strip()
+                        s_num = meta.get("series_number", 0) or 0
+                        if s_name and int(s_num) > 0:
+                            series_raw = f"{s_name} #{int(s_num)}"
+                        else:
+                            series_raw = s_name
+
+                    st.session_state["add_lookup_result"] = {
+                        "title": lk_title.strip(),
+                        "author": author_raw,
+                        "genre": det_genre,
+                        "words": words_raw,
+                        "series": series_raw,
+                        "blurb": blurb,
+                    }
+                except FileNotFoundError:
+                    st.error("apikey.txt not found — add your Anthropic key.")
+                except Exception as e:
+                    st.error(f"Look-up failed: {e}")
+
+        if "add_lookup_result" in st.session_state:
+            r = st.session_state["add_lookup_result"]
+            genre_str = r["genre"] or "(unknown)"
+            words_str = f"~{r['words']:,}" if r["words"] else "(unknown)"
+            series_str = r["series"] if r["series"] else "standalone"
+            st.info(
+                f"**Found:** {r['title']} by **{r['author']}** · "
+                f"{genre_str} · {words_str} words · {series_str}"
+            )
+            if r["blurb"]:
+                st.caption(r["blurb"])
+            bc1, bc2 = st.columns(2)
+            if bc1.button("✓ Use this — fill the form below"):
+                st.session_state["add_prefill"] = dict(r)
+                del st.session_state["add_lookup_result"]
+                st.rerun()
+            if bc2.button("✗ Wrong book — clear and try again"):
+                del st.session_state["add_lookup_result"]
+                st.rerun()
+
+    # ── Pull any confirmed prefill ────────────────────────────────────────────
+    _pf = st.session_state.get("add_prefill", {})
+    _pf_genre_idx = (sorted(gw.keys()).index(_pf["genre"])
+                     if _pf.get("genre") and _pf["genre"] in gw else 0)
+
+    # ── Form fields (pre-filled if a lookup was confirmed, always editable) ───
     c1, c2 = st.columns(2)
     with c1:
-        title = st.text_input("Title")
-        author = st.text_input("Author")
-        series = st.text_input("Series (optional)")
+        title = st.text_input("Title", value=_pf.get("title", ""), key="add_title")
+        author = st.text_input("Author", value=_pf.get("author", ""), key="add_author")
+        series = st.text_input("Series (optional)", value=_pf.get("series", ""),
+                               key="add_series")
     with c2:
-        genre = st.selectbox("Genre", sorted(gw.keys()))
-        words = st.number_input("Word count", min_value=0, value=0, step=1000)
+        genre = st.selectbox("Genre", sorted(gw.keys()), index=_pf_genre_idx,
+                             key="add_genre")
+        words = st.number_input("Word count", min_value=0,
+                                value=int(_pf.get("words") or 0), step=1000,
+                                key="add_words")
         year = st.number_input("Year read", min_value=1900, max_value=2100,
-                               value=_dt.date.today().year)
+                               value=_dt.date.today().year, key="add_year")
+
+    if _pf:
+        st.caption("Metadata pre-filled from look-up — all fields are editable.")
 
     st.markdown("**Component scores**")
     scores = {}
@@ -381,8 +550,6 @@ elif page == "Add a Book":
                                              value=7.0, step=0.1, key=f"add_{comp}")
 
     if st.button("Add book to ledger"):
-        valid = comps_present = True
-        # use the real validated writer; capture its printed outcome
         import io, contextlib
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
@@ -393,48 +560,11 @@ elif page == "Add a Book":
         if "✓" in out:
             st.success(out.strip().replace("✓", "").strip())
             st.cache_data.clear()
+            # Clear prefill so the form resets for the next book
+            st.session_state.pop("add_prefill", None)
         else:
             st.error(out.strip().replace("✗", "").strip() or
                      "Could not add the book.")
-
-
-# ---------------------------------------------------------------------------
-# PAGE: Edit Ratings
-# ---------------------------------------------------------------------------
-elif page == "Edit Ratings":
-    st.subheader("Edit Ratings")
-    title = st.selectbox("Book", sorted(books["Book"].tolist()))
-    row = books[books["Book"] == title].iloc[0]
-    st.caption(f"{row['Author']} · {row['Genre']} · current WA "
-               f"{row['WA']:.2f}")
-
-    new = {}
-    cats = books.attrs["category_components"]
-    for cat, comps in cats.items():
-        st.markdown(f"*{cat}*")
-        cols = st.columns(len(comps))
-        for col, comp in zip(cols, comps):
-            cur = float(row[comp]) if pd.notna(row[comp]) else 0.0
-            # Key is scoped to the selected book so switching books in the
-            # dropdown instantiates fresh inputs bound to the NEW book's stored
-            # scores, instead of Streamlit preserving the previous book's values.
-            new[comp] = col.number_input(comp, min_value=0.0, max_value=10.0,
-                                         value=cur, step=0.1,
-                                         key=f"edit_{title}_{comp}")
-
-    if st.button("Save changes"):
-        # only send components that actually changed
-        changed = {c: v for c, v in new.items()
-                   if pd.isna(row[c]) or abs(v - float(row[c])) > 1e-9}
-        if not changed:
-            st.info("No changes to save.")
-        else:
-            import io, contextlib
-            buf = io.StringIO()
-            with contextlib.redirect_stdout(buf):
-                db_write.change_rating(title, changed)
-            st.success(buf.getvalue().strip().replace("✓", "").strip())
-            st.cache_data.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -562,8 +692,9 @@ elif page == "Tier List":
     tl = views.tier_bands(bt, "Total Average", 9.5)
     render_tier_list(
         tl, "Book",
-        lambda r: f"{r['Author']} · {r['Genre']} · "
-                  f"Total Avg {r['Total Average']:.2f} · WA {r['WA']:.2f}")
+        lambda r: (f"{r['Author']} · {r['Genre']}"
+                   + (f" · {r['Series']}" if r.get("Series") else "")
+                   + f" · Total Avg {r['Total Average']:.2f} · WA {r['WA']:.2f}"))
 
 
 # ---------------------------------------------------------------------------
@@ -586,10 +717,11 @@ elif page == "Year Views":
         view.index = view.index + 1
         st.caption(f"{len(view)} book(s) read in {year}"
                    + ("" if pick == "All genres" else f" · {pick}"))
-        show = view[["Book", "Author", "Genre", "WA", "Total Average"]].rename(
+        show = view[["Book", "Author", "Genre", "Series", "WA", "Total Average"]].rename(
             columns={"Book": "Title", "WA": "Weighted Avg"})
         show["Weighted Avg"] = show["Weighted Avg"].round(2)
         show["Total Average"] = show["Total Average"].round(2)
+        show["Series"] = show["Series"].fillna("").astype(str)
         st.dataframe(show, use_container_width=True, height=560)
 
 
@@ -598,9 +730,9 @@ elif page == "Year Views":
 # ---------------------------------------------------------------------------
 elif page == "Series Rankings":
     st.subheader("Series Rankings")
-    st.caption("Rated books aggregated by series, ranked by **average WA**. "
-               "(The old sheet's length-adjusted score isn't cleanly "
-               "recoverable, so book count is shown alongside instead.)")
+    st.caption("Ranked by **Adjusted WA** — avg WA plus a length bonus "
+               "(0.0582 × (1.18^(n−1) − 1)) minus a short-series penalty "
+               "(−0.2 per book below 3 read).")
     sa = views.series_aggregate(books)
     if sa.empty:
         st.info("No multi-book series found.")
@@ -610,9 +742,10 @@ elif page == "Series Rankings":
         view = sa if pick == "All genres" else sa[sa["Genre"] == pick]
         st.caption(f"{len(view)} series")
         show = view[["Rank", "Series", "Author", "Genre", "Books",
-                     "Avg Total Average", "Avg WA"]].copy()
-        show["Avg Total Average"] = show["Avg Total Average"].round(2)
+                     "Avg WA", "Adjusted WA", "Avg Total Average"]].copy()
         show["Avg WA"] = show["Avg WA"].round(2)
+        show["Adjusted WA"] = show["Adjusted WA"].round(3)
+        show["Avg Total Average"] = show["Avg Total Average"].round(2)
         st.dataframe(show.set_index("Rank"), use_container_width=True, height=560)
 
 
@@ -621,18 +754,19 @@ elif page == "Series Rankings":
 # ---------------------------------------------------------------------------
 elif page == "Series Tier List":
     st.subheader("Series Tier List")
-    st.caption("Series banded by **average Total Average**. S+ = ≥ 9.0; the rest "
-               "fall into the same percentile bands as the book tier list.")
+    st.caption("Series banded by **Adjusted WA** (length bonus − short-series "
+               "penalty). S+ = ≥ 9.0; the rest fall into the same percentile "
+               "bands as the book tier list.")
     sa = views.series_aggregate(books)
     if sa.empty:
         st.info("No multi-book series found.")
     else:
-        sa = sa.rename(columns={"Avg Total Average": "Total Average"})
+        sa = sa.rename(columns={"Adjusted WA": "Total Average"})
         stl = views.tier_bands(sa, "Total Average", 9.0)
         render_tier_list(
             stl, "Series",
             lambda r: f"{r['Author']} · {int(r['Books'])} books · "
-                      f"Avg Total {r['Total Average']:.2f} · Avg WA {r['Avg WA']:.2f}")
+                      f"Adj WA {r['Total Average']:.3f} · Avg WA {r['Avg WA']:.2f}")
 
 
 # ---------------------------------------------------------------------------

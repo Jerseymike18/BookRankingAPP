@@ -247,6 +247,24 @@ def change_rating(title, new_scores):
         con.close()
 
 
+def delete_book(title):
+    """Permanently delete a rated book by title. Backs up before writing."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT id FROM books WHERE title=?", (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{title}' found.")
+        _backup_once()
+        con.execute("DELETE FROM books WHERE title=?", (title,))
+        con.commit()
+        print(f"  ✓ Deleted '{title}'.")
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not deleted — {e}")
+    finally:
+        con.close()
+
+
 # ---------------------------------------------------------------------------
 # WRITE: reading-log status + year_read (the BookTracker port)
 # ---------------------------------------------------------------------------
