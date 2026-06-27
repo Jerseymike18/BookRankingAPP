@@ -68,7 +68,7 @@ except ImportError:
 # Write endpoints call _invalidate_engine() after a successful db_write so the
 # next read reflects the change.
 
-_engine_cache: tuple | None = None
+_engine_cache: Optional[tuple] = None
 
 
 def _get_engine() -> tuple:
@@ -1270,6 +1270,54 @@ def save_recommendation(req: SaveRecommendationRequest):
 # DELTA LOG
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CALIBRATION — model-health (free) and LOO accuracy (slow, on-demand)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/calibration/health")
+def get_calibration_health():
+    """
+    Free model-health metrics from the cached engine build:
+    R², residual SD, regression coefficients, and per-genre bias/trust.
+    """
+    books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = _get_engine()
+    return {
+        "n_books": len(books),
+        "r2": round(float(r2), 4),
+        "resid_sd": round(float(resid_sd), 4),
+        "coeffs": {
+            "intercept": round(float(coeffs[0]), 4),
+            "story":     round(float(coeffs[1]), 4),
+            "character": round(float(coeffs[2]), 4),
+            "aesthetics":round(float(coeffs[3]), 4),
+            "theme":     round(float(coeffs[4]), 4),
+        },
+        "genre_info": {
+            g: {
+                "bias":  round(float(v["bias"]), 4),
+                "n":     int(v["n"]),
+                "trust": round(float(v["trust"]), 4),
+            }
+            for g, v in sorted(ginfo.items())
+        },
+    }
+
+
+@app.post("/api/calibration/loo")
+def run_loo_validation():
+    """
+    Honest leave-one-out validation. Refits the engine ~n times — SLOW (seconds).
+    Triggered explicitly by the user on the Calibration page, not on every load.
+    """
+    import validate_engine as ve
+    books, gw, gcw = _get_engine()[:3]
+    try:
+        result = ve.run_loo(books=books, gw=gw, gcw=gcw)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LOO validation failed: {e}")
+    return result
+
+
 @app.get("/api/delta-log")
 def get_delta_log():
     """Return all recorded prediction-vs-actual deltas, newest first."""
@@ -1300,7 +1348,7 @@ def get_delta_log():
     entries = [dict(zip(col_names, r)) for r in rows]
 
     # Per-component mean delta across all logged entries (predictive drift)
-    drift: dict[str, float | None] = {}
+    drift: dict = {}
     for c in COMPS:
         vals = [e[f"d_{_col(c)}"] for e in entries if e.get(f"d_{_col(c)}") is not None]
         drift[c] = round(sum(vals) / len(vals), 4) if vals else None

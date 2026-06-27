@@ -251,6 +251,49 @@ export interface DeltaLogResponse {
   drift: Record<string, number | null>;
 }
 
+export interface CalibrationHealth {
+  n_books: number;
+  r2: number;
+  resid_sd: number;
+  coeffs: {
+    intercept: number;
+    story: number;
+    character: number;
+    aesthetics: number;
+    theme: number;
+  };
+  genre_info: Record<string, { bias: number; n: number; trust: number }>;
+}
+
+export interface LooGenreRow {
+  genre: string;
+  n: number;
+  mae: number;
+  verdict: string;
+}
+
+export interface LooComponentRow {
+  component: string;
+  mae: number;
+  n: number;
+  verdict: string;
+}
+
+export interface LooResult {
+  n_books: number;
+  naive_mae: number;
+  engine_mae: number;
+  within_0_5: number;
+  within_1_0: number;
+  improvement_pct: number;
+  bias_mae: number;
+  no_bias_mae: number;
+  bias_helps: boolean;
+  bias_delta: number;
+  per_genre: LooGenreRow[];
+  per_component: LooComponentRow[];
+}
+
 export interface AddSeriesResult {
   ok: boolean;
   ambiguous: boolean;

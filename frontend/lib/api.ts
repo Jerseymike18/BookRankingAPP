@@ -1,4 +1,6 @@
 import type {
+  CalibrationHealth,
+  LooResult,
   DeltaLogResponse,
   BooksResponse,
   BookScoresResponse,
@@ -240,6 +242,19 @@ export async function addSeriesToQueue(seriesName: string): Promise<AddSeriesRes
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ series_name: seriesName }),
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function fetchCalibrationHealth(): Promise<CalibrationHealth> {
+  const res = await fetch(`${API}/api/calibration/health`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+export async function runLooValidation(): Promise<LooResult> {
+  const res = await fetch(`${API}/api/calibration/loo`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
