@@ -49,6 +49,58 @@ import pandas as pd
 import anthropic
 import predict_engine as pe
 
+
+def _extract_json(text: str):
+    """Parse JSON from LLM output robustly.
+
+    Handles: clean JSON; ```json-fenced; JSON followed by prose or a stray
+    fence; leading prose before the object; no-fence plain JSON.
+    """
+    text = text.strip()
+    # Remove a matched open/close fence pair (not a global multiline sub).
+    if text.startswith("```"):
+        end = text.find("```", 3)
+        if end != -1:
+            text = text[text.index("\n", 0) + 1 : end].strip() if "\n" in text[:end] else text[3:end].strip()
+    # Find the first JSON object or array and extract a balanced span.
+    start = -1
+    for i, ch in enumerate(text):
+        if ch in "{[":
+            start = i
+            break
+    if start == -1:
+        raise ValueError(f"No JSON object/array found in LLM output: {text[:200]!r}")
+    opener = text[start]
+    closer = "}" if opener == "{" else "]"
+    depth = 0
+    in_string = False
+    escape = False
+    for i, ch in enumerate(text[start:], start):
+        if escape:
+            escape = False
+            continue
+        if ch == "\\" and in_string:
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(text[start : i + 1])
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"JSON parse error: {exc}. Raw (first 200): {text[:200]!r}"
+                    ) from exc
+    raise ValueError(f"Unbalanced JSON in LLM output: {text[:200]!r}")
+
+
 MODEL = "claude-opus-4-8"            # Opus for grounded research scoring
 WORKBOOK = pe.WORKBOOK
 
@@ -133,9 +185,7 @@ book is to you. No prose, no markdown, just the JSON. Example shape:
             model=self.model, max_tokens=400,
             messages=[{"role": "user", "content": prompt}])
         text = msg.content[0].text.strip()
-        # Strip any accidental code fences, then parse JSON.
-        text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-        data = json.loads(text)
+        data = _extract_json(text)
         confidence = data.pop("confidence", "unknown")
         scores = {c: float(data[c]) for c in self.components if c in data}
         return scores, confidence

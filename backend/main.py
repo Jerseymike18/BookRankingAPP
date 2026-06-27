@@ -55,8 +55,10 @@ import views as views_mod
 # Handlers that need it check `_rp` is not None before using.
 try:
     import research_predict as _rp
+    import research_layer as _rl
 except ImportError:
     _rp = None  # server starts fine; LLM endpoints return 503
+    _rl = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -364,8 +366,7 @@ def lookup_book(req: LookupRequest):
             messages=[{"role": "user", "content": meta_prompt}]
         )
         meta_text = meta_msg.content[0].text.strip()
-        meta_text = re.sub(r"^```(json)?|```$", "", meta_text, flags=re.MULTILINE).strip()
-        meta = json.loads(meta_text)
+        meta = _rl._extract_json(meta_text)
 
         author = meta.get("author", hint_author).strip() or hint_author
         s_name = meta.get("series", "").strip()
@@ -595,12 +596,7 @@ Rules:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = msg.content[0].text.strip()
-        # Strip markdown fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw)
+        data = _rl._extract_json(raw)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
 

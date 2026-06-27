@@ -152,8 +152,7 @@ def research_rich_plus(client, title, author, genre, allowed_genres=None):
         model=rm.MODEL, max_tokens=800,
         messages=[{"role": "user", "content": prompt}])
     text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(text)
     conf = data.pop("confidence", "unknown")
     blurb = (data.pop("blurb", "") or "").strip()
     keywords = _normalize_keywords(data.pop("keywords", ""))
@@ -209,8 +208,7 @@ than refusing. Respond with ONLY a JSON object — no prose, no markdown:
         model=model, max_tokens=400,
         messages=[{"role": "user", "content": prompt}])
     text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(text)
     blurb = (data.get("blurb", "") or "").strip()
     keywords = _normalize_keywords(data.get("keywords", ""))
     return blurb, keywords
@@ -390,8 +388,7 @@ Respond with ONLY a JSON object — no prose, no markdown:
         model=model, max_tokens=1200,
         messages=[{"role": "user", "content": prompt}])
     text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(text)
 
     allowed_set = set(allowed)
     out = []
@@ -437,8 +434,7 @@ Respond with ONLY a JSON object — no prose, no markdown:
         model=model, max_tokens=1200,
         messages=[{"role": "user", "content": prompt}])
     text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(text)
     return (data.get("books", []),
             bool(data.get("complete", False)),
             data.get("note", ""))
