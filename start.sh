@@ -9,9 +9,11 @@ export NVM_DIR="$HOME/.nvm"
 
 BACKEND_PORT=8000
 FRONTEND_PORT=3000
+# Bind to loopback by default; set API_HOST=0.0.0.0 only after adding auth.
+API_HOST="${API_HOST:-127.0.0.1}"
 
-echo "▸ Starting FastAPI backend on :$BACKEND_PORT …"
-python3 -m uvicorn backend.main:app --port $BACKEND_PORT --reload &
+echo "▸ Starting FastAPI backend on $API_HOST:$BACKEND_PORT …"
+python3 -m uvicorn backend.main:app --host "$API_HOST" --port $BACKEND_PORT --reload &
 BACKEND_PID=$!
 
 echo "▸ Starting Next.js frontend on :$FRONTEND_PORT …"
