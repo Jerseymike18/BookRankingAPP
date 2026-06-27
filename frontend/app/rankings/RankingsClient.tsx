@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import type { BooksResponse, Book } from "@/lib/types";
+import React, { useState, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { editRating, deleteBook } from "@/lib/api";
+import type { BooksResponse, Book, CategoryComponents } from "@/lib/types";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -15,10 +17,6 @@ function spineClass(wa: number): string {
   return "spine-f";
 }
 
-function formatWA(wa: number) {
-  return wa.toFixed(2);
-}
-
 function formatWords(words: number | null) {
   if (!words) return null;
   if (words >= 1_000_000) return `${(words / 1_000_000).toFixed(1)}M words`;
@@ -26,13 +24,23 @@ function formatWords(words: number | null) {
   return `${words} words`;
 }
 
-/* ── Sub-components ───────────────────────────────────────────────────── */
+function flattenComponents(components: CategoryComponents): Record<string, number> {
+  const flat: Record<string, number> = {};
+  for (const comps of Object.values(components)) {
+    for (const [comp, val] of Object.entries(comps)) {
+      flat[comp] = val ?? 0;
+    }
+  }
+  return flat;
+}
+
+/* ── Read-only component grid ─────────────────────────────────────────── */
 
 function ComponentGrid({
   components,
   categoryOrder,
 }: {
-  components: Book["components"];
+  components: CategoryComponents;
   categoryOrder: string[];
 }) {
   return (
@@ -65,103 +73,356 @@ function ComponentGrid({
   );
 }
 
-function BookCard({
+/* ── Editable score grid ─────────────────────────────────────────────── */
+
+const inputStyle: React.CSSProperties = {
+  background: "var(--color-surface)",
+  border: "1px solid var(--color-rule)",
+  color: "var(--color-ink)",
+  fontFamily: "var(--font-body)",
+};
+
+function ScoreGrid({
+  components,
+  categoryOrder,
+  scores,
+  onChange,
+}: {
+  components: CategoryComponents;
+  categoryOrder: string[];
+  scores: Record<string, number>;
+  onChange: (comp: string, val: number) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      {categoryOrder.map((cat) => {
+        const comps = components[cat];
+        if (!comps) return null;
+        return (
+          <div key={cat}>
+            <p
+              className="text-xs font-semibold uppercase tracking-widest mb-2"
+              style={{ color: "var(--color-muted)" }}
+            >
+              {cat}
+            </p>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: "repeat(auto-fill, minmax(9rem, 1fr))" }}
+            >
+              {Object.keys(comps).map((comp) => (
+                <div key={comp}>
+                  <label
+                    className="block text-xs mb-1"
+                    style={{ color: "var(--color-muted)" }}
+                  >
+                    {comp}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    step={0.1}
+                    value={scores[comp] ?? 0}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) onChange(comp, v);
+                    }}
+                    className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+                    style={inputStyle}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Expanded book panel ─────────────────────────────────────────────── */
+
+type CardMode = "view" | "edit" | "confirm-delete";
+
+function BookExpandedPanel({
   book,
   categoryOrder,
-  rank,
+  onRefresh,
+  onClose,
 }: {
   book: Book;
   categoryOrder: string[];
-  rank: number;
+  onRefresh: () => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<CardMode>("view");
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  function enterEdit() {
+    setScores(flattenComponents(book.components));
+    setMode("edit");
+    setActionError(null);
+    setSaveSuccess(false);
+  }
+
+  function cancelEdit() {
+    setMode("view");
+    setActionError(null);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setActionError(null);
+    try {
+      await editRating(book.title, scores);
+      setSaveSuccess(true);
+      setMode("view");
+      onRefresh();
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : "Could not save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await deleteBook(book.title);
+      onRefresh();
+      onClose();
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : "Could not delete book.");
+      setDeleting(false);
+      setMode("view");
+    }
+  }
 
   return (
-    <article
-      className={`book-card ${spineClass(book.wa)} px-5 py-4 shadow-sm`}
-      style={{ border: "1px solid var(--color-rule)", borderLeftWidth: "3px" }}
+    <div
+      className="px-5 py-4"
+      style={{ borderTop: "1px solid var(--color-rule)", background: "var(--color-surface-2)" }}
     >
-      <div
-        className="flex items-center gap-4 cursor-pointer select-none"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {/* Rank */}
-        <span
-          className="text-sm font-display italic flex-shrink-0 w-8 text-right"
-          style={{ color: "var(--color-faint)" }}
-        >
-          {rank}
-        </span>
-
-        {/* WA badge */}
-        <div className="wa-badge flex-shrink-0">{formatWA(book.wa)}</div>
-
-        {/* Title / author / meta */}
-        <div className="flex-1 min-w-0">
-          <h3
-            className="font-display font-semibold text-base leading-tight truncate"
-            style={{ color: "var(--color-ink)" }}
-          >
-            {book.title}
-          </h3>
-          <p className="text-sm mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
-            {book.author}
-            {book.series ? (
-              <span style={{ color: "var(--color-faint)" }}>
-                {" "}· {book.series}
-              </span>
-            ) : null}
-          </p>
-        </div>
-
-        {/* Genre + word count (right side) */}
-        <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
-          <span className="genre-chip">{book.genre}</span>
-          {book.words ? (
-            <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-              {formatWords(book.words)}
-            </span>
-          ) : null}
-        </div>
-
-        {/* Expand chevron */}
-        <svg
-          className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-          style={{
-            color: "var(--color-faint)",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-          }}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-
-      {/* Expandable component breakdown */}
-      {open && (
+      {/* ── Confirm-delete panel ── */}
+      {mode === "confirm-delete" && (
         <div
-          className="mt-4 pt-4"
-          style={{ borderTop: "1px solid var(--color-rule)" }}
+          className="rounded-xl p-4 mb-4"
+          style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}
         >
-          {/* Show genre on mobile when expanded */}
-          <div className="flex items-center gap-2 mb-3 sm:hidden">
-            <span className="genre-chip">{book.genre}</span>
-            {book.words && (
-              <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-                {formatWords(book.words)}
-              </span>
-            )}
+          <p className="text-sm font-semibold mb-1" style={{ color: "#B91C1C" }}>
+            Delete &ldquo;{book.title}&rdquo;?
+          </p>
+          <p className="text-sm mb-4" style={{ color: "#7F1D1D" }}>
+            This permanently removes it from your library and all stats and rankings.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
+              style={{ background: "#DC2626", color: "#fff" }}
+            >
+              {deleting ? "Deleting…" : "Yes, delete"}
+            </button>
+            <button
+              onClick={() => { setMode("view"); setActionError(null); }}
+              disabled={deleting}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: "var(--color-surface-2)",
+                color: "var(--color-muted)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              Cancel
+            </button>
           </div>
-          <ComponentGrid
-            components={book.components}
-            categoryOrder={categoryOrder}
-          />
         </div>
       )}
-    </article>
+
+      {/* ── Error banner ── */}
+      {actionError && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm mb-4"
+          style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
+        >
+          {actionError}
+        </div>
+      )}
+
+      {/* ── Save success banner ── */}
+      {saveSuccess && mode === "view" && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm mb-4"
+          style={{
+            background: "var(--color-sage-light)",
+            color: "var(--color-sage)",
+            border: "1px solid var(--color-sage)",
+          }}
+        >
+          Saved. Rankings are refreshing…
+        </div>
+      )}
+
+      {/* ── View mode: read-only scores + action buttons ── */}
+      {mode === "view" && (
+        <>
+          <ComponentGrid components={book.components} categoryOrder={categoryOrder} />
+          <div className="flex gap-3 mt-5">
+            <button
+              onClick={enterEdit}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{ background: "var(--color-sage)", color: "#fff" }}
+            >
+              Edit scores
+            </button>
+            <button
+              onClick={() => { setMode("confirm-delete"); setActionError(null); }}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: "transparent",
+                color: "#DC2626",
+                border: "1px solid #FCA5A5",
+              }}
+            >
+              Delete book
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Edit mode: score inputs + save/cancel ── */}
+      {mode === "edit" && (
+        <>
+          <ScoreGrid
+            components={book.components}
+            categoryOrder={categoryOrder}
+            scores={scores}
+            onChange={(comp, val) =>
+              setScores((prev) => ({ ...prev, [comp]: val }))
+            }
+          />
+          <div className="flex gap-3 mt-5">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
+              style={{ background: "var(--color-sage)", color: "#fff" }}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              onClick={cancelEdit}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: "transparent",
+                color: "var(--color-muted)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Sort types ───────────────────────────────────────────────────────── */
+
+type SortField = "wa" | "Story" | "Character" | "Aesthetics" | "Theme" | "Worldbuilding";
+type SortDir = "desc" | "asc";
+
+const SORT_COLS: { field: SortField; label: string }[] = [
+  { field: "wa", label: "WA" },
+  { field: "Story", label: "Story" },
+  { field: "Character", label: "Char" },
+  { field: "Aesthetics", label: "Aes" },
+  { field: "Theme", label: "Theme" },
+  { field: "Worldbuilding", label: "WB" },
+];
+
+function getFieldValue(book: Book, field: SortField): number {
+  if (field === "wa") return book.wa;
+  return (book.category_avgs ?? {})[field] ?? 0;
+}
+
+/* ── Sortable column header ───────────────────────────────────────────── */
+
+function SortHeader({
+  field,
+  label,
+  active,
+  dir,
+  onClick,
+}: {
+  field: SortField;
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+}) {
+  return (
+    <th
+      onClick={onClick}
+      className="text-right text-xs font-semibold uppercase tracking-wider cursor-pointer select-none px-3 py-2 whitespace-nowrap"
+      style={{
+        color: active ? "var(--color-sage)" : "var(--color-muted)",
+        background: active ? "var(--color-sage-light)" : "transparent",
+        borderBottom: "1px solid var(--color-rule)",
+      }}
+    >
+      {label}
+      {active ? (dir === "desc" ? " ▼" : " ▲") : ""}
+    </th>
+  );
+}
+
+/* ── Sub-tab bar ──────────────────────────────────────────────────────── */
+
+type YearTab = "all" | "2026" | "2025";
+
+const YEAR_TABS: { id: YearTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "2026", label: "2026" },
+  { id: "2025", label: "2025" },
+];
+
+function SubTabs({
+  active,
+  onChange,
+}: {
+  active: YearTab;
+  onChange: (t: YearTab) => void;
+}) {
+  return (
+    <div
+      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
+      style={{ background: "var(--color-surface-2)" }}
+    >
+      {YEAR_TABS.map(({ id, label }) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: active === id ? "var(--color-surface)" : "transparent",
+            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
+            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -169,12 +430,25 @@ function BookCard({
 
 export default function RankingsClient({ data }: { data: BooksResponse }) {
   const { books, genres, category_order } = data;
+  const router = useRouter();
 
+  const [yearTab, setYearTab] = useState<YearTab>("all");
   const [genreFilter, setGenreFilter] = useState<string>("All genres");
   const [search, setSearch] = useState("");
+  const [sortField, setSortField] = useState<SortField>("wa");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
+
+  const onRefresh = useCallback(() => router.refresh(), [router]);
+
+  const scopedBooks = useMemo(() => {
+    if (yearTab === "all") return books;
+    const yr = parseInt(yearTab, 10);
+    return books.filter((b) => b.year_read === yr);
+  }, [books, yearTab]);
 
   const filtered = useMemo(() => {
-    let list = books;
+    let list = scopedBooks;
     if (genreFilter !== "All genres") {
       list = list.filter((b) => b.genre === genreFilter);
     }
@@ -187,13 +461,23 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
       );
     }
     return list;
-  }, [books, genreFilter, search]);
+  }, [scopedBooks, genreFilter, search]);
 
-  // Re-number ranks within the current view
-  const ranked = useMemo(
-    () => filtered.map((b, i) => ({ book: b, rank: i + 1 })),
-    [filtered]
-  );
+  const sorted = useMemo(() => {
+    const mult = sortDir === "desc" ? -1 : 1;
+    return [...filtered].sort(
+      (a, b) => mult * (getFieldValue(a, sortField) - getFieldValue(b, sortField))
+    );
+  }, [filtered, sortField, sortDir]);
+
+  function handleSortClick(field: SortField) {
+    if (field === sortField) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  }
 
   const handleGenre = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setGenreFilter(e.target.value);
@@ -203,10 +487,16 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
     setSearch(e.target.value);
   }, []);
 
+  const handleYearTab = useCallback((t: YearTab) => {
+    setYearTab(t);
+    setGenreFilter("All genres");
+    setSearch("");
+  }, []);
+
   return (
     <div>
       {/* Page header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1
           className="font-display text-3xl font-bold leading-tight"
           style={{ color: "var(--color-ink)" }}
@@ -214,13 +504,15 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
           Rankings
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {books.length} books rated · sorted by Weighted Average
+          {books.length} books rated · click a column header to sort · click a row to expand scores
         </p>
       </div>
 
+      {/* Year sub-tabs */}
+      <SubTabs active={yearTab} onChange={handleYearTab} />
+
       {/* Controls */}
       <div className="flex flex-wrap gap-3 mb-6">
-        {/* Genre filter */}
         <select
           value={genreFilter}
           onChange={handleGenre}
@@ -240,7 +532,6 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
           ))}
         </select>
 
-        {/* Search */}
         <div className="relative flex-1 min-w-52">
           <input
             type="text"
@@ -271,7 +562,6 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
           </svg>
         </div>
 
-        {/* Count badge */}
         <div
           className="flex items-center px-3 rounded-lg text-sm font-medium"
           style={{
@@ -284,52 +574,169 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
         </div>
       </div>
 
-      {/* Legend for spine colours */}
-      <div
-        className="flex flex-wrap gap-3 mb-6 p-3 rounded-xl text-xs"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
-      >
-        <span style={{ color: "var(--color-muted)" }} className="font-medium self-center">
-          Spine:
-        </span>
-        {[
-          { label: "S+ ≥9.5", cls: "spine-sp" },
-          { label: "S ≥8.5", cls: "spine-s" },
-          { label: "A ≥7.5", cls: "spine-a" },
-          { label: "B ≥6.5", cls: "spine-b" },
-          { label: "C ≥5.5", cls: "spine-c" },
-          { label: "D ≥4.5", cls: "spine-d" },
-          { label: "F <4.5", cls: "spine-f" },
-        ].map(({ label, cls }) => (
-          <span key={cls} className="flex items-center gap-1.5">
-            <span
-              className={`inline-block w-2.5 h-4 rounded-sm book-card ${cls}`}
-              style={{ border: "1px solid transparent", borderLeftWidth: "3px" }}
-            />
-            <span style={{ color: "var(--color-muted)" }}>{label}</span>
-          </span>
-        ))}
-      </div>
-
-      {/* Book list */}
-      <div className="space-y-2">
-        {ranked.length === 0 ? (
-          <p
-            className="text-center py-16 text-sm"
-            style={{ color: "var(--color-muted)" }}
-          >
-            No books match your filters.
-          </p>
-        ) : (
-          ranked.map(({ book, rank }) => (
-            <BookCard
-              key={book.title}
-              book={book}
-              categoryOrder={category_order}
-              rank={rank}
-            />
-          ))
-        )}
+      {/* Rankings table */}
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "0.875rem",
+          }}
+        >
+          <thead>
+            <tr style={{ background: "var(--color-surface)" }}>
+              <th
+                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                style={{
+                  color: "var(--color-muted)",
+                  borderBottom: "1px solid var(--color-rule)",
+                  minWidth: "2rem",
+                }}
+              >
+                #
+              </th>
+              <th
+                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                style={{
+                  color: "var(--color-muted)",
+                  borderBottom: "1px solid var(--color-rule)",
+                  minWidth: "12rem",
+                }}
+              >
+                Book
+              </th>
+              {SORT_COLS.map(({ field, label }) => (
+                <SortHeader
+                  key={field}
+                  field={field}
+                  label={label}
+                  active={sortField === field}
+                  dir={sortDir}
+                  onClick={() => handleSortClick(field)}
+                />
+              ))}
+              <th
+                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                style={{
+                  color: "var(--color-muted)",
+                  borderBottom: "1px solid var(--color-rule)",
+                }}
+              >
+                Genre
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="text-center py-16 text-sm"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  No books match your filters.
+                </td>
+              </tr>
+            ) : (
+              sorted.map((book, i) => {
+                const isExpanded = expandedTitle === book.title;
+                const avgs = book.category_avgs ?? {};
+                return (
+                  <React.Fragment key={book.title}>
+                    <tr
+                      onClick={() =>
+                        setExpandedTitle(isExpanded ? null : book.title)
+                      }
+                      className={`book-card ${spineClass(book.wa)} cursor-pointer`}
+                      style={{
+                        borderBottom: isExpanded
+                          ? "none"
+                          : "1px solid var(--color-rule)",
+                        borderLeft: "3px solid",
+                        transition: "background 0.1s",
+                      }}
+                    >
+                      <td
+                        className="px-3 py-3 font-display italic text-sm text-right"
+                        style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}
+                      >
+                        {i + 1}
+                      </td>
+                      <td className="px-3 py-3" style={{ minWidth: "12rem" }}>
+                        <div
+                          className="font-display font-semibold text-sm leading-tight"
+                          style={{ color: "var(--color-ink)" }}
+                        >
+                          {book.title}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                          {book.author}
+                          {book.series ? (
+                            <span style={{ color: "var(--color-faint)" }}>
+                              {" "}· {book.series}
+                            </span>
+                          ) : null}
+                          {book.words ? (
+                            <span style={{ color: "var(--color-faint)" }}>
+                              {" "}· {formatWords(book.words)}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      {/* WA */}
+                      <td
+                        className="px-3 py-3 text-right font-semibold"
+                        style={{
+                          color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)",
+                          background: sortField === "wa" ? "var(--color-sage-light)" : "transparent",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {book.wa.toFixed(2)}
+                      </td>
+                      {/* Category averages */}
+                      {(["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] as const).map((cat) => {
+                        const val = avgs[cat] ?? 0;
+                        const isActive = sortField === cat;
+                        return (
+                          <td
+                            key={cat}
+                            className="px-3 py-3 text-right"
+                            style={{
+                              color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"),
+                              background: isActive ? "var(--color-sage-light)" : "transparent",
+                              fontVariantNumeric: "tabular-nums",
+                            }}
+                          >
+                            {val === 0 ? "—" : val.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-3">
+                        <span className="genre-chip">{book.genre}</span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}
+                        >
+                          <BookExpandedPanel
+                            book={book}
+                            categoryOrder={category_order}
+                            onRefresh={onRefresh}
+                            onClose={() => setExpandedTitle(null)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

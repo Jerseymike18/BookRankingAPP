@@ -1,7 +1,5 @@
-import { fetchBooks } from "@/lib/api";
-import EditRatingsClient from "./EditRatingsClient";
+import { redirect } from "next/navigation";
 
-export default async function EditRatingsPage() {
-  const data = await fetchBooks();
-  return <EditRatingsClient data={data} />;
+export default function EditRatingsPage() {
+  redirect("/rankings");
 }

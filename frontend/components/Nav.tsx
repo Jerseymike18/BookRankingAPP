@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/rankings", label: "Rankings" },
-  { href: "/add-book", label: "Add a Book" },
-  { href: "/edit-ratings", label: "Edit Ratings" },
-  { href: "/tier-list", label: "Tier List" },
-  { href: "/predict", label: "Predict" },
+  { href: "/reading", label: "Reading" },
   { href: "/read-queue", label: "Read Queue" },
+  { href: "/predict", label: "Predict" },
+  { href: "/rankings", label: "Rankings" },
+  { href: "/tier-list", label: "Tier List" },
+  { href: "/series", label: "Series" },
+  { href: "/timeline", label: "Timeline" },
+  { href: "/add-book", label: "Add a Book" },
 ];
 
 export default function Nav() {
