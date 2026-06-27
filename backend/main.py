@@ -223,7 +223,50 @@ def add_book(req: AddBookRequest):
         pass  # dequeue failure is non-fatal; book was still added
 
     _invalidate_engine()
+
+    # If this title had a stored prediction, record the delta automatically.
+    # Non-fatal: a failure here never rolls back the successful add_book.
+    try:
+        _maybe_log_delta(req.title, req.scores)
+    except Exception:
+        pass
+
     return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+def _maybe_log_delta(title: str, act_scores: dict) -> None:
+    """Check recommendations for a stored prediction and log delta if found."""
+    con = sqlite3.connect(db_write.DB)
+    row = con.execute(
+        "SELECT genre, " + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
+        + ' FROM recommendations WHERE LOWER(title)=LOWER(?) ORDER BY id DESC LIMIT 1',
+        (title,)
+    ).fetchone()
+    con.close()
+    if row is None:
+        return  # no prediction on record
+
+    genre = row[0]
+    pred_scores = dict(zip(db_write.FICTION_COMPONENTS, row[1:]))
+    if not any(v is not None for v in pred_scores.values()):
+        return  # recommendation exists but has no component scores
+
+    # Compute pred_wa by running the same WA formula as db_loader
+    books, gw, gcw = _get_engine()[:3]
+    wcats = {
+        cat: db_loader._weighted_cat_avg(pred_scores, genre, cat, gcw)
+        for cat in db_loader.CATEGORY_OF_INTEREST
+    }
+    pred_wa = sum(wcats[cat] * (gw.get(genre, {}).get(cat) or 0)
+                  for cat in db_loader.CATEGORY_OF_INTEREST)
+
+    # act_wa: pull the just-inserted book from the freshly-rebuilt engine
+    match = books[books["Book"].str.lower() == title.lower()]
+    if match.empty:
+        return
+    act_wa = float(match.iloc[0]["WA"])
+
+    db_write.log_delta(title, pred_scores, pred_wa, act_scores, act_wa)
 
 
 class EditRatingRequest(BaseModel):
@@ -1191,3 +1234,49 @@ def save_recommendation(req: SaveRecommendationRequest):
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not save recommendation.")
     return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DELTA LOG
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/delta-log")
+def get_delta_log():
+    """Return all recorded prediction-vs-actual deltas, newest first."""
+    COMPS = db_write.FICTION_COMPONENTS
+
+    def _col(c: str) -> str:
+        return c.replace(" ", "_").replace("-", "_")
+
+    pred_cols = [f'"pred_{_col(c)}" as "pred_{_col(c)}"' for c in COMPS]
+    act_cols  = [f'"act_{_col(c)}"  as "act_{_col(c)}"'  for c in COMPS]
+    d_cols    = [f'"d_{_col(c)}"    as "d_{_col(c)}"'    for c in COMPS]
+    sel = ", ".join(
+        ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+        + pred_cols + act_cols + d_cols
+    )
+    con = sqlite3.connect(db_write.DB)
+    rows = con.execute(
+        f"SELECT {sel} FROM delta_log ORDER BY id DESC"
+    ).fetchall()
+    col_names = (
+        ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+        + [f"pred_{_col(c)}" for c in COMPS]
+        + [f"act_{_col(c)}"  for c in COMPS]
+        + [f"d_{_col(c)}"    for c in COMPS]
+    )
+    con.close()
+
+    entries = [dict(zip(col_names, r)) for r in rows]
+
+    # Per-component mean delta across all logged entries (predictive drift)
+    drift: dict[str, float | None] = {}
+    for c in COMPS:
+        vals = [e[f"d_{_col(c)}"] for e in entries if e.get(f"d_{_col(c)}") is not None]
+        drift[c] = round(sum(vals) / len(vals), 4) if vals else None
+
+    return {
+        "entries": entries,
+        "components": COMPS,
+        "drift": drift,
+    }

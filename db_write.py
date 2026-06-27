@@ -58,6 +58,37 @@ WORLDBUILDING = {"Depth2", "Integration", "Originality"}
 VALID_STATUSES = ("finished", "currently-reading", "reading-next")
 
 
+# Map component name → SQL column suffix (spaces/hyphens → underscores)
+def _col(comp: str) -> str:
+    return comp.replace(" ", "_").replace("-", "_")
+
+
+# ---------------------------------------------------------------------------
+# Schema migration: delta_log table (created once on first import)
+# ---------------------------------------------------------------------------
+def _ensure_delta_log():
+    """Create the delta_log table if it doesn't exist yet."""
+    comp_cols = []
+    for prefix in ("pred_", "act_", "d_"):
+        for c in FICTION_COMPONENTS:
+            comp_cols.append(f'"{prefix}{_col(c)}" REAL')
+    col_ddl = ",\n    ".join(comp_cols)
+    ddl = f"""
+    CREATE TABLE IF NOT EXISTS delta_log (
+        id         INTEGER PRIMARY KEY,
+        title      TEXT NOT NULL,
+        logged_at  TEXT NOT NULL,
+        pred_wa    REAL,
+        act_wa     REAL,
+        d_wa       REAL,
+        {col_ddl}
+    )"""
+    con = _connect()
+    con.execute(ddl)
+    con.commit()
+    con.close()
+
+
 # ---------------------------------------------------------------------------
 # Backup + connection helpers
 # ---------------------------------------------------------------------------
@@ -76,6 +107,9 @@ def _backup_once():
 
 def _connect():
     return sqlite3.connect(DB)
+
+
+_ensure_delta_log()
 
 
 def _valid_genres(con):
@@ -378,6 +412,47 @@ def update_queue(titles):
         print(f"  ✓ Queue updated ({len(titles)} books).")
     finally:
         con.close()
+
+
+# ---------------------------------------------------------------------------
+# WRITE: record a prediction-vs-actual delta when a forecast book gets rated
+# ---------------------------------------------------------------------------
+def log_delta(title: str, pred_scores: dict, pred_wa: float,
+              act_scores: dict, act_wa: float) -> None:
+    """
+    Record predicted vs actual component scores and WA delta for a book that
+    previously had a stored prediction. pred_scores / act_scores are both
+    dicts keyed by the canonical 14 component names. Records deltas as
+    (predicted − actual). Never raises — delta logging is non-fatal.
+    """
+    try:
+        logged_at = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        pred_cols = [f'"pred_{_col(c)}"' for c in FICTION_COMPONENTS]
+        act_cols  = [f'"act_{_col(c)}"'  for c in FICTION_COMPONENTS]
+        d_cols    = [f'"d_{_col(c)}"'    for c in FICTION_COMPONENTS]
+        all_cols  = (["title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+                     + pred_cols + act_cols + d_cols)
+        pred_vals = [pred_scores.get(c) for c in FICTION_COMPONENTS]
+        act_vals  = [act_scores.get(c)  for c in FICTION_COMPONENTS]
+        d_vals    = [
+            (pred_scores.get(c) - act_scores.get(c))
+            if pred_scores.get(c) is not None and act_scores.get(c) is not None
+            else None
+            for c in FICTION_COMPONENTS
+        ]
+        all_vals = (
+            [title, logged_at, pred_wa, act_wa, (pred_wa - act_wa)]
+            + pred_vals + act_vals + d_vals
+        )
+        ph = ",".join("?" for _ in all_vals)
+        col_str = ",".join(all_cols)
+        con = _connect()
+        con.execute(f"INSERT INTO delta_log ({col_str}) VALUES ({ph})", all_vals)
+        con.commit()
+        con.close()
+        print(f"  (delta logged for '{title}': d_wa={pred_wa - act_wa:+.3f})")
+    except Exception as exc:
+        print(f"  (delta log skipped for '{title}': {exc})")
 
 
 # ---------------------------------------------------------------------------

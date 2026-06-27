@@ -1,4 +1,5 @@
 import type {
+  DeltaLogResponse,
   BooksResponse,
   BookScoresResponse,
   LookupResult,
@@ -242,6 +243,12 @@ export async function addSeriesToQueue(seriesName: string): Promise<AddSeriesRes
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
+}
+
+export async function fetchDeltaLog(): Promise<DeltaLogResponse> {
+  const res = await fetch(`${API}/api/delta-log`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
 }
 
 export async function saveRecommendation(payload: {

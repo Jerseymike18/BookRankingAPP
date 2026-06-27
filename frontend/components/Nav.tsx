@@ -12,6 +12,7 @@ const links = [
   { href: "/tier-list", label: "Tier List" },
   { href: "/series", label: "Series" },
   { href: "/timeline", label: "Timeline" },
+  { href: "/delta-log", label: "Delta Log" },
 ];
 
 export default function Nav() {

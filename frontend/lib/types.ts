@@ -162,26 +162,22 @@ export interface ReadingStatsResponse {
   by_author: AuthorRow[];
 }
 
-export interface UnreadBook {
+export interface StatusSlot {
   title: string;
   author: string;
   genre: string;
-}
-
-export interface FinishedBook {
-  title: string;
-  author: string;
-  genre: string;
-  year: number | null;
-  wa: number;
-  rank: number;
+  series: string;
+  has_prediction: boolean;
+  wa: number | null;
+  rank: number | null;
   total: number;
+  category_avgs: Record<string, number>;
 }
 
 export interface ReadingStatusResponse {
-  pool: UnreadBook[];
-  last_year: number | null;
-  finished: FinishedBook[];
+  last_read: StatusSlot | null;
+  currently_reading: StatusSlot | null;
+  reading_next: StatusSlot | null;
 }
 
 export interface SeriesEntry {
@@ -231,6 +227,22 @@ export interface TimelineRow {
 export interface TimelineResponse {
   rows: TimelineRow[];
   categories: string[];
+}
+
+export interface DeltaLogEntry {
+  id: number;
+  title: string;
+  logged_at: string;
+  pred_wa: number | null;
+  act_wa: number | null;
+  d_wa: number | null;
+  [key: string]: number | string | null;  // pred_*/act_*/d_* component columns
+}
+
+export interface DeltaLogResponse {
+  entries: DeltaLogEntry[];
+  components: string[];
+  drift: Record<string, number | null>;
 }
 
 export interface AddSeriesResult {
