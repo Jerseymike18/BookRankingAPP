@@ -1,0 +1,10 @@
+apikey.txt
+apikey.py
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+.next/
+out/
+.DS_Store
