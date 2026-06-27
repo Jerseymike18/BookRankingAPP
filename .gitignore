@@ -8,3 +8,6 @@ node_modules/
 .next/
 out/
 .DS_Store
+
+# Local DB backups created by db_write._backup_once() — keep on disk, don't track
+books.db.backup-*
