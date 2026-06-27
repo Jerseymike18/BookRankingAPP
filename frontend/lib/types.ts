@@ -70,7 +70,13 @@ export interface InstantPrediction {
   n_src: number;
   n_genre: number;
   wcats: Record<string, number>;
+  wa_model: number;
+  bias: number;
+  trust: number;
+  analog_mean: number;
   r2: number;
+  resid_sd: number;
+  est: Record<string, number>;
 }
 
 export interface ResearchResult {

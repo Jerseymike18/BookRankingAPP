@@ -14,6 +14,19 @@ import type {
   Candidate,
   ScoredCandidate,
 } from "@/lib/types";
+import { SortableTable } from "@/components/SortableTable";
+import type { ColDef } from "@/components/SortableTable";
+
+/* ── Candidate table columns ─────────────────────────────────────────────── */
+
+const CANDIDATE_COLS: ColDef<Candidate>[] = [
+  { key: "title",  label: "Title",  type: "string", getValue: (c) => c.title },
+  { key: "author", label: "Author", type: "string", getValue: (c) => c.author },
+  { key: "genre",  label: "Genre",  type: "string", getValue: (c) => c.genre ?? "",
+    formatter: (v) => v ? <span className="genre-chip">{v}</span> : <span style={{ color: "var(--color-faint)", fontSize: "0.75rem" }}>auto-detect</span> },
+  { key: "status", label: "Status", type: "string", getValue: (c) => (c as Candidate).cached ? "cached" : "new",
+    sortable: false },
+];
 
 /* ── Shared input styles ─────────────────────────────────────────────────── */
 
@@ -172,6 +185,93 @@ function WACard({
           )}
         </p>
       </div>
+    </div>
+  );
+}
+
+/* ── Instant prediction decomposition chain ──────────────────────────────── */
+
+function InstantDecomposition({ p }: { p: InstantPrediction }) {
+  const [open, setOpen] = useState(false);
+  const waCorrected = p.wa_model + p.bias;
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--color-rule)" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 text-xs font-medium"
+        style={{ color: "var(--color-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+      >
+        <svg
+          className="w-3 h-3 flex-shrink-0"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        How this was calculated
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-4">
+          {/* Estimate source */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>
+              Component estimate source
+            </p>
+            <p className="text-sm" style={{ color: "var(--color-ink)" }}>
+              {p.src === "author"
+                ? `Based on ${p.n_src} book${p.n_src !== 1 ? "s" : ""} by this author`
+                : p.src === "genre"
+                ? `Based on ${p.n_src} book${p.n_src !== 1 ? "s" : ""} in this genre`
+                : `Global prior (${p.n_src} books) — no author or genre data`}
+            </p>
+          </div>
+
+          {/* Computation chain */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--color-muted)" }}>
+              WA computation
+            </p>
+            <div
+              className="rounded-lg p-3 space-y-1.5 text-xs"
+              style={{ background: "var(--color-ground)", border: "1px solid var(--color-rule)", fontFamily: "var(--font-mono, monospace)" }}
+            >
+              <div className="flex justify-between gap-4">
+                <span style={{ color: "var(--color-muted)" }}>Regression point estimate</span>
+                <span style={{ color: "var(--color-ink)" }}>{p.wa_model.toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span style={{ color: "var(--color-muted)" }}>
+                  Genre bias correction ({p.bias >= 0 ? "+" : ""}{p.bias.toFixed(3)})
+                </span>
+                <span style={{ color: p.bias >= 0 ? "var(--color-sage)" : "#C07C5A" }}>
+                  {waCorrected.toFixed(3)}
+                </span>
+              </div>
+              <div
+                className="flex justify-between gap-4 pt-1.5"
+                style={{ borderTop: "1px solid var(--color-rule)" }}
+              >
+                <span style={{ color: "var(--color-muted)" }}>
+                  Analog mean (trust={p.trust.toFixed(2)}, blend {Math.round(p.trust * 100)}% model + {Math.round((1 - p.trust) * 100)}% analog)
+                </span>
+                <span style={{ color: "var(--color-ink)" }}>{p.analog_mean.toFixed(3)}</span>
+              </div>
+              <div
+                className="flex justify-between gap-4 pt-1.5 font-semibold"
+                style={{ borderTop: "1px solid var(--color-rule)", color: "var(--color-ink)" }}
+              >
+                <span>Final WA</span>
+                <span>{p.wa_final.toFixed(3)}</span>
+              </div>
+            </div>
+            <p className="text-xs mt-1.5" style={{ color: "var(--color-faint)" }}>
+              Model R²={p.r2.toFixed(3)} · residual SD={p.resid_sd.toFixed(3)} · 90% CI = final WA ± 1.645 × SD
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -435,6 +535,14 @@ function PredictMode({
               label="Predicted WA"
               rankRange={instant.rank_range}
             />
+            {nGenreInstant < 5 && (
+              <div
+                className="mt-3 rounded-lg px-3 py-2 text-xs"
+                style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}
+              >
+                Thin genre (n={nGenreInstant}) — only {nGenreInstant} rated book{nGenreInstant !== 1 ? "s" : ""} in this genre. Treat as rough.
+              </div>
+            )}
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
               {Object.entries(instant.wcats).map(([cat, val]) => (
                 <div key={cat} className="comp-tile">
@@ -443,14 +551,7 @@ function PredictMode({
                 </div>
               ))}
             </div>
-            <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
-              Estimate basis: {instant.src} (n={instant.n_src})
-              {nGenreInstant < 5 && (
-                <span style={{ color: "#92400E" }}>
-                  {" "}· Thin genre (n={nGenreInstant}) — treat as rough
-                </span>
-              )}
-            </p>
+            <InstantDecomposition p={instant} />
           </Card>
         )}
       </div>
@@ -757,53 +858,12 @@ function DiscoverMode({
           >
             Candidates for: <em>{requestLabel}</em>
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-rule)" }}>
-                  {["#", "Title", "Author", "Genre", "Status"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2 pr-4 text-xs font-semibold uppercase tracking-widest"
-                      style={{ color: "var(--color-muted)" }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c, i) => (
-                  <tr
-                    key={c.title}
-                    style={{ borderBottom: "1px solid var(--color-rule)" }}
-                  >
-                    <td className="py-2 pr-4" style={{ color: "var(--color-faint)" }}>
-                      {i + 1}
-                    </td>
-                    <td className="py-2 pr-4 font-medium" style={{ color: "var(--color-ink)" }}>
-                      {c.title}
-                    </td>
-                    <td className="py-2 pr-4" style={{ color: "var(--color-muted)" }}>
-                      {c.author}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {c.genre ? (
-                        <span className="genre-chip">{c.genre}</span>
-                      ) : (
-                        <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-                          auto-detect
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2" style={{ color: "var(--color-muted)" }}>
-                      {c.cached ? "cached (free)" : "new"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SortableTable<Candidate>
+            columns={CANDIDATE_COLS}
+            data={candidates}
+            defaultSort={{ key: "title", dir: "asc" }}
+            getRowKey={(c) => c.title}
+          />
           <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
             {nCached} already researched (free) · {nNew} new (~1¢ and a few seconds each)
           </p>

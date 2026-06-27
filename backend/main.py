@@ -800,7 +800,13 @@ def predict_instant(title: str, author: str, genre: str):
         "src": p["src"], "n_src": p["n_src"],
         "n_genre": g_info.get("n", 0),
         "wcats": {k: round(float(v), 4) for k, v in p["wcats"].items()},
+        "wa_model": round(p["wa_model"], 4),
+        "bias": round(p["bias"], 4),
+        "trust": round(p["trust"], 4),
+        "analog_mean": round(p["analog_mean"], 4),
         "r2": round(p["r2"], 4),
+        "resid_sd": round(p["resid_sd"], 4),
+        "est": {k: round(float(v), 4) for k, v in p["est"].items()},
     }
 
 
