@@ -12,6 +12,7 @@ import type {
   SeriesResponse,
   SeriesTiersResponse,
   TimelineResponse,
+  AddSeriesResult,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -217,6 +218,26 @@ export async function generateRecommendationMeta(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function deleteRecommendation(title: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API}/api/recommendations/${encodeURIComponent(title)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function addSeriesToQueue(seriesName: string): Promise<AddSeriesResult> {
+  const res = await fetch(`${API}/api/queue/add-series`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ series_name: seriesName }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useRef, useTransition } from "react";
 import type { ReadQueueResponse, Recommendation } from "@/lib/types";
-import { saveQueue, generateRecommendationMeta } from "@/lib/api";
+import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation } from "@/lib/api";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -148,15 +148,20 @@ function RecExpandedPanel({
   rec,
   moodScore,
   hasMoods,
+  onDelete,
 }: {
   rec: Recommendation;
   moodScore: number | null;
   hasMoods: boolean;
+  onDelete: () => void;
 }) {
   const [blurb, setBlurb] = useState(rec.blurb);
   const [keywords, setKeywords] = useState(rec.keywords);
   const [genError, setGenError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   function handleGenerate() {
     setGenError(null);
@@ -252,6 +257,53 @@ function RecExpandedPanel({
 
       {/* Component scores */}
       <ComponentScores components={rec.components} />
+
+      {/* Delete */}
+      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: "var(--color-rule)" }}>
+        {!deleteConfirm ? (
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+          >
+            Remove from TBR
+          </button>
+        ) : (
+          <>
+            <span className="text-xs" style={{ color: "#c0392b" }}>Remove permanently?</span>
+            <button
+              onClick={async () => {
+                setIsDeleting(true);
+                setDeleteError(null);
+                try {
+                  await deleteRecommendation(rec.title);
+                  onDelete();
+                } catch (e: unknown) {
+                  setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+                  setDeleteConfirm(false);
+                } finally {
+                  setIsDeleting(false);
+                }
+              }}
+              disabled={isDeleting}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
+              style={{ background: "#c0392b", color: "#fff" }}
+            >
+              {isDeleting ? "Removing…" : "Yes, remove"}
+            </button>
+            <button
+              onClick={() => setDeleteConfirm(false)}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+            >
+              Cancel
+            </button>
+          </>
+        )}
+        {deleteError && (
+          <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -394,8 +446,10 @@ function QueueCard({
       onDragEnd={onDragEnd}
       className="book-card px-4 py-3 shadow-sm flex items-center gap-3 select-none"
       style={{
-        border: `1px solid ${isOver ? "var(--color-sage)" : "var(--color-rule)"}`,
-        borderLeftWidth: "3px",
+        borderTop: "1px solid var(--color-rule)",
+        borderRight: "1px solid var(--color-rule)",
+        borderBottom: "1px solid var(--color-rule)",
+        borderLeft: `3px solid ${isOver ? "var(--color-sage)" : "var(--color-rule)"}`,
         opacity: isDragging ? 0.4 : 1,
         cursor: "grab",
         transition: "opacity 150ms, border-color 150ms",
@@ -480,6 +534,9 @@ function QueueTab({
   const savedRef = useRef<string[]>(initialQueue);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [seriesInput, setSeriesInput] = useState("");
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesStatus, setSeriesStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const recByTitle = useMemo(() => {
     const m = new Map<string, Recommendation>();
@@ -553,6 +610,30 @@ function QueueTab({
   function handleDragEnd() {
     setDragIdx(null);
     setDragOverIdx(null);
+  }
+
+  async function handleAddSeries() {
+    const name = seriesInput.trim();
+    if (!name) return;
+    setSeriesLoading(true);
+    setSeriesStatus(null);
+    try {
+      const result = await addSeriesToQueue(name);
+      if (result.ambiguous || !result.ok) {
+        setSeriesStatus({ ok: false, msg: result.message });
+      } else {
+        setSeriesStatus({ ok: true, msg: result.message });
+        if (result.appended_titles && result.appended_titles.length > 0) {
+          setItems((prev) => [...prev, ...result.appended_titles!.filter((t) => !prev.includes(t))]);
+          savedRef.current = [...savedRef.current, ...result.appended_titles!.filter((t) => !savedRef.current.includes(t))];
+        }
+        setSeriesInput("");
+      }
+    } catch (e: unknown) {
+      setSeriesStatus({ ok: false, msg: e instanceof Error ? e.message : "Failed to add series." });
+    } finally {
+      setSeriesLoading(false);
+    }
   }
 
   function toggleTextMode() {
@@ -700,6 +781,49 @@ function QueueTab({
           </span>
         )}
       </div>
+
+      {/* Add series */}
+      <div
+        className="rounded-xl p-4 space-y-3 mt-2"
+        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      >
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+          Add series to queue
+        </p>
+        <p className="text-xs" style={{ color: "var(--color-faint)" }}>
+          Type a series name and all unread books will be appended in reading order. Missing books are added to your TBR first.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="e.g. Mistborn Era 1, The Stormlight Archive…"
+            value={seriesInput}
+            onChange={(e) => { setSeriesInput(e.target.value); setSeriesStatus(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && !seriesLoading) handleAddSeries(); }}
+            disabled={seriesLoading}
+            className="flex-1 px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0 disabled:opacity-50"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-rule)",
+              color: "var(--color-ink)",
+              fontFamily: "var(--font-body)",
+            }}
+          />
+          <button
+            onClick={handleAddSeries}
+            disabled={!seriesInput.trim() || seriesLoading}
+            className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity whitespace-nowrap"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}
+          >
+            {seriesLoading ? "Adding…" : "Add series"}
+          </button>
+        </div>
+        {seriesStatus && (
+          <p className="text-sm" style={{ color: seriesStatus.ok ? "var(--color-sage)" : "#c0392b" }}>
+            {seriesStatus.ok ? "✓ " : "✗ "}{seriesStatus.msg}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -714,6 +838,8 @@ export default function ReadQueueClient({
   initialQueue: string[];
 }) {
   const { recommendations, genres } = data;
+
+  const [deletedTitles, setDeletedTitles] = useState<Set<string>>(new Set());
 
   /* Mood weights */
   const [moodWeights, setMoodWeights] = useState<Record<string, number>>(
@@ -748,7 +874,7 @@ export default function ReadQueueClient({
 
   /* Filtered + scored + sorted list */
   const results = useMemo(() => {
-    let list = recommendations;
+    let list = recommendations.filter((r) => !deletedTitles.has(r.title));
 
     if (fGenre !== "All genres") {
       list = list.filter((r) => r.genre === fGenre);
@@ -781,7 +907,7 @@ export default function ReadQueueClient({
       rec: r,
       moodScore: hasMoods ? moodScoreFor(r, active) : null,
     }));
-  }, [recommendations, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
+  }, [recommendations, deletedTitles, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
 
   const resetMoods = useCallback(() => {
     setMoodWeights(Object.fromEntries(MOOD_NAMES.map((m) => [m, 0])));
@@ -819,7 +945,7 @@ export default function ReadQueueClient({
           Read Queue
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {recommendations.length} book{recommendations.length !== 1 ? "s" : ""} in your to-read list · {initialQueue.length} in your ordered queue
+          {recommendations.length - deletedTitles.size} book{(recommendations.length - deletedTitles.size) !== 1 ? "s" : ""} in your to-read list · {initialQueue.length} in your ordered queue
         </p>
       </div>
 
@@ -1094,7 +1220,15 @@ export default function ReadQueueClient({
                                 colSpan={colCount}
                                 style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}
                               >
-                                <RecExpandedPanel rec={rec} moodScore={moodScore} hasMoods={hasMoods} />
+                                <RecExpandedPanel
+                                  rec={rec}
+                                  moodScore={moodScore}
+                                  hasMoods={hasMoods}
+                                  onDelete={() => {
+                                    setDeletedTitles((prev) => new Set([...prev, rec.title]));
+                                    setExpandedTitle(null);
+                                  }}
+                                />
                               </td>
                             </tr>
                           )}

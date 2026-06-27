@@ -31,7 +31,7 @@ import pandas as pd
 import anthropic
 import predict_engine as pe
 
-MODEL = "claude-sonnet-4-5"
+MODEL = "claude-opus-4-8"
 RICH_CACHE = "llm_scores_richer.json"
 
 LIVE = ["Plot", "Entertainment", "Action", "Ending", "Depth",

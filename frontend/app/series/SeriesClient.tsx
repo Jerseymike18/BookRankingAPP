@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { SeriesResponse, SeriesTiersResponse, SeriesTierEntry } from "@/lib/types";
+import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
@@ -66,17 +66,71 @@ function GenreFilter({
   );
 }
 
+/* ── Sort types ───────────────────────────────────────────────────────────── */
+
+type SeriesSortField = "adjusted_wa" | "avg_wa" | "books";
+type SortDir = "desc" | "asc";
+
+function getSortValue(s: SeriesEntry, field: SeriesSortField): number {
+  if (field === "books") return s.books;
+  return (s[field] ?? 0);
+}
+
+function SortTh({
+  label,
+  field,
+  active,
+  dir,
+  onClick,
+  align = "left",
+}: {
+  label: string;
+  field: SeriesSortField;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      onClick={onClick}
+      className={`px-3 py-2.5 text-${align} font-semibold text-xs uppercase tracking-wider cursor-pointer select-none whitespace-nowrap`}
+      style={{
+        color: active ? "var(--color-sage)" : "var(--color-muted)",
+        background: active ? "var(--color-sage-light)" : "transparent",
+      }}
+    >
+      {label}{active ? (dir === "desc" ? " ▼" : " ▲") : ""}
+    </th>
+  );
+}
+
 /* ── Rankings tab ─────────────────────────────────────────────────────────── */
 
 function RankingsTab({ data }: { data: SeriesResponse }) {
   const [genre, setGenre] = useState("");
+  const [sortField, setSortField] = useState<SeriesSortField>("adjusted_wa");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function handleSort(field: SeriesSortField) {
+    if (field === sortField) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  }
 
   const genres = useMemo(
     () => [...new Set(data.series.map((s) => s.genre))].sort(),
     [data.series]
   );
 
-  const filtered = genre ? data.series.filter((s) => s.genre === genre) : data.series;
+  const sorted = useMemo(() => {
+    const base = genre ? data.series.filter((s) => s.genre === genre) : data.series;
+    const mult = sortDir === "desc" ? -1 : 1;
+    return [...base].sort((a, b) => mult * (getSortValue(a, sortField) - getSortValue(b, sortField)));
+  }, [data.series, genre, sortField, sortDir]);
 
   if (data.series.length === 0) {
     return <p className="text-sm" style={{ color: "var(--color-muted)" }}>No multi-book series found.</p>;
@@ -85,44 +139,38 @@ function RankingsTab({ data }: { data: SeriesResponse }) {
   return (
     <div>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        Ranked by Adjusted WA — avg WA plus a length bonus (0.0582 × (1.18^(n−1) − 1)) minus a short-series penalty (−0.2 per book below 3 read).
+        Ranked by Adjusted WA — avg WA plus a length bonus (0.0582 × (1.18^(n−1) − 1)) minus a short-series penalty (−0.2 per book below 3 read). Click a column header to sort.
       </p>
       <GenreFilter genres={genres} active={genre} onChange={setGenre} />
-      <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{filtered.length} series</p>
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: "1px solid var(--color-rule)" }}
-      >
-        <table className="w-full text-sm">
+      <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{sorted.length} series</p>
+      <div style={{ overflowX: "auto" }}>
+        <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "var(--color-surface-2)" }}>
-              {["#", "Series", "Author", "Genre", "Books", "Avg WA", "Adj WA", "Avg Total Avg"].map((h) => (
-                <th
-                  key={h}
-                  className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  {h}
-                </th>
-              ))}
+            <tr style={{ background: "var(--color-surface-2)", borderBottom: "1px solid var(--color-rule)" }}>
+              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>#</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Series</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Author</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Genre</th>
+              <SortTh label="Books" field="books" active={sortField === "books"} dir={sortDir} onClick={() => handleSort("books")} align="right" />
+              <SortTh label="Adj WA" field="adjusted_wa" active={sortField === "adjusted_wa"} dir={sortDir} onClick={() => handleSort("adjusted_wa")} align="right" />
+              <SortTh label="Avg WA" field="avg_wa" active={sortField === "avg_wa"} dir={sortDir} onClick={() => handleSort("avg_wa")} align="right" />
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s, i) => (
+            {sorted.map((s, i) => (
               <tr
                 key={s.series}
                 style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
               >
-                <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{s.rank}</td>
+                <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{i + 1}</td>
                 <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)" }}>{s.series}</td>
                 <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.author}</td>
                 <td className="px-3 py-2.5">
                   <span className="genre-chip">{s.genre}</span>
                 </td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.books}</td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-ink)" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
-                <td className="px-3 py-2.5 font-semibold" style={{ color: "var(--color-sage)" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.avg_total_average?.toFixed(2) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortField === "books" ? "var(--color-sage)" : "var(--color-muted)", background: sortField === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
+                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: sortField === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortField === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortField === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
               </tr>
             ))}
           </tbody>

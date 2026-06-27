@@ -151,11 +151,14 @@ def add_book(title, genre, author, scores, series=None, words=None,
 # WRITE: add a researched recommendation
 # ---------------------------------------------------------------------------
 def add_recommendation(title, genre, author, scores, series=None, words=None,
-                       blurb=None, keywords=None, done=0, allow_new_genre=False):
+                       blurb=None, keywords=None, done=0, allow_new_genre=False,
+                       require_scores=True):
     """
     Add a researched (not-yet-read) book to the recommendations table. Same
     validation discipline as add_book: genre must be known, the 14 component
     scores are range/completeness checked, and nothing commits on failure.
+    Pass require_scores=False to allow adding without component scores (e.g.
+    when bulk-adding series books that haven't been researched yet).
     Returns True on success, False otherwise.
     """
     con = _connect()
@@ -171,7 +174,7 @@ def add_recommendation(title, genre, author, scores, series=None, words=None,
         if dup:
             raise ValidationError(
                 f"A recommendation titled '{title}' already exists.")
-        _validate_scores(scores, require_all=True)
+        _validate_scores(scores, require_all=require_scores)
 
         _backup_once()
         cols = (["title", "genre", "author", "series", "words", "done",
@@ -268,6 +271,26 @@ def delete_book(title):
 # ---------------------------------------------------------------------------
 # WRITE: reading-log status + year_read (the BookTracker port)
 # ---------------------------------------------------------------------------
+def delete_recommendation(title):
+    """Permanently delete a TBR recommendation by title. Backs up before writing."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT id FROM recommendations WHERE title=?", (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No recommendation titled '{title}' found.")
+        _backup_once()
+        con.execute("DELETE FROM recommendations WHERE title=?", (title,))
+        con.commit()
+        print(f"  ✓ Deleted recommendation '{title}'.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not deleted — {e}")
+        return False
+    finally:
+        con.close()
+
+
 def set_status(title, status):
     """Set a rated book's reading status (finished / currently-reading /
     reading-next). Validated against VALID_STATUSES; nothing commits on failure.

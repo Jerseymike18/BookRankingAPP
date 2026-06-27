@@ -49,7 +49,7 @@ import pandas as pd
 import anthropic
 import predict_engine as pe
 
-MODEL = "claude-sonnet-4-5"          # current Sonnet; swap if told otherwise
+MODEL = "claude-opus-4-8"            # Opus for grounded research scoring
 WORKBOOK = pe.WORKBOOK
 
 

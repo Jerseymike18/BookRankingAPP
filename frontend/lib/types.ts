@@ -232,3 +232,17 @@ export interface TimelineResponse {
   rows: TimelineRow[];
   categories: string[];
 }
+
+export interface AddSeriesResult {
+  ok: boolean;
+  ambiguous: boolean;
+  series_canonical?: string;
+  total_books?: number;
+  already_read?: number;
+  already_tbr?: number;
+  newly_added?: number;
+  appended_to_queue?: number;
+  appended_titles?: string[];
+  message: string;
+  errors?: string[];
+}

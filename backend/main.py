@@ -354,6 +354,22 @@ def delete_book(title: str):
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
+@app.delete("/api/recommendations/{title}")
+def delete_recommendation(title: str):
+    """Permanently delete a TBR recommendation via db_write.delete_recommendation."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.delete_recommendation(title)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok:
+        msg = out.replace("✗", "").strip()
+        raise HTTPException(status_code=422, detail=msg or "Could not delete recommendation.")
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -387,6 +403,201 @@ def update_queue(req: UpdateQueueRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
+
+
+class AddSeriesRequest(BaseModel):
+    series_name: str
+
+
+@app.post("/api/queue/add-series")
+def add_series_to_queue(req: AddSeriesRequest):
+    """
+    Resolve a series name via LLM, then append the unread books (in reading
+    order) to the end of the current queue. Books not already in the TBR or
+    read tables are added to recommendations (no scores). Already-read books
+    are skipped. Returns a summary of what happened.
+    """
+    series_name = req.series_name.strip()
+    if not series_name:
+        raise HTTPException(status_code=422, detail="Series name is required.")
+
+    try:
+        import research_predict as rp
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    try:
+        client = rp.get_client()
+    except FileNotFoundError:
+        raise HTTPException(status_code=503,
+                            detail="apikey.txt not found — add your Anthropic API key.")
+
+    con = sqlite3.connect(db_write.DB)
+    allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
+
+    # Fetch existing data for de-dupe checks
+    read_titles = {t.strip().lower() for (t,) in con.execute("SELECT title FROM books")}
+    tbr_titles = {t.strip().lower() for (t,) in con.execute("SELECT title FROM recommendations WHERE done=0")}
+    current_queue = [t for (t,) in con.execute("SELECT title FROM read_queue ORDER BY position")]
+    queue_set = {t.strip().lower() for t in current_queue}
+    con.close()
+
+    # ── LLM: resolve series → ordered book list ───────────────────────────
+    genres_str = ", ".join(allowed_genres)
+    prompt = f"""You are a book-data assistant. Return ONLY a JSON object — no prose, no markdown.
+
+Series name: "{series_name}"
+
+If the series name is ambiguous or does not match a known book series, return:
+{{"ambiguous": true, "reason": "brief explanation"}}
+
+Otherwise return:
+{{
+  "ambiguous": false,
+  "series_canonical": "canonical series name",
+  "books": [
+    {{"title": "...", "author": "...", "genre": "...", "words": 123456, "order": 1}},
+    ...
+  ]
+}}
+
+Rules:
+- Use the standard reading order (publication order, or chronological if that is the convention for this series).
+- "genre" must be one of these exact values: {genres_str}
+- "words" is an integer word count estimate (null if unknown).
+- "order" is 1-indexed reading position.
+- Include every main-series entry. Omit novellas and short stories unless they are essential to the main plot.
+- Do not include any text outside the JSON object."""
+
+    try:
+        msg = client.messages.create(
+            model=rp.DISCOVER_MODEL,
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = msg.content[0].text.strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        import json
+        data = json.loads(raw)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
+
+    if data.get("ambiguous"):
+        return {
+            "ok": False,
+            "ambiguous": True,
+            "message": data.get("reason", "Series name is ambiguous — please be more specific."),
+        }
+
+    books = data.get("books", [])
+    if not books:
+        return {
+            "ok": False,
+            "ambiguous": True,
+            "message": "No books found for that series — please check the name and try again.",
+        }
+
+    series_canonical = data.get("series_canonical", series_name)
+    books.sort(key=lambda b: b.get("order", 999))
+
+    already_read = []
+    already_tbr = []
+    newly_added = []
+    skipped_errors = []
+    to_append = []  # titles in order to append to queue
+
+    for book in books:
+        title = (book.get("title") or "").strip()
+        author = (book.get("author") or "").strip()
+        genre = (book.get("genre") or "").strip()
+        words = book.get("words")
+        if not title or not author:
+            continue
+
+        title_lower = title.lower()
+
+        # Skip already-read books
+        if title_lower in read_titles:
+            already_read.append(title)
+            continue
+
+        # Already in TBR
+        if title_lower in tbr_titles:
+            already_tbr.append(title)
+            # Still append to queue if not already there
+            if title_lower not in queue_set:
+                to_append.append(title)
+            continue
+
+        # Add to TBR (no scores — series bulk-add)
+        if genre not in allowed_genres:
+            genre = allowed_genres[0] if allowed_genres else "Fantasy"
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                ok = db_write.add_recommendation(
+                    title, genre, author, scores={},
+                    series=series_canonical,
+                    words=int(words) if words else None,
+                    done=0,
+                    require_scores=False,
+                )
+        except Exception as e:
+            skipped_errors.append(f"{title}: {e}")
+            continue
+        if ok:
+            newly_added.append(title)
+            tbr_titles.add(title_lower)
+            if title_lower not in queue_set:
+                to_append.append(title)
+        else:
+            skipped_errors.append(f"{title}: {buf.getvalue().strip()}")
+
+    # Append to queue
+    if to_append:
+        new_queue = current_queue + to_append
+        buf2 = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf2):
+                db_write.update_queue(new_queue)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Queue update failed: {e}")
+
+    summary_parts = []
+    total = len(already_read) + len(already_tbr) + len(newly_added)
+    if already_read:
+        summary_parts.append(f"{len(already_read)} already read and skipped")
+    if newly_added:
+        summary_parts.append(f"{len(newly_added)} newly added to your TBR")
+    if already_tbr:
+        summary_parts.append(f"{len(already_tbr)} already in your TBR")
+    appended_count = len(to_append)
+
+    if appended_count == 0 and not already_read:
+        message = f"All books from {series_canonical} are already in your queue."
+    else:
+        detail = " · ".join(summary_parts) if summary_parts else ""
+        message = f"Added {appended_count} book{'s' if appended_count != 1 else ''} from {series_canonical} to the queue"
+        if detail:
+            message += f" — {detail}"
+        message += "."
+
+    return {
+        "ok": True,
+        "ambiguous": False,
+        "series_canonical": series_canonical,
+        "total_books": total,
+        "already_read": len(already_read),
+        "already_tbr": len(already_tbr),
+        "newly_added": len(newly_added),
+        "appended_to_queue": appended_count,
+        "appended_titles": to_append,
+        "message": message,
+        "errors": skipped_errors,
+    }
 
 
 @app.get("/api/read-queue")

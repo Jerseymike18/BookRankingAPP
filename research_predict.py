@@ -45,6 +45,7 @@ import reresearch_and_measure as rm
 
 CACHE = rm.RICH_CACHE        # "llm_scores_richer.json"
 LIVE = rm.LIVE               # canonical 14 components, reference order
+DISCOVER_MODEL = "claude-sonnet-4-6"  # candidate generation only; research uses rm.MODEL (Opus)
 
 WELL_SAMPLED_GENRE = 5       # genre below this is flagged as lower-reliability grounding
 BLEND = 0.2                  # correlation-smoothing weight (validated winning variant)
@@ -336,7 +337,7 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
 # auto-genre feature.
 # ---------------------------------------------------------------------------
 def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
-                        client=None, model=rm.MODEL, key_path="apikey.txt"):
+                        client=None, model=DISCOVER_MODEL, key_path="apikey.txt"):
     """Return a list of {"title","author","genre"} candidate books for `request`.
 
     - `allowed_genres`: your genre list; each candidate's genre is chosen EXACTLY

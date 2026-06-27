@@ -2683,5 +2683,28 @@
     "keywords": "literary fiction, experimental structure, trans protagonist, grief, encyclopedia format, parasocial relationships, character study, queer lit, emotional, metafictional",
     "genre": "Literary Fiction",
     "words": 75000
+  },
+  "Dune: Messiah": {
+    "scores": {
+      "Plot": 6.8,
+      "Entertainment": 6.3,
+      "Action": 5.5,
+      "Ending": 8.2,
+      "Depth": 8.0,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.8,
+      "Prose": 7.4,
+      "Narration": 7.2,
+      "Insights": 8.3,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 7.6,
+      "Integration": 7.8,
+      "Originality": 8.0
+    },
+    "conf": "high",
+    "blurb": "A deliberately anti-heroic sequel that deconstructs the messianic triumph of Dune, trading desert adventure for a claustrophobic court tragedy about the horrors of prescience and power. Suits readers who want ideas, irony, and tragedy over spectacle.",
+    "keywords": "soft sci-fi, political intrigue, tragedy, prescience, deconstruction, philosophical, messianic, cerebral, slow-burn",
+    "genre": "Science Fiction (Soft)",
+    "words": 75000
   }
 }

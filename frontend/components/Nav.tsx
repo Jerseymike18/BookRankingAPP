@@ -7,11 +7,11 @@ const links = [
   { href: "/reading", label: "Reading" },
   { href: "/read-queue", label: "Read Queue" },
   { href: "/predict", label: "Predict" },
+  { href: "/add-book", label: "Add a Book" },
   { href: "/rankings", label: "Rankings" },
   { href: "/tier-list", label: "Tier List" },
   { href: "/series", label: "Series" },
   { href: "/timeline", label: "Timeline" },
-  { href: "/add-book", label: "Add a Book" },
 ];
 
 export default function Nav() {
