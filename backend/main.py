@@ -918,25 +918,11 @@ def predict_research(req: ResearchRequest):
     for cat, comps in cat_comps.items():
         components_by_cat[cat] = {c: _clean(round(res["scores"].get(c, 0), 2)) for c in comps}
 
-    # Rich house-style blurb: positioning + analogs drawn from the reader's own
-    # library + a confidence caveat citing the predicted scores. Falls back to
-    # the plain research blurb if the call fails.
-    read_books = [
-        (str(r["Book"]), str(r["Author"]), str(r["Genre"]))
-        for _, r in books_e.iterrows()
-    ]
-    rich_blurb = _rp.generate_rich_blurb(
-        client, res["title"], res["author"], res["genre"],
-        res["scores"], res["wa"], res["ci"],
-        res["n_genre"], res["n_author"], read_books,
-    )
-    if rich_blurb:
-        res["blurb"] = rich_blurb
-
-    # Resolve series + ordinal via the shared meta-prompt path, so a saved
-    # prediction populates series/series_number just like a manual add.
-    series_meta = _lookup_series_meta(client, res["title"], res["author"])
-
+    # NOTE: the rich house-style blurb and the series/ordinal lookup are NOT done
+    # here — they each cost an extra LLM call, and scoring many discover candidates
+    # would multiply that. Both are deferred to /api/recommendations (save time),
+    # so they're only paid for books the reader actually keeps. The plain research
+    # blurb below is what's shown while browsing; save upgrades it.
     return {
         "title": res["title"], "author": res["author"], "genre": res["genre"],
         "wa": round(res["wa"], 4),
@@ -946,8 +932,8 @@ def predict_research(req: ResearchRequest):
         "conf": res["conf"],
         "from_cache": from_cache,
         "words": words,
-        "series": series_meta["series"],
-        "series_number": series_meta["series_number"],
+        "series": "",
+        "series_number": None,
         "blurb": res.get("blurb", ""),
         "keywords": res.get("keywords", ""),
         "components": components_by_cat,
@@ -1313,18 +1299,78 @@ def get_timeline():
     return {"rows": rows, "categories": views_mod.CATEGORY_ORDER}
 
 
+def _enrich_recommendation(req: "SaveRecommendationRequest"):
+    """Generate the rich house-style blurb and resolve series + ordinal at SAVE
+    time (deferred from scoring so the two extra LLM calls are only paid for
+    books actually kept). Best-effort: returns (blurb, series, series_number),
+    falling back to whatever the request already carried if the LLM is
+    unavailable or the calls fail."""
+    blurb = req.blurb or None
+    series = req.series or None
+    series_number = req.series_number or None
+
+    if _rp is None:
+        return blurb, series, series_number
+    try:
+        client = _rp.get_client()
+    except Exception:
+        return blurb, series, series_number  # no key → keep what was passed
+
+    # Series + ordinal via the shared meta-prompt path.
+    try:
+        meta = _lookup_series_meta(client, req.title, req.author)
+        if meta["series"]:
+            series = meta["series"]
+            series_number = meta["series_number"]
+    except Exception:
+        pass
+
+    # Rich blurb from the corrected scores + the reader's own library. Needs the
+    # engine for WA/CI, grounding counts, and the analog source.
+    if req.scores:
+        try:
+            books_e, gw_e, gcw_e, _coeffs, _r2, resid_sd, _ginfo, _up = _get_engine()
+            genre = req.genre
+            wa = 0.0
+            for cat in db_loader.CATEGORY_OF_INTEREST:
+                wcat = db_loader._weighted_cat_avg(req.scores, genre, cat, gcw_e)
+                wa += wcat * ((gw_e.get(genre, {}) or {}).get(cat, 0) or 0)
+            half = 1.645 * resid_sd
+            ci = (wa - half, wa + half)
+            n_genre = int((books_e["Genre"] == genre).sum())
+            n_author = int((books_e["Author"] == req.author).sum())
+            read_books = [
+                (str(r["Book"]), str(r["Author"]), str(r["Genre"]))
+                for _, r in books_e.iterrows()
+            ]
+            rich = _rp.generate_rich_blurb(
+                client, req.title, req.author, genre,
+                req.scores, wa, ci, n_genre, n_author, read_books,
+            )
+            if rich:
+                blurb = rich
+        except Exception:
+            pass
+
+    return blurb, series, series_number
+
+
 @app.post("/api/recommendations")
 def save_recommendation(req: SaveRecommendationRequest):
-    """Save a researched book to recommendations (TBR list)."""
+    """Save a researched book to recommendations (TBR list). Generates the rich
+    blurb and resolves series/ordinal here (deferred from scoring) so those LLM
+    calls are only spent on books the reader keeps."""
+    blurb, series, series_number = _enrich_recommendation(req)
+
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
             ok = db_write.add_recommendation(
                 req.title, req.genre, req.author, req.scores,
-                series=req.series or None,
-                series_number=req.series_number or None,
+                series=series,
+                series_number=series_number,
                 words=req.words or None,
-                blurb=req.blurb or None,
+                blurb=blurb,
                 keywords=req.keywords or None,
             )
     except Exception as e:
