@@ -834,6 +834,56 @@ def list_nonfiction_books(limit=50):
     con.close()
 
 
+def seed_nonfiction_weights(quality=0.45, aesthetics=0.20, theme=0.35,
+                            genre="Nonfiction"):
+    """Seed (or replace) the nonfiction weight tables with one default genre
+    profile, used for every nonfiction book until a finer nonfiction genre
+    taxonomy exists. The category weights (quality/aesthetics/theme) set how the
+    nonfiction WA leans across the three categories and must sum to 1.0. Within
+    each category the components are EQUAL-weighted, reproducing the workbook's
+    plain-AVERAGE category means (so WA differs from Total Average only by the
+    category lean). Retune anytime by calling again with new category weights —
+    the nonfiction engine reads these tables live, so WA updates on next load.
+    Returns True on success, False otherwise.
+
+    Default Quality 0.45 / Aesthetics 0.20 / Theme 0.35 was chosen by the owner
+    (the workbook defines no nonfiction weighting — it ranks nonfiction by the
+    unweighted Total Average)."""
+    cat_w = {"Quality": float(quality), "Aesthetics": float(aesthetics),
+             "Theme": float(theme)}
+    con = _connect()
+    try:
+        for k, v in cat_w.items():
+            if not (0 <= v <= 1):
+                raise ValidationError(f"{k} weight {v} is out of range (0-1).")
+        if abs(sum(cat_w.values()) - 1.0) > 1e-6:
+            raise ValidationError(
+                f"Category weights must sum to 1.0 (got {sum(cat_w.values()):.4f}).")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_genre_weights WHERE genre=?", (genre,))
+        con.execute("DELETE FROM nonfiction_gcomp_weights WHERE genre=?", (genre,))
+        con.execute("INSERT INTO nonfiction_genre_weights "
+                    "(genre,quality,aesthetics,theme) VALUES (?,?,?,?)",
+                    (genre, cat_w["Quality"], cat_w["Aesthetics"], cat_w["Theme"]))
+        for cat, comps in NONFICTION_CATEGORIES.items():
+            w = 1.0 / len(comps)
+            for comp in comps:
+                con.execute("INSERT INTO nonfiction_gcomp_weights "
+                            "(genre,category,component,weight) VALUES (?,?,?,?)",
+                            (genre, cat, comp, w))
+        con.commit()
+        print(f"  ✓ Seeded nonfiction weights for '{genre}': "
+              f"Quality {cat_w['Quality']:.2f} / Aesthetics {cat_w['Aesthetics']:.2f}"
+              f" / Theme {cat_w['Theme']:.2f} (components equal-weighted in-category).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not seeded — {e}")
+        return False
+    finally:
+        con.close()
+
+
 # Create the nonfiction tables on import (idempotent), same discipline as the
 # fiction schema-ensure calls near the top of this module.
 _ensure_nonfiction_schema()
