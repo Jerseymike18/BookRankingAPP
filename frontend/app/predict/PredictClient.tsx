@@ -691,6 +691,7 @@ function DiscoverMode({
   // Step 1: generate candidates
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [requestLabel, setRequestLabel] = useState("");
+  const [genNote, setGenNote] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -708,6 +709,7 @@ function DiscoverMode({
     if (!request.trim()) return;
     setGenLoading(true);
     setGenError(null);
+    setGenNote("");
     setCandidates(null);
     setScored([]);
     setScoringDone(false);
@@ -717,6 +719,7 @@ function DiscoverMode({
       const result = await discoverCandidates(request.trim(), maxCandidates);
       setCandidates(result.candidates);
       setRequestLabel(result.request);
+      setGenNote(result.note ?? "");
     } catch (e: unknown) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
     } finally {
@@ -850,7 +853,11 @@ function DiscoverMode({
 
       {/* Candidate list + confirm */}
       {candidates && candidates.length === 0 && (
-        <InfoBox message="The model didn't return any fresh candidates — try rephrasing or widening the request." />
+        <InfoBox message={genNote || "The model didn't return any fresh candidates — try rephrasing or widening the request."} />
+      )}
+
+      {candidates && candidates.length > 0 && genNote && (
+        <InfoBox message={genNote} />
       )}
 
       {candidates && candidates.length > 0 && (

@@ -407,67 +407,103 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
       recommendations table), so Discover won't re-suggest something you've
       already saved (which would also fail to save as a duplicate).
 
-    Both lists are sent to the model so it avoids them, and any returned candidate
-    whose title matches either list is filtered out as a backstop.
+    Both lists are sent to the model so it avoids the EXACT titles, and any
+    returned candidate whose title matches either list is filtered out as a
+    backstop. The exclusion is per-title only: if the reader is partway through a
+    series, the model is explicitly invited to suggest the OTHER entries.
 
-    This GENERATES ideas only — it does not score or rank. The number actually
-    returned may be fewer than `n` (after filtering duplicates / bad genres)."""
+    This GENERATES ideas only — it does not score or rank. Returns a dict
+    ``{"candidates": [...], "note": "..."}``. ``note`` is empty on a full result
+    and carries a short, machine-readable caveat when fewer than `n` books could
+    be found (so the UI can show a reason instead of a bare short list)."""
     if client is None:
         client = anthropic.Anthropic(api_key=rl.load_key(key_path))
     allowed = list(allowed_genres)
+    allowed_set = set(allowed)
     genre_list = ", ".join(sorted(allowed))
     read_pairs = list(read_books)
     tbr_pairs = list(tbr_books)
+    # Backstop: never re-suggest the EXACT titles already read or saved.
     avoid_titles = {str(t).strip().lower() for t, _ in read_pairs}
     avoid_titles |= {str(t).strip().lower() for t, _ in tbr_pairs}
 
+    # Softened avoidance: exclude ONLY the specific titles listed — do NOT steer
+    # the model away from related books. This is what lets series continuations
+    # surface when the reader is mid-way through a series.
     avoid_sections = (
-        "The reader has ALREADY read the books below. Do NOT suggest any of "
-        "these, and avoid other books they have very likely already read:\n"
+        "The reader has ALREADY read the exact titles below. Do NOT suggest any "
+        "of these specific titles. This is a per-title exclusion ONLY — if the "
+        "reader is partway through a series, you SHOULD still suggest the OTHER "
+        "books in that series (and adjacent books by the same author) that are "
+        "NOT on this list:\n"
         + "\n".join(f"- {t} ({a})" for t, a in read_pairs))
     if tbr_pairs:
         avoid_sections += (
-            "\n\nThe reader has also ALREADY saved these books to their to-read "
-            "list. Do NOT suggest any of these either:\n"
+            "\n\nThe reader has also ALREADY saved these exact titles to their "
+            "to-read list — do not repeat these specific titles either (other "
+            "books in the same series or by the same author remain fair game):\n"
             + "\n".join(f"- {t} ({a})" for t, a in tbr_pairs))
 
-    prompt = f'''You are proposing candidate books for a reader with specific, consistent taste. They will run your suggestions through THEIR OWN scoring engine, so propose CANDIDATES only — no reviews, ratings, or opinions.
+    def _filter(raw_candidates, seen):
+        """Drop already-read/saved titles, in-batch dups, and bad genres."""
+        kept = []
+        for c in raw_candidates:
+            title = str(c.get("title", "") or "").strip()
+            author = str(c.get("author", "") or "").strip()
+            if not title:
+                continue
+            key = title.lower()
+            if key in avoid_titles or key in seen:
+                continue          # backstop: never re-suggest read/saved books
+            seen.add(key)
+            genre = str(c.get("genre", "") or "").strip() or None
+            if genre and genre not in allowed_set:
+                genre = None      # outside your schema -> auto-detect at scoring
+            kept.append({"title": title, "author": author, "genre": genre})
+        return kept
+
+    def _ask(want, extra_exclude=()):
+        extra = ""
+        if extra_exclude:
+            extra = (
+                "\n\nYou have ALREADY proposed the titles below in a previous "
+                "round — return DIFFERENT books this time, do not repeat any of "
+                "these:\n" + "\n".join(f"- {t}" for t in extra_exclude))
+        prompt = f'''You are proposing candidate books for a reader with specific, consistent taste. They will run your suggestions through THEIR OWN scoring engine, so propose CANDIDATES only — no reviews, ratings, or opinions.
 
 REQUEST: {request}
 
 Choose each book's genre EXACTLY from this list (copy the spelling exactly — never invent or alter a variant):
 {genre_list}
 
-{avoid_sections}
+{avoid_sections}{extra}
 
-Aim for fresh suggestions matched to the request and their taste. Suggest up to {n} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
+Aim for fresh suggestions matched to the request and their taste. Suggest up to {want} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
 
 Respond with ONLY a JSON object — no prose, no markdown:
 {{"candidates": [{{"title": "...", "author": "...", "genre": "..."}}]}}'''
+        msg = client.messages.create(
+            model=model, max_tokens=1200,
+            messages=[{"role": "user", "content": prompt}])
+        data = rl._extract_json(msg.content[0].text.strip())
+        return data.get("candidates", [])
 
-    msg = client.messages.create(
-        model=model, max_tokens=1200,
-        messages=[{"role": "user", "content": prompt}])
-    text = msg.content[0].text.strip()
-    data = rl._extract_json(text)
-
-    allowed_set = set(allowed)
-    out = []
     seen = set()
-    for c in data.get("candidates", []):
-        title = str(c.get("title", "") or "").strip()
-        author = str(c.get("author", "") or "").strip()
-        if not title:
-            continue
-        key = title.lower()
-        if key in avoid_titles or key in seen:
-            continue          # drop already-read/saved books, and in-list dups
-        seen.add(key)
-        genre = str(c.get("genre", "") or "").strip() or None
-        if genre and genre not in allowed_set:
-            genre = None      # outside your schema -> auto-detect during scoring
-        out.append({"title": title, "author": author, "genre": genre})
-    return out
+    out = _filter(_ask(n), seen)
+
+    # Single top-up retry: if the first pass came back materially short (often
+    # because the request overlaps the library and survivors got filtered), ask
+    # once more for DIFFERENT titles, passing what we already have. Capped at one
+    # extra call to bound cost/latency.
+    if len(out) < n:
+        more = _ask(n - len(out), extra_exclude=[c["title"] for c in out])
+        out.extend(_filter(more, seen))
+
+    note = ""
+    if len(out) < n:
+        note = (f"Only {len(out)} found — the model may not know more titles "
+                f"matching this request.")
+    return {"candidates": out[:n], "note": note}
 
 
 # ---------------------------------------------------------------------------

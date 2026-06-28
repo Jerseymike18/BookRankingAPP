@@ -114,6 +114,8 @@ export interface Candidate {
 export interface DiscoverCandidatesResponse {
   candidates: Candidate[];
   request: string;
+  /** Non-empty when fewer than requested could be found (UI shows the reason). */
+  note?: string;
 }
 
 export type ScoredCandidate = ResearchResult & { error?: string };

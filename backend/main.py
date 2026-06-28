@@ -974,18 +974,20 @@ def discover_candidates(req: DiscoverRequest):
     read_books = list(zip(books["Book"].tolist(), books["Author"].tolist()))
 
     try:
-        candidates = _rp.generate_candidates(
+        result = _rp.generate_candidates(
             req.request.strip(), allowed_genres, read_books,
             tbr_books=tbr_books, n=req.max_candidates, client=client,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
 
+    candidates = result["candidates"]
     # Flag which are already in cache (free to score)
     for c in candidates:
         c["cached"] = c.get("title", "") in cache
 
-    return {"candidates": candidates, "request": req.request.strip()}
+    return {"candidates": candidates, "request": req.request.strip(),
+            "note": result.get("note", "")}
 
 
 class SaveRecommendationRequest(BaseModel):
