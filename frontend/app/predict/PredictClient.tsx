@@ -24,6 +24,10 @@ const CANDIDATE_COLS: ColDef<Candidate>[] = [
   { key: "author", label: "Author", type: "string", getValue: (c) => c.author },
   { key: "genre",  label: "Genre",  type: "string", getValue: (c) => c.genre ?? "",
     formatter: (v) => v ? <span className="genre-chip">{v}</span> : <span style={{ color: "var(--color-faint)", fontSize: "0.75rem" }}>auto-detect</span> },
+  { key: "series", label: "Series", type: "string", getValue: (c) => c.series ?? "",
+    formatter: (v) => v ? <>{v}</> : <span style={{ color: "var(--color-faint)" }}>—</span> },
+  { key: "series_number", label: "#", type: "numeric", getValue: (c) => c.series_number ?? null,
+    formatter: (v) => (v === null || v === undefined) ? <span style={{ color: "var(--color-faint)" }}>—</span> : <>{v}</> },
   { key: "status", label: "Status", type: "string", getValue: (c) => (c as Candidate).cached ? "cached" : "new",
     sortable: false },
 ];
@@ -692,6 +696,7 @@ function DiscoverMode({
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [requestLabel, setRequestLabel] = useState("");
   const [genNote, setGenNote] = useState("");
+  const [genSources, setGenSources] = useState<string[]>([]);
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -710,6 +715,7 @@ function DiscoverMode({
     setGenLoading(true);
     setGenError(null);
     setGenNote("");
+    setGenSources([]);
     setCandidates(null);
     setScored([]);
     setScoringDone(false);
@@ -720,6 +726,7 @@ function DiscoverMode({
       setCandidates(result.candidates);
       setRequestLabel(result.request);
       setGenNote(result.note ?? "");
+      setGenSources(result.sources ?? []);
     } catch (e: unknown) {
       setGenError(e instanceof Error ? e.message : "Generation failed.");
     } finally {
@@ -871,12 +878,28 @@ function DiscoverMode({
           <SortableTable<Candidate>
             columns={CANDIDATE_COLS}
             data={candidates}
-            defaultSort={{ key: "title", dir: "asc" }}
+            defaultSort={{
+              key: candidates.some((c) => c.series_number != null) ? "series_number" : "title",
+              dir: "asc",
+            }}
             getRowKey={(c) => c.title}
           />
           <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
             {nCached} already researched (free) · {nNew} new (~1¢ and a few seconds each)
           </p>
+          {genSources.length > 0 && (
+            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
+              Series data from Goodreads:{" "}
+              {genSources.slice(0, 3).map((u, i) => (
+                <span key={u}>
+                  {i > 0 ? " · " : ""}
+                  <a href={u} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                    {u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 48)}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
 
           {scoringIdx === null && !scoringDone && (
             <div className="mt-4">

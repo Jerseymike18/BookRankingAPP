@@ -109,6 +109,10 @@ export interface Candidate {
   author: string;
   genre: string | null;
   cached: boolean;
+  /** Goodreads canonical series name (series-enumeration requests only). */
+  series?: string | null;
+  /** Goodreads ordinal — e.g. 1, or 0.5 for a novella. Null when standalone/unknown. */
+  series_number?: number | null;
 }
 
 export interface DiscoverCandidatesResponse {
@@ -116,6 +120,8 @@ export interface DiscoverCandidatesResponse {
   request: string;
   /** Non-empty when fewer than requested could be found (UI shows the reason). */
   note?: string;
+  /** Goodreads URLs the series list was extracted from (provenance). */
+  sources?: string[];
 }
 
 export type ScoredCandidate = ResearchResult & { error?: string };

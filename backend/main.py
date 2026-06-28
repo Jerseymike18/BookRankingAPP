@@ -987,7 +987,7 @@ def discover_candidates(req: DiscoverRequest):
         c["cached"] = c.get("title", "") in cache
 
     return {"candidates": candidates, "request": req.request.strip(),
-            "note": result.get("note", "")}
+            "note": result.get("note", ""), "sources": result.get("sources", [])}
 
 
 class SaveRecommendationRequest(BaseModel):

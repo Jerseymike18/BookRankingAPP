@@ -395,6 +395,183 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
 # single-book Predict flow. Genres are constrained to your schema, mirroring the
 # auto-genre feature.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Goodreads-grounded series enumeration (Discover)
+# ---------------------------------------------------------------------------
+# Sonnet 4.6 (DISCOVER_MODEL) supports the dynamic-filtering web_search tool.
+# We DO NOT fetch goodreads.com directly (blocked by the allowlist + anti-
+# scraping). Instead we run the model's server-side web_search restricted to
+# goodreads.com and have it EXTRACT "Title (Series, #N)" data from the returned
+# Goodreads result snippets. Titles/ordinals come from search results, never
+# from model memory.
+WEB_SEARCH_TOOL = {
+    "type": "web_search_20260209",
+    "name": "web_search",
+    "max_uses": 5,
+    "allowed_domains": ["goodreads.com"],
+}
+
+
+def _coerce_series_number(raw):
+    """Parse a Goodreads ordinal ('1', '0.5', 2) -> int/float, else None."""
+    if raw is None:
+        return None
+    try:
+        f = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return int(f) if f.is_integer() else f
+
+
+def _classify_series_request(request, client, model):
+    """Decide if `request` is a single-series enumeration, and its scope.
+
+    Returns {"is_series": bool, "series_name": str, "author": str,
+    "scope": "main"|"all"}. Mood/theme/genre requests classify is_series=False
+    (those use the normal generator and are NOT web-searched)."""
+    prompt = f'''You are routing a book request. Decide whether it asks to ENUMERATE the books of ONE specific named series (optionally by a named author) — e.g. "all books in The Stormlight Archive", "main books of The Bound and the Broken by Ryan Cahill", "Wheel of Time in order".
+
+A request for a MOOD, THEME, GENRE, or general recommendation ("3 cozy mysteries", "something like Dune", "uplifting sci-fi") is NOT a series enumeration.
+
+If — and only if — it IS a series enumeration, extract the series name, the author if one is named (else ""), and the scope:
+- "main" -> only the main-sequence novels (exclude novellas / .5 entries)
+- "all"  -> every entry including novellas and short stories
+Default scope to "main" unless the request clearly asks for everything ("all books", "including novellas", "complete").
+
+REQUEST: {request}
+
+Respond with ONLY a JSON object — no prose, no markdown:
+{{"is_series": true, "series_name": "...", "author": "...", "scope": "main"}}'''
+    try:
+        msg = client.messages.create(
+            model=model, max_tokens=400,
+            messages=[{"role": "user", "content": prompt}])
+        data = rl._extract_json(msg.content[0].text.strip())
+    except Exception:
+        return {"is_series": False, "series_name": "", "author": "", "scope": "main"}
+    scope = str(data.get("scope", "main")).strip().lower()
+    return {
+        "is_series": bool(data.get("is_series")),
+        "series_name": str(data.get("series_name", "") or "").strip(),
+        "author": str(data.get("author", "") or "").strip(),
+        "scope": scope if scope in ("main", "all") else "main",
+    }
+
+
+def _web_search_json(prompt, client, model, max_continuations=4):
+    """Run a goodreads-restricted web_search turn; return (data, source_urls).
+
+    Handles the server-tool `pause_turn` loop and collects the Goodreads result
+    URLs (provenance). `data` is the parsed final JSON, or {} if unreadable."""
+    messages = [{"role": "user", "content": prompt}]
+    sources, resp = [], None
+    for _ in range(max_continuations):
+        resp = client.messages.create(
+            model=model, max_tokens=3000, tools=[WEB_SEARCH_TOOL],
+            messages=messages)
+        for block in resp.content:
+            # web_search_tool_result.content is a LIST of results on success,
+            # or a single error object on failure — only harvest URLs from lists.
+            if getattr(block, "type", None) == "web_search_tool_result":
+                results = getattr(block, "content", None)
+                if isinstance(results, list):
+                    for r in results:
+                        url = getattr(r, "url", None)
+                        if url:
+                            sources.append(url)
+        if resp.stop_reason == "pause_turn":
+            messages.append({"role": "assistant", "content": resp.content})
+            continue
+        break
+    text = "".join(getattr(b, "text", "") for b in (resp.content if resp else [])
+                   if getattr(b, "type", None) == "text")
+    try:
+        data = rl._extract_json(text)
+    except Exception:
+        data = {}
+    # De-dup source URLs, preserve order.
+    seen_u, uniq = set(), []
+    for u in sources:
+        if u not in seen_u:
+            seen_u.add(u)
+            uniq.append(u)
+    return data, uniq
+
+
+def _generate_series_candidates(request, series_name, author, scope, allowed_set,
+                                genre_list, avoid_titles, client, model):
+    """Goodreads-grounded series enumeration -> {candidates, note, sources}.
+
+    Each candidate carries series + series_number (from the Goodreads
+    "(Series, #N)" pattern) and a kind label. Scope "main" drops novellas
+    (.5 entries); "all" keeps them, labeled. Already-read/saved titles are
+    dropped as a backstop AFTER extraction."""
+    by_author = f' by {author}' if author else ""
+    prompt = f'''You are compiling the books of a single series for a reader, grounded ONLY in Goodreads data.
+
+SERIES: {series_name}{by_author}
+SCOPE: {scope}  ("main" = main-sequence novels only; "all" = every entry including novellas / short stories)
+
+Use the web_search tool (it is restricted to goodreads.com) to find the Goodreads series page and its book list. Goodreads lists each entry as "Title (Series Name, #N)" — the #N is the canonical series ordinal; novellas and shorts use fractional numbers like #0.5, #1.5, #2.5.
+
+Extract EVERY entry you can find IN THE GOODREADS RESULTS. Do NOT invent titles or ordinals: if a book — or its number — is not present in the Goodreads results, omit it rather than guessing.
+
+For each entry provide:
+- "title": the book title
+- "author": the author
+- "series": the canonical Goodreads series name
+- "series_number": the numeric ordinal from the "(Series, #N)" pattern (e.g. 1, 0.5, 2.5)
+- "kind": "novel" for whole-number entries, "novella" or "short" for fractional (.5/.6) entries
+- "genre": the single best-fitting genre chosen EXACTLY from this list (copy the spelling exactly): {genre_list}
+
+After searching, respond with ONLY a JSON object — no prose, no markdown:
+{{"books": [{{"title": "...", "author": "...", "series": "...", "series_number": 1, "kind": "novel", "genre": "..."}}],
+  "complete": true,
+  "note": "short caveat if the Goodreads results were incomplete, else empty"}}'''
+
+    data, sources = _web_search_json(prompt, client, model)
+
+    kept, seen = [], set()
+    for b in data.get("books", []):
+        title = str(b.get("title", "") or "").strip()
+        if not title:
+            continue
+        key = title.lower()
+        if key in avoid_titles or key in seen:
+            continue          # backstop: never re-suggest read/saved titles
+        num = _coerce_series_number(b.get("series_number"))
+        kind = str(b.get("kind", "") or "").strip().lower()
+        fractional = (num is not None) and (not float(num).is_integer())
+        is_novella = kind in ("novella", "short") or fractional
+        if scope == "main" and is_novella:
+            continue          # main scope -> drop novellas / .5 entries
+        seen.add(key)
+        genre = str(b.get("genre", "") or "").strip() or None
+        if genre and genre not in allowed_set:
+            genre = None
+        series = str(b.get("series", "") or "").strip() or series_name or None
+        kept.append({
+            "title": title,
+            "author": str(b.get("author", "") or "").strip() or author,
+            "genre": genre,
+            "series": series,
+            "series_number": num,
+            "kind": kind or ("novella" if is_novella else "novel"),
+        })
+
+    # Reading order: by ordinal, unknown ordinals last.
+    kept.sort(key=lambda c: (c["series_number"] is None,
+                             c["series_number"] if c["series_number"] is not None else 0))
+
+    note = str(data.get("note", "") or "").strip()
+    if not kept and not note:
+        note = (f"Couldn't find Goodreads entries for \"{series_name}\" — "
+                f"try naming the author too.")
+    elif not data.get("complete", True) and not note:
+        note = "Goodreads results may be incomplete for this series."
+    return {"candidates": kept, "note": note, "sources": sources}
+
+
 def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
                         client=None, model=DISCOVER_MODEL, key_path="apikey.txt"):
     """Return a list of {"title","author","genre"} candidate books for `request`.
@@ -413,9 +590,13 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
     series, the model is explicitly invited to suggest the OTHER entries.
 
     This GENERATES ideas only — it does not score or rank. Returns a dict
-    ``{"candidates": [...], "note": "..."}``. ``note`` is empty on a full result
-    and carries a short, machine-readable caveat when fewer than `n` books could
-    be found (so the UI can show a reason instead of a bare short list)."""
+    ``{"candidates": [...], "note": "...", "sources": [...]}``. Each candidate
+    carries ``series`` and ``series_number`` (both nullable). For single-series
+    enumeration requests these come from Goodreads search results (see
+    ``_generate_series_candidates``) and ``sources`` lists the Goodreads URLs
+    used; for mood/theme requests they are None and ``sources`` is empty.
+    ``note`` is empty on a full result and carries a short, machine-readable
+    caveat when fewer books than expected could be found."""
     if client is None:
         client = anthropic.Anthropic(api_key=rl.load_key(key_path))
     allowed = list(allowed_genres)
@@ -426,6 +607,15 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
     # Backstop: never re-suggest the EXACT titles already read or saved.
     avoid_titles = {str(t).strip().lower() for t, _ in read_pairs}
     avoid_titles |= {str(t).strip().lower() for t, _ in tbr_pairs}
+
+    # Route single-series enumerations through the Goodreads-grounded path so
+    # titles/ordinals come from search results, not model memory. Mood/theme/
+    # genre requests fall through to the normal generator (no web search).
+    cls = _classify_series_request(request, client, model)
+    if cls["is_series"] and cls["series_name"]:
+        return _generate_series_candidates(
+            request, cls["series_name"], cls["author"], cls["scope"],
+            allowed_set, genre_list, avoid_titles, client, model)
 
     # Softened avoidance: exclude ONLY the specific titles listed — do NOT steer
     # the model away from related books. This is what lets series continuations
@@ -459,7 +649,9 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
             genre = str(c.get("genre", "") or "").strip() or None
             if genre and genre not in allowed_set:
                 genre = None      # outside your schema -> auto-detect at scoring
-            kept.append({"title": title, "author": author, "genre": genre})
+            # Non-series mood/theme requests carry no series metadata.
+            kept.append({"title": title, "author": author, "genre": genre,
+                         "series": None, "series_number": None})
         return kept
 
     def _ask(want, extra_exclude=()):
@@ -503,7 +695,7 @@ Respond with ONLY a JSON object — no prose, no markdown:
     if len(out) < n:
         note = (f"Only {len(out)} found — the model may not know more titles "
                 f"matching this request.")
-    return {"candidates": out[:n], "note": note}
+    return {"candidates": out[:n], "note": note, "sources": []}
 
 
 # ---------------------------------------------------------------------------
