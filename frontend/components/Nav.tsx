@@ -4,13 +4,30 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
-const sections = [
+type NavItem = { href: string; label: string };
+type NavGroup =
+  | { label: string; items: NavItem[] }            // dropdown section
+  | { label: string; href: string };               // top-level direct link
+
+const sections: NavGroup[] = [
   {
-    label: "Rankings",
+    label: "Fiction",
     items: [
-      { href: "/rankings", label: "Rankings" },
-      { href: "/tier-list", label: "Tier List" },
-      { href: "/series", label: "Series" },
+      { href: "/fiction/rankings", label: "Rankings" },
+      { href: "/fiction/tier-list", label: "Tier List" },
+      { href: "/fiction/series", label: "Series" },
+      { href: "/fiction/timeline", label: "Timeline" },
+      { href: "/fiction/reading", label: "Reading" },
+    ],
+  },
+  {
+    label: "Nonfiction",
+    items: [
+      { href: "/nonfiction/rankings", label: "Rankings" },
+      { href: "/nonfiction/tier-list", label: "Tier List" },
+      { href: "/nonfiction/series", label: "Series" },
+      { href: "/nonfiction/timeline", label: "Timeline" },
+      { href: "/nonfiction/reading", label: "Reading" },
     ],
   },
   {
@@ -18,30 +35,28 @@ const sections = [
     items: [
       { href: "/predict", label: "Predict" },
       { href: "/read-queue", label: "Read Queue" },
-    ],
-  },
-  {
-    label: "Library",
-    items: [
-      { href: "/reading", label: "Reading" },
       { href: "/add-book", label: "Add a Book" },
     ],
   },
+  { label: "Stats", href: "/stats" },
   {
-    label: "Miscellaneous",
+    label: "More",
     items: [
-      { href: "/timeline", label: "Timeline" },
-      { href: "/delta-log", label: "Delta Log" },
       { href: "/calibration", label: "Calibration" },
+      { href: "/delta-log", label: "Delta Log" },
     ],
   },
 ];
+
+function isDropdown(s: NavGroup): s is { label: string; items: NavItem[] } {
+  return "items" in s;
+}
 
 function NavSection({
   section,
   currentPath,
 }: {
-  section: (typeof sections)[number];
+  section: { label: string; items: NavItem[] };
   currentPath: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -135,6 +150,22 @@ function NavSection({
   );
 }
 
+function NavLink({ href, label, currentPath }: NavItem & { currentPath: string }) {
+  const isActive = currentPath === href || currentPath.startsWith(href + "/");
+  return (
+    <Link
+      href={href}
+      className="px-3 py-1.5 rounded-md text-sm font-medium no-underline transition-colors"
+      style={{
+        color: isActive ? "var(--color-sage)" : "var(--color-muted)",
+        background: isActive ? "var(--color-sage-light)" : "transparent",
+      }}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export default function Nav() {
   const path = usePathname();
 
@@ -159,9 +190,18 @@ export default function Nav() {
 
         {/* Nav sections */}
         <nav className="flex items-center gap-1 flex-wrap">
-          {sections.map((section) => (
-            <NavSection key={section.label} section={section} currentPath={path} />
-          ))}
+          {sections.map((section) =>
+            isDropdown(section) ? (
+              <NavSection key={section.label} section={section} currentPath={path} />
+            ) : (
+              <NavLink
+                key={section.label}
+                href={section.href}
+                label={section.label}
+                currentPath={path}
+              />
+            )
+          )}
         </nav>
       </div>
     </header>
