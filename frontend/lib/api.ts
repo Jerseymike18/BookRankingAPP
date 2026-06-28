@@ -47,6 +47,7 @@ export interface AddBookPayload {
   author: string;
   scores: Record<string, number>;
   series?: string;
+  series_number?: number;
   words?: number;
   year_read?: number;
 }
@@ -275,6 +276,7 @@ export async function saveRecommendation(payload: {
   blurb?: string;
   keywords?: string;
   series?: string;
+  series_number?: number;
 }): Promise<{ ok: boolean; message: string }> {
   const res = await fetch(`${API}/api/recommendations`, {
     method: "POST",

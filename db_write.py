@@ -64,6 +64,20 @@ def _col(comp: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Schema migration: series_number column (created once on first import)
+# ---------------------------------------------------------------------------
+def _ensure_series_number():
+    """Add series_number INTEGER column to books and recommendations if absent."""
+    con = _connect()
+    for tbl in ("books", "recommendations"):
+        cols = {r[1] for r in con.execute(f"PRAGMA table_info({tbl})")}
+        if "series_number" not in cols:
+            con.execute(f"ALTER TABLE {tbl} ADD COLUMN series_number INTEGER")
+    con.commit()
+    con.close()
+
+
+# ---------------------------------------------------------------------------
 # Schema migration: delta_log table (created once on first import)
 # ---------------------------------------------------------------------------
 def _ensure_delta_log():
@@ -109,6 +123,7 @@ def _connect():
     return sqlite3.connect(DB)
 
 
+_ensure_series_number()
 _ensure_delta_log()
 
 
@@ -142,8 +157,8 @@ def _validate_scores(scores, require_all=True):
 # ---------------------------------------------------------------------------
 # WRITE: add a book
 # ---------------------------------------------------------------------------
-def add_book(title, genre, author, scores, series=None, words=None,
-             year_read=None, allow_new_genre=False):
+def add_book(title, genre, author, scores, series=None, series_number=None,
+             words=None, year_read=None, allow_new_genre=False):
     """
     Add a newly-rated fiction book. `scores` is a dict of component->value.
     Refuses to commit anything if validation fails.
@@ -165,8 +180,8 @@ def add_book(title, genre, author, scores, series=None, words=None,
         _validate_scores(scores, require_all=True)
 
         _backup_once()
-        cols = ["title", "genre", "author", "series", "words", "year_read"] + FICTION_COMPONENTS
-        vals = [title, genre, author, series, words, year_read] + \
+        cols = ["title", "genre", "author", "series", "series_number", "words", "year_read"] + FICTION_COMPONENTS
+        vals = [title, genre, author, series, int(series_number) if series_number else None, words, year_read] + \
                [scores.get(c) for c in FICTION_COMPONENTS]
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO books ({",".join(chr(34)+c+chr(34) for c in cols)}) '
@@ -184,9 +199,9 @@ def add_book(title, genre, author, scores, series=None, words=None,
 # ---------------------------------------------------------------------------
 # WRITE: add a researched recommendation
 # ---------------------------------------------------------------------------
-def add_recommendation(title, genre, author, scores, series=None, words=None,
-                       blurb=None, keywords=None, done=0, allow_new_genre=False,
-                       require_scores=True):
+def add_recommendation(title, genre, author, scores, series=None, series_number=None,
+                       words=None, blurb=None, keywords=None, done=0,
+                       allow_new_genre=False, require_scores=True):
     """
     Add a researched (not-yet-read) book to the recommendations table. Same
     validation discipline as add_book: genre must be known, the 14 component
@@ -211,9 +226,11 @@ def add_recommendation(title, genre, author, scores, series=None, words=None,
         _validate_scores(scores, require_all=require_scores)
 
         _backup_once()
-        cols = (["title", "genre", "author", "series", "words", "done",
-                 "blurb", "keywords"] + FICTION_COMPONENTS)
-        vals = ([title, genre, author, series, words, 1 if done else 0,
+        cols = (["title", "genre", "author", "series", "series_number", "words",
+                 "done", "blurb", "keywords"] + FICTION_COMPONENTS)
+        vals = ([title, genre, author, series,
+                 int(series_number) if series_number else None,
+                 words, 1 if done else 0,
                  blurb, keywords] + [scores.get(c) for c in FICTION_COMPONENTS])
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO recommendations '
@@ -341,6 +358,31 @@ def set_status(title, status):
         con.execute("UPDATE books SET status=? WHERE title=?", (status, title))
         con.commit()
         print(f"  ✓ '{title}' status set to {status}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_series_number(table: str, title: str, number):
+    """Set series_number on a row in 'books' or 'recommendations'.
+    Accepts int or float (e.g. 0.5 for prologues, 3.5 for interstitials).
+    Backs up once per session before writing. Returns True on success."""
+    if table not in ("books", "recommendations"):
+        raise ValidationError(f"Unknown table '{table}'. Use 'books' or 'recommendations'.")
+    con = _connect()
+    try:
+        row = con.execute(f"SELECT 1 FROM {table} WHERE title=?", (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No entry titled '{title}' in {table}.")
+        _backup_once()
+        val = float(number) if number != int(number) else int(number)
+        con.execute(f"UPDATE {table} SET series_number=? WHERE title=?", (val, title))
+        con.commit()
+        print(f"  ✓ {table}.series_number = {val} for '{title}'.")
         return True
     except ValidationError as e:
         con.rollback()

@@ -54,6 +54,7 @@ export interface LookupResult {
   genre: string | null;
   words: number | null;
   series: string;
+  series_number: number | null;
   blurb: string;
 }
 

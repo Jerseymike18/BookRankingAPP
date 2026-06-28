@@ -149,6 +149,7 @@ export default function AddBookClient({
   const [author, setAuthor] = useState("");
   const [genre, setGenre] = useState(validGenres[0] ?? "");
   const [series, setSeries] = useState("");
+  const [seriesNumber, setSeriesNumber] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [yearRead, setYearRead] = useState(new Date().getFullYear());
   const [scores, setScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
@@ -190,6 +191,7 @@ export default function AddBookClient({
     }
     setWords(lookupResult.words ?? 0);
     setSeries(lookupResult.series ?? "");
+    setSeriesNumber(lookupResult.series_number ?? null);
     setPrefilled(true);
     setLookupResult(null);
     setLookupTitle("");
@@ -212,6 +214,7 @@ export default function AddBookClient({
         author,
         scores,
         series: series.trim() || undefined,
+        series_number: seriesNumber ?? undefined,
         words: words > 0 ? words : undefined,
         year_read: yearRead,
       });

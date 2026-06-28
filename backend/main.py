@@ -49,6 +49,7 @@ import db_loader
 import db_write
 import predict_engine as pe
 import views as views_mod
+import validate_engine as ve
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -209,6 +210,7 @@ class AddBookRequest(BaseModel):
     author: str
     scores: dict[str, float]
     series: Optional[str] = None
+    series_number: Optional[int] = None
     words: Optional[int] = None
     year_read: Optional[int] = None
 
@@ -222,6 +224,7 @@ def add_book(req: AddBookRequest):
             db_write.add_book(
                 req.title, req.genre, req.author, req.scores,
                 series=req.series or None,
+                series_number=req.series_number or None,
                 words=req.words or None,
                 year_read=req.year_read,
             )
@@ -370,18 +373,15 @@ def lookup_book(req: LookupRequest):
 
         author = meta.get("author", hint_author).strip() or hint_author
         s_name = meta.get("series", "").strip()
-        s_num = meta.get("series_number", 0) or 0
-        if s_name and int(s_num) > 0:
-            series = f"{s_name} #{int(s_num)}"
-        else:
-            series = s_name
+        s_num = int(meta.get("series_number", 0) or 0)
 
         return {
             "title": title,
             "author": author,
             "genre": det_genre,
             "words": words_raw,
-            "series": series,
+            "series": s_name,
+            "series_number": s_num if s_name and s_num > 0 else None,
             "blurb": blurb or "",
         }
     except Exception as e:
@@ -943,6 +943,7 @@ class SaveRecommendationRequest(BaseModel):
     blurb: Optional[str] = None
     keywords: Optional[str] = None
     series: Optional[str] = None
+    series_number: Optional[int] = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1249,6 +1250,7 @@ def save_recommendation(req: SaveRecommendationRequest):
             ok = db_write.add_recommendation(
                 req.title, req.genre, req.author, req.scores,
                 series=req.series or None,
+                series_number=req.series_number or None,
                 words=req.words or None,
                 blurb=req.blurb or None,
                 keywords=req.keywords or None,
@@ -1305,7 +1307,6 @@ def run_loo_validation():
     Honest leave-one-out validation. Refits the engine ~n times — SLOW (seconds).
     Triggered explicitly by the user on the Calibration page, not on every load.
     """
-    import validate_engine as ve
     books, gw, gcw = _get_engine()[:3]
     try:
         result = ve.run_loo(books=books, gw=gw, gcw=gcw)
