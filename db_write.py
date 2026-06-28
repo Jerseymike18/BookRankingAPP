@@ -533,6 +533,312 @@ def show_queue():
     con.close()
 
 
+# ===========================================================================
+# NONFICTION  — a deliberately SEPARATE table, weights, and CRUD.
+# ===========================================================================
+# Everything below writes ONLY to nonfiction_books and the two nonfiction
+# weight tables. It never reads or writes the fiction `books` table, and it
+# never touches the fiction engine (predict_engine / db_loader / views).
+# Nonfiction has three categories — Quality / Aesthetics / Theme — instead of
+# fiction's five, and shares some component NAMES (Entertainment, Prose,
+# Insights, Thought-Provokingness) that live in a different table and roll up
+# into different categories. Keep them separate.
+#
+# Derived columns: per the schema decision, nonfiction_books STORES the three
+# category averages + Total Average as a cache, and they are RECOMPUTED from the
+# raw components on every write (simple unweighted means; Total Average is the
+# mean of the category averages, exactly as the workbook computed it) so they
+# can never desync. WA is left NULL: it needs nonfiction genre weights, which
+# don't exist yet and are owned by the separate nonfiction-engine work.
+
+NONFICTION_COMPONENTS = [
+    "Informativeness", "Argumentation", "Entertainment",    # Quality
+    "Prose", "Phraseology",                                 # Aesthetics
+    "Insights", "Philosophizing", "Thought-Provokingness",  # Theme
+]
+
+# Which raw components roll into each category average.
+NONFICTION_CATEGORIES = {
+    "Quality":    ["Informativeness", "Argumentation", "Entertainment"],
+    "Aesthetics": ["Prose", "Phraseology"],
+    "Theme":      ["Insights", "Philosophizing", "Thought-Provokingness"],
+}
+
+
+def _ensure_nonfiction_schema():
+    """Create nonfiction_books + the two nonfiction weight tables if absent
+    (idempotent; safe on every import). nonfiction_books mirrors the `books`
+    conventions: REAL scores, double-quoted display-name columns, status
+    default 'finished'. The weight tables mirror the fiction genre_weights /
+    gcomp_weights pair but with the three nonfiction categories, and are
+    created EMPTY — weights are populated by the separate nonfiction engine."""
+    con = _connect()
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_books (
+            id          INTEGER PRIMARY KEY,
+            title       TEXT NOT NULL,
+            genre       TEXT,
+            author      TEXT,
+            series      TEXT,
+            words       INTEGER,
+            year_read   INTEGER,
+            "Informativeness"        REAL,
+            "Argumentation"          REAL,
+            "Entertainment"          REAL,
+            "Quality Average"        REAL,
+            "Prose"                  REAL,
+            "Phraseology"            REAL,
+            "Aesthetics Average"     REAL,
+            "Insights"               REAL,
+            "Philosophizing"         REAL,
+            "Thought-Provokingness"  REAL,
+            "Theme Average"          REAL,
+            "Total Average"          REAL,
+            "WA"                     REAL,
+            status         TEXT DEFAULT 'finished',
+            series_number  INTEGER
+        )
+    ''')
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_genre_weights (
+            genre TEXT PRIMARY KEY,
+            quality REAL, aesthetics REAL, theme REAL
+        )
+    ''')
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_gcomp_weights (
+            genre TEXT, category TEXT, component TEXT, weight REAL
+        )
+    ''')
+    con.commit()
+    con.close()
+
+
+def _valid_nonfiction_genres(con):
+    return {r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")}
+
+
+def _validate_nonfiction_scores(scores, require_all=True):
+    """Range-check 0-10; optionally check completeness over the 8 components."""
+    for comp, v in scores.items():
+        if comp not in NONFICTION_COMPONENTS:
+            raise ValidationError(
+                f"Unknown nonfiction component '{comp}'. Valid: {NONFICTION_COMPONENTS}")
+        if v is not None and not (0 <= float(v) <= 10):
+            raise ValidationError(f"{comp}={v} is out of range (must be 0-10).")
+    if require_all:
+        missing = [c for c in NONFICTION_COMPONENTS if scores.get(c) is None]
+        if missing:
+            raise ValidationError(f"Missing required component score(s): {missing}.")
+
+
+def _nonfiction_averages(scores):
+    """Recompute the three category averages + Total Average from component
+    scores. Each category average is the unweighted mean of its present
+    components; Total Average is the unweighted mean of the present category
+    averages (mirrors the fiction Total Average convention and the workbook).
+    Returns {avg_column_name: value_or_None}."""
+    cat_avg = {}
+    for cat, comps in NONFICTION_CATEGORIES.items():
+        vals = [float(scores[c]) for c in comps if scores.get(c) is not None]
+        cat_avg[cat] = (sum(vals) / len(vals)) if vals else None
+    present = [v for v in cat_avg.values() if v is not None]
+    total = (sum(present) / len(present)) if present else None
+    return {
+        "Quality Average":    cat_avg["Quality"],
+        "Aesthetics Average": cat_avg["Aesthetics"],
+        "Theme Average":      cat_avg["Theme"],
+        "Total Average":      total,
+    }
+
+
+def add_nonfiction_book(title, author=None, genre=None, scores=None,
+                        series=None, series_number=None, words=None,
+                        year_read=None, status="finished",
+                        allow_new_genre=False, require_scores=True):
+    """Add a nonfiction book to nonfiction_books, mirroring add_book's
+    discipline: duplicate title refused, scores range/completeness checked,
+    nothing commits on failure. The three category averages + Total Average are
+    recomputed here and stored; WA is left NULL (no nonfiction weights yet).
+    genre is optional and only validated once nonfiction_genre_weights is
+    populated. Returns True on success, False otherwise."""
+    scores = scores or {}
+    con = _connect()
+    try:
+        if status not in VALID_STATUSES:
+            raise ValidationError(
+                f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
+        dup = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
+                          (title,)).fetchone()
+        if dup:
+            raise ValidationError(
+                f"A nonfiction book titled '{title}' already exists. "
+                f"Use change_nonfiction_rating() to edit it.")
+        valid = _valid_nonfiction_genres(con)  # empty until weights are added
+        if genre is not None and valid and genre not in valid and not allow_new_genre:
+            raise ValidationError(
+                f"Genre '{genre}' is not in nonfiction_genre_weights "
+                f"(valid: {sorted(valid)}). Pass allow_new_genre=True to override.")
+        _validate_nonfiction_scores(scores, require_all=require_scores)
+
+        _backup_once()
+        avgs = _nonfiction_averages(scores)
+        cols = (["title", "genre", "author", "series", "series_number",
+                 "words", "year_read", "status"]
+                + NONFICTION_COMPONENTS
+                + ["Quality Average", "Aesthetics Average",
+                   "Theme Average", "Total Average"])
+        vals = ([title, genre, author, series,
+                 int(series_number) if series_number else None,
+                 words, year_read, status]
+                + [scores.get(c) for c in NONFICTION_COMPONENTS]
+                + [avgs["Quality Average"], avgs["Aesthetics Average"],
+                   avgs["Theme Average"], avgs["Total Average"]])
+        ph = ",".join("?" for _ in cols)
+        con.execute(f'INSERT INTO nonfiction_books '
+                    f'({",".join(chr(34)+c+chr(34) for c in cols)}) '
+                    f'VALUES ({ph})', vals)
+        con.commit()
+        ta = avgs["Total Average"]
+        extra = f" — Total Average {ta:.4f}" if ta is not None else ""
+        print(f"  ✓ Added nonfiction '{title}' ({author or '—'}).{extra}")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ NOT added — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def change_nonfiction_rating(title, new_scores):
+    """Update one or more component scores on a nonfiction book, then recompute
+    and store the category averages + Total Average so they stay consistent.
+    WA is not touched (stays NULL until the nonfiction engine owns it)."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _validate_nonfiction_scores(new_scores, require_all=False)
+
+        _backup_once()
+        sets = ",".join(f'"{c}"=?' for c in new_scores)
+        con.execute(f"UPDATE nonfiction_books SET {sets} WHERE title=?",
+                    list(new_scores.values()) + [title])
+        # recompute averages from the full, now-updated component row
+        cur = con.execute(
+            f'SELECT {",".join(chr(34)+c+chr(34) for c in NONFICTION_COMPONENTS)} '
+            f'FROM nonfiction_books WHERE title=?', (title,))
+        full = dict(zip(NONFICTION_COMPONENTS, cur.fetchone()))
+        avgs = _nonfiction_averages(full)
+        con.execute('UPDATE nonfiction_books SET "Quality Average"=?, '
+                    '"Aesthetics Average"=?, "Theme Average"=?, '
+                    '"Total Average"=? WHERE title=?',
+                    [avgs["Quality Average"], avgs["Aesthetics Average"],
+                     avgs["Theme Average"], avgs["Total Average"], title])
+        con.commit()
+        changed = ", ".join(f"{c}={v}" for c, v in new_scores.items())
+        print(f"  ✓ Updated nonfiction '{title}': {changed}")
+        if avgs["Total Average"] is not None:
+            print(f"    -> Total Average {avgs['Total Average']:.4f}")
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not updated — {e}")
+    finally:
+        con.close()
+
+
+def delete_nonfiction_book(title):
+    """Permanently delete a nonfiction book by title. Backs up before writing."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_books WHERE title=?", (title,))
+        con.commit()
+        print(f"  ✓ Deleted nonfiction '{title}'.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not deleted — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_status(title, status):
+    """Set a nonfiction book's reading status (finished / currently-reading /
+    reading-next). Validated against VALID_STATUSES. Returns True on success."""
+    con = _connect()
+    try:
+        if status not in VALID_STATUSES:
+            raise ValidationError(
+                f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_books SET status=? WHERE title=?",
+                    (status, title))
+        con.commit()
+        print(f"  ✓ Nonfiction '{title}' status set to {status}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_year_read(title, year):
+    """Set/edit the year a nonfiction book was read. Range-checked 1900-2100.
+    Returns True on success, False otherwise."""
+    con = _connect()
+    try:
+        if year is not None and not (1900 <= int(year) <= 2100):
+            raise ValidationError(f"Year {year} is out of range (1900-2100).")
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_books SET year_read=? WHERE title=?",
+                    (int(year) if year is not None else None, title))
+        con.commit()
+        print(f"  ✓ Nonfiction '{title}' year_read set to {year}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def list_nonfiction_books(limit=50):
+    """Quick read of nonfiction_books, sorted by Total Average."""
+    con = _connect()
+    rows = con.execute(
+        'SELECT title, author, "Total Average", status FROM nonfiction_books '
+        'ORDER BY "Total Average" DESC LIMIT ?', (limit,)).fetchall()
+    for t, a, ta, st in rows:
+        ta_s = f"{ta:.4f}" if ta is not None else "  —   "
+        print(f"  {(t or '')[:34]:<34} {(a or '')[:20]:<20} TA={ta_s}  {st}")
+    con.close()
+
+
+# Create the nonfiction tables on import (idempotent), same discipline as the
+# fiction schema-ensure calls near the top of this module.
+_ensure_nonfiction_schema()
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("DB WRITE WORKFLOWS — demo (nothing committed unless you edit below)")
