@@ -214,6 +214,67 @@ than refusing. Respond with ONLY a JSON object — no prose, no markdown:
     return blurb, keywords
 
 
+def generate_rich_blurb(client, title, author, genre, corrected_scores, wa, ci,
+                        n_genre, n_author, read_books, model=rm.MODEL):
+    """Produce a rich, opinionated recommendation blurb in the calibrated house
+    style, used for predicted books that will be saved to recommendations.
+
+    The house style (4 beats, ~4 sentences, plain prose — no markdown):
+      1. Positioning + plot hook — what this book IS and its core premise.
+      2. "Closest analog: <BookA> for <reason> + <BookB> for <reason>." — the
+         analogs MUST be books the reader has actually read (from read_books).
+      3. A thematic line — "A meditation on ..." / "An exploration of ...".
+      4. "Confidence caveat: <Component> (predicted X.X) is highest-risk — ..."
+         naming the single shakiest component and a plausible range.
+
+    read_books is a list of (title, author, genre) tuples — the reader's rated
+    library, the ONLY allowed source for analogs. corrected_scores is the 14
+    predicted components; wa/ci frame the confidence. Never raises — returns ""
+    on failure so the caller can fall back to the plain research blurb."""
+    score_lines = "\n".join(f"  {c}: {corrected_scores[c]:.1f}"
+                            for c in LIVE if c in corrected_scores)
+    # Compact library list for analog selection (title — author, genre).
+    lib_lines = "\n".join(f"  {t} — {a} ({g})" for (t, a, g) in read_books)
+    half = (ci[1] - wa) if ci and ci[1] is not None else 0.5
+
+    prompt = f'''You write calibrated, opinionated book-recommendation blurbs for ONE reader,
+in a precise house style. Write the blurb for a predicted (not-yet-read) book.
+
+BOOK: "{title}" by {author} (genre: {genre})
+
+PREDICTED COMPONENT SCORES (0-10, this reader's calibrated taste model):
+{score_lines}
+
+Predicted Weighted Average: {wa:.2f}  (≈95% interval ±{half:.2f})
+Grounding: {n_author} book(s) by this author and {n_genre} in this genre are
+already in the reader's library, so confidence is {"high" if (n_author + n_genre) >= 4 else "modest"}.
+
+THE READER'S RATED LIBRARY (the ONLY books you may cite as analogs — never
+invent titles or cite books not on this list):
+{lib_lines}
+
+Write ONE blurb of about 3-5 sentences, plain prose (no markdown, no line
+breaks), following this exact four-beat structure:
+1. Positioning + plot hook: what the book is, its standing, and its core premise.
+2. "Closest analog: <Book A> for <specific reason> + <Book B> for <specific
+   reason>." — both books MUST come from the reader's library above.
+3. A thematic line beginning "A meditation on" or "An exploration of".
+4. "Confidence caveat: <Component> (predicted <score>) is highest-risk — <one
+   clause on why, with a plausible numeric range>." Pick the single component
+   you are least certain about and justify it from the book's content.
+
+Respond with ONLY a JSON object — no prose, no markdown:
+{{"blurb": "..."}}'''
+    try:
+        msg = client.messages.create(
+            model=model, max_tokens=600,
+            messages=[{"role": "user", "content": prompt}])
+        data = rl._extract_json(msg.content[0].text.strip())
+        return (data.get("blurb", "") or "").strip()
+    except Exception:
+        return ""
+
+
 # ---------------------------------------------------------------------------
 # WA roll-up from components — identical to db_loader (rated books) and to
 # app.load_recommendations (the mood queue), so a researched book's WA is

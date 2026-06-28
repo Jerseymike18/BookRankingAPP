@@ -918,6 +918,21 @@ def predict_research(req: ResearchRequest):
     for cat, comps in cat_comps.items():
         components_by_cat[cat] = {c: _clean(round(res["scores"].get(c, 0), 2)) for c in comps}
 
+    # Rich house-style blurb: positioning + analogs drawn from the reader's own
+    # library + a confidence caveat citing the predicted scores. Falls back to
+    # the plain research blurb if the call fails.
+    read_books = [
+        (str(r["Book"]), str(r["Author"]), str(r["Genre"]))
+        for _, r in books_e.iterrows()
+    ]
+    rich_blurb = _rp.generate_rich_blurb(
+        client, res["title"], res["author"], res["genre"],
+        res["scores"], res["wa"], res["ci"],
+        res["n_genre"], res["n_author"], read_books,
+    )
+    if rich_blurb:
+        res["blurb"] = rich_blurb
+
     # Resolve series + ordinal via the shared meta-prompt path, so a saved
     # prediction populates series/series_number just like a manual add.
     series_meta = _lookup_series_meta(client, res["title"], res["author"])
