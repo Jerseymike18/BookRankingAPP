@@ -147,6 +147,36 @@ def _series_number_map(table: str) -> dict:
     return out
 
 
+def _lookup_series_meta(client, title: str, author_hint: str = "unknown") -> dict:
+    """Ask the LLM for a book's author, series name, and ordinal — the single
+    meta-prompt path shared by /api/lookup and /api/predict/research. Returns
+    {"author": str, "series": str, "series_number": int|None}. series_number is
+    None when standalone/unknown. Never raises — on failure returns blanks."""
+    meta_prompt = (
+        f'Return ONLY a JSON object with these keys:\n'
+        f'  "author": the correct full author name for "{title}"\n'
+        f'  "series": the series name if the book belongs to one (empty string if standalone)\n'
+        f'  "series_number": the number within the series as an integer (0 if standalone or unknown)\n'
+        f'Respond with raw JSON only, no markdown.'
+    )
+    try:
+        meta_msg = client.messages.create(
+            model=_rp.rm.MODEL, max_tokens=200,
+            messages=[{"role": "user", "content": meta_prompt}],
+        )
+        meta = _rl._extract_json(meta_msg.content[0].text.strip())
+    except Exception:
+        return {"author": author_hint, "series": "", "series_number": None}
+    author = (meta.get("author") or author_hint).strip() or author_hint
+    s_name = (meta.get("series") or "").strip()
+    s_num = int(meta.get("series_number", 0) or 0)
+    return {
+        "author": author,
+        "series": s_name,
+        "series_number": s_num if (s_name and s_num > 0) else None,
+    }
+
+
 @app.get("/api/books")
 def get_books():
     """Return all rated books with their WA, metadata, and component scores."""
@@ -387,31 +417,15 @@ def lookup_book(req: LookupRequest):
                 allowed_genres=allowed_genres,
             )
 
-        meta_prompt = (
-            f'Return ONLY a JSON object with these keys:\n'
-            f'  "author": the correct full author name for "{title}"\n'
-            f'  "series": the series name if the book belongs to one (empty string if standalone)\n'
-            f'  "series_number": the number within the series as an integer (0 if standalone or unknown)\n'
-            f'Respond with raw JSON only, no markdown.'
-        )
-        meta_msg = client.messages.create(
-            model=_rp.rm.MODEL, max_tokens=200,
-            messages=[{"role": "user", "content": meta_prompt}]
-        )
-        meta_text = meta_msg.content[0].text.strip()
-        meta = _rl._extract_json(meta_text)
-
-        author = meta.get("author", hint_author).strip() or hint_author
-        s_name = meta.get("series", "").strip()
-        s_num = int(meta.get("series_number", 0) or 0)
+        meta = _lookup_series_meta(client, title, hint_author)
 
         return {
             "title": title,
-            "author": author,
+            "author": meta["author"],
             "genre": det_genre,
             "words": words_raw,
-            "series": s_name,
-            "series_number": s_num if s_name and s_num > 0 else None,
+            "series": meta["series"],
+            "series_number": meta["series_number"],
             "blurb": blurb or "",
         }
     except Exception as e:
@@ -904,6 +918,10 @@ def predict_research(req: ResearchRequest):
     for cat, comps in cat_comps.items():
         components_by_cat[cat] = {c: _clean(round(res["scores"].get(c, 0), 2)) for c in comps}
 
+    # Resolve series + ordinal via the shared meta-prompt path, so a saved
+    # prediction populates series/series_number just like a manual add.
+    series_meta = _lookup_series_meta(client, res["title"], res["author"])
+
     return {
         "title": res["title"], "author": res["author"], "genre": res["genre"],
         "wa": round(res["wa"], 4),
@@ -913,6 +931,8 @@ def predict_research(req: ResearchRequest):
         "conf": res["conf"],
         "from_cache": from_cache,
         "words": words,
+        "series": series_meta["series"],
+        "series_number": series_meta["series_number"],
         "blurb": res.get("blurb", ""),
         "keywords": res.get("keywords", ""),
         "components": components_by_cat,

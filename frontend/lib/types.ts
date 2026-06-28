@@ -95,6 +95,8 @@ export interface ResearchResult {
   conf: string;
   from_cache: boolean;
   words: number | null;
+  series: string;
+  series_number: number | null;
   blurb: string;
   keywords: string;
   components: CategoryComponents;

@@ -740,7 +740,8 @@ function DiscoverMode({
           title: c.title, author: c.author, genre: c.genre ?? "",
           wa: 0, ci: [0, 0], rank: 0, total: 0,
           n_genre: 0, n_author: 0, conf: "?",
-          from_cache: false, words: null, blurb: "", keywords: "",
+          from_cache: false, words: null, series: "", series_number: null,
+          blurb: "", keywords: "",
           components: {}, category_order: [],
           genre_auto_detected: false,
           error: e instanceof Error ? e.message : "Scoring failed",
@@ -783,6 +784,8 @@ function DiscoverMode({
           title: r.title, genre: r.genre, author: r.author,
           scores: flatScores,
           words: r.words ?? undefined,
+          series: r.series || undefined,
+          series_number: r.series_number ?? undefined,
           blurb: r.blurb || undefined,
           keywords: r.keywords || undefined,
         });
