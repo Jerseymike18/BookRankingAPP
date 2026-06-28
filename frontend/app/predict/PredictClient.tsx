@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import {
-  predictInstant,
   predictResearch,
   discoverCandidates,
   saveRecommendation,
 } from "@/lib/api";
 import type {
-  Book,
-  InstantPrediction,
   ResearchResult,
   Candidate,
   ScoredCandidate,
@@ -34,25 +31,12 @@ const CANDIDATE_COLS: ColDef<Candidate>[] = [
 
 /* ── Shared input styles ─────────────────────────────────────────────────── */
 
-const inputCls =
-  "w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2";
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface)",
   border: "1px solid var(--color-rule)",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label
-      className="block text-xs font-semibold uppercase tracking-widest mb-1"
-      style={{ color: "var(--color-muted)" }}
-    >
-      {children}
-    </label>
-  );
-}
 
 /* ── Grounding signal (the PRIMARY reliability indicator) ────────────────── */
 
@@ -143,173 +127,6 @@ function ComponentGrid({
   );
 }
 
-/* ── WA result card ──────────────────────────────────────────────────────── */
-
-function WACard({
-  wa,
-  ci,
-  rank,
-  total,
-  label,
-  rankRange,
-}: {
-  wa: number;
-  ci: [number, number];
-  rank: number;
-  total: number;
-  label?: string;
-  rankRange?: [number, number];
-}) {
-  return (
-    <div className="flex items-start gap-6">
-      <div className="flex flex-col items-center gap-1 flex-shrink-0">
-        <div
-          className="w-20 h-20 rounded-full flex items-center justify-center font-display font-bold text-2xl shadow-sm"
-          style={{ background: "var(--color-sage)", color: "#fff" }}
-        >
-          {wa.toFixed(2)}
-        </div>
-        {label && (
-          <span className="text-xs text-center" style={{ color: "var(--color-muted)" }}>
-            {label}
-          </span>
-        )}
-      </div>
-      <div className="pt-1 space-y-1">
-        <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-          <span className="font-semibold">90% interval:</span>{" "}
-          {ci[0].toFixed(2)} – {ci[1].toFixed(2)}
-        </p>
-        <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-          <span className="font-semibold">Predicted rank:</span> ~{rank} of {total}
-          {rankRange && (
-            <span style={{ color: "var(--color-muted)" }}>
-              {" "}(range {rankRange[0]}–{rankRange[1]})
-            </span>
-          )}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ── Instant prediction decomposition chain ──────────────────────────────── */
-
-function InstantDecomposition({ p }: { p: InstantPrediction }) {
-  const [open, setOpen] = useState(false);
-  const waCorrected = p.wa_model + p.bias;
-
-  return (
-    <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--color-rule)" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-xs font-medium"
-        style={{ color: "var(--color-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
-      >
-        <svg
-          className="w-3 h-3 flex-shrink-0"
-          style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        How this was calculated
-      </button>
-
-      {open && (
-        <div className="mt-3 space-y-4">
-          {/* Estimate source */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>
-              Component estimate source
-            </p>
-            <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-              {p.src === "author"
-                ? `Based on ${p.n_src} book${p.n_src !== 1 ? "s" : ""} by this author`
-                : p.src === "genre"
-                ? `Based on ${p.n_src} book${p.n_src !== 1 ? "s" : ""} in this genre`
-                : `Global prior (${p.n_src} books) — no author or genre data`}
-            </p>
-          </div>
-
-          {/* Computation chain */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--color-muted)" }}>
-              WA computation
-            </p>
-            <div
-              className="rounded-lg p-3 space-y-1.5 text-xs"
-              style={{ background: "var(--color-ground)", border: "1px solid var(--color-rule)", fontFamily: "var(--font-mono, monospace)" }}
-            >
-              <div className="flex justify-between gap-4">
-                <span style={{ color: "var(--color-muted)" }}>Regression point estimate</span>
-                <span style={{ color: "var(--color-ink)" }}>{p.wa_model.toFixed(3)}</span>
-              </div>
-              <div className="flex justify-between gap-4">
-                <span style={{ color: "var(--color-muted)" }}>
-                  Genre bias correction ({p.bias >= 0 ? "+" : ""}{p.bias.toFixed(3)})
-                </span>
-                <span style={{ color: p.bias >= 0 ? "var(--color-sage)" : "#C07C5A" }}>
-                  {waCorrected.toFixed(3)}
-                </span>
-              </div>
-              <div
-                className="flex justify-between gap-4 pt-1.5"
-                style={{ borderTop: "1px solid var(--color-rule)" }}
-              >
-                <span style={{ color: "var(--color-muted)" }}>
-                  Analog mean (trust={p.trust.toFixed(2)}, blend {Math.round(p.trust * 100)}% model + {Math.round((1 - p.trust) * 100)}% analog)
-                </span>
-                <span style={{ color: "var(--color-ink)" }}>{p.analog_mean.toFixed(3)}</span>
-              </div>
-              <div
-                className="flex justify-between gap-4 pt-1.5 font-semibold"
-                style={{ borderTop: "1px solid var(--color-rule)", color: "var(--color-ink)" }}
-              >
-                <span>Final WA</span>
-                <span>{p.wa_final.toFixed(3)}</span>
-              </div>
-            </div>
-            <p className="text-xs mt-1.5" style={{ color: "var(--color-faint)" }}>
-              Model R²={p.r2.toFixed(3)} · residual SD={p.resid_sd.toFixed(3)} · 90% CI = final WA ± 1.645 × SD
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Divider ─────────────────────────────────────────────────────────────── */
-function Divider() {
-  return <div className="my-6" style={{ borderTop: "1px solid var(--color-rule)" }} />;
-}
-
-/* ── Mode tab ────────────────────────────────────────────────────────────── */
-function ModeTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-      style={{
-        background: active ? "var(--color-sage)" : "var(--color-surface)",
-        color: active ? "#fff" : "var(--color-muted)",
-        border: active ? "none" : "1px solid var(--color-rule)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 /* ── Section card wrapper ────────────────────────────────────────────────── */
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -381,316 +198,15 @@ function InfoBox({ message }: { message: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PREDICT MODE
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-const GENRE_AUTO = "✨ Auto-detect";
-
-function PredictMode({
-  books,
-  validGenres,
-  categoryOrder,
-}: {
-  books: Book[];
-  validGenres: string[];
-  categoryOrder: string[];
-}) {
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [genreChoice, setGenreChoice] = useState<string>(GENRE_AUTO);
-
-  const [instant, setInstant] = useState<InstantPrediction | null>(null);
-  const [instantError, setInstantError] = useState<string | null>(null);
-  const [instantLoading, setInstantLoading] = useState(false);
-
-  const [research, setResearch] = useState<ResearchResult | null>(null);
-  const [researchError, setResearchError] = useState<string | null>(null);
-  const [researchLoading, setResearchLoading] = useState(false);
-
-  // Auto-run instant when title + author + explicit genre are set
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    const genre = genreChoice === GENRE_AUTO ? null : genreChoice;
-    if (!title.trim() || !author.trim() || !genre) {
-      setInstant(null);
-      setInstantError(null);
-      return;
-    }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setInstantLoading(true);
-      setInstantError(null);
-      predictInstant(title.trim(), author.trim(), genre)
-        .then(setInstant)
-        .catch((e: unknown) =>
-          setInstantError(e instanceof Error ? e.message : "Instant prediction failed.")
-        )
-        .finally(() => setInstantLoading(false));
-    }, 600);
-  }, [title, author, genreChoice]);
-
-  // Clear research when inputs change
-  useEffect(() => {
-    setResearch(null);
-    setResearchError(null);
-  }, [title, author, genreChoice]);
-
-  async function handleResearch() {
-    if (!title.trim() || !author.trim()) return;
-    setResearchLoading(true);
-    setResearchError(null);
-    setResearch(null);
-    try {
-      const genre = genreChoice === GENRE_AUTO ? undefined : genreChoice;
-      const result = await predictResearch(title.trim(), author.trim(), genre);
-      setResearch(result);
-    } catch (e: unknown) {
-      setResearchError(e instanceof Error ? e.message : "Research failed.");
-    } finally {
-      setResearchLoading(false);
-    }
-  }
-
-  const nGenreInstant = instant?.n_genre ?? 0;
-
-  return (
-    <div className="space-y-6">
-      {/* Inputs */}
-      <Card>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <FieldLabel>Title</FieldLabel>
-            <input
-              type="text"
-              className={inputCls}
-              style={inputStyle}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. The Name of the Wind"
-            />
-          </div>
-          <div>
-            <FieldLabel>Author</FieldLabel>
-            <input
-              type="text"
-              className={inputCls}
-              style={inputStyle}
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-              placeholder="e.g. Patrick Rothfuss"
-            />
-          </div>
-          <div>
-            <FieldLabel>Genre</FieldLabel>
-            <select
-              className={inputCls}
-              style={inputStyle}
-              value={genreChoice}
-              onChange={(e) => setGenreChoice(e.target.value)}
-            >
-              <option value={GENRE_AUTO}>{GENRE_AUTO}</option>
-              {validGenres.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
-          Leave genre on Auto-detect to use only title + author — grounded research will
-          pick the genre from your list. Set a genre manually to see the instant estimate
-          immediately.
-        </p>
-      </Card>
-
-      {/* Instant estimate */}
-      <div>
-        <h2
-          className="font-display font-semibold text-lg mb-1"
-          style={{ color: "var(--color-ink)" }}
-        >
-          Instant estimate
-        </h2>
-        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Free quick-look from your analogs — no API call. Appears as soon as title,
-          author, and genre are set.
-        </p>
-
-        {genreChoice === GENRE_AUTO && (title || author) && (
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-            Pick a genre above to see the instant estimate, or use Grounded research below
-            to auto-detect.
-          </p>
-        )}
-        {instantLoading && (
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-            Calculating…
-          </p>
-        )}
-        {instantError && <ErrorBox message={instantError} />}
-        {instant && !instantLoading && (
-          <Card>
-            <WACard
-              wa={instant.wa_final}
-              ci={instant.ci}
-              rank={instant.rank}
-              total={instant.total}
-              label="Predicted WA"
-              rankRange={instant.rank_range}
-            />
-            {nGenreInstant < 5 && (
-              <div
-                className="mt-3 rounded-lg px-3 py-2 text-xs"
-                style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}
-              >
-                Thin genre (n={nGenreInstant}) — only {nGenreInstant} rated book{nGenreInstant !== 1 ? "s" : ""} in this genre. Treat as rough.
-              </div>
-            )}
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {Object.entries(instant.wcats).map(([cat, val]) => (
-                <div key={cat} className="comp-tile">
-                  <span className="comp-label">{cat}</span>
-                  <span className="comp-value">{val.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <InstantDecomposition p={instant} />
-          </Card>
-        )}
-      </div>
-
-      <Divider />
-
-      {/* Grounded research */}
-      <div>
-        <h2
-          className="font-display font-semibold text-lg mb-1"
-          style={{ color: "var(--color-ink)" }}
-        >
-          Grounded research
-        </h2>
-        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Scores this specific book with a detailed rubric, then corrects onto your scale
-          using your rated books in the same genre and by the same author. One API call
-          (or cache hit — free).
-        </p>
-
-        <SageButton
-          onClick={handleResearch}
-          disabled={researchLoading || !title.trim() || !author.trim()}
-        >
-          {researchLoading ? "Researching… (one API call)" : "Research this book"}
-        </SageButton>
-
-        {researchError && <div className="mt-4"><ErrorBox message={researchError} /></div>}
-
-        {research && (
-          <div className="mt-6 space-y-5">
-            {/* Book identity */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-display font-bold text-lg" style={{ color: "var(--color-ink)" }}>
-                {research.title}
-              </span>
-              <span style={{ color: "var(--color-muted)" }}>by {research.author}</span>
-              <span className="genre-chip">{research.genre}</span>
-              {research.genre_auto_detected && (
-                <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                  · genre auto-detected
-                </span>
-              )}
-              {research.from_cache && (
-                <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                  · reused cached research (no API call)
-                </span>
-              )}
-            </div>
-
-            <Card>
-              <WACard
-                wa={research.wa}
-                ci={research.ci}
-                rank={research.rank}
-                total={research.total}
-                label="Predicted WA (corrected)"
-              />
-            </Card>
-
-            {/* PRIMARY: grounding signal */}
-            <div>
-              <p
-                className="text-xs font-semibold uppercase tracking-widest mb-2"
-                style={{ color: "var(--color-muted)" }}
-              >
-                Prediction reliability
-              </p>
-              <GroundingBadge nGenre={research.n_genre} nAuthor={research.n_author} />
-              <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-                Model self-confidence: {research.conf} — the model's own assessment of
-                how well it knows this book. Less reliable than the data-grounding signal above.
-              </p>
-            </div>
-
-            {/* Corrected components */}
-            <div>
-              <p
-                className="text-xs font-semibold uppercase tracking-widest mb-3"
-                style={{ color: "var(--color-muted)" }}
-              >
-                Corrected component scores (author + genre corrected)
-              </p>
-              <ComponentGrid
-                components={research.components}
-                categoryOrder={research.category_order ?? categoryOrder}
-              />
-            </div>
-
-            {research.blurb && (
-              <div>
-                <p
-                  className="text-xs font-semibold uppercase tracking-widest mb-1"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  Blurb
-                </p>
-                <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-                  {research.blurb}
-                </p>
-              </div>
-            )}
-            {research.keywords && (
-              <div>
-                <p
-                  className="text-xs font-semibold uppercase tracking-widest mb-1"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  Keywords
-                </p>
-                <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-                  {research.keywords}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    DISCOVER MODE
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function DiscoverMode({
-  books,
   categoryOrder,
 }: {
-  books: Book[];
   categoryOrder: string[];
 }) {
   const [request, setRequest] = useState("");
-  const [maxCandidates, setMaxCandidates] = useState(8);
 
   // Step 1: generate candidates
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -722,7 +238,7 @@ function DiscoverMode({
     setToSave(new Set());
     setSaveResults({});
     try {
-      const result = await discoverCandidates(request.trim(), maxCandidates);
+      const result = await discoverCandidates(request.trim());
       setCandidates(result.candidates);
       setRequestLabel(result.request);
       setGenNote(result.note ?? "");
@@ -820,7 +336,7 @@ function DiscoverMode({
           What are you in the mood for?
         </h2>
         <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Ask in plain language. The LLM proposes candidates — avoiding what you've already
+          Ask in plain language. The LLM proposes candidates — avoiding what you&apos;ve already
           read — then your engine scores and ranks each one.
         </p>
         <textarea
@@ -833,21 +349,11 @@ function DiscoverMode({
             "but in a different genre · underrated sci-fi from the 2010s"
           }
         />
+        <p className="text-xs mt-2 mb-3" style={{ color: "var(--color-faint)" }}>
+          State how many you want in your request (e.g. “the 5 main books of …”, “a few
+          cozy mysteries”) — or name a single book to predict it directly.
+        </p>
         <div className="flex items-center gap-4 mt-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
-              Max candidates
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={15}
-              value={maxCandidates}
-              onChange={(e) => setMaxCandidates(parseInt(e.target.value) || 8)}
-              className="w-16 px-2 py-1.5 rounded-lg text-sm border focus:outline-none"
-              style={inputStyle}
-            />
-          </div>
           <SageButton
             onClick={handleGenerate}
             disabled={genLoading || !request.trim()}
@@ -1143,16 +649,10 @@ function ScoredCard({
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function PredictClient({
-  books,
-  validGenres,
   categoryOrder,
 }: {
-  books: Book[];
-  validGenres: string[];
   categoryOrder: string[];
 }) {
-  const [mode, setMode] = useState<"predict" | "discover">("predict");
-
   return (
     <div>
       {/* Page header */}
@@ -1164,25 +664,12 @@ export default function PredictClient({
           Predict
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Name a book to predict — or ask the LLM to discover candidates, then let your engine score them.
+          Ask the LLM to discover candidates — or name a single book — then let your engine
+          score and rank them.
         </p>
       </div>
 
-      {/* Mode switcher */}
-      <div className="flex gap-2 mb-8">
-        <ModeTab active={mode === "predict"} onClick={() => setMode("predict")}>
-          Predict a book I name
-        </ModeTab>
-        <ModeTab active={mode === "discover"} onClick={() => setMode("discover")}>
-          Discover books to predict
-        </ModeTab>
-      </div>
-
-      {mode === "predict" ? (
-        <PredictMode books={books} validGenres={validGenres} categoryOrder={categoryOrder} />
-      ) : (
-        <DiscoverMode books={books} categoryOrder={categoryOrder} />
-      )}
+      <DiscoverMode categoryOrder={categoryOrder} />
     </div>
   );
 }

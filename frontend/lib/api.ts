@@ -126,12 +126,15 @@ export async function predictResearch(
 
 export async function discoverCandidates(
   request: string,
-  maxCandidates: number
+  maxCandidates?: number
 ): Promise<DiscoverCandidatesResponse> {
   const res = await fetch(`${API}/api/discover/candidates`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ request, max_candidates: maxCandidates }),
+    body: JSON.stringify({
+      request,
+      max_candidates: maxCandidates ?? null,
+    }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);

@@ -948,7 +948,9 @@ def predict_research(req: ResearchRequest):
 
 class DiscoverRequest(BaseModel):
     request: str
-    max_candidates: int = 8
+    # Optional upper bound. When omitted, the LLM infers the count from the
+    # request wording (e.g. "the 5 main books of X" → 5).
+    max_candidates: Optional[int] = None
 
 
 @app.post("/api/discover/candidates")

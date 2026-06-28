@@ -46,6 +46,7 @@ import reresearch_and_measure as rm
 CACHE = rm.RICH_CACHE        # "llm_scores_richer.json"
 LIVE = rm.LIVE               # canonical 14 components, reference order
 DISCOVER_MODEL = "claude-sonnet-4-6"  # candidate generation only; research uses rm.MODEL (Opus)
+DISCOVER_MAX = 15            # runaway guard when the candidate count is LLM-inferred
 
 WELL_SAMPLED_GENRE = 5       # genre below this is flagged as lower-reliability grounding
 BLEND = 0.2                  # correlation-smoothing weight (validated winning variant)
@@ -572,9 +573,16 @@ After searching, respond with ONLY a JSON object — no prose, no markdown:
     return {"candidates": kept, "note": note, "sources": sources}
 
 
-def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
+def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=None,
                         client=None, model=DISCOVER_MODEL, key_path="apikey.txt"):
     """Return a list of {"title","author","genre"} candidate books for `request`.
+
+    - `n`: how many candidates to return. When None (the default), the model
+      infers the count from the REQUEST wording — an explicit number ("the 5
+      main books of X", "3 cozy mysteries") is honoured, a single named book
+      yields one candidate, and a vague mood request yields a sensible handful.
+      An internal cap of ``DISCOVER_MAX`` bounds runaway responses. Pass an
+      integer to force an exact target (with a single short top-up retry).
 
     - `allowed_genres`: your genre list; each candidate's genre is chosen EXACTLY
       from it (a genre outside the list is set to None so the scoring step can
@@ -661,6 +669,16 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=8,
                 "\n\nYou have ALREADY proposed the titles below in a previous "
                 "round — return DIFFERENT books this time, do not repeat any of "
                 "these:\n" + "\n".join(f"- {t}" for t in extra_exclude))
+        if want is None:
+            count_instr = (
+                "Decide HOW MANY books to return FROM THE REQUEST itself: if it "
+                "states or implies a specific number (e.g. \"the 5 main books of "
+                "X\" -> 5, \"3 cozy mysteries\" -> 3), return exactly that many; "
+                "if it names a single specific book to predict, return just that "
+                "one book; otherwise return a sensible handful (about 5-8). "
+                f"Never return more than {DISCOVER_MAX} books.")
+        else:
+            count_instr = f"Suggest up to {want} books that fit the REQUEST."
         prompt = f'''You are proposing candidate books for a reader with specific, consistent taste. They will run your suggestions through THEIR OWN scoring engine, so propose CANDIDATES only — no reviews, ratings, or opinions.
 
 REQUEST: {request}
@@ -670,7 +688,7 @@ Choose each book's genre EXACTLY from this list (copy the spelling exactly — n
 
 {avoid_sections}{extra}
 
-Aim for fresh suggestions matched to the request and their taste. Suggest up to {want} books that fit the REQUEST. For each give its title, author, and best-fitting genre from the list above.
+Aim for fresh suggestions matched to the request and their taste. {count_instr} For each give its title, author, and best-fitting genre from the list above.
 
 Respond with ONLY a JSON object — no prose, no markdown:
 {{"candidates": [{{"title": "...", "author": "...", "genre": "..."}}]}}'''
@@ -681,6 +699,13 @@ Respond with ONLY a JSON object — no prose, no markdown:
         return data.get("candidates", [])
 
     seen = set()
+
+    # Inferred-count path: trust the model's read of the request; just guard
+    # against a runaway list. No top-up retry — there's no fixed target to hit.
+    if n is None:
+        out = _filter(_ask(None), seen)
+        return {"candidates": out[:DISCOVER_MAX], "note": "", "sources": []}
+
     out = _filter(_ask(n), seen)
 
     # Single top-up retry: if the first pass came back materially short (often
