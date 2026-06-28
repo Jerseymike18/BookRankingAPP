@@ -4,6 +4,9 @@ import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { editRating, deleteBook } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents } from "@/lib/types";
+import { seriesLabel } from "@/lib/format";
+import { useSortable, SortableTh } from "@/components/SortableTable";
+import type { ColDef } from "@/components/SortableTable";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -336,55 +339,18 @@ function BookExpandedPanel({
   );
 }
 
-/* ── Sort types ───────────────────────────────────────────────────────── */
+/* ── Column definitions ───────────────────────────────────────────────── */
 
-type SortField = "wa" | "Story" | "Character" | "Aesthetics" | "Theme" | "Worldbuilding";
-type SortDir = "desc" | "asc";
-
-const SORT_COLS: { field: SortField; label: string }[] = [
-  { field: "wa", label: "WA" },
-  { field: "Story", label: "Story" },
-  { field: "Character", label: "Char" },
-  { field: "Aesthetics", label: "Aes" },
-  { field: "Theme", label: "Theme" },
-  { field: "Worldbuilding", label: "WB" },
+const RANKINGS_COLS: ColDef<Book>[] = [
+  { key: "title",         label: "Book",  type: "string",  getValue: (b) => b.title,                                  align: "left"  },
+  { key: "wa",            label: "WA",    type: "numeric", getValue: (b) => b.wa,                                     align: "right" },
+  { key: "Story",         label: "Story", type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Story"]         ?? 0, align: "right" },
+  { key: "Character",     label: "Char",  type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Character"]     ?? 0, align: "right" },
+  { key: "Aesthetics",    label: "Aes",   type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Aesthetics"]    ?? 0, align: "right" },
+  { key: "Theme",         label: "Theme", type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Theme"]         ?? 0, align: "right" },
+  { key: "Worldbuilding", label: "WB",    type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Worldbuilding"] ?? 0, align: "right" },
+  { key: "genre",         label: "Genre", type: "string",  getValue: (b) => b.genre,                                 align: "left"  },
 ];
-
-function getFieldValue(book: Book, field: SortField): number {
-  if (field === "wa") return book.wa;
-  return (book.category_avgs ?? {})[field] ?? 0;
-}
-
-/* ── Sortable column header ───────────────────────────────────────────── */
-
-function SortHeader({
-  field,
-  label,
-  active,
-  dir,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-}) {
-  return (
-    <th
-      onClick={onClick}
-      className="text-right text-xs font-semibold uppercase tracking-wider cursor-pointer select-none px-3 py-2 whitespace-nowrap"
-      style={{
-        color: active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
-        borderBottom: "1px solid var(--color-rule)",
-      }}
-    >
-      {label}
-      {active ? (dir === "desc" ? " ▼" : " ▲") : ""}
-    </th>
-  );
-}
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────── */
 
@@ -435,8 +401,6 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
   const [yearTab, setYearTab] = useState<YearTab>("all");
   const [genreFilter, setGenreFilter] = useState<string>("All genres");
   const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState<SortField>("wa");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
 
   const onRefresh = useCallback(() => router.refresh(), [router]);
@@ -463,21 +427,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
     return list;
   }, [scopedBooks, genreFilter, search]);
 
-  const sorted = useMemo(() => {
-    const mult = sortDir === "desc" ? -1 : 1;
-    return [...filtered].sort(
-      (a, b) => mult * (getFieldValue(a, sortField) - getFieldValue(b, sortField))
-    );
-  }, [filtered, sortField, sortDir]);
-
-  function handleSortClick(field: SortField) {
-    if (field === sortField) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
-  }
+  const { sorted, sortState, handleSort } = useSortable(filtered, RANKINGS_COLS, { key: "wa", dir: "desc" });
 
   const handleGenre = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setGenreFilter(e.target.value);
@@ -595,42 +545,22 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
               >
                 #
               </th>
-              <th
-                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
-                style={{
-                  color: "var(--color-muted)",
-                  borderBottom: "1px solid var(--color-rule)",
-                  minWidth: "12rem",
-                }}
-              >
-                Book
-              </th>
-              {SORT_COLS.map(({ field, label }) => (
-                <SortHeader
-                  key={field}
-                  field={field}
-                  label={label}
-                  active={sortField === field}
-                  dir={sortDir}
-                  onClick={() => handleSortClick(field)}
+              {RANKINGS_COLS.map((col) => (
+                <SortableTh
+                  key={col.key}
+                  col={col}
+                  sortState={sortState}
+                  onSort={handleSort}
+                  extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
                 />
               ))}
-              <th
-                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
-                style={{
-                  color: "var(--color-muted)",
-                  borderBottom: "1px solid var(--color-rule)",
-                }}
-              >
-                Genre
-              </th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="text-center py-16 text-sm"
                   style={{ color: "var(--color-muted)" }}
                 >
@@ -662,7 +592,13 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                       >
                         {i + 1}
                       </td>
-                      <td className="px-3 py-3" style={{ minWidth: "12rem" }}>
+                      <td
+                        className="px-3 py-3"
+                        style={{
+                          minWidth: "12rem",
+                          background: sortState.key === "title" ? "var(--color-sage-light)" : "transparent",
+                        }}
+                      >
                         <div
                           className="font-display font-semibold text-sm leading-tight"
                           style={{ color: "var(--color-ink)" }}
@@ -673,7 +609,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                           {book.author}
                           {book.series ? (
                             <span style={{ color: "var(--color-faint)" }}>
-                              {" "}· {book.series}
+                              {" "}· {seriesLabel(book.series, book.series_number)}
                             </span>
                           ) : null}
                           {book.words ? (
@@ -687,8 +623,8 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                       <td
                         className="px-3 py-3 text-right font-semibold"
                         style={{
-                          color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)",
-                          background: sortField === "wa" ? "var(--color-sage-light)" : "transparent",
+                          color: sortState.key === "wa" ? "var(--color-sage)" : "var(--color-ink)",
+                          background: sortState.key === "wa" ? "var(--color-sage-light)" : "transparent",
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
@@ -697,7 +633,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                       {/* Category averages */}
                       {(["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] as const).map((cat) => {
                         const val = avgs[cat] ?? 0;
-                        const isActive = sortField === cat;
+                        const isActive = sortState.key === cat;
                         return (
                           <td
                             key={cat}
@@ -712,14 +648,19 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                           </td>
                         );
                       })}
-                      <td className="px-3 py-3">
+                      <td
+                        className="px-3 py-3"
+                        style={{
+                          background: sortState.key === "genre" ? "var(--color-sage-light)" : "transparent",
+                        }}
+                      >
                         <span className="genre-chip">{book.genre}</span>
                       </td>
                     </tr>
                     {isExpanded && (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}
                         >
                           <BookExpandedPanel

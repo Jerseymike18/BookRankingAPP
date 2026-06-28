@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
-import type { ReadingStatsResponse, ReadingStatusResponse } from "@/lib/types";
-import { setYearRead } from "@/lib/api";
+import { useState } from "react";
+import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow } from "@/lib/types";
+import { SortableTable } from "@/components/SortableTable";
+import type { ColDef } from "@/components/SortableTable";
+import { seriesLabel } from "@/lib/format";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -62,46 +64,39 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Table({ headers, rows }: { headers: string[]; rows: (string | number | null)[][] }) {
-  return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-rule)" }}>
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ background: "var(--color-surface-2)" }}>
-            {headers.map((h) => (
-              <th key={h} className="px-4 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
-              {row.map((cell, j) => (
-                <td key={j} className="px-4 py-2.5" style={{ color: "var(--color-ink)" }}>
-                  {cell ?? "—"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function fmtWords(w: number | null) {
+  if (!w) return "—";
+  if (w >= 1_000_000) return `${(w / 1_000_000).toFixed(1)}M`;
+  if (w >= 1_000) return `${Math.round(w / 1_000)}K`;
+  return `${w}`;
 }
+
+const PER_YEAR_COLS: ColDef<PerYearRow>[] = [
+  { key: "year",              label: "Year",          type: "numeric", getValue: (r) => r.year,              align: "left" },
+  { key: "books",             label: "Books",         type: "numeric", getValue: (r) => r.books },
+  { key: "avg_wa",            label: "Avg WA",        type: "numeric", getValue: (r) => r.avg_wa,            formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
+  { key: "avg_total_average", label: "Avg Total Avg", type: "numeric", getValue: (r) => r.avg_total_average, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
+  { key: "avg_words",         label: "Avg Words",     type: "numeric", getValue: (r) => r.avg_words,         formatter: (v) => fmtWords(v as number | null) },
+];
+
+const BY_GENRE_COLS: ColDef<GenreRow>[] = [
+  { key: "genre",             label: "Genre",         type: "string",  getValue: (r) => r.genre },
+  { key: "books",             label: "Books",         type: "numeric", getValue: (r) => r.books },
+  { key: "avg_wa",            label: "Avg WA",        type: "numeric", getValue: (r) => r.avg_wa,            formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
+  { key: "avg_total_average", label: "Avg Total Avg", type: "numeric", getValue: (r) => r.avg_total_average, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
+  { key: "avg_words",         label: "Avg Words",     type: "numeric", getValue: (r) => r.avg_words,         formatter: (v) => fmtWords(v as number | null) },
+];
+
+const BY_AUTHOR_COLS: ColDef<AuthorRow>[] = [
+  { key: "author", label: "Author", type: "string",  getValue: (r) => r.author },
+  { key: "books",  label: "Books",  type: "numeric", getValue: (r) => r.books },
+  { key: "avg_wa", label: "Avg WA", type: "numeric", getValue: (r) => r.avg_wa, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
+];
 
 /* ── Stats tab ────────────────────────────────────────────────────────────── */
 
 function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
   const { summary, per_year, by_genre, by_author } = stats;
-
-  function fmtWords(w: number | null) {
-    if (!w) return "—";
-    if (w >= 1_000_000) return `${(w / 1_000_000).toFixed(1)}M`;
-    if (w >= 1_000) return `${Math.round(w / 1_000)}K`;
-    return `${w}`;
-  }
 
   return (
     <div>
@@ -113,31 +108,27 @@ function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
       </div>
 
       <SectionHeading>Per year</SectionHeading>
-      <Table
-        headers={["Year", "Books", "Avg WA", "Avg Total Avg", "Avg Words"]}
-        rows={per_year.map((r) => [
-          r.year, r.books,
-          r.avg_wa?.toFixed(2) ?? null,
-          r.avg_total_average?.toFixed(2) ?? null,
-          fmtWords(r.avg_words),
-        ])}
+      <SortableTable
+        columns={PER_YEAR_COLS}
+        data={per_year}
+        defaultSort={{ key: "year", dir: "desc" }}
+        getRowKey={(r) => String(r.year)}
       />
 
       <SectionHeading>By genre</SectionHeading>
-      <Table
-        headers={["Genre", "Books", "Avg WA", "Avg Total Avg", "Avg Words"]}
-        rows={by_genre.map((r) => [
-          r.genre, r.books,
-          r.avg_wa?.toFixed(2) ?? null,
-          r.avg_total_average?.toFixed(2) ?? null,
-          fmtWords(r.avg_words),
-        ])}
+      <SortableTable
+        columns={BY_GENRE_COLS}
+        data={by_genre}
+        defaultSort={{ key: "books", dir: "desc" }}
+        getRowKey={(r) => r.genre}
       />
 
       <SectionHeading>By author</SectionHeading>
-      <Table
-        headers={["Author", "Books", "Avg WA"]}
-        rows={by_author.map((r) => [r.author, r.books, r.avg_wa?.toFixed(2) ?? null])}
+      <SortableTable
+        columns={BY_AUTHOR_COLS}
+        data={by_author}
+        defaultSort={{ key: "books", dir: "desc" }}
+        getRowKey={(r) => r.author}
       />
     </div>
   );
@@ -145,237 +136,134 @@ function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
 
 /* ── Status tab ───────────────────────────────────────────────────────────── */
 
-const LS_CR = "reading_ledger_currently_reading";
-const LS_RN = "reading_ledger_reading_next";
+const CATEGORY_ORDER = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"];
 
-function StatusTab({
-  status,
-  ratedTitles,
+function SlotCard({
+  label,
+  slot,
+  predicted,
 }: {
-  status: ReadingStatusResponse;
-  ratedTitles: string[];
+  label: string;
+  slot: StatusSlot | null;
+  predicted: boolean;
 }) {
-  // Load status from localStorage (persists across page loads)
-  const [currentlyReading, setCurrentlyReading] = useState<string[]>([]);
-  const [readingNext, setReadingNext] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const cardStyle = {
+    background: "var(--color-surface)",
+    border: "1px solid var(--color-rule)",
+  };
 
-  useEffect(() => {
-    const poolSet = new Set(status.pool.map((p) => p.title));
-    const cr = JSON.parse(localStorage.getItem(LS_CR) ?? "[]").filter((t: string) => poolSet.has(t));
-    const rn = JSON.parse(localStorage.getItem(LS_RN) ?? "[]").filter((t: string) => poolSet.has(t));
-    setCurrentlyReading(cr);
-    setReadingNext(rn);
-    setHydrated(true);
-  }, [status.pool]);
-
-  function toggleCR(title: string) {
-    setCurrentlyReading((prev) => {
-      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
-      localStorage.setItem(LS_CR, JSON.stringify(next));
-      return next;
-    });
-    // Clear from reading-next if moving to currently-reading
-    setReadingNext((prev) => {
-      if (!prev.includes(title)) return prev;
-      const next = prev.filter((t) => t !== title);
-      localStorage.setItem(LS_RN, JSON.stringify(next));
-      return next;
-    });
-  }
-
-  function toggleRN(title: string) {
-    setReadingNext((prev) => {
-      const next = prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title];
-      localStorage.setItem(LS_RN, JSON.stringify(next));
-      return next;
-    });
-    setCurrentlyReading((prev) => {
-      if (!prev.includes(title)) return prev;
-      const next = prev.filter((t) => t !== title);
-      localStorage.setItem(LS_CR, JSON.stringify(next));
-      return next;
-    });
-  }
-
-  // Year-set form
-  const [yearBook, setYearBook] = useState(ratedTitles[0] ?? "");
-  const [yearVal, setYearVal] = useState(new Date().getFullYear());
-  const [yearMsg, setYearMsg] = useState<string | null>(null);
-  const [yearPending, startYearTransition] = useTransition();
-
-  const poolTitles = status.pool.map((p) => p.title).sort();
-
-  if (!hydrated) return null;
-
-  function UnreadBlock({ title, books, emptyMsg }: { title: string; books: string[]; emptyMsg: string }) {
+  if (!slot) {
     return (
-      <div>
-        <h4 className="font-semibold text-sm mb-2" style={{ color: "var(--color-ink)" }}>{title}</h4>
-        {books.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--color-faint)" }}>{emptyMsg}</p>
-        ) : (
-          <ul className="space-y-1">
-            {books.map((t) => {
-              const meta = status.pool.find((p) => p.title === t);
-              return (
-                <li key={t} className="text-sm">
-                  <span className="font-medium" style={{ color: "var(--color-ink)" }}>{t}</span>
-                  {(meta?.author || meta?.genre) ? (
-                    <span style={{ color: "var(--color-muted)" }}>
-                      {" "}· {[meta?.author, meta?.genre].filter(Boolean).join(" · ")}
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <div className="rounded-xl p-5 flex flex-col gap-2" style={cardStyle}>
+        <span
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-muted)" }}
+        >
+          {label}
+        </span>
+        <p className="text-sm mt-2" style={{ color: "var(--color-faint)" }}>
+          —
+        </p>
       </div>
     );
   }
 
   return (
-    <div>
-      {/* Current reading state */}
-      <div className="grid sm:grid-cols-2 gap-6 mb-8">
-        <div className="rounded-xl p-4 space-y-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-          <UnreadBlock title="📖 Currently reading" books={currentlyReading} emptyMsg="Nothing marked currently-reading." />
-          <UnreadBlock title="🔜 Reading next" books={readingNext} emptyMsg="Nothing marked reading-next." />
-        </div>
-
-        <div className="rounded-xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-          <h4 className="font-semibold text-sm mb-2" style={{ color: "var(--color-ink)" }}>
-            ✓ Finished in {status.last_year ?? "—"}
-          </h4>
-          {status.finished.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--color-faint)" }}>No finished books.</p>
-          ) : (
-            <ul className="space-y-1">
-              {status.finished.slice(0, 12).map((b) => (
-                <li key={b.title} className="text-sm">
-                  <span className="font-medium" style={{ color: "var(--color-ink)" }}>{b.title}</span>
-                  <span style={{ color: "var(--color-muted)" }}>
-                    {" "}· {b.author} · {b.genre} · WA {b.wa.toFixed(2)} · rank {b.rank} of {b.total}
-                  </span>
-                </li>
-              ))}
-              {status.finished.length > 12 && (
-                <li className="text-xs" style={{ color: "var(--color-faint)" }}>
-                  …and {status.finished.length - 12} more
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* Update pickers */}
-      <div className="rounded-xl p-5 mb-8" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-        <h3 className="font-display font-semibold text-base mb-4" style={{ color: "var(--color-ink)" }}>
-          Update what you&apos;re reading
-        </h3>
-        {poolTitles.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-            No unread books yet — research books on the Predict page or add titles to your read queue.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {poolTitles.map((title) => {
-              const meta = status.pool.find((p) => p.title === title);
-              const isCR = currentlyReading.includes(title);
-              const isRN = readingNext.includes(title);
-              return (
-                <div
-                  key={title}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg"
-                  style={{ background: "var(--color-surface-2)" }}
-                >
-                  <span className="flex-1 text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>
-                    {title}
-                    {meta?.genre ? <span className="ml-2 genre-chip">{meta.genre}</span> : null}
-                  </span>
-                  <button
-                    onClick={() => toggleCR(title)}
-                    className="text-xs px-2 py-1 rounded-md transition-colors flex-shrink-0"
-                    style={{
-                      background: isCR ? "var(--color-sage)" : "var(--color-surface)",
-                      color: isCR ? "#fff" : "var(--color-muted)",
-                      border: `1px solid ${isCR ? "var(--color-sage)" : "var(--color-rule)"}`,
-                    }}
-                  >
-                    Reading
-                  </button>
-                  <button
-                    onClick={() => toggleRN(title)}
-                    className="text-xs px-2 py-1 rounded-md transition-colors flex-shrink-0"
-                    style={{
-                      background: isRN ? "var(--color-sage)" : "var(--color-surface)",
-                      color: isRN ? "#fff" : "var(--color-muted)",
-                      border: `1px solid ${isRN ? "var(--color-sage)" : "var(--color-rule)"}`,
-                    }}
-                  >
-                    Next
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+    <div className="rounded-xl p-5 flex flex-col gap-3" style={cardStyle}>
+      {/* Label row */}
+      <div className="flex items-center gap-2">
+        <span
+          className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--color-muted)" }}
+        >
+          {label}
+        </span>
+        {predicted && (
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-medium"
+            style={{
+              background: "var(--color-surface-2)",
+              color: "var(--color-sage)",
+              border: "1px solid var(--color-rule)",
+            }}
+          >
+            predicted
+          </span>
         )}
       </div>
 
-      {/* Year-read setter */}
-      <div className="rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-        <h3 className="font-display font-semibold text-base mb-4" style={{ color: "var(--color-ink)" }}>
-          Set / edit year read
-        </h3>
-        <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Book</label>
-            <select
-              value={yearBook}
-              onChange={(e) => setYearBook(e.target.value)}
-              className="rounded-lg px-3 py-2 text-sm"
-              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)", color: "var(--color-ink)" }}
-            >
-              {ratedTitles.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Year read</label>
-            <input
-              type="number"
-              min={1900}
-              max={2100}
-              value={yearVal}
-              onChange={(e) => setYearVal(parseInt(e.target.value))}
-              className="rounded-lg px-3 py-2 text-sm w-28"
-              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)", color: "var(--color-ink)" }}
-            />
-          </div>
-          <button
-            disabled={yearPending}
-            onClick={() => {
-              startYearTransition(async () => {
-                try {
-                  await setYearRead(yearBook, yearVal);
-                  setYearMsg("Year saved.");
-                } catch (e) {
-                  setYearMsg(e instanceof Error ? e.message : "Error saving year");
-                }
-              });
-            }}
-            className="rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              background: yearPending ? "var(--color-sage-light)" : "var(--color-sage)",
-              color: yearPending ? "var(--color-sage)" : "#fff",
-            }}
-          >
-            {yearPending ? "Saving…" : "Save year"}
-          </button>
-        </div>
-        {yearMsg && <p className="mt-3 text-sm" style={{ color: "var(--color-sage)" }}>{yearMsg}</p>}
+      {/* Title / meta */}
+      <div>
+        <p
+          className="font-display font-bold text-lg leading-tight"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {slot.title}
+        </p>
+        <p className="text-sm mt-0.5" style={{ color: "var(--color-muted)" }}>
+          {[slot.author, slot.genre].filter(Boolean).join(" · ")}
+        </p>
+        {slot.series && (
+          <p className="text-xs mt-0.5" style={{ color: "var(--color-faint)" }}>
+            {seriesLabel(slot.series, slot.series_number)}
+          </p>
+        )}
       </div>
+
+      {/* Score section */}
+      {slot.has_prediction === false && slot.wa === null ? (
+        <p className="text-sm" style={{ color: "var(--color-faint)" }}>
+          No prediction yet — visit the{" "}
+          <a
+            href="/predict"
+            className="underline"
+            style={{ color: "var(--color-sage)" }}
+          >
+            Predict page
+          </a>{" "}
+          to research this book.
+        </p>
+      ) : (
+        <>
+          {/* WA badge + rank */}
+          <div className="flex items-center gap-3">
+            <span className="wa-badge">{slot.wa?.toFixed(2)}</span>
+            {slot.rank != null && (
+              <span className="text-sm" style={{ color: "var(--color-muted)" }}>
+                rank {slot.rank} of {slot.total}
+              </span>
+            )}
+          </div>
+
+          {/* Category averages */}
+          {Object.keys(slot.category_avgs).length > 0 && (
+            <div className="grid grid-cols-3 gap-1.5 mt-1">
+              {CATEGORY_ORDER.filter((cat) => cat in slot.category_avgs).map((cat) => (
+                <div key={cat} className="comp-tile">
+                  <span className="comp-label">{cat}</span>
+                  <span className="comp-value">
+                    {slot.category_avgs[cat].toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatusTab({ status }: { status: ReadingStatusResponse }) {
+  return (
+    <div className="grid sm:grid-cols-3 gap-4">
+      <SlotCard label="Last Read" slot={status.last_read} predicted={false} />
+      <SlotCard
+        label="Currently Reading"
+        slot={status.currently_reading}
+        predicted={true}
+      />
+      <SlotCard label="Reading Next" slot={status.reading_next} predicted={true} />
     </div>
   );
 }
@@ -385,18 +273,19 @@ function StatusTab({
 export default function ReadingClient({
   stats,
   status,
-  ratedTitles,
 }: {
   stats: ReadingStatsResponse;
   status: ReadingStatusResponse;
-  ratedTitles: string[];
 }) {
   const [tab, setTab] = useState<Tab>("stats");
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
+        <h1
+          className="font-display text-3xl font-bold leading-tight"
+          style={{ color: "var(--color-ink)" }}
+        >
           Reading
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
@@ -409,7 +298,7 @@ export default function ReadingClient({
       {tab === "stats" ? (
         <StatsTab stats={stats} />
       ) : (
-        <StatusTab status={status} ratedTitles={ratedTitles} />
+        <StatusTab status={status} />
       )}
     </div>
   );

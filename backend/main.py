@@ -119,11 +119,40 @@ def _clean(val):
     return val
 
 
+def _norm_snum(num):
+    """Normalize a stored series_number: None stays None, whole values become
+    int (so JSON shows 6 not 6.0), fractional values (0.5, 3.5) stay float."""
+    if num is None:
+        return None
+    return int(num) if float(num) == int(num) else float(num)
+
+
+def _series_number_map(table: str) -> dict:
+    """Return {lowercased-title: series_number} for a table. Used to attach
+    ordinals to engine-backed responses (db_loader is read-only and doesn't
+    carry series_number). series_number may be int or float (0.5 prequels)."""
+    con = sqlite3.connect(db_write.DB)
+    try:
+        rows = con.execute(
+            f"SELECT title, series_number FROM {table} "
+            f"WHERE series_number IS NOT NULL"
+        ).fetchall()
+    finally:
+        con.close()
+    out = {}
+    for title, num in rows:
+        if title is None or num is None:
+            continue
+        out[title.strip().lower()] = _norm_snum(num)
+    return out
+
+
 @app.get("/api/books")
 def get_books():
     """Return all rated books with their WA, metadata, and component scores."""
     books, gw, gcw = _get_engine()[:3]
     category_components = books.attrs["category_components"]
+    snum_map = _series_number_map("books")
 
     # Convert to a list of dicts that JSON can handle cleanly
     result = []
@@ -133,6 +162,7 @@ def get_books():
             "author": row["Author"],
             "genre": row["Genre"],
             "series": row.get("Series") or "",
+            "series_number": snum_map.get((row["Book"] or "").strip().lower()),
             "words": _clean(row.get("Words")),
             "year": _clean(row.get("Year")),
             "year_read": _clean(row.get("Year")),
@@ -393,6 +423,7 @@ def get_tiers(year: Optional[int] = None):
     """Return books with tier assignments (S+/S/A/B/C/D/F), optionally filtered by year_read."""
     books = _get_engine()[0]
     category_components = books.attrs["category_components"]
+    snum_map = _series_number_map("books")
 
     if year is not None:
         books = books[books["Year"] == year]
@@ -432,6 +463,7 @@ def get_tiers(year: Optional[int] = None):
             "author": row["Author"],
             "genre": row["Genre"],
             "series": row.get("Series") or "",
+            "series_number": snum_map.get((row["Book"] or "").strip().lower()),
             "words": _clean(row.get("Words")),
             "year_read": _clean(row.get("Year")),
             "wa": round(float(row["WA"]), 4),
@@ -725,15 +757,15 @@ def get_read_queue():
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
     con = sqlite3.connect(db_write.DB)
     rows = con.execute(
-        f'SELECT title, author, genre, series, words, blurb, keywords, {comp_cols} '
+        f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
         f'FROM recommendations WHERE done=0'
     ).fetchall()
     con.close()
 
     result = []
     for r in rows:
-        title, author, genre, series, words, blurb, keywords = r[:7]
-        comp_vals = dict(zip(COMPONENTS, r[7:]))
+        title, author, genre, series, series_number, words, blurb, keywords = r[:8]
+        comp_vals = dict(zip(COMPONENTS, r[8:]))
 
         components = {
             c: _clean(float(v)) if v is not None else None
@@ -755,6 +787,7 @@ def get_read_queue():
             "author": (author or "").strip(),
             "genre": genre_str,
             "series": (series or "").strip().strip("'\""),
+            "series_number": _norm_snum(series_number),
             "words": words,
             "blurb": blurb or "",
             "keywords": keywords or "",
@@ -1059,7 +1092,7 @@ def get_reading_status():
     def _slot_from_rec(title: str):
         """Build a status slot from the recommendations table."""
         row = con.execute(
-            f'SELECT author, genre, series, words, {comp_cols} '
+            f'SELECT author, genre, series, series_number, words, {comp_cols} '
             f'FROM recommendations WHERE LOWER(TRIM(title))=LOWER(TRIM(?))',
             (title,)
         ).fetchone()
@@ -1067,12 +1100,13 @@ def get_reading_status():
             # In queue but not in recommendations — show name only, no scores
             return {
                 "title": title, "author": "", "genre": "", "series": "",
+                "series_number": None,
                 "has_prediction": False,
                 "wa": None, "rank": None, "total": total_rated,
                 "category_avgs": {},
             }
-        author, genre, series, words = row[:4]
-        comp_vals = dict(zip(COMPONENTS, row[4:]))
+        author, genre, series, series_number, words = row[:5]
+        comp_vals = dict(zip(COMPONENTS, row[5:]))
         has_scores = any(v is not None for v in comp_vals.values())
         if not has_scores:
             return {
@@ -1080,6 +1114,7 @@ def get_reading_status():
                 "author": (author or "").strip(),
                 "genre": (genre or "").strip(),
                 "series": (series or "").strip().strip("'\""),
+                "series_number": _norm_snum(series_number),
                 "has_prediction": False,
                 "wa": None, "rank": None, "total": total_rated,
                 "category_avgs": {},
@@ -1097,6 +1132,7 @@ def get_reading_status():
             "author": (author or "").strip(),
             "genre": genre_str,
             "series": (series or "").strip().strip("'\""),
+            "series_number": _norm_snum(series_number),
             "has_prediction": True,
             "wa": round(wa, 2),
             "rank": predicted_rank,
@@ -1130,6 +1166,7 @@ def get_reading_status():
                 "author": str(brow["Author"]),
                 "genre": str(brow["Genre"]),
                 "series": str(brow["Series"]),
+                "series_number": _series_number_map("books").get(lr_title.lower()),
                 "has_prediction": False,
                 "wa": round(wa_val, 2),
                 "rank": rank,

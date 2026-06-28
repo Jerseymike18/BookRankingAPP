@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback, useRef, useTransition } from "react";
 import type { ReadQueueResponse, Recommendation } from "@/lib/types";
 import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation } from "@/lib/api";
+import { seriesLabel } from "@/lib/format";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -198,7 +199,7 @@ function RecExpandedPanel({
           </span>
         )}
         {rec.series && (
-          <span style={{ color: "var(--color-faint)" }}>Series: {rec.series}</span>
+          <span style={{ color: "var(--color-faint)" }}>Series: {seriesLabel(rec.series, rec.series_number)}</span>
         )}
       </div>
 
@@ -412,108 +413,184 @@ function FilterText({
 
 /* ── Queue tab ────────────────────────────────────────────────────────── */
 
+function QueueExpandedPanel({ rec, rank }: { rec: Recommendation; rank: number }) {
+  return (
+    <div
+      className="px-5 py-4 space-y-4"
+      style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}
+    >
+      <div className="flex flex-wrap gap-4 text-sm" style={{ color: "var(--color-muted)" }}>
+        <span>
+          Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong>
+        </span>
+        <span>
+          Predicted rank: <strong style={{ color: "var(--color-ink)" }}>#{rec.predicted_rank}</strong>
+        </span>
+        <span className="genre-chip">{rec.genre}</span>
+        {rec.words && (
+          <span>Words: <strong style={{ color: "var(--color-ink)" }}>{rec.words.toLocaleString()}</strong></span>
+        )}
+        {rec.series && (
+          <span style={{ color: "var(--color-faint)" }}>Series: {seriesLabel(rec.series, rec.series_number)}</span>
+        )}
+      </div>
+      <ComponentScores components={rec.components} />
+    </div>
+  );
+}
+
 function QueueCard({
   title,
   rec,
   rank,
   isDragging,
   isOver,
+  isExpanded,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
   onRemove,
+  onToggleExpand,
 }: {
   title: string;
   rec: Recommendation | undefined;
   rank: number;
   isDragging: boolean;
   isOver: boolean;
+  isExpanded: boolean;
   onDragStart: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: () => void;
   onDragEnd: () => void;
   onRemove: () => void;
+  onToggleExpand: () => void;
 }) {
   const words = rec ? formatWords(rec.words) : null;
 
   return (
     <article
+      className="book-card shadow-sm"
+      style={{
+        borderTop: "1px solid var(--color-rule)",
+        borderRight: "1px solid var(--color-rule)",
+        borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)",
+        borderLeft: `3px solid ${isOver ? "var(--color-sage)" : isExpanded ? "var(--color-sage)" : "var(--color-rule)"}`,
+        opacity: isDragging ? 0.4 : 1,
+        transition: "opacity 150ms, border-color 150ms",
+        background: isOver ? "var(--color-sage-light)" : undefined,
+      }}
       draggable
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
-      className="book-card px-4 py-3 shadow-sm flex items-center gap-3 select-none"
-      style={{
-        borderTop: "1px solid var(--color-rule)",
-        borderRight: "1px solid var(--color-rule)",
-        borderBottom: "1px solid var(--color-rule)",
-        borderLeft: `3px solid ${isOver ? "var(--color-sage)" : "var(--color-rule)"}`,
-        opacity: isDragging ? 0.4 : 1,
-        cursor: "grab",
-        transition: "opacity 150ms, border-color 150ms",
-        background: isOver ? "var(--color-sage-light)" : undefined,
-      }}
     >
-      {/* Drag handle */}
-      <svg
-        className="w-4 h-4 flex-shrink-0"
-        style={{ color: "var(--color-faint)" }}
-        fill="currentColor"
-        viewBox="0 0 20 20"
+      <div
+        className="px-4 py-3 flex items-center gap-3 select-none cursor-pointer"
+        onClick={onToggleExpand}
       >
-        <path d="M7 4a1 1 0 100-2 1 1 0 000 2zM7 8a1 1 0 100-2 1 1 0 000 2zM7 12a1 1 0 100-2 1 1 0 000 2zM7 16a1 1 0 100-2 1 1 0 000 2zM13 4a1 1 0 100-2 1 1 0 000 2zM13 8a1 1 0 100-2 1 1 0 000 2zM13 12a1 1 0 100-2 1 1 0 000 2zM13 16a1 1 0 100-2 1 1 0 000 2z" />
-      </svg>
-
-      {/* Rank badge */}
-      <div className="wa-badge flex-shrink-0" style={{ background: rank === 1 ? "var(--color-sage)" : "var(--color-faint)", minWidth: "2.2rem" }}>
-        #{rank}
-      </div>
-
-      {/* Title / author / series */}
-      <div className="flex-1 min-w-0">
-        <h3
-          className="font-display font-semibold text-base leading-tight truncate"
-          style={{ color: "var(--color-ink)" }}
+        {/* Drag handle — stops propagation so dragging doesn't also toggle expand */}
+        <svg
+          className="w-4 h-4 flex-shrink-0"
+          style={{ color: "var(--color-faint)", cursor: "grab" }}
+          fill="currentColor"
+          viewBox="0 0 20 20"
+          onClick={(e) => e.stopPropagation()}
         >
-          {title}
-        </h3>
-        {rec && (
-          <p className="text-sm mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
-            {rec.author}
-            {rec.series ? (
-              <span style={{ color: "var(--color-faint)" }}> · {rec.series}</span>
-            ) : null}
-          </p>
-        )}
-      </div>
+          <path d="M7 4a1 1 0 100-2 1 1 0 000 2zM7 8a1 1 0 100-2 1 1 0 000 2zM7 12a1 1 0 100-2 1 1 0 000 2zM7 16a1 1 0 100-2 1 1 0 000 2zM13 4a1 1 0 100-2 1 1 0 000 2zM13 8a1 1 0 100-2 1 1 0 000 2zM13 12a1 1 0 100-2 1 1 0 000 2zM13 16a1 1 0 100-2 1 1 0 000 2z" />
+        </svg>
 
-      {/* Genre + words */}
-      {rec && (
-        <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
-          <span className="genre-chip">{rec.genre}</span>
-          {words && (
-            <span className="text-xs" style={{ color: "var(--color-faint)" }}>{words} words</span>
+        {/* Rank badge */}
+        <div className="wa-badge flex-shrink-0" style={{ background: rank === 1 ? "var(--color-sage)" : "var(--color-faint)", minWidth: "2.2rem" }}>
+          #{rank}
+        </div>
+
+        {/* Title / author / series */}
+        <div className="flex-1 min-w-0">
+          <h3
+            className="font-display font-semibold text-base leading-tight truncate"
+            style={{ color: "var(--color-ink)" }}
+          >
+            {title}
+          </h3>
+          {rec && (
+            <p className="text-sm mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
+              {rec.author}
+              {rec.series ? (
+                <span style={{ color: "var(--color-faint)" }}> · {seriesLabel(rec.series, rec.series_number)}</span>
+              ) : null}
+            </p>
           )}
         </div>
-      )}
 
-      {/* Remove */}
-      <button
-        onClick={onRemove}
-        className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-base font-bold leading-none transition-colors"
-        style={{
-          background: "var(--color-surface-2)",
-          color: "var(--color-muted)",
-          border: "1px solid var(--color-rule)",
-        }}
-        aria-label={`Remove ${title}`}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#c0392b"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-muted)"; }}
-      >
-        ×
-      </button>
+        {/* Genre + words */}
+        {rec && (
+          <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
+            <span className="genre-chip">{rec.genre}</span>
+            {words && (
+              <span className="text-xs" style={{ color: "var(--color-faint)" }}>{words} words</span>
+            )}
+          </div>
+        )}
+
+        {/* Predicted WA inline (collapsed) */}
+        {rec && !isExpanded && (
+          <div className="hidden sm:flex flex-col items-end flex-shrink-0 ml-1">
+            <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
+              {rec.wa.toFixed(2)}
+            </span>
+            <span className="text-xs" style={{ color: "var(--color-faint)" }}>pred WA</span>
+          </div>
+        )}
+
+        {/* Chevron */}
+        <svg
+          className="w-4 h-4 flex-shrink-0 transition-transform"
+          style={{ color: "var(--color-faint)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+
+        {/* Remove */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-base font-bold leading-none transition-colors"
+          style={{
+            background: "var(--color-surface-2)",
+            color: "var(--color-muted)",
+            border: "1px solid var(--color-rule)",
+          }}
+          aria-label={`Remove ${title}`}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#c0392b"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-muted)"; }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Expanded prediction panel */}
+      {isExpanded && (
+        rec ? (
+          <QueueExpandedPanel rec={rec} rank={rank} />
+        ) : (
+          <div
+            className="px-5 py-4"
+            style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}
+          >
+            <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+              No prediction yet —{" "}
+              <a href={`/predict?title=${encodeURIComponent(title)}`} style={{ color: "var(--color-sage)" }}>
+                research on Predict page
+              </a>
+            </p>
+          </div>
+        )
+      )}
     </article>
   );
 }
@@ -534,6 +611,7 @@ function QueueTab({
   const savedRef = useRef<string[]>(initialQueue);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [expandedQueueTitle, setExpandedQueueTitle] = useState<string | null>(null);
   const [seriesInput, setSeriesInput] = useState("");
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [seriesStatus, setSeriesStatus] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -726,11 +804,13 @@ function QueueTab({
             rank={i + 1}
             isDragging={dragIdx === i}
             isOver={dragOverIdx === i}
+            isExpanded={expandedQueueTitle === title}
             onDragStart={() => handleDragStart(i)}
             onDragOver={(e) => handleDragOver(e, i)}
             onDrop={() => handleDrop(i)}
             onDragEnd={handleDragEnd}
             onRemove={() => handleRemove(i)}
+            onToggleExpand={() => setExpandedQueueTitle((t) => t === title ? null : title)}
           />
         ))}
       </div>
@@ -1167,7 +1247,7 @@ export default function ReadQueueClient({
                               </div>
                               <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
                                 {rec.author}
-                                {rec.series ? <span style={{ color: "var(--color-faint)" }}> · {rec.series}</span> : null}
+                                {rec.series ? <span style={{ color: "var(--color-faint)" }}> · {seriesLabel(rec.series, rec.series_number)}</span> : null}
                                 {rec.words ? <span style={{ color: "var(--color-faint)" }}> · {formatWords(rec.words)} words</span> : null}
                               </div>
                             </td>

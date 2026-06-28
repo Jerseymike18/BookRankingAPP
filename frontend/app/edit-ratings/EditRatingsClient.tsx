@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { fetchBookScores, editRating } from "@/lib/api";
 import type { BooksResponse, CategoryComponents } from "@/lib/types";
+import { seriesLabel } from "@/lib/format";
 
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -193,7 +194,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
               </p>
               <p className="text-xs" style={{ color: "var(--color-muted)" }}>
                 {selectedBook.genre}
-                {selectedBook.series ? ` · ${selectedBook.series}` : ""}
+                {selectedBook.series ? ` · ${seriesLabel(selectedBook.series, selectedBook.series_number)}` : ""}
               </p>
             </div>
             <span className="genre-chip ml-auto">{selectedBook.genre}</span>

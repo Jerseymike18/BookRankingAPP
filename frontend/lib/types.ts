@@ -6,6 +6,7 @@ export interface Book {
   author: string;
   genre: string;
   series: string;
+  series_number: number | null;
   words: number | null;
   year: number | null;
   year_read: number | null;
@@ -19,6 +20,7 @@ export interface TierBook {
   author: string;
   genre: string;
   series: string;
+  series_number: number | null;
   words: number | null;
   year_read: number | null;
   wa: number;
@@ -119,6 +121,7 @@ export interface Recommendation {
   author: string;
   genre: string;
   series: string;
+  series_number: number | null;
   words: number | null;
   blurb: string;
   keywords: string;
@@ -174,6 +177,7 @@ export interface StatusSlot {
   author: string;
   genre: string;
   series: string;
+  series_number: number | null;
   has_prediction: boolean;
   wa: number | null;
   rank: number | null;
