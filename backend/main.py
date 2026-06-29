@@ -64,6 +64,14 @@ except ImportError:
     _rl = None
     _nr = None
 
+# Hybrid per-component sourcing (data-driven policy). Separately guarded so a
+# failure here never disables the core research path; predict falls back to
+# pure-memory scores if it is unavailable or disabled.
+try:
+    import hybrid_researcher as _hybrid
+except Exception:
+    _hybrid = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENGINE CACHE
@@ -921,6 +929,17 @@ def predict_research(req: ResearchRequest):
     if eff_genre is None:
         raise HTTPException(status_code=422,
                             detail="Could not auto-detect a genre — pick one manually.")
+
+    # HYBRID SOURCING (default): override the policy's grounded components with
+    # web-grounded values; memory keeps the rest. Sourcing only — the same
+    # `scores` dict flows through correct_and_predict unchanged. Adds one cached
+    # web_search call for the grounded subset; falls back to memory on failure.
+    if _hybrid is not None and _hybrid.HYBRID_SOURCING_DEFAULT:
+        try:
+            scores = _hybrid.apply_grounded_overrides(
+                req.title, req.author, eff_genre, scores)
+        except Exception:
+            pass  # keep pure-memory scores if grounding is unavailable
 
     try:
         corr_models = _rp.build_corr_models(books_e, cache)
