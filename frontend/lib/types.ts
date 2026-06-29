@@ -168,6 +168,27 @@ export interface ReadQueueResponse {
   genres: string[];
 }
 
+export interface NonfictionRecommendation {
+  title: string;
+  author: string;
+  genre: string;
+  series: string;
+  series_number: number | null;
+  words: number | null;
+  blurb: string;
+  keywords: string;
+  components: Record<string, number | null>;
+  category_avgs: Record<string, number>;
+  wa: number | null;
+  total_average: number | null;
+  predicted_rank: number | null;
+}
+
+export interface NonfictionReadQueueResponse {
+  recommendations: NonfictionRecommendation[];
+  genres: string[];
+}
+
 export interface ReadingStatsSummary {
   total_books: number;
   avg_wa: number | null;

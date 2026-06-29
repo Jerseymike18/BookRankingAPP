@@ -222,6 +222,82 @@ export async function fetchReadQueue(): Promise<ReadQueueResponse> {
   return res.json();
 }
 
+// ── Nonfiction TBR (recommendations + read queue) ──
+export async function fetchNonfictionReadQueue(): Promise<import("./types").NonfictionReadQueueResponse> {
+  const res = await fetch(`${base("nonfiction")}/read-queue`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+export interface SaveNonfictionRecPayload {
+  title: string;
+  author?: string;
+  genre?: string;
+  scores: Record<string, number>;
+  series?: string;
+  series_number?: number;
+  words?: number;
+  blurb?: string;
+  keywords?: string;
+}
+
+export async function saveNonfictionRecommendation(
+  payload: SaveNonfictionRecPayload
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base("nonfiction")}/recommendations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function deleteNonfictionRecommendation(
+  title: string
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function setNonfictionDone(
+  title: string,
+  done = true
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}/done`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ done }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function fetchNonfictionQueue(): Promise<string[]> {
+  const res = await fetch(`${base("nonfiction")}/queue`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return (await res.json()).titles;
+}
+
+export async function saveNonfictionQueue(
+  titles: string[]
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base("nonfiction")}/queue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ titles }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function fetchReadingStats(kind: BookKind = "fiction"): Promise<ReadingStatsResponse> {
   const res = await fetch(`${base(kind)}/reading/stats`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);

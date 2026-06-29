@@ -6,6 +6,7 @@ import {
   discoverCandidates,
   saveRecommendation,
   predictNonfiction,
+  saveNonfictionRecommendation,
 } from "@/lib/api";
 import type {
   ResearchResult,
@@ -659,6 +660,9 @@ function NonfictionPredictMode() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<NonfictionPrediction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   async function run() {
     if (!title.trim() || !author.trim()) {
@@ -668,12 +672,34 @@ function NonfictionPredictMode() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setSaved(null);
+    setSaveError(null);
     try {
       setResult(await predictNonfiction(title.trim(), author.trim()));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Prediction failed.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function saveToTbr() {
+    if (!result) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const scores: Record<string, number> = {};
+      for (const cat of Object.values(result.components)) {
+        for (const [c, v] of Object.entries(cat)) if (v != null) scores[c] = v;
+      }
+      const r = await saveNonfictionRecommendation({
+        title: result.title, author: result.author, scores,
+      });
+      setSaved(r.message || "Saved to your nonfiction TBR.");
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Could not save.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -723,6 +749,14 @@ function NonfictionPredictMode() {
           <ComponentGrid components={result.components} categoryOrder={result.category_order} />
           <div className="mt-4">
             <InfoBox message={`Low confidence — only ${result.total} nonfiction books rated, so this leans on priors. Treat as a rough estimate until the library grows.`} />
+          </div>
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            {saved ? (
+              <span className="text-sm font-medium" style={{ color: "var(--color-sage)" }}>✓ {saved}</span>
+            ) : (
+              <SageButton onClick={saveToTbr} disabled={saving}>{saving ? "Saving…" : "Save to TBR"}</SageButton>
+            )}
+            {saveError && <span className="text-sm" style={{ color: "#B91C1C" }}>{saveError}</span>}
           </div>
         </Card>
       )}

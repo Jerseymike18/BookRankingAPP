@@ -1694,6 +1694,142 @@ def predict_nf_research(req: NonfictionResearchRequest):
     }
 
 
+# ─── Nonfiction TBR (recommendations + read queue) ───────────────────────────
+
+@app.get("/api/nonfiction/read-queue")
+def get_nf_read_queue():
+    """Not-done nonfiction recommendations with components, category averages,
+    Total Average / WA (computed on read), and predicted rank by Total Average."""
+    books, gw, gcw = _get_nf_engine()
+    bt = nfe.add_total_average(books)
+    rated_ta = bt["Total Average"].values
+
+    COMPONENTS = db_write.NONFICTION_COMPONENTS
+    comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
+    con = sqlite3.connect(db_write.DB)
+    rows = con.execute(
+        f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
+        f'FROM nonfiction_recommendations WHERE done=0'
+    ).fetchall()
+    con.close()
+
+    result = []
+    for r in rows:
+        title, author, genre, series, series_number, words, blurb, keywords = r[:8]
+        comp_vals = dict(zip(COMPONENTS, r[8:]))
+        wa, cat_avgs = nfe.wa_from_components(comp_vals, genre or "Nonfiction", gw, gcw)
+        present = [v for v in cat_avgs.values() if v == v]
+        total = sum(present) / len(present) if present else float("nan")
+        result.append({
+            "title": (title or "").strip(),
+            "author": (author or "").strip(),
+            "genre": genre or "Nonfiction",
+            "series": (series or "").strip().strip("'\""),
+            "series_number": _norm_snum(series_number),
+            "words": words,
+            "blurb": blurb or "",
+            "keywords": keywords or "",
+            "components": {c: _clean(float(v)) if v is not None else None
+                           for c, v in comp_vals.items()},
+            "category_avgs": {k: _clean(round(float(v), 4)) for k, v in cat_avgs.items()},
+            "wa": _clean(round(float(wa), 4)) if wa == wa else None,
+            "total_average": _clean(round(float(total), 4)) if total == total else None,
+            "predicted_rank": int((rated_ta > total).sum() + 1) if total == total else None,
+        })
+    result.sort(key=lambda b: (b["total_average"] is not None, b["total_average"] or 0.0),
+                reverse=True)
+    return {"recommendations": result, "genres": []}
+
+
+class NonfictionRecRequest(BaseModel):
+    title: str
+    author: Optional[str] = None
+    genre: Optional[str] = None
+    scores: dict
+    series: Optional[str] = None
+    series_number: Optional[float] = None
+    words: Optional[int] = None
+    blurb: Optional[str] = None
+    keywords: Optional[str] = None
+
+
+@app.post("/api/nonfiction/recommendations")
+def add_nf_recommendation(req: NonfictionRecRequest):
+    """Save a researched nonfiction book to the TBR."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.add_nonfiction_recommendation(
+                title=req.title, author=req.author, genre=req.genre,
+                scores=req.scores, series=req.series,
+                series_number=req.series_number, words=req.words,
+                blurb=req.blurb, keywords=req.keywords)
+    except db_write.ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok or "✗" in out:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not save.")
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+@app.delete("/api/nonfiction/recommendations/{title}")
+def delete_nf_recommendation(title: str):
+    """Remove a nonfiction TBR recommendation."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.delete_nonfiction_recommendation(title)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not delete.")
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+class NfDoneRequest(BaseModel):
+    done: bool = True
+
+
+@app.post("/api/nonfiction/recommendations/{title}/done")
+def set_nf_done(title: str, req: NfDoneRequest):
+    """Mark a nonfiction recommendation done / not-done."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.set_nonfiction_done(title, req.done)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update.")
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+@app.get("/api/nonfiction/queue")
+def get_nf_queue():
+    """Ordered nonfiction read-queue titles."""
+    con = sqlite3.connect(db_write.DB)
+    titles = [r[0] for r in con.execute(
+        "SELECT title FROM nonfiction_read_queue ORDER BY position")]
+    con.close()
+    return {"titles": titles}
+
+
+@app.post("/api/nonfiction/queue")
+def update_nf_queue(req: UpdateQueueRequest):
+    """Replace the nonfiction read queue with the given ordered titles."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            db_write.update_nonfiction_queue(req.titles)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
+
+
 @app.get("/api/stats")
 def get_combined_stats():
     """Combined Fiction + Nonfiction stats. The two WAs come from different
