@@ -1,6 +1,7 @@
 import type {
   CalibrationHealth,
   LooResult,
+  ResearcherComparison,
   DeltaLogResponse,
   BooksResponse,
   BookScoresResponse,
@@ -403,6 +404,14 @@ export async function runLooValidation(): Promise<LooResult> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
+}
+
+/** Last memory-vs-web-grounded comparison, or null if none has been run. */
+export async function fetchResearcherComparison(): Promise<ResearcherComparison | null> {
+  const res = await fetch(`${API}/api/calibration/researcher-comparison`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
 }
 
 export async function fetchStats(): Promise<CombinedStatsResponse> {

@@ -362,6 +362,31 @@ export interface LooResult {
   per_component: LooComponentRow[];
 }
 
+export interface ResearcherComponentRow {
+  component: string;
+  n: number;
+  memory_mae: number;
+  grounded_mae: number;
+  delta: number; // memory_mae - grounded_mae; positive = grounding lowers error
+  verdict: string; // "grounding helps" | "no change" | "grounding HURTS"
+  loo_mae: number | null;
+  signal: string | null;
+}
+
+export interface ResearcherComparison {
+  generated_at: string;
+  model: string;
+  sample_size: number;
+  n_common: number;
+  n_per_genre: number;
+  seed: number;
+  wa_mae: { memory: number; grounded: number; delta: number };
+  components: ResearcherComponentRow[];
+  trust_crowd: string[];
+  trust_analogs: string[];
+  neutral: string[];
+}
+
 export interface TypeSummary {
   books: number;
   avg_wa: number | null;

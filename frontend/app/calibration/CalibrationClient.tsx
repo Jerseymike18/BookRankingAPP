@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { runLooValidation } from "@/lib/api";
-import type { CalibrationHealth, LooResult } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { runLooValidation, fetchResearcherComparison } from "@/lib/api";
+import type { CalibrationHealth, LooResult, ResearcherComparison } from "@/lib/types";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -42,10 +42,30 @@ function verdictColor(verdict: string): string {
   return "var(--color-muted)";
 }
 
+function comparisonVerdictColor(verdict: string): string {
+  if (verdict.includes("helps")) return "var(--color-sage)";
+  if (verdict.includes("HURTS")) return "#c07c5a";
+  return "var(--color-muted)";
+}
+
+function deltaColor(delta: number): string {
+  if (delta > 0.05) return "var(--color-sage)";
+  if (delta < -0.05) return "#c07c5a";
+  return "var(--color-muted)";
+}
+
 export default function CalibrationClient({ health }: { health: CalibrationHealth }) {
   const [loo, setLoo] = useState<LooResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ResearcherComparison | null>(null);
+
+  useEffect(() => {
+    // Read-only: shows the last compare_researchers.py run if present, silent if not.
+    fetchResearcherComparison()
+      .then(setComparison)
+      .catch(() => setComparison(null));
+  }, []);
 
   async function handleRunLoo() {
     setRunning(true);
@@ -380,6 +400,118 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
           >
             Re-run LOO
           </button>
+        </div>
+      )}
+
+      {/* ── Researcher comparison (read-only; from compare_researchers.py) ── */}
+      {comparison && (
+        <div>
+          <SectionHeader>Researcher comparison — memory vs web-grounded</SectionHeader>
+          <p className="text-sm mb-1" style={{ color: "var(--color-muted)" }}>
+            Per-component MAE on the same blind {comparison.n_common}-book sample, scored by the
+            memory-based researcher vs the web-grounded one — same rubric and model (
+            {comparison.model}); the only difference is web retrieval of reader reviews.
+          </p>
+          <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
+            delta = memory MAE − grounded MAE. Positive = web-grounding lowers error (trust the
+            crowd); negative = grounding raises error (trust the reader&apos;s own analogs). LOO =
+            leave-one-out MAE (lower = already well-predicted).
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <Stat label="WA MAE (memory)" value={comparison.wa_mae.memory.toFixed(3)} />
+            <Stat
+              label="WA MAE (grounded)"
+              value={comparison.wa_mae.grounded.toFixed(3)}
+              note={`delta ${comparison.wa_mae.delta >= 0 ? "+" : ""}${comparison.wa_mae.delta.toFixed(3)}`}
+            />
+            <Stat label="Blind sample" value={`${comparison.n_common} books`} note="scored by both" />
+            <Stat
+              label="Crowd / Reader / Neutral"
+              value={`${comparison.trust_crowd.length} / ${comparison.trust_analogs.length} / ${comparison.neutral.length}`}
+              note="components"
+            />
+          </div>
+
+          <div
+            className="rounded-md border overflow-hidden text-sm mb-6"
+            style={{ borderColor: "var(--color-rule)" }}
+          >
+            <table className="w-full">
+              <thead>
+                <tr style={{ background: "var(--color-surface)", borderBottom: "1px solid var(--color-rule)" }}>
+                  {["Component", "mem MAE", "web MAE", "delta", "Verdict", "LOO"].map((h) => (
+                    <th
+                      key={h}
+                      className={`px-4 py-2 font-medium ${h === "Component" || h === "Verdict" ? "text-left" : "text-right"}`}
+                      style={{ color: "var(--color-muted)" }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.components.map((row, i) => (
+                  <tr
+                    key={row.component}
+                    style={{
+                      background: i % 2 === 0 ? "transparent" : "var(--color-surface)",
+                      borderTop: "1px solid var(--color-rule)",
+                    }}
+                  >
+                    <td className="px-4 py-2" style={{ color: "var(--color-ink)" }}>
+                      {row.component}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-ink)" }}>
+                      {row.memory_mae.toFixed(3)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-ink)" }}>
+                      {row.grounded_mae.toFixed(3)}
+                    </td>
+                    <td
+                      className="px-4 py-2 text-right tabular-nums font-mono"
+                      style={{ color: deltaColor(row.delta) }}
+                    >
+                      {row.delta >= 0 ? "+" : ""}
+                      {row.delta.toFixed(3)}
+                    </td>
+                    <td className="px-4 py-2" style={{ color: comparisonVerdictColor(row.verdict) }}>
+                      {row.verdict}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-muted)" }}>
+                      {row.loo_mae === null ? "—" : row.loo_mae.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              className="rounded-md border px-4 py-3 text-sm"
+              style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}
+            >
+              <div className="font-medium mb-1" style={{ color: "var(--color-sage)" }}>
+                Trust the crowd — web-ground these
+              </div>
+              <p style={{ color: "var(--color-muted)" }}>
+                {comparison.trust_crowd.length ? comparison.trust_crowd.join(", ") : "none"}
+              </p>
+            </div>
+            <div
+              className="rounded-md border px-4 py-3 text-sm"
+              style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}
+            >
+              <div className="font-medium mb-1" style={{ color: "#c07c5a" }}>
+                Trust the reader&apos;s own analogs — don&apos;t web-ground these
+              </div>
+              <p style={{ color: "var(--color-muted)" }}>
+                {comparison.trust_analogs.length ? comparison.trust_analogs.join(", ") : "none"}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </main>

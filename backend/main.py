@@ -2074,6 +2074,22 @@ def run_loo_validation():
     return result
 
 
+@app.get("/api/calibration/researcher-comparison")
+def get_researcher_comparison():
+    """Serve the last memory-vs-web-grounded per-component MAE comparison, if one
+    has been run. This reads the static output of compare_researchers.py — a
+    measurement artifact, NOT a live metric — so it never triggers LLM spend or
+    touches the engine. Returns 404 when the comparison hasn't been run yet."""
+    path = os.path.join(PROJECT_ROOT, "compare_researchers_result.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="No researcher comparison run yet.")
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        raise HTTPException(status_code=500, detail=f"Could not read comparison: {e}")
+
+
 @app.get("/api/delta-log")
 def get_delta_log():
     """Return all recorded prediction-vs-actual deltas, newest first."""
