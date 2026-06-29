@@ -111,6 +111,21 @@ export interface ResearchResult {
   genre_auto_detected: boolean;
 }
 
+export interface NonfictionPrediction {
+  title: string;
+  author: string;
+  genre: string;
+  components: CategoryComponents;
+  category_avgs: Record<string, number>;
+  wa: number;
+  total_average: number;
+  rank: number;
+  total: number;
+  confidence: string;
+  low_confidence: boolean;
+  category_order: string[];
+}
+
 export interface Candidate {
   title: string;
   author: string;

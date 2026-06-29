@@ -5,11 +5,14 @@ import {
   predictResearch,
   discoverCandidates,
   saveRecommendation,
+  predictNonfiction,
 } from "@/lib/api";
 import type {
   ResearchResult,
   Candidate,
   ScoredCandidate,
+  NonfictionPrediction,
+  BookKind,
 } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -645,6 +648,89 @@ function ScoredCard({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   NONFICTION PREDICT MODE — name a book, grounded LLM scores it, rolled up
+   through the nonfiction engine and ranked by Total Average. No TBR save
+   (there is no nonfiction recommendations table).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function NonfictionPredictMode() {
+  const [title, setTitle] = useState("");
+  const [author, setAuthor] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<NonfictionPrediction | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    if (!title.trim() || !author.trim()) {
+      setError("Enter a title and author.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      setResult(await predictNonfiction(title.trim(), author.trim()));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Prediction failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <h2 className="font-display font-semibold text-base mb-1" style={{ color: "var(--color-ink)" }}>
+          Predict a nonfiction book
+        </h2>
+        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
+          Name a book — one grounded LLM call scores the 8 nonfiction components, then your engine
+          rolls them up to a Quality-lean WA and ranks by Total Average against your rated nonfiction.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <div className="flex-1 min-w-48">
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sapiens"
+              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle} />
+          </div>
+          <div className="flex-1 min-w-40">
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Author</label>
+            <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="e.g. Yuval Noah Harari"
+              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle} />
+          </div>
+          <div className="flex items-end">
+            <SageButton onClick={run} disabled={loading}>{loading ? "Researching…" : "Research & predict"}</SageButton>
+          </div>
+        </div>
+      </Card>
+
+      {error && <ErrorBox message={error} />}
+
+      {result && (
+        <Card>
+          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+            <div>
+              <p className="font-display font-bold text-lg leading-tight" style={{ color: "var(--color-ink)" }}>{result.title}</p>
+              <p className="text-sm" style={{ color: "var(--color-muted)" }}>{result.author} · Nonfiction · confidence {result.confidence}</p>
+            </div>
+            <span className="wa-badge">{result.total_average.toFixed(2)}</span>
+          </div>
+          <div className="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-sm">
+            <span style={{ color: "var(--color-muted)" }}>Total Average <b style={{ color: "var(--color-sage)" }}>{result.total_average.toFixed(2)}</b></span>
+            <span style={{ color: "var(--color-muted)" }}>WA <b style={{ color: "var(--color-ink)" }}>{result.wa.toFixed(2)}</b></span>
+            <span style={{ color: "var(--color-muted)" }}>Predicted rank <b style={{ color: "var(--color-ink)" }}>~{result.rank} of {result.total}</b></span>
+          </div>
+          <ComponentGrid components={result.components} categoryOrder={result.category_order} />
+          <div className="mt-4">
+            <InfoBox message={`Low confidence — only ${result.total} nonfiction books rated, so this leans on priors. Treat as a rough estimate until the library grows.`} />
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ROOT PAGE COMPONENT
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -653,10 +739,11 @@ export default function PredictClient({
 }: {
   categoryOrder: string[];
 }) {
+  const [kind, setKind] = useState<BookKind>("fiction");
   return (
     <div>
       {/* Page header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1
           className="font-display text-3xl font-bold leading-tight"
           style={{ color: "var(--color-ink)" }}
@@ -664,12 +751,31 @@ export default function PredictClient({
           Predict
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Ask the LLM to discover candidates — or name a single book — then let your engine
-          score and rank them.
+          {kind === "nonfiction"
+            ? "Name a nonfiction book and let your engine predict where it lands."
+            : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."}
         </p>
       </div>
 
-      <DiscoverMode categoryOrder={categoryOrder} />
+      {/* Fiction / Nonfiction toggle */}
+      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
+        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => setKind(k)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
+            style={{
+              background: kind === k ? "var(--color-surface)" : "transparent",
+              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
+              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+            }}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+
+      {kind === "fiction" ? <DiscoverMode categoryOrder={categoryOrder} /> : <NonfictionPredictMode />}
     </div>
   );
 }

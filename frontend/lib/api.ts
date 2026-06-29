@@ -159,6 +159,21 @@ export async function predictResearch(
   return data;
 }
 
+export async function predictNonfiction(
+  title: string,
+  author: string,
+  genre?: string
+): Promise<import("./types").NonfictionPrediction> {
+  const res = await fetch(`${base("nonfiction")}/predict/research`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, author, genre: genre ?? null }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function discoverCandidates(
   request: string,
   maxCandidates?: number

@@ -58,9 +58,11 @@ import nonfiction_engine as nfe
 try:
     import research_predict as _rp
     import research_layer as _rl
+    import nonfiction_research as _nr
 except ImportError:
     _rp = None  # server starts fine; LLM endpoints return 503
     _rl = None
+    _nr = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1649,6 +1651,47 @@ def set_nf_year(req: SetYearRequest):
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
     _invalidate_nf_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+class NonfictionResearchRequest(BaseModel):
+    title: str
+    author: str
+    genre: Optional[str] = None
+
+
+@app.post("/api/nonfiction/predict/research")
+def predict_nf_research(req: NonfictionResearchRequest):
+    """Grounded nonfiction prediction: one LLM call scores the 8 components, then
+    they roll up through the SAME nonfiction math (category averages, Quality-lean
+    WA, Total Average) and are ranked by Total Average against the rated nonfiction
+    books. Always low-confidence at n=6. No TBR save (there is no nonfiction
+    recommendations table)."""
+    if _nr is None:
+        raise HTTPException(status_code=500, detail="nonfiction_research not available")
+    try:
+        data = _get_nf_engine()
+        r = _nr.research_and_predict(req.title, req.author, req.genre or "Nonfiction", data=data)
+    except FileNotFoundError:
+        raise HTTPException(status_code=503,
+                            detail="apikey.txt not found — add your Anthropic API key.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Research failed: {e}")
+    cat_components = data[0].attrs["category_components"]
+    grouped = {
+        cat: {c: _clean(round(float(r["scores"][c]), 2))
+              for c in cat_components.get(cat, []) if c in r["scores"]}
+        for cat in NF_CAT_ORDER
+    }
+    return {
+        "title": r["title"], "author": r["author"], "genre": "Nonfiction",
+        "components": grouped,
+        "category_avgs": {k: _clean(round(float(v), 2)) for k, v in r["cat_avgs"].items()},
+        "wa": _clean(round(float(r["wa"]), 4)),
+        "total_average": _clean(round(float(r["total_average"]), 4)),
+        "rank": r["rank"], "total": r["n"],
+        "confidence": r["confidence"], "low_confidence": True,
+        "category_order": list(NF_CAT_ORDER),
+    }
 
 
 @app.get("/api/stats")
