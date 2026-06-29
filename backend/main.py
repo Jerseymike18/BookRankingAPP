@@ -1694,6 +1694,40 @@ def predict_nf_research(req: NonfictionResearchRequest):
     }
 
 
+class NonfictionDiscoverRequest(BaseModel):
+    request: str
+    n: Optional[int] = None
+
+
+@app.post("/api/nonfiction/discover/candidates")
+def discover_nf_candidates(req: NonfictionDiscoverRequest):
+    """Brainstorm nonfiction candidates for a free-text request (one cheap Sonnet
+    call), excluding books already in your nonfiction library or TBR."""
+    if _nr is None:
+        raise HTTPException(status_code=500, detail="nonfiction_research not available")
+    try:
+        client = _rp.get_client()
+    except FileNotFoundError:
+        raise HTTPException(status_code=503,
+                            detail="apikey.txt not found — add your Anthropic API key.")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Client error: {e}")
+    request = (req.request or "").strip()
+    if not request:
+        raise HTTPException(status_code=422, detail="Enter a request.")
+    try:
+        cands = _nr.discover_nonfiction_candidates(request, n=req.n or 8, client=client)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
+    con = sqlite3.connect(db_write.DB)
+    have = {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_books") if r[0]}
+    have |= {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_recommendations") if r[0]}
+    con.close()
+    fresh = [c for c in cands if c["title"].strip().lower() not in have]
+    note = "" if fresh else "Every suggestion is already in your library or TBR — try a different request."
+    return {"candidates": fresh, "request": request, "note": note}
+
+
 # ─── Nonfiction TBR (recommendations + read queue) ───────────────────────────
 
 @app.get("/api/nonfiction/read-queue")

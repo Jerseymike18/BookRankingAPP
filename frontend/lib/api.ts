@@ -174,6 +174,20 @@ export async function predictNonfiction(
   return data;
 }
 
+export async function discoverNonfictionCandidates(
+  request: string,
+  n?: number
+): Promise<import("./types").NonfictionDiscoverResponse> {
+  const res = await fetch(`${base("nonfiction")}/discover/candidates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ request, n: n ?? null }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function discoverCandidates(
   request: string,
   maxCandidates?: number

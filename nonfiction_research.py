@@ -111,6 +111,36 @@ def research_and_predict(title, author, genre="Nonfiction", data=None):
             "low_confidence": True}
 
 
+def discover_nonfiction_candidates(request, n=8, client=None, model=None):
+    """Brainstorm real nonfiction book candidates for a free-text request. Uses
+    the cheap DISCOVER_MODEL (Sonnet) — candidate generation gets no calibration
+    benefit from Opus, mirroring the fiction Discover split. Returns a list of
+    {"title", "author"} dicts (deduped, capped at n)."""
+    client = client or rp.get_client()
+    model = model or rp.DISCOVER_MODEL
+    prompt = (
+        f'Suggest {n} real, published NONFICTION books that match this request:\n'
+        f'"{request}"\n\n'
+        f'Return ONLY a JSON array of objects with "title" and "author" keys — '
+        f'real nonfiction books (no fiction, no duplicates, no invented titles). '
+        f'Example: [{{"title": "Sapiens", "author": "Yuval Noah Harari"}}]'
+    )
+    msg = client.messages.create(
+        model=model, max_tokens=900,
+        messages=[{"role": "user", "content": prompt}])
+    data = rl._extract_json(msg.content[0].text.strip())
+    out, seen = [], set()
+    for c in (data if isinstance(data, list) else []):
+        if not isinstance(c, dict):
+            continue
+        t = str(c.get("title") or "").strip()
+        a = str(c.get("author") or "").strip()
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append({"title": t, "author": a})
+    return out[:n]
+
+
 def report(r):
     print("=" * 64)
     print(f"NONFICTION RESEARCH  —  {r['title']}")

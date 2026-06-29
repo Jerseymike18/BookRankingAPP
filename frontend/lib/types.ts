@@ -126,6 +126,17 @@ export interface NonfictionPrediction {
   category_order: string[];
 }
 
+export interface NonfictionCandidate {
+  title: string;
+  author: string;
+}
+
+export interface NonfictionDiscoverResponse {
+  candidates: NonfictionCandidate[];
+  request: string;
+  note?: string;
+}
+
 export interface Candidate {
   title: string;
   author: string;
