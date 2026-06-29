@@ -610,6 +610,37 @@ def _ensure_nonfiction_schema():
             genre TEXT, category TEXT, component TEXT, weight REAL
         )
     ''')
+    # TBR (to-be-read) pair, mirroring the fiction recommendations + read_queue.
+    # nonfiction_recommendations stores RAW components only (no derived columns);
+    # Total Average / WA / rank are computed on read by the nonfiction engine.
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_recommendations (
+            id          INTEGER PRIMARY KEY,
+            title       TEXT NOT NULL,
+            genre       TEXT,
+            author      TEXT,
+            series      TEXT,
+            words       INTEGER,
+            done        INTEGER DEFAULT 0,
+            blurb       TEXT,
+            keywords    TEXT,
+            "Informativeness"        REAL,
+            "Argumentation"          REAL,
+            "Entertainment"          REAL,
+            "Prose"                  REAL,
+            "Phraseology"            REAL,
+            "Insights"               REAL,
+            "Philosophizing"         REAL,
+            "Thought-Provokingness"  REAL,
+            series_number  INTEGER
+        )
+    ''')
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_read_queue (
+            position INTEGER PRIMARY KEY,
+            title    TEXT NOT NULL
+        )
+    ''')
     con.commit()
     con.close()
 
@@ -880,6 +911,135 @@ def seed_nonfiction_weights(quality=0.45, aesthetics=0.20, theme=0.35,
         con.rollback()
         print(f"  ✗ Not seeded — {e}")
         return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# NONFICTION TBR — recommendations + read queue (mirror the fiction twins).
+# Writes ONLY to the nonfiction tables; the fiction TBR is never touched.
+# ---------------------------------------------------------------------------
+def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
+                                  series=None, series_number=None, words=None,
+                                  blurb=None, keywords=None, done=0,
+                                  allow_new_genre=False, require_scores=True):
+    """Add a researched (not-yet-read) nonfiction book to
+    nonfiction_recommendations. Stores RAW components only — Total Average / WA
+    are computed on read by the nonfiction engine. Refuses duplicate titles;
+    nothing commits on failure. Returns True on success, False otherwise."""
+    scores = scores or {}
+    con = _connect()
+    try:
+        dup = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if dup:
+            raise ValidationError(
+                f"A nonfiction recommendation titled '{title}' already exists.")
+        valid = _valid_nonfiction_genres(con)  # empty until weights add genres
+        if genre is not None and valid and genre not in valid and not allow_new_genre:
+            raise ValidationError(
+                f"Genre '{genre}' is not in nonfiction_genre_weights "
+                f"(valid: {sorted(valid)}). Pass allow_new_genre=True to override.")
+        _validate_nonfiction_scores(scores, require_all=require_scores)
+
+        _backup_once()
+        cols = (["title", "genre", "author", "series", "series_number", "words",
+                 "done", "blurb", "keywords"] + NONFICTION_COMPONENTS)
+        vals = ([title, genre, author, series,
+                 int(series_number) if series_number else None, words,
+                 1 if done else 0, blurb, keywords]
+                + [scores.get(c) for c in NONFICTION_COMPONENTS])
+        ph = ",".join("?" for _ in cols)
+        con.execute(f'INSERT INTO nonfiction_recommendations '
+                    f'({",".join(chr(34)+c+chr(34) for c in cols)}) VALUES ({ph})',
+                    vals)
+        con.commit()
+        print(f"  ✓ Saved '{title}' to nonfiction recommendations ({author or '—'}).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ NOT saved — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_recommendation_meta(title, blurb=None, keywords=None):
+    """Update only the blurb/keywords on a nonfiction recommendation."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_recommendations SET blurb=?, keywords=? "
+                    "WHERE title=?", (blurb, keywords, title))
+        con.commit()
+        print(f"  ✓ Updated blurb/keywords for '{title}'.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def delete_nonfiction_recommendation(title):
+    """Permanently delete a nonfiction TBR recommendation by title."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_recommendations WHERE title=?", (title,))
+        con.commit()
+        print(f"  ✓ Deleted nonfiction recommendation '{title}'.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Not deleted — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_done(title, done=True):
+    """Mark a nonfiction recommendation done / not-done."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_recommendations SET done=? WHERE title=?",
+                    (1 if done else 0, title))
+        con.commit()
+        print(f"  ✓ Marked nonfiction '{title}' done={done}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def update_nonfiction_queue(titles):
+    """Replace the nonfiction read queue with this ordered list of titles."""
+    con = _connect()
+    try:
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_read_queue")
+        for pos, t in enumerate(titles, 1):
+            con.execute("INSERT INTO nonfiction_read_queue (position,title) "
+                        "VALUES (?,?)", (pos, t))
+        con.commit()
+        print(f"  ✓ Nonfiction queue updated ({len(titles)} books).")
     finally:
         con.close()
 
