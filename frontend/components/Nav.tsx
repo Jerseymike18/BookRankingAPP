@@ -10,6 +10,7 @@ type NavGroup =
   | { label: string; href: string };               // top-level direct link
 
 const sections: NavGroup[] = [
+  { label: "Stats", href: "/stats" },
   {
     label: "Fiction",
     items: [
@@ -39,7 +40,6 @@ const sections: NavGroup[] = [
       { href: "/add-book", label: "Add a Book" },
     ],
   },
-  { label: "Stats", href: "/stats" },
   {
     label: "More",
     items: [
