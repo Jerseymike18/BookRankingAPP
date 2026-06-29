@@ -315,6 +315,48 @@ export interface LooResult {
   per_component: LooComponentRow[];
 }
 
+export interface TypeSummary {
+  books: number;
+  avg_wa: number | null;
+  avg_total_average: number | null;
+  total_words: number;
+}
+
+export interface CombinedRankRow {
+  rank: number;
+  title: string;
+  author: string;
+  genre: string;
+  type: BookKind;
+  total_average: number | null;
+  wa: number | null;
+}
+
+export interface CombinedPerYear {
+  year: number;
+  fiction: number;
+  nonfiction: number;
+  books: number;
+}
+
+export interface CombinedStatsResponse {
+  totals: {
+    total_books: number;
+    fiction_books: number;
+    nonfiction_books: number;
+    total_words: number;
+    avg_total_average: number | null;
+  };
+  by_type: { fiction: TypeSummary; nonfiction: TypeSummary };
+  tier_distribution: {
+    tier_order: string[];
+    fiction: Record<string, number>;
+    nonfiction: Record<string, number>;
+  };
+  per_year: CombinedPerYear[];
+  combined_ranking: CombinedRankRow[];
+}
+
 export interface AddSeriesResult {
   ok: boolean;
   ambiguous: boolean;

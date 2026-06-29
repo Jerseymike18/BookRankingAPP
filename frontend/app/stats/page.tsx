@@ -1,5 +1,9 @@
-import ComingSoon from "@/components/ComingSoon";
+import { fetchStats } from "@/lib/api";
+import StatsClient from "./StatsClient";
 
-export default function StatsPage() {
-  return <ComingSoon title="Combined Stats" />;
+export const dynamic = "force-dynamic";
+
+export default async function StatsPage() {
+  const data = await fetchStats();
+  return <StatsClient data={data} />;
 }

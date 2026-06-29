@@ -17,6 +17,7 @@ import type {
   TimelineResponse,
   AddSeriesResult,
   BookKind,
+  CombinedStatsResponse,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -273,6 +274,12 @@ export async function runLooValidation(): Promise<LooResult> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
+}
+
+export async function fetchStats(): Promise<CombinedStatsResponse> {
+  const res = await fetch(`${API}/api/stats`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
 }
 
 export async function fetchDeltaLog(): Promise<DeltaLogResponse> {

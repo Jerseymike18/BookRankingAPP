@@ -1651,6 +1651,82 @@ def set_nf_year(req: SetYearRequest):
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
+@app.get("/api/stats")
+def get_combined_stats():
+    """Combined Fiction + Nonfiction stats. The two WAs come from different
+    formulas, so the cross-type ranking is by TOTAL AVERAGE (the unweighted mean
+    of category averages — directly comparable across types on the same 0-10
+    scale). WA is shown only inside each type. Tier distributions are reported
+    per type (fiction banded by WA, nonfiction by Total Average) since the bases
+    differ. Reuses the fiction + nonfiction engines; computes no new math."""
+    fbt = views_mod.add_total_average(_get_engine()[0])
+    nbt = nfe.add_total_average(_get_nf_engine()[0])
+
+    def _summ(bt):
+        words = bt["Words"].dropna() if "Words" in bt else []
+        return {
+            "books": int(len(bt)),
+            "avg_wa": _clean(round(float(bt["WA"].mean()), 2)) if len(bt) else None,
+            "avg_total_average": _clean(round(float(bt["Total Average"].mean()), 2)) if len(bt) else None,
+            "total_words": int(words.sum()) if len(words) else 0,
+        }
+
+    f_sum, n_sum = _summ(fbt), _summ(nbt)
+
+    def _rows(bt, kind):
+        out = []
+        for _, r in bt.iterrows():
+            wa = r.get("WA")
+            out.append({
+                "title": r["Book"], "author": str(r["Author"]),
+                "genre": str(r["Genre"]), "type": kind,
+                "total_average": _clean(round(float(r["Total Average"]), 4))
+                if r["Total Average"] == r["Total Average"] else None,
+                "wa": _clean(round(float(wa), 4)) if wa is not None and wa == wa else None,
+            })
+        return out
+
+    combined = [b for b in (_rows(fbt, "fiction") + _rows(nbt, "nonfiction"))
+                if b["total_average"] is not None]
+    combined.sort(key=lambda b: b["total_average"], reverse=True)
+    for i, b in enumerate(combined):
+        b["rank"] = i + 1
+
+    f_tiers = views_mod.tier_counts(views_mod.tier_bands(fbt, "WA", 9.5)) if len(fbt) else {}
+    n_tiers = nfe.tier_counts(nfe.tier_bands(nbt, "Total Average", 9.5)) if len(nbt) else {}
+
+    years: dict = {}
+    for bt, key in ((fbt, "fiction"), (nbt, "nonfiction")):
+        for _, r in bt.iterrows():
+            y = r.get("Year")
+            if y is None or y != y:
+                continue
+            years.setdefault(int(y), {"fiction": 0, "nonfiction": 0})[key] += 1
+    per_year = [{"year": y, "fiction": v["fiction"], "nonfiction": v["nonfiction"],
+                 "books": v["fiction"] + v["nonfiction"]}
+                for y, v in sorted(years.items())]
+
+    all_ta = ([float(x) for x in fbt["Total Average"] if x == x]
+              + [float(x) for x in nbt["Total Average"] if x == x])
+    return {
+        "totals": {
+            "total_books": f_sum["books"] + n_sum["books"],
+            "fiction_books": f_sum["books"],
+            "nonfiction_books": n_sum["books"],
+            "total_words": f_sum["total_words"] + n_sum["total_words"],
+            "avg_total_average": round(sum(all_ta) / len(all_ta), 2) if all_ta else None,
+        },
+        "by_type": {"fiction": f_sum, "nonfiction": n_sum},
+        "tier_distribution": {
+            "tier_order": views_mod.TIER_ORDER,
+            "fiction": f_tiers,
+            "nonfiction": n_tiers,
+        },
+        "per_year": per_year,
+        "combined_ranking": combined,
+    }
+
+
 def _enrich_recommendation(req: "SaveRecommendationRequest"):
     """Generate the rich house-style blurb and resolve series + ordinal at SAVE
     time (deferred from scoring so the two extra LLM calls are only paid for
