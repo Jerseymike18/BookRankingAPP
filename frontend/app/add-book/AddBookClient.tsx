@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { lookupBook, addBook } from "@/lib/api";
-import type { LookupResult } from "@/lib/types";
+import { lookupBook, addBook, addNonfictionBook } from "@/lib/api";
+import type { LookupResult, BookKind } from "@/lib/types";
 
 /* ── Shared input / label styles ────────────────────────────────────────── */
 
@@ -70,24 +70,39 @@ function NumberInput({
 
 /* ── Component score grid ── same visual as Rankings detail view ─────────── */
 
-const COMPONENT_CATEGORIES: Record<string, string[]> = {
-  Story: ["Plot", "Entertainment", "Action", "Ending"],
-  Character: ["Depth", "Emotional Impact", "Motivations"],
-  Aesthetics: ["Prose", "Narration"],
-  Theme: ["Insights", "Thought-Provokingness"],
-  Worldbuilding: ["Depth2", "Integration", "Originality"],
+const COMPONENT_CATEGORIES_BY_KIND: Record<BookKind, Record<string, string[]>> = {
+  fiction: {
+    Story: ["Plot", "Entertainment", "Action", "Ending"],
+    Character: ["Depth", "Emotional Impact", "Motivations"],
+    Aesthetics: ["Prose", "Narration"],
+    Theme: ["Insights", "Thought-Provokingness"],
+    Worldbuilding: ["Depth2", "Integration", "Originality"],
+  },
+  nonfiction: {
+    Quality: ["Informativeness", "Argumentation", "Entertainment"],
+    Aesthetics: ["Prose", "Phraseology"],
+    Theme: ["Insights", "Philosophizing", "Thought-Provokingness"],
+  },
 };
 
+function defaultScores(kind: BookKind): Record<string, number> {
+  return Object.fromEntries(
+    Object.values(COMPONENT_CATEGORIES_BY_KIND[kind]).flat().map((c) => [c, 0])
+  );
+}
+
 function ScoreGrid({
+  categories,
   scores,
   onChange,
 }: {
+  categories: Record<string, string[]>;
   scores: Record<string, number>;
   onChange: (comp: string, val: number) => void;
 }) {
   return (
     <div className="space-y-5">
-      {Object.entries(COMPONENT_CATEGORIES).map(([cat, comps]) => (
+      {Object.entries(categories).map(([cat, comps]) => (
         <div key={cat}>
           <p className="text-xs font-semibold uppercase tracking-widest mb-2"
             style={{ color: "var(--color-muted)" }}>
@@ -126,17 +141,17 @@ function ScoreGrid({
 
 /* ── Main component ─────────────────────────────────────────────────────── */
 
-const DEFAULT_SCORES: Record<string, number> = Object.fromEntries(
-  Object.values(COMPONENT_CATEGORIES).flat().map((c) => [c, 0])
-);
-
 export default function AddBookClient({
-  categoryOrder,
   validGenres,
 }: {
   categoryOrder: string[];
   validGenres: string[];
 }) {
+  // Fiction vs nonfiction — drives the component set, the genre field, and the
+  // target table.
+  const [kind, setKind] = useState<BookKind>("fiction");
+  const categories = COMPONENT_CATEGORIES_BY_KIND[kind];
+
   // Lookup state
   const [lookupTitle, setLookupTitle] = useState("");
   const [lookupAuthorHint, setLookupAuthorHint] = useState("");
@@ -152,8 +167,15 @@ export default function AddBookClient({
   const [seriesNumber, setSeriesNumber] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [yearRead, setYearRead] = useState(new Date().getFullYear());
-  const [scores, setScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
+  const [scores, setScores] = useState<Record<string, number>>(defaultScores("fiction"));
   const [prefilled, setPrefilled] = useState(false);
+
+  function changeKind(k: BookKind) {
+    setKind(k);
+    setScores(defaultScores(k));
+    setSaveError(null);
+    setSaveSuccess(null);
+  }
 
   // Save state
   const [saving, setSaving] = useState(false);
@@ -208,16 +230,19 @@ export default function AddBookClient({
     setSaveError(null);
     setSaveSuccess(null);
     try {
-      const result = await addBook({
+      const common = {
         title,
-        genre,
         author,
         scores,
         series: series.trim() || undefined,
         series_number: seriesNumber ?? undefined,
         words: words > 0 ? words : undefined,
         year_read: yearRead,
-      });
+      };
+      const result =
+        kind === "nonfiction"
+          ? await addNonfictionBook(common)
+          : await addBook({ ...common, genre });
       setSaveSuccess(result.message || `Added "${title}" to the ledger.`);
       // Reset form
       setTitle("");
@@ -226,7 +251,7 @@ export default function AddBookClient({
       setSeries("");
       setWords(0);
       setYearRead(new Date().getFullYear());
-      setScores({ ...DEFAULT_SCORES });
+      setScores(defaultScores(kind));
       setPrefilled(false);
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : "Could not add book.");
@@ -238,14 +263,34 @@ export default function AddBookClient({
   return (
     <div>
       {/* Page header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="font-display text-3xl font-bold leading-tight"
           style={{ color: "var(--color-ink)" }}>
           Add a Book
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left at 0 for realist genres.
+          {kind === "nonfiction"
+            ? "Scores are 0–10 across Quality / Aesthetics / Theme (8 components)."
+            : "Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left at 0 for realist genres."}
         </p>
+      </div>
+
+      {/* Fiction / Nonfiction toggle — drives the component set + target table */}
+      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
+        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
+          <button
+            key={k}
+            onClick={() => changeKind(k)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
+            style={{
+              background: kind === k ? "var(--color-surface)" : "transparent",
+              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
+              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+            }}
+          >
+            {k}
+          </button>
+        ))}
       </div>
 
       {/* ── Lookup panel ───────────────────────────────────────────────────── */}
@@ -362,19 +407,21 @@ export default function AddBookClient({
             <FieldLabel>Author</FieldLabel>
             <TextInput value={author} onChange={setAuthor} placeholder="Author name" />
           </div>
-          <div>
-            <FieldLabel>Genre</FieldLabel>
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
-              style={inputStyle}
-            >
-              {validGenres.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          </div>
+          {kind === "fiction" && (
+            <div>
+              <FieldLabel>Genre</FieldLabel>
+              <select
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
+                style={inputStyle}
+              >
+                {validGenres.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <FieldLabel>Series (optional)</FieldLabel>
             <TextInput value={series} onChange={setSeries} placeholder="e.g. The Kingkiller Chronicle #1" />
@@ -397,7 +444,7 @@ export default function AddBookClient({
           <h3 className="font-display font-semibold text-sm mb-4" style={{ color: "var(--color-ink)" }}>
             Component scores
           </h3>
-          <ScoreGrid scores={scores} onChange={handleScoreChange} />
+          <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} />
         </div>
       </section>
 

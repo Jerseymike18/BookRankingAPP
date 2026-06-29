@@ -70,6 +70,30 @@ export async function addBook(payload: AddBookPayload): Promise<{ ok: boolean; m
   return data;
 }
 
+export interface AddNonfictionBookPayload {
+  title: string;
+  author?: string;
+  genre?: string;
+  scores: Record<string, number>;
+  series?: string;
+  series_number?: number;
+  words?: number;
+  year_read?: number;
+}
+
+export async function addNonfictionBook(
+  payload: AddNonfictionBookPayload
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base("nonfiction")}/books`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function editRating(
   title: string,
   scores: Record<string, number>,
