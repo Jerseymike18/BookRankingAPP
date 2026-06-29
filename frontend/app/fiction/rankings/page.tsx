@@ -1,9 +1,9 @@
 import { fetchBooks } from "@/lib/api";
-import RankingsClient from "./RankingsClient";
+import RankingsView from "@/components/views/RankingsView";
 
 export const dynamic = "force-dynamic";
 
-export default async function RankingsPage() {
-  const data = await fetchBooks();
-  return <RankingsClient data={data} />;
+export default async function FictionRankingsPage() {
+  const data = await fetchBooks("fiction");
+  return <RankingsView data={data} kind="fiction" />;
 }

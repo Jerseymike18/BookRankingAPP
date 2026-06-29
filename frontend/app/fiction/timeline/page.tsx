@@ -1,9 +1,9 @@
 import { fetchTimeline } from "@/lib/api";
-import TimelineClient from "./TimelineClient";
+import TimelineView from "@/components/views/TimelineView";
 
 export const dynamic = "force-dynamic";
 
-export default async function TimelinePage() {
-  const data = await fetchTimeline();
-  return <TimelineClient data={data} />;
+export default async function FictionTimelinePage() {
+  const data = await fetchTimeline("fiction");
+  return <TimelineView data={data} kind="fiction" />;
 }

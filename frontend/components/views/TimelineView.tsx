@@ -1,6 +1,6 @@
 "use client";
 
-import type { TimelineResponse, TimelineRow } from "@/lib/types";
+import type { TimelineResponse, TimelineRow, BookKind } from "@/lib/types";
 
 /* ── Mini bar chart (SVG) ─────────────────────────────────────────────────── */
 
@@ -82,6 +82,7 @@ const CAT_COLORS: Record<string, string> = {
   Aesthetics:   "#C07C5A",
   Theme:        "#7B8FA1",
   Worldbuilding:"#7BA87B",
+  Quality:      "#4A7C59",  // nonfiction
 };
 
 function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: string[] }) {
@@ -242,7 +243,13 @@ function TimelineTable({ rows, categories }: { rows: TimelineRow[]; categories: 
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-export default function TimelineClient({ data }: { data: TimelineResponse }) {
+export default function TimelineView({
+  data,
+  kind = "fiction",
+}: {
+  data: TimelineResponse;
+  kind?: BookKind;
+}) {
   if (data.rows.length === 0) {
     return (
       <div>
@@ -250,7 +257,7 @@ export default function TimelineClient({ data }: { data: TimelineResponse }) {
           Timeline
         </h1>
         <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-          No books have a year_read set yet.
+          No {kind === "nonfiction" ? "nonfiction " : ""}books have a year_read set yet.
         </p>
       </div>
     );

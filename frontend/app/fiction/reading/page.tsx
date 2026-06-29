@@ -1,13 +1,12 @@
-import { fetchReadingStats, fetchReadingStatus, fetchBooks } from "@/lib/api";
-import ReadingClient from "./ReadingClient";
+import { fetchReadingStats, fetchReadingStatus } from "@/lib/api";
+import ReadingView from "@/components/views/ReadingView";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReadingPage() {
-  const [stats, status, booksData] = await Promise.all([
-    fetchReadingStats(),
-    fetchReadingStatus(),
-    fetchBooks(),
+export default async function FictionReadingPage() {
+  const [stats, status] = await Promise.all([
+    fetchReadingStats("fiction"),
+    fetchReadingStatus("fiction"),
   ]);
-  return <ReadingClient stats={stats} status={status} ratedTitles={booksData.books.map(b => b.title)} />;
+  return <ReadingView stats={stats} status={status} kind="fiction" />;
 }

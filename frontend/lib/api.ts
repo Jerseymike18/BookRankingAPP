@@ -16,12 +16,18 @@ import type {
   SeriesTiersResponse,
   TimelineResponse,
   AddSeriesResult,
+  BookKind,
 } from "./types";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export async function fetchBooks(): Promise<BooksResponse> {
-  const res = await fetch(`${API}/api/books`, { cache: "no-store" });
+/** API path prefix for a library: fiction → /api, nonfiction → /api/nonfiction. */
+function base(kind: BookKind = "fiction"): string {
+  return `${API}${kind === "nonfiction" ? "/api/nonfiction" : "/api"}`;
+}
+
+export async function fetchBooks(kind: BookKind = "fiction"): Promise<BooksResponse> {
+  const res = await fetch(`${base(kind)}/books`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -65,9 +71,10 @@ export async function addBook(payload: AddBookPayload): Promise<{ ok: boolean; m
 
 export async function editRating(
   title: string,
-  scores: Record<string, number>
+  scores: Record<string, number>,
+  kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API}/api/books/${encodeURIComponent(title)}/scores`, {
+  const res = await fetch(`${base(kind)}/books/${encodeURIComponent(title)}/scores`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scores }),
@@ -77,8 +84,11 @@ export async function editRating(
   return data;
 }
 
-export async function deleteBook(title: string): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API}/api/books/${encodeURIComponent(title)}`, {
+export async function deleteBook(
+  title: string,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${base(kind)}/books/${encodeURIComponent(title)}`, {
     method: "DELETE",
   });
   const data = await res.json();
@@ -159,9 +169,9 @@ export async function saveQueue(titles: string[]): Promise<{ ok: boolean; messag
   return data;
 }
 
-export async function fetchTiers(year?: number): Promise<TiersResponse> {
-  const params = year != null ? `?year=${year}` : "";
-  const res = await fetch(`${API}/api/tiers${params}`, { cache: "no-store" });
+export async function fetchTiers(year?: number, kind: BookKind = "fiction"): Promise<TiersResponse> {
+  const params = kind === "fiction" && year != null ? `?year=${year}` : "";
+  const res = await fetch(`${base(kind)}/tiers${params}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -172,23 +182,24 @@ export async function fetchReadQueue(): Promise<ReadQueueResponse> {
   return res.json();
 }
 
-export async function fetchReadingStats(): Promise<ReadingStatsResponse> {
-  const res = await fetch(`${API}/api/reading/stats`, { cache: "no-store" });
+export async function fetchReadingStats(kind: BookKind = "fiction"): Promise<ReadingStatsResponse> {
+  const res = await fetch(`${base(kind)}/reading/stats`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchReadingStatus(): Promise<ReadingStatusResponse> {
-  const res = await fetch(`${API}/api/reading/status`, { cache: "no-store" });
+export async function fetchReadingStatus(kind: BookKind = "fiction"): Promise<ReadingStatusResponse> {
+  const res = await fetch(`${base(kind)}/reading/status`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
 export async function setYearRead(
   title: string,
-  year: number
+  year: number,
+  kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API}/api/reading/set-year`, {
+  const res = await fetch(`${base(kind)}/reading/set-year`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, year }),
@@ -198,20 +209,20 @@ export async function setYearRead(
   return data;
 }
 
-export async function fetchSeries(): Promise<SeriesResponse> {
-  const res = await fetch(`${API}/api/series`, { cache: "no-store" });
+export async function fetchSeries(kind: BookKind = "fiction"): Promise<SeriesResponse> {
+  const res = await fetch(`${base(kind)}/series`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchSeriesTiers(): Promise<SeriesTiersResponse> {
-  const res = await fetch(`${API}/api/series/tiers`, { cache: "no-store" });
+export async function fetchSeriesTiers(kind: BookKind = "fiction"): Promise<SeriesTiersResponse> {
+  const res = await fetch(`${base(kind)}/series/tiers`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchTimeline(): Promise<TimelineResponse> {
-  const res = await fetch(`${API}/api/timeline`, { cache: "no-store" });
+export async function fetchTimeline(kind: BookKind = "fiction"): Promise<TimelineResponse> {
+  const res = await fetch(`${base(kind)}/timeline`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { editRating, deleteBook } from "@/lib/api";
-import type { BooksResponse, Book, CategoryComponents } from "@/lib/types";
+import type { BooksResponse, Book, CategoryComponents, BookKind } from "@/lib/types";
 import { seriesLabel } from "@/lib/format";
 import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -151,11 +151,13 @@ type CardMode = "view" | "edit" | "confirm-delete";
 function BookExpandedPanel({
   book,
   categoryOrder,
+  kind,
   onRefresh,
   onClose,
 }: {
   book: Book;
   categoryOrder: string[];
+  kind: BookKind;
   onRefresh: () => void;
   onClose: () => void;
 }) {
@@ -182,7 +184,7 @@ function BookExpandedPanel({
     setSaving(true);
     setActionError(null);
     try {
-      await editRating(book.title, scores);
+      await editRating(book.title, scores, kind);
       setSaveSuccess(true);
       setMode("view");
       onRefresh();
@@ -197,7 +199,7 @@ function BookExpandedPanel({
     setDeleting(true);
     setActionError(null);
     try {
-      await deleteBook(book.title);
+      await deleteBook(book.title, kind);
       onRefresh();
       onClose();
     } catch (e: unknown) {
@@ -341,16 +343,35 @@ function BookExpandedPanel({
 
 /* ── Column definitions ───────────────────────────────────────────────── */
 
-const RANKINGS_COLS: ColDef<Book>[] = [
-  { key: "title",         label: "Book",  type: "string",  getValue: (b) => b.title,                                  align: "left"  },
-  { key: "wa",            label: "WA",    type: "numeric", getValue: (b) => b.wa,                                     align: "right" },
-  { key: "Story",         label: "Story", type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Story"]         ?? 0, align: "right" },
-  { key: "Character",     label: "Char",  type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Character"]     ?? 0, align: "right" },
-  { key: "Aesthetics",    label: "Aes",   type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Aesthetics"]    ?? 0, align: "right" },
-  { key: "Theme",         label: "Theme", type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Theme"]         ?? 0, align: "right" },
-  { key: "Worldbuilding", label: "WB",    type: "numeric", getValue: (b) => (b.category_avgs ?? {})["Worldbuilding"] ?? 0, align: "right" },
-  { key: "genre",         label: "Genre", type: "string",  getValue: (b) => b.genre,                                 align: "left"  },
-];
+// Short column headers per category (fiction + nonfiction).
+const CAT_ABBREV: Record<string, string> = {
+  Story: "Story", Character: "Char", Aesthetics: "Aes", Theme: "Theme",
+  Worldbuilding: "WB", Quality: "Qual", Phraseology: "Phra",
+};
+
+// The primary ranking score: fiction sorts/colours by WA, nonfiction by Total
+// Average (the workbook's nonfiction ranking; WA is shown but secondary).
+function primaryScore(b: Book, kind: BookKind): number {
+  return kind === "nonfiction" ? (b.total_average ?? 0) : b.wa;
+}
+
+// Columns are built from the response's category_order (5 for fiction, 3 for
+// nonfiction) so the same table serves both types.
+function buildCols(kind: BookKind, categoryOrder: string[]): ColDef<Book>[] {
+  return [
+    { key: "title", label: "Book", type: "string", getValue: (b) => b.title, align: "left" },
+    {
+      key: kind === "nonfiction" ? "total_average" : "wa",
+      label: kind === "nonfiction" ? "Total" : "WA",
+      type: "numeric", getValue: (b) => primaryScore(b, kind), align: "right",
+    },
+    ...categoryOrder.map((cat): ColDef<Book> => ({
+      key: cat, label: CAT_ABBREV[cat] ?? cat, type: "numeric",
+      getValue: (b) => (b.category_avgs ?? {})[cat] ?? 0, align: "right",
+    })),
+    { key: "genre", label: "Genre", type: "string", getValue: (b) => b.genre, align: "left" },
+  ];
+}
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────── */
 
@@ -394,9 +415,17 @@ function SubTabs({
 
 /* ── Main rankings view ───────────────────────────────────────────────── */
 
-export default function RankingsClient({ data }: { data: BooksResponse }) {
+export default function RankingsView({
+  data,
+  kind = "fiction",
+}: {
+  data: BooksResponse;
+  kind?: BookKind;
+}) {
   const { books, genres, category_order } = data;
   const router = useRouter();
+  const primaryKey = kind === "nonfiction" ? "total_average" : "wa";
+  const cols = useMemo(() => buildCols(kind, category_order), [kind, category_order]);
 
   const [yearTab, setYearTab] = useState<YearTab>("all");
   const [genreFilter, setGenreFilter] = useState<string>("All genres");
@@ -427,7 +456,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
     return list;
   }, [scopedBooks, genreFilter, search]);
 
-  const { sorted, sortState, handleSort } = useSortable(filtered, RANKINGS_COLS, { key: "wa", dir: "desc" });
+  const { sorted, sortState, handleSort } = useSortable(filtered, cols, { key: primaryKey, dir: "desc" });
 
   const handleGenre = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setGenreFilter(e.target.value);
@@ -458,8 +487,8 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
         </p>
       </div>
 
-      {/* Year sub-tabs */}
-      <SubTabs active={yearTab} onChange={handleYearTab} />
+      {/* Year sub-tabs (fiction only — nonfiction books have no year_read) */}
+      {kind === "fiction" && <SubTabs active={yearTab} onChange={handleYearTab} />}
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -545,7 +574,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
               >
                 #
               </th>
-              {RANKINGS_COLS.map((col) => (
+              {cols.map((col) => (
                 <SortableTh
                   key={col.key}
                   col={col}
@@ -577,7 +606,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                       onClick={() =>
                         setExpandedTitle(isExpanded ? null : book.title)
                       }
-                      className={`book-card ${spineClass(book.wa)} cursor-pointer`}
+                      className={`book-card ${spineClass(primaryScore(book, kind))} cursor-pointer`}
                       style={{
                         borderBottom: isExpanded
                           ? "none"
@@ -619,19 +648,19 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                           ) : null}
                         </div>
                       </td>
-                      {/* WA */}
+                      {/* Primary score: WA (fiction) or Total Average (nonfiction) */}
                       <td
                         className="px-3 py-3 text-right font-semibold"
                         style={{
-                          color: sortState.key === "wa" ? "var(--color-sage)" : "var(--color-ink)",
-                          background: sortState.key === "wa" ? "var(--color-sage-light)" : "transparent",
+                          color: sortState.key === primaryKey ? "var(--color-sage)" : "var(--color-ink)",
+                          background: sortState.key === primaryKey ? "var(--color-sage-light)" : "transparent",
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {book.wa.toFixed(2)}
+                        {primaryScore(book, kind).toFixed(2)}
                       </td>
                       {/* Category averages */}
-                      {(["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] as const).map((cat) => {
+                      {category_order.map((cat) => {
                         const val = avgs[cat] ?? 0;
                         const isActive = sortState.key === cat;
                         return (
@@ -666,6 +695,7 @@ export default function RankingsClient({ data }: { data: BooksResponse }) {
                           <BookExpandedPanel
                             book={book}
                             categoryOrder={category_order}
+                            kind={kind}
                             onRefresh={onRefresh}
                             onClose={() => setExpandedTitle(null)}
                           />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow } from "@/lib/types";
+import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow, BookKind } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { seriesLabel } from "@/lib/format";
@@ -95,7 +95,7 @@ const BY_AUTHOR_COLS: ColDef<AuthorRow>[] = [
 
 /* ── Stats tab ────────────────────────────────────────────────────────────── */
 
-function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
+function StatsTab({ stats, kind }: { stats: ReadingStatsResponse; kind: BookKind }) {
   const { summary, per_year, by_genre, by_author } = stats;
 
   return (
@@ -115,13 +115,17 @@ function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
         getRowKey={(r) => String(r.year)}
       />
 
-      <SectionHeading>By genre</SectionHeading>
-      <SortableTable
-        columns={BY_GENRE_COLS}
-        data={by_genre}
-        defaultSort={{ key: "books", dir: "desc" }}
-        getRowKey={(r) => r.genre}
-      />
+      {kind === "fiction" && (
+        <>
+          <SectionHeading>By genre</SectionHeading>
+          <SortableTable
+            columns={BY_GENRE_COLS}
+            data={by_genre}
+            defaultSort={{ key: "books", dir: "desc" }}
+            getRowKey={(r) => r.genre}
+          />
+        </>
+      )}
 
       <SectionHeading>By author</SectionHeading>
       <SortableTable
@@ -136,16 +140,21 @@ function StatsTab({ stats }: { stats: ReadingStatsResponse }) {
 
 /* ── Status tab ───────────────────────────────────────────────────────────── */
 
-const CATEGORY_ORDER = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"];
+const CATEGORY_ORDER_BY_KIND: Record<BookKind, string[]> = {
+  fiction: ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"],
+  nonfiction: ["Quality", "Aesthetics", "Theme"],
+};
 
 function SlotCard({
   label,
   slot,
   predicted,
+  kind,
 }: {
   label: string;
   slot: StatusSlot | null;
   predicted: boolean;
+  kind: BookKind;
 }) {
   const cardStyle = {
     background: "var(--color-surface)",
@@ -238,7 +247,7 @@ function SlotCard({
           {/* Category averages */}
           {Object.keys(slot.category_avgs).length > 0 && (
             <div className="grid grid-cols-3 gap-1.5 mt-1">
-              {CATEGORY_ORDER.filter((cat) => cat in slot.category_avgs).map((cat) => (
+              {CATEGORY_ORDER_BY_KIND[kind].filter((cat) => cat in slot.category_avgs).map((cat) => (
                 <div key={cat} className="comp-tile">
                   <span className="comp-label">{cat}</span>
                   <span className="comp-value">
@@ -254,28 +263,31 @@ function SlotCard({
   );
 }
 
-function StatusTab({ status }: { status: ReadingStatusResponse }) {
+function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: BookKind }) {
   return (
     <div className="grid sm:grid-cols-3 gap-4">
-      <SlotCard label="Last Read" slot={status.last_read} predicted={false} />
+      <SlotCard label="Last Read" slot={status.last_read} predicted={false} kind={kind} />
       <SlotCard
         label="Currently Reading"
         slot={status.currently_reading}
         predicted={true}
+        kind={kind}
       />
-      <SlotCard label="Reading Next" slot={status.reading_next} predicted={true} />
+      <SlotCard label="Reading Next" slot={status.reading_next} predicted={true} kind={kind} />
     </div>
   );
 }
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-export default function ReadingClient({
+export default function ReadingView({
   stats,
   status,
+  kind = "fiction",
 }: {
   stats: ReadingStatsResponse;
   status: ReadingStatusResponse;
+  kind?: BookKind;
 }) {
   const [tab, setTab] = useState<Tab>("stats");
 
@@ -296,9 +308,9 @@ export default function ReadingClient({
       <SubTabs active={tab} onChange={setTab} />
 
       {tab === "stats" ? (
-        <StatsTab stats={stats} />
+        <StatsTab stats={stats} kind={kind} />
       ) : (
-        <StatusTab status={status} />
+        <StatusTab status={status} kind={kind} />
       )}
     </div>
   );

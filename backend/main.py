@@ -50,6 +50,7 @@ import db_write
 import predict_engine as pe
 import views as views_mod
 import validate_engine as ve
+import nonfiction_engine as nfe
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -84,6 +85,23 @@ def _get_engine() -> tuple:
 def _invalidate_engine() -> None:
     global _engine_cache
     _engine_cache = pe.build(source="db")
+
+
+# Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
+# nonfiction engine. Built lazily; rebuilt after any nonfiction write.
+_nf_engine_cache: Optional[tuple] = None
+
+
+def _get_nf_engine() -> tuple:
+    global _nf_engine_cache
+    if _nf_engine_cache is None:
+        _nf_engine_cache = nfe.load_nonfiction_from_db()
+    return _nf_engine_cache
+
+
+def _invalidate_nf_engine() -> None:
+    global _nf_engine_cache
+    _nf_engine_cache = nfe.load_nonfiction_from_db()
 
 
 @asynccontextmanager
@@ -1301,6 +1319,336 @@ def get_timeline():
             rec[cat.lower()] = _clean(round(float(row[cat]), 2)) if row[cat] == row[cat] else None
         rows.append(rec)
     return {"rows": rows, "categories": views_mod.CATEGORY_ORDER}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# NONFICTION — parallel endpoints over the SEPARATE nonfiction engine/table.
+# Same JSON shapes as the fiction endpoints (so the frontend reuses the same
+# components by `kind`), with two differences the frontend keys off: nonfiction
+# carries `total_average` and is ranked/tiered by it (not WA), and the category
+# set is Quality / Aesthetics / Theme. Never touches the fiction engine.
+# ═════════════════════════════════════════════════════════════════════════════
+
+NF_CAT_ORDER = nfe.NONFICTION_CATEGORY_ORDER  # ["Quality", "Aesthetics", "Theme"]
+
+
+def _nf_book_dict(row, cat_components, snum_map):
+    """Shape one nonfiction row like the fiction book dict, plus total_average."""
+    wa = row.get("WA")
+    book = {
+        "title": row["Book"],
+        "author": row["Author"],
+        "genre": row["Genre"],
+        "series": row.get("Series") or "",
+        "series_number": snum_map.get((row["Book"] or "").strip().lower()),
+        "words": _clean(row.get("Words")),
+        "year": _clean(row.get("Year")),
+        "year_read": _clean(row.get("Year")),
+        "wa": _clean(round(float(wa), 4)) if wa is not None and wa == wa else None,
+        "total_average": _clean(round(float(row["Total Average"]), 4))
+        if row["Total Average"] == row["Total Average"] else None,
+        "components": {},
+        "category_avgs": {
+            cat: _clean(round(float(row.get("W" + cat, 0) or 0), 4))
+            for cat in NF_CAT_ORDER
+        },
+    }
+    for cat in NF_CAT_ORDER:
+        book["components"][cat] = {}
+        for comp in cat_components.get(cat, []):
+            v = row.get(comp)
+            book["components"][cat][comp] = _clean(
+                round(float(v), 2) if v is not None and v == v else None
+            )
+    return book
+
+
+@app.get("/api/nonfiction/books")
+def get_nf_books():
+    """All nonfiction books, ranked by Total Average (the workbook's nonfiction
+    ranking). Carries both `total_average` and the Quality-lean `wa`."""
+    books, gw, gcw = _get_nf_engine()
+    bt = nfe.add_total_average(books)
+    cat_components = books.attrs["category_components"]
+    snum_map = _series_number_map("nonfiction_books")
+    result = [_nf_book_dict(row, cat_components, snum_map) for _, row in bt.iterrows()]
+    result.sort(key=lambda b: (b["total_average"] is not None,
+                               b["total_average"] or 0.0), reverse=True)
+    for i, b in enumerate(result):
+        b["rank"] = i + 1
+    return {
+        "books": result,
+        "genres": sorted({b["genre"] for b in result if b["genre"]}),
+        "category_order": list(NF_CAT_ORDER),
+    }
+
+
+@app.get("/api/nonfiction/tiers")
+def get_nf_tiers():
+    """Nonfiction tier list, banded by Total Average (reuses the fiction
+    thresholds: S+ >= 9.5, then 9/15/25/25/15/10% percentiles)."""
+    books, gw, gcw = _get_nf_engine()
+    bt = nfe.add_total_average(books)
+    cat_components = books.attrs["category_components"]
+    snum_map = _series_number_map("nonfiction_books")
+    if bt.empty:
+        return {"books": [], "tier_counts": {}, "tier_order": views_mod.TIER_ORDER,
+                "category_order": list(NF_CAT_ORDER)}
+    tiered = nfe.tier_bands(bt, "Total Average", 9.5)
+    result = []
+    for i, (_, row) in enumerate(tiered.iterrows()):
+        b = _nf_book_dict(row, cat_components, snum_map)
+        b["rank"] = i + 1
+        b["tier"] = row["Tier"]
+        result.append(b)
+    counts = {t: sum(1 for b in result if b["tier"] == t) for t in views_mod.TIER_ORDER}
+    return {
+        "books": result,
+        "tier_counts": counts,
+        "tier_order": views_mod.TIER_ORDER,
+        "category_order": list(NF_CAT_ORDER),
+    }
+
+
+@app.get("/api/nonfiction/series")
+def get_nf_series():
+    """Nonfiction series rollup (ranked by Avg Total Average). Normally empty —
+    nonfiction has no series yet."""
+    books = _get_nf_engine()[0]
+    sa = nfe.series_aggregate(books)
+    if sa.empty:
+        return {"series": []}
+    result = []
+    for _, row in sa.iterrows():
+        result.append({
+            "rank": int(row["Rank"]),
+            "series": row["Series"],
+            "author": row["Author"],
+            "genre": "Nonfiction",
+            "books": int(row["Books"]),
+            "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
+            "adjusted_wa": _clean(round(float(row["Avg Total Average"]), 3)),
+            "avg_total_average": _clean(round(float(row["Avg Total Average"]), 2)),
+        })
+    return {"series": result}
+
+
+@app.get("/api/nonfiction/series/tiers")
+def get_nf_series_tiers():
+    """Nonfiction series tier list. Normally empty (no nonfiction series yet)."""
+    books = _get_nf_engine()[0]
+    sa = nfe.series_aggregate(books)
+    if sa.empty:
+        return {"series": [], "tier_order": views_mod.TIER_ORDER, "tier_counts": {}}
+    tiered = nfe.tier_bands(sa.rename(columns={"Avg Total Average": "Total Average"}),
+                            "Total Average", 9.0)
+    result = []
+    for _, row in tiered.iterrows():
+        result.append({
+            "series": row["Series"], "author": row["Author"], "genre": "Nonfiction",
+            "books": int(row["Books"]),
+            "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
+            "adjusted_wa": _clean(round(float(row["Total Average"]), 3)),
+            "avg_total_average": _clean(round(float(row["Total Average"]), 2)),
+            "tier": row["Tier"],
+        })
+    return {"series": result, "tier_order": views_mod.TIER_ORDER,
+            "tier_counts": nfe.tier_counts(tiered)}
+
+
+@app.get("/api/nonfiction/timeline")
+def get_nf_timeline():
+    """Per-year nonfiction timeline (Quality/Aesthetics/Theme). Normally empty —
+    the migrated nonfiction books have no year_read."""
+    books = _get_nf_engine()[0]
+    tl = nfe.timeline(books)
+    cats = list(NF_CAT_ORDER)
+    if tl.empty:
+        return {"rows": [], "categories": cats}
+    rows = []
+    for _, row in tl.iterrows():
+        rec = {
+            "year": int(row["Year"]),
+            "books": int(row["Books"]),
+            "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
+            "avg_words": None,
+        }
+        for cat in cats:
+            rec[cat.lower()] = _clean(round(float(row[cat]), 2)) if row[cat] == row[cat] else None
+        rows.append(rec)
+    return {"rows": rows, "categories": cats}
+
+
+@app.get("/api/nonfiction/reading/stats")
+def get_nf_reading_stats():
+    """Nonfiction reading stats. by_genre is omitted (no nonfiction genre
+    taxonomy yet); by_author carries the breakdown."""
+    books = _get_nf_engine()[0]
+    rs = nfe.reading_stats(books)
+    s = rs["summary"]
+    per_year = []
+    for _, row in rs["per_year"].iterrows():
+        per_year.append({
+            "year": int(row["Year"]), "books": int(row["Books"]),
+            "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
+            "avg_total_average": _clean(round(float(row["Avg Total Average"]), 2)),
+            "avg_words": None,
+        })
+    by_author = []
+    for _, row in rs["by_author"].iterrows():
+        by_author.append({
+            "author": row["Author"], "books": int(row["Books"]),
+            "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
+        })
+    return {
+        "summary": {
+            "total_books": s["total_books"],
+            "avg_wa": _clean(round(s["avg_wa"], 2)) if s["avg_wa"] == s["avg_wa"] else None,
+            "avg_total_average": _clean(round(s["avg_total_average"], 2))
+            if s["avg_total_average"] == s["avg_total_average"] else None,
+            "avg_words": _clean(round(s["avg_words"], 0)) if s["avg_words"] == s["avg_words"] else None,
+        },
+        "per_year": per_year,
+        "by_genre": [],
+        "by_author": by_author,
+    }
+
+
+@app.get("/api/nonfiction/reading/status")
+def get_nf_reading_status():
+    """Nonfiction reading status. currently-reading / reading-next come from the
+    nonfiction_books.status column (there is no nonfiction queue); last_read is
+    the most recently added nonfiction book."""
+    books = _get_nf_engine()[0]
+    bt = nfe.add_total_average(books)
+    total = int(len(bt))
+    ta_vals = bt["Total Average"].values
+    snum = _series_number_map("nonfiction_books")
+
+    def slot_for(title):
+        if not title:
+            return None
+        m = bt[bt["Book"].str.strip().str.lower() == title.strip().lower()]
+        if m.empty:
+            return None
+        r = m.iloc[0]
+        tav = float(r["Total Average"])
+        return {
+            "title": r["Book"], "author": str(r["Author"]), "genre": str(r["Genre"]),
+            "series": str(r.get("Series") or ""),
+            "series_number": snum.get((r["Book"] or "").strip().lower()),
+            "has_prediction": False,
+            "wa": _clean(round(float(r["WA"]), 2)) if r["WA"] == r["WA"] else None,
+            "total_average": _clean(round(tav, 2)),
+            "rank": int((ta_vals > tav).sum() + 1),
+            "total": total,
+            "category_avgs": {cat: _clean(round(float(r.get("W" + cat, 0) or 0), 2))
+                              for cat in NF_CAT_ORDER},
+        }
+
+    con = sqlite3.connect(db_write.DB)
+    try:
+        cur = con.execute("SELECT title FROM nonfiction_books "
+                          "WHERE status='currently-reading' LIMIT 1").fetchone()
+        nxt = con.execute("SELECT title FROM nonfiction_books "
+                          "WHERE status='reading-next' LIMIT 1").fetchone()
+        last = con.execute("SELECT title FROM nonfiction_books "
+                           "ORDER BY rowid DESC LIMIT 1").fetchone()
+    finally:
+        con.close()
+    return {
+        "last_read": slot_for(last[0] if last else None),
+        "currently_reading": slot_for(cur[0] if cur else None),
+        "reading_next": slot_for(nxt[0] if nxt else None),
+    }
+
+
+class NonfictionAddRequest(BaseModel):
+    title: str
+    author: Optional[str] = None
+    genre: Optional[str] = None
+    scores: dict
+    series: Optional[str] = None
+    series_number: Optional[float] = None
+    words: Optional[int] = None
+    year_read: Optional[int] = None
+
+
+@app.post("/api/nonfiction/books")
+def add_nf_book(req: NonfictionAddRequest):
+    """Add a rated nonfiction book via db_write.add_nonfiction_book."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.add_nonfiction_book(
+                title=req.title, author=req.author, genre=req.genre,
+                scores=req.scores, series=req.series,
+                series_number=req.series_number, words=req.words,
+                year_read=req.year_read,
+            )
+    except db_write.ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok or "✗" in out:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not add book.")
+    _invalidate_nf_engine()
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+class NonfictionScoresRequest(BaseModel):
+    scores: dict
+
+
+@app.post("/api/nonfiction/books/{title}/scores")
+def edit_nf_scores(title: str, req: NonfictionScoresRequest):
+    """Update component scores on a nonfiction book (recomputes its averages)."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            db_write.change_nonfiction_rating(title, req.scores)
+    except db_write.ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if "✗" in out:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update scores.")
+    _invalidate_nf_engine()
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+@app.delete("/api/nonfiction/books/{title}")
+def delete_nf_book(title: str):
+    """Permanently delete a nonfiction book via db_write.delete_nonfiction_book."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.delete_nonfiction_book(title)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok or "✗" in out:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not delete book.")
+    _invalidate_nf_engine()
+    return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+@app.post("/api/nonfiction/reading/set-year")
+def set_nf_year(req: SetYearRequest):
+    """Set year_read on a nonfiction book."""
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            ok = db_write.set_nonfiction_year_read(req.title, req.year)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    out = buf.getvalue().strip()
+    if not ok:
+        raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
+    _invalidate_nf_engine()
+    return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
 def _enrich_recommendation(req: "SaveRecommendationRequest"):

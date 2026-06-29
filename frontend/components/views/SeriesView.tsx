@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry } from "@/lib/types";
+import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
+import { useSortable, SortableTh } from "@/components/SortableTable";
+import type { ColDef } from "@/components/SortableTable";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -66,74 +68,40 @@ function GenreFilter({
   );
 }
 
-/* ── Sort types ───────────────────────────────────────────────────────────── */
+/* ── Column definitions ───────────────────────────────────────────────────── */
 
-type SeriesSortField = "adjusted_wa" | "avg_wa" | "books";
-type SortDir = "desc" | "asc";
-
-function getSortValue(s: SeriesEntry, field: SeriesSortField): number {
-  if (field === "books") return s.books;
-  return (s[field] ?? 0);
-}
-
-function SortTh({
-  label,
-  field,
-  active,
-  dir,
-  onClick,
-  align = "left",
-}: {
-  label: string;
-  field: SeriesSortField;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-  align?: "left" | "right";
-}) {
-  return (
-    <th
-      onClick={onClick}
-      className={`px-3 py-2.5 text-${align} font-semibold text-xs uppercase tracking-wider cursor-pointer select-none whitespace-nowrap`}
-      style={{
-        color: active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
-      }}
-    >
-      {label}{active ? (dir === "desc" ? " ▼" : " ▲") : ""}
-    </th>
-  );
-}
+const SERIES_COLS: ColDef<SeriesEntry>[] = [
+  { key: "series",      label: "Series",  type: "string",  getValue: (s) => s.series,      align: "left"  },
+  { key: "author",      label: "Author",  type: "string",  getValue: (s) => s.author,      align: "left"  },
+  { key: "genre",       label: "Genre",   type: "string",  getValue: (s) => s.genre,       align: "left"  },
+  { key: "books",       label: "Books",   type: "numeric", getValue: (s) => s.books,       align: "right" },
+  { key: "adjusted_wa", label: "Adj WA",  type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
+  { key: "avg_wa",      label: "Avg WA",  type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
+];
 
 /* ── Rankings tab ─────────────────────────────────────────────────────────── */
 
-function RankingsTab({ data }: { data: SeriesResponse }) {
+function RankingsTab({ data, emptyMsg }: { data: SeriesResponse; emptyMsg: string }) {
   const [genre, setGenre] = useState("");
-  const [sortField, setSortField] = useState<SeriesSortField>("adjusted_wa");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-
-  function handleSort(field: SeriesSortField) {
-    if (field === sortField) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortField(field);
-      setSortDir("desc");
-    }
-  }
 
   const genres = useMemo(
     () => [...new Set(data.series.map((s) => s.genre))].sort(),
     [data.series]
   );
 
-  const sorted = useMemo(() => {
-    const base = genre ? data.series.filter((s) => s.genre === genre) : data.series;
-    const mult = sortDir === "desc" ? -1 : 1;
-    return [...base].sort((a, b) => mult * (getSortValue(a, sortField) - getSortValue(b, sortField)));
-  }, [data.series, genre, sortField, sortDir]);
+  const filtered = useMemo(
+    () => (genre ? data.series.filter((s) => s.genre === genre) : data.series),
+    [data.series, genre]
+  );
+
+  const { sorted, sortState, handleSort } = useSortable(
+    filtered,
+    SERIES_COLS,
+    { key: "adjusted_wa", dir: "desc" }
+  );
 
   if (data.series.length === 0) {
-    return <p className="text-sm" style={{ color: "var(--color-muted)" }}>No multi-book series found.</p>;
+    return <p className="text-sm" style={{ color: "var(--color-muted)" }}>{emptyMsg}</p>;
   }
 
   return (
@@ -147,13 +115,10 @@ function RankingsTab({ data }: { data: SeriesResponse }) {
         <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--color-surface-2)", borderBottom: "1px solid var(--color-rule)" }}>
-              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>#</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Series</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Author</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>Genre</th>
-              <SortTh label="Books" field="books" active={sortField === "books"} dir={sortDir} onClick={() => handleSort("books")} align="right" />
-              <SortTh label="Adj WA" field="adjusted_wa" active={sortField === "adjusted_wa"} dir={sortDir} onClick={() => handleSort("adjusted_wa")} align="right" />
-              <SortTh label="Avg WA" field="avg_wa" active={sortField === "avg_wa"} dir={sortDir} onClick={() => handleSort("avg_wa")} align="right" />
+              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>#</th>
+              {SERIES_COLS.map((col) => (
+                <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -163,14 +128,14 @@ function RankingsTab({ data }: { data: SeriesResponse }) {
                 style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
               >
                 <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{i + 1}</td>
-                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)" }}>{s.series}</td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.author}</td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)", background: sortState.key === "series" ? "var(--color-sage-light)" : "transparent" }}>{s.series}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)", background: sortState.key === "author" ? "var(--color-sage-light)" : "transparent" }}>{s.author}</td>
+                <td className="px-3 py-2.5" style={{ background: sortState.key === "genre" ? "var(--color-sage-light)" : "transparent" }}>
                   <span className="genre-chip">{s.genre}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortField === "books" ? "var(--color-sage)" : "var(--color-muted)", background: sortField === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
-                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: sortField === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortField === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortField === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)", background: sortState.key === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
+                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: sortState.key === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortState.key === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -182,7 +147,7 @@ function RankingsTab({ data }: { data: SeriesResponse }) {
 
 /* ── Tiers tab ────────────────────────────────────────────────────────────── */
 
-function TiersTab({ data }: { data: SeriesTiersResponse }) {
+function TiersTab({ data, emptyMsg }: { data: SeriesTiersResponse; emptyMsg: string }) {
   const [genre, setGenre] = useState("");
 
   const genres = useMemo(
@@ -204,7 +169,7 @@ function TiersTab({ data }: { data: SeriesTiersResponse }) {
   }, [data, genre]);
 
   if (data.series.length === 0) {
-    return <p className="text-sm" style={{ color: "var(--color-muted)" }}>No multi-book series found.</p>;
+    return <p className="text-sm" style={{ color: "var(--color-muted)" }}>{emptyMsg}</p>;
   }
 
   const visibleCount = Object.values(itemsByTier).reduce((n, arr) => n + arr.length, 0);
@@ -229,14 +194,20 @@ function TiersTab({ data }: { data: SeriesTiersResponse }) {
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-export default function SeriesClient({
+export default function SeriesView({
   seriesData,
   tiersData,
+  kind = "fiction",
 }: {
   seriesData: SeriesResponse;
   tiersData: SeriesTiersResponse;
+  kind?: BookKind;
 }) {
   const [tab, setTab] = useState<Tab>("rankings");
+  const emptyMsg =
+    kind === "nonfiction"
+      ? "No nonfiction series yet."
+      : "No multi-book series found.";
 
   return (
     <div>
@@ -255,9 +226,9 @@ export default function SeriesClient({
       <SubTabs active={tab} onChange={setTab} />
 
       {tab === "rankings" ? (
-        <RankingsTab data={seriesData} />
+        <RankingsTab data={seriesData} emptyMsg={emptyMsg} />
       ) : (
-        <TiersTab data={tiersData} />
+        <TiersTab data={tiersData} emptyMsg={emptyMsg} />
       )}
     </div>
   );

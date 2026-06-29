@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import type { TiersResponse, TierBook } from "@/lib/types";
+import type { TiersResponse, TierBook, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
@@ -46,16 +46,19 @@ function SubTabs({
 
 /* ── Main TierList view ───────────────────────────────────────────────────── */
 
-export default function TierListClient({
+export default function TierListView({
   allData,
   data2026,
   data2025,
+  kind = "fiction",
 }: {
   allData: TiersResponse;
   data2026: TiersResponse;
   data2025: TiersResponse;
+  kind?: BookKind;
 }) {
   const [yearTab, setYearTab] = useState<YearTab>("all");
+  const score = (b: TierBook) => (kind === "nonfiction" ? (b.total_average ?? 0) : b.wa);
 
   const activeData = useMemo(() => {
     if (yearTab === "2026") return data2026;
@@ -71,14 +74,14 @@ export default function TierListClient({
     for (const b of books) {
       if (map[b.tier]) map[b.tier].push({ label: b.title });
     }
-    // Sort each tier by WA descending (best first, left to right)
+    // Sort each tier by the primary score descending (best first, left to right)
     for (const t of tier_order) {
       const tierBooks = books.filter((b: TierBook) => b.tier === t);
-      tierBooks.sort((a: TierBook, b: TierBook) => b.wa - a.wa);
+      tierBooks.sort((a: TierBook, b: TierBook) => score(b) - score(a));
       map[t] = tierBooks.map((b: TierBook) => ({ label: b.title }));
     }
     return map;
-  }, [books, tier_order]);
+  }, [books, tier_order, kind]);
 
   const summaryLine = tier_order
     .filter((t) => tier_counts[t] > 0)
@@ -101,7 +104,7 @@ export default function TierListClient({
         </p>
       </div>
 
-      <SubTabs active={yearTab} onChange={handleYearTab} />
+      {kind === "fiction" && <SubTabs active={yearTab} onChange={handleYearTab} />}
 
       <TierLadder tierOrder={tier_order} itemsByTier={itemsByTier} />
     </div>

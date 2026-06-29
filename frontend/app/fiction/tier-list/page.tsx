@@ -1,13 +1,15 @@
 import { fetchTiers } from "@/lib/api";
-import TierListClient from "./TierListClient";
+import TierListView from "@/components/views/TierListView";
 
 export const dynamic = "force-dynamic";
 
-export default async function TierListPage() {
+export default async function FictionTierListPage() {
   const [allData, data2026, data2025] = await Promise.all([
-    fetchTiers(),
-    fetchTiers(2026),
-    fetchTiers(2025),
+    fetchTiers(undefined, "fiction"),
+    fetchTiers(2026, "fiction"),
+    fetchTiers(2025, "fiction"),
   ]);
-  return <TierListClient allData={allData} data2026={data2026} data2025={data2025} />;
+  return (
+    <TierListView allData={allData} data2026={data2026} data2025={data2025} kind="fiction" />
+  );
 }

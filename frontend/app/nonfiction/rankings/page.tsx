@@ -1,5 +1,9 @@
-import ComingSoon from "@/components/ComingSoon";
+import { fetchBooks } from "@/lib/api";
+import RankingsView from "@/components/views/RankingsView";
 
-export default function NonfictionRankingsPage() {
-  return <ComingSoon title="Nonfiction Rankings" />;
+export const dynamic = "force-dynamic";
+
+export default async function NonfictionRankingsPage() {
+  const data = await fetchBooks("nonfiction");
+  return <RankingsView data={data} kind="nonfiction" />;
 }

@@ -1,5 +1,9 @@
 export type CategoryComponents = Record<string, Record<string, number | null>>;
 
+/** Which library a view is scoped to. Drives the API prefix and the primary
+ *  ranking score (fiction → WA, nonfiction → Total Average). */
+export type BookKind = "fiction" | "nonfiction";
+
 export interface Book {
   rank: number;
   title: string;
@@ -11,6 +15,8 @@ export interface Book {
   year: number | null;
   year_read: number | null;
   wa: number;
+  /** Present for nonfiction (its primary ranking score); absent for fiction. */
+  total_average?: number | null;
   components: CategoryComponents;
   category_avgs: Record<string, number>;
 }
@@ -24,6 +30,7 @@ export interface TierBook {
   words: number | null;
   year_read: number | null;
   wa: number;
+  total_average?: number | null;
   rank: number;
   tier: string;
   components: CategoryComponents;
@@ -238,11 +245,10 @@ export interface TimelineRow {
   books: number;
   avg_wa: number | null;
   avg_words: number | null;
-  story: number | null;
-  character: number | null;
-  aesthetics: number | null;
-  theme: number | null;
-  worldbuilding: number | null;
+  // Category averages keyed by lowercased category name. Fiction: story /
+  // character / aesthetics / theme / worldbuilding. Nonfiction: quality /
+  // aesthetics / theme. Index signature so either set is valid.
+  [cat: string]: number | null;
 }
 
 export interface TimelineResponse {

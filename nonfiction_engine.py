@@ -280,7 +280,12 @@ def timeline(books):
             means = sub.apply(lambda r: category_average(r, cat, cat_comps), axis=1)
             rec[cat] = float(means.mean()) if means.notna().any() else float("nan")
         rows.append(rec)
-    return pd.DataFrame(rows).sort_values("Year").reset_index(drop=True)
+    df = pd.DataFrame(rows)
+    # The migrated nonfiction books have no year_read, so rows can be empty —
+    # guard the sort (an empty frame has no "Year" column to sort by).
+    if df.empty:
+        return df
+    return df.sort_values("Year").reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------

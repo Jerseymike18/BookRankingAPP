@@ -1,12 +1,12 @@
 import { fetchSeries, fetchSeriesTiers } from "@/lib/api";
-import SeriesClient from "./SeriesClient";
+import SeriesView from "@/components/views/SeriesView";
 
 export const dynamic = "force-dynamic";
 
-export default async function SeriesPage() {
+export default async function FictionSeriesPage() {
   const [seriesData, tiersData] = await Promise.all([
-    fetchSeries(),
-    fetchSeriesTiers(),
+    fetchSeries("fiction"),
+    fetchSeriesTiers("fiction"),
   ]);
-  return <SeriesClient seriesData={seriesData} tiersData={tiersData} />;
+  return <SeriesView seriesData={seriesData} tiersData={tiersData} kind="fiction" />;
 }
