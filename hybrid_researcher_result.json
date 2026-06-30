@@ -1,0 +1,101 @@
+{
+  "generated_at": "2026-06-29T10:04:26",
+  "n_common": 32,
+  "sample_size": 32,
+  "policy": {
+    "Originality": "grounded",
+    "Insights": "grounded",
+    "Depth2": "grounded",
+    "Ending": "grounded",
+    "Integration": "grounded",
+    "Depth": "grounded",
+    "Narration": "memory",
+    "Thought-Provokingness": "memory",
+    "Emotional Impact": "memory",
+    "Motivations": "memory",
+    "Action": "memory",
+    "Prose": "memory",
+    "Plot": "memory",
+    "Entertainment": "memory"
+  },
+  "wa_mae": {
+    "memory": 0.8824,
+    "grounded": 0.8162,
+    "hybrid": 0.8097
+  },
+  "beats_grounding": true,
+  "beats_memory": true,
+  "protected_components_held": true,
+  "per_component": {
+    "Plot": {
+      "memory": 0.9844,
+      "grounded": 1.025,
+      "hybrid": 0.9844
+    },
+    "Entertainment": {
+      "memory": 1.0969,
+      "grounded": 1.1406,
+      "hybrid": 1.0969
+    },
+    "Action": {
+      "memory": 0.8281,
+      "grounded": 0.8313,
+      "hybrid": 0.8281
+    },
+    "Ending": {
+      "memory": 1.5531,
+      "grounded": 1.4281,
+      "hybrid": 1.4281
+    },
+    "Depth": {
+      "memory": 1.0094,
+      "grounded": 0.9219,
+      "hybrid": 0.9219
+    },
+    "Emotional Impact": {
+      "memory": 1.3438,
+      "grounded": 1.2969,
+      "hybrid": 1.3438
+    },
+    "Motivations": {
+      "memory": 1.2719,
+      "grounded": 1.2437,
+      "hybrid": 1.2719
+    },
+    "Prose": {
+      "memory": 1.0531,
+      "grounded": 1.0719,
+      "hybrid": 1.0531
+    },
+    "Narration": {
+      "memory": 1.1031,
+      "grounded": 1.1969,
+      "hybrid": 1.1031
+    },
+    "Insights": {
+      "memory": 0.8375,
+      "grounded": 0.6906,
+      "hybrid": 0.6906
+    },
+    "Thought-Provokingness": {
+      "memory": 0.6656,
+      "grounded": 0.7625,
+      "hybrid": 0.6656
+    },
+    "Depth2": {
+      "memory": 1.7688,
+      "grounded": 1.6375,
+      "hybrid": 1.6375
+    },
+    "Integration": {
+      "memory": 1.8125,
+      "grounded": 1.6938,
+      "hybrid": 1.6938
+    },
+    "Originality": {
+      "memory": 1.9563,
+      "grounded": 1.7437,
+      "hybrid": 1.7437
+    }
+  }
+}
