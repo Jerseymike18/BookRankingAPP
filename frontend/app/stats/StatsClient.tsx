@@ -84,7 +84,7 @@ const TYPE_TABS: { id: "all" | BookKind; label: string }[] = [
 ];
 
 const RANK_COLS: ColDef<CombinedRankRow>[] = [
-  { key: "rank", label: "#", type: "numeric", getValue: (r) => r.rank, align: "left" },
+  { key: "rank", label: "#", type: "numeric", getValue: (r) => r.rank, align: "left", autoRank: true, sortable: false },
   { key: "title", label: "Book", type: "string", getValue: (r) => r.title, align: "left" },
   { key: "author", label: "Author", type: "string", getValue: (r) => r.author, align: "left" },
   { key: "type", label: "Type", type: "string", getValue: (r) => r.type, align: "left",

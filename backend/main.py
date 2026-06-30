@@ -1902,7 +1902,24 @@ def get_combined_stats():
     scale). WA is shown only inside each type. Tier distributions are reported
     per type (fiction banded by WA, nonfiction by Total Average) since the bases
     differ. Reuses the fiction + nonfiction engines; computes no new math."""
-    fbt = views_mod.add_total_average(_get_engine()[0])
+    # Worldbuilding is stored as a literal 0 for books where it doesn't apply
+    # (realist genres, plus a few character-driven SF/literary titles). The app
+    # treats a 0 component as "not scored" everywhere else — it sorts to the
+    # bottom and renders as "—" — but Total Average (the unweighted mean of the
+    # category averages) only skips a category when its components are NaN, not 0.
+    # So those books had a worldbuilding average of 0 folded into their Total
+    # Average, unfairly sinking them in this cross-type ranking. Mask the 0
+    # sentinels to NaN on a COPY (never the cached engine frame) so the canonical
+    # views.add_total_average skips the empty worldbuilding category exactly as
+    # its docstring intends. Only Total Average is affected; WA is precomputed in
+    # the loader and untouched (the 0 component values contribute 0 either way).
+    _fbooks = _get_engine()[0]
+    _fmasked = _fbooks.copy()
+    _fmasked.attrs = dict(_fbooks.attrs)
+    for _wbc in _fmasked.attrs.get("category_components", {}).get("Worldbuilding", []):
+        if _wbc in _fmasked.columns:
+            _fmasked.loc[_fmasked[_wbc] == 0, _wbc] = float("nan")
+    fbt = views_mod.add_total_average(_fmasked)
     nbt = nfe.add_total_average(_get_nf_engine()[0])
 
     def _summ(bt):

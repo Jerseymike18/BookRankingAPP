@@ -25,6 +25,10 @@ export interface ColDef<T> {
   align?: "left" | "right";
   /** Set false to make the column non-sortable (header not clickable). Default true. */
   sortable?: boolean;
+  /** Render the row's 1-based position in the current sort order instead of
+      getValue — for a rank/# column that should always read 1..N top-to-bottom
+      whatever the active sort/direction. */
+  autoRank?: boolean;
 }
 
 /* ── Zero/null rule ────────────────────────────────────────────────────────
@@ -178,7 +182,7 @@ export function SortableTable<T extends object>({
                         fontVariantNumeric: col.type === "numeric" ? "tabular-nums" : undefined,
                       }}
                     >
-                      {col.formatter ? col.formatter(val, row) : (val ?? "—")}
+                      {col.autoRank ? i + 1 : col.formatter ? col.formatter(val, row) : (val ?? "—")}
                     </td>
                   );
                 })}
