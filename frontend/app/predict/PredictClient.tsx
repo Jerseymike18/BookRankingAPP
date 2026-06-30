@@ -29,6 +29,33 @@ function flattenNfScores(components: NonfictionPrediction["components"]): Record
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 
+/* Bounded-concurrency async pool: run `fn` over `items` with at most `limit`
+   promises in flight at once. STEP 5 uses it to grounded-refine several Discover
+   candidates in parallel (each ~110s) instead of one-at-a-time, while capping
+   concurrency to respect API rate limits. For large NON-interactive re-score
+   jobs the Anthropic Message Batches API is the cheaper bulk path — not used
+   here (this flow is interactive and small-N). */
+async function mapPool<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const run = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) break;
+      await fn(items[i], i);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run),
+  );
+}
+
+/* Max grounded refines in flight at once (bounded to respect API rate limits). */
+const REFINE_CONCURRENCY = 4;
+
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
 const CANDIDATE_COLS: ColDef<Candidate>[] = [
@@ -306,7 +333,11 @@ function DiscoverMode({
     const todo = memResults.filter((r) => !r.error && r.hybrid_available);
     if (todo.length === 0) return;
     setRefinePending(todo.length);
-    for (const r of todo) {
+    // Grounded refine is the slow pass (~110s/book). Run up to REFINE_CONCURRENCY
+    // at once instead of sequentially, so N candidates finish in ~ceil(N/limit)
+    // rounds. Each refined score swaps in as it lands; the pending count ticks
+    // down. The functional setState updaters compose safely under interleaving.
+    await mapPool(todo, REFINE_CONCURRENCY, async (r) => {
       try {
         const g = await predictResearch(r.title, r.author, r.genre, true);
         setScored((prev) => prev.map((x) => (x.title === r.title ? { ...g } : x)));
@@ -314,7 +345,7 @@ function DiscoverMode({
         // keep the memory result if the grounded refine fails
       }
       setRefinePending((n) => Math.max(0, n - 1));
-    }
+    });
   }
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;

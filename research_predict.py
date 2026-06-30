@@ -34,6 +34,8 @@ re-researched; books you predict are added to it.
 import os
 import re
 import json
+import tempfile
+import threading
 
 import numpy as np
 import pandas as pd
@@ -62,9 +64,27 @@ def load_cache(path=CACHE):
     return {}
 
 
+_CACHE_LOCK = threading.Lock()
+
+
 def save_cache(cache, path=CACHE):
-    with open(path, "w") as f:
-        json.dump(cache, f, indent=2)
+    """Atomic, lock-guarded cache write. STEP 5 enables concurrent candidate
+    scoring (the Discover flow fires several /api/predict/research calls at once,
+    which FastAPI serves on its threadpool), so two writers can hit this together.
+    Writing to a temp file in the same dir and os.replace()-ing it in means a
+    concurrent reader never sees a half-written JSON file; the lock serialises
+    in-process writers. (Lost updates across a separate load/save pair just cause
+    a harmless re-research, never corruption.)"""
+    with _CACHE_LOCK:
+        d = os.path.dirname(os.path.abspath(path)) or "."
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".cache-", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(cache, f, indent=2)
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
 
 
 def get_client(key_path="apikey.txt"):

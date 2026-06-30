@@ -92,6 +92,27 @@ WB_COMPONENTS = {"Depth2", "Integration", "Originality"}
 # plus ~2-3 server searches). Used only for the pre-spend estimate.
 EST_COST_PER_WEB_BOOK = 0.12
 
+# STEP 3 — cap on web_search server calls per book during grounded retrieval.
+# Per-book review retrieval (this book's Goodreads rating + recurring praise /
+# criticism) needs only a couple of searches; 3 bounds latency without starving
+# it. Researcher-local (see WebGroundedResearcher.search_tool) so Discover's
+# series enumeration keeps rp.WEB_SEARCH_TOOL's higher budget. Cached books are
+# unaffected (the cache short-circuits before any search), so on a warm sample
+# this is provably MAE-neutral; its effect on LIVE retrieval needs a live A/B.
+SEARCH_MAX_USES = 3
+
+# STEP 4 — staged model routing. The grounded path has two stages with different
+# needs: RETRIEVAL (search Goodreads, summarise what readers report) is cheap
+# summarisation; SCORING (evidence -> your 0-10 rubric) needs Opus judgement.
+# StagedWebGroundedResearcher routes retrieval to a cheaper model and keeps
+# scoring on RESEARCH_MODEL (Opus). Single-constant model swap (CLAUDE.md):
+# set RETRIEVAL_MODEL to "claude-haiku-4-5-20251001" to test Haiku retrieval.
+# ADOPT ONLY IF a live evaluate_researcher A/B shows WA MAE does not regress vs
+# the Opus-agentic baseline — the Sonnet->Opus evidence handoff is lossy, so this
+# is verified, not assumed.
+RETRIEVAL_MODEL = "claude-sonnet-4-6"
+STAGED_WEB_CACHE = "web_grounded_staged_cache.json"
+
 
 # ---------------------------------------------------------------------------
 # Researcher A: memory-based (richer rubric, Opus, NO web). Cache-first.
@@ -141,13 +162,18 @@ class WebGroundedResearcher:
     label = "grounded"
 
     def __init__(self, key_path="apikey.txt", cache_path=WEB_CACHE,
-                 model=RESEARCH_MODEL):
+                 model=RESEARCH_MODEL, search_max_uses=SEARCH_MAX_USES):
         self.cache_path = cache_path
         self.cache = rp.load_cache(cache_path)
         self.model = model
         self._client = None
         self._key_path = key_path
         self._lock = threading.Lock()
+        # STEP 3 — cap search breadth. A researcher-LOCAL copy of the goodreads
+        # tool with a small max_uses, so per-book review retrieval can't sprawl
+        # into many searches. We do NOT mutate rp.WEB_SEARCH_TOOL (max_uses=5),
+        # which Discover's series enumeration still needs to page a series list.
+        self.search_tool = {**WEB_SEARCH_TOOL, "max_uses": search_max_uses}
 
     def _client_lazy(self):
         if self._client is None:
@@ -177,7 +203,7 @@ class WebGroundedResearcher:
             for _ in range(max_continuations):
                 resp = client.messages.create(
                     model=self.model, max_tokens=1500,
-                    tools=[WEB_SEARCH_TOOL], messages=messages)
+                    tools=[self.search_tool], messages=messages)
                 for block in resp.content:
                     if getattr(block, "type", None) == "web_search_tool_result":
                         results = getattr(block, "content", None)
@@ -226,6 +252,134 @@ def _retry(fn, max_retries=5):
                 delay = min(delay * 2, 120)
             else:
                 raise
+
+
+# ---------------------------------------------------------------------------
+# Researcher B′ (STEP 4): STAGED web-grounded researcher. Same rubric, same
+# goodreads tool, same _extract_json, same cache mechanism as WebGroundedResearcher
+# — but the single agentic Opus search-and-score turn is split into two
+# model-routed stages:
+#   1. RETRIEVAL (RETRIEVAL_MODEL, cheap): web_search Goodreads, emit a factual
+#      reader-evidence brief (rating, recurring praise/criticism, per-aspect
+#      sentiment). Pure summarisation — it does NOT score.
+#   2. SCORING (RESEARCH_MODEL = Opus, no tools): the validated rich_prompt
+#      rubric + that evidence brief -> the 14 component scores. Opus judgement is
+#      preserved; only the search/summarise work is offloaded to a cheaper model.
+# Drop-in for evaluate_researcher (same .research interface). Its own cache file
+# (STAGED_WEB_CACHE) so staged entries never mix with the Opus-agentic cache.
+# ---------------------------------------------------------------------------
+_RETRIEVAL_INSTRUCTIONS = """You are gathering reader EVIDENCE about one specific book from Goodreads, to hand to a separate scorer. Do NOT score, rate, or judge the book yourself — only report what readers actually say.
+
+BOOK: "{title}" by {author}  (genre: {genre})
+
+Use the web_search tool (it is restricted to goodreads.com) to find this book's Goodreads page and reviews. Compile a factual brief of the reader consensus, grounded ONLY in what the retrieved reviews report (never your own impression or the author's general reputation). Cover each aspect only where the reviews actually speak to it.
+
+After searching, respond with ONLY a JSON object — no prose, no markdown:
+{{"goodreads_rating": "average rating and rough number of ratings if visible, else ''",
+  "praise": ["recurring things readers consistently praise"],
+  "criticism": ["recurring things readers consistently criticise"],
+  "by_aspect": {{"plot": "what reviews say about plot/structure", "pacing": "pacing / page-turner quality", "action": "action/tension", "ending": "how readers felt about the ending", "characters": "character depth and motivations", "emotional_impact": "emotional resonance", "prose": "sentence-level writing", "narration": "narrative voice / POV", "themes": "ideas / themes / how thought-provoking", "worldbuilding": "world depth, integration, originality (if applicable)"}},
+  "found": true}}
+If you could not find the book on Goodreads, return {{"found": false}} with empty fields."""
+
+_SCORING_GROUNDING = """
+
+GROUNDING — base every component score on the retrieved Goodreads reader evidence
+below (what readers actually report), mapped onto the reader's scale via the
+anchors above. Do NOT score from the author's general reputation or a prior
+impression. If the evidence is thin on a component, reflect that with a
+mid-scale score and lower confidence.
+
+READER EVIDENCE (from Goodreads):
+{evidence}
+
+Respond with ONLY the JSON object described above (the {n} components + a
+"confidence" key). No prose, no markdown."""
+
+
+class StagedWebGroundedResearcher(WebGroundedResearcher):
+    label = "staged"
+
+    def __init__(self, key_path="apikey.txt", cache_path=STAGED_WEB_CACHE,
+                 model=RESEARCH_MODEL, retrieval_model=RETRIEVAL_MODEL,
+                 search_max_uses=SEARCH_MAX_USES):
+        super().__init__(key_path=key_path, cache_path=cache_path, model=model,
+                         search_max_uses=search_max_uses)
+        self.retrieval_model = retrieval_model  # scoring stays on self.model (Opus)
+
+    def _retrieve(self, title, author, genre):
+        """STAGE 1 — cheap model + web_search -> (evidence dict, source urls).
+        Mirrors research_predict._web_search_json's pause_turn handling, but the
+        model only summarises; it never scores."""
+        prompt = _RETRIEVAL_INSTRUCTIONS.format(title=title, author=author, genre=genre)
+        client = self._client_lazy()
+
+        def _call():
+            messages = [{"role": "user", "content": prompt}]
+            sources, resp = [], None
+            for _ in range(6):
+                resp = client.messages.create(
+                    model=self.retrieval_model, max_tokens=1500,
+                    tools=[self.search_tool], messages=messages)
+                for block in resp.content:
+                    if getattr(block, "type", None) == "web_search_tool_result":
+                        results = getattr(block, "content", None)
+                        if isinstance(results, list):
+                            for r in results:
+                                u = getattr(r, "url", None)
+                                if u:
+                                    sources.append(u)
+                if resp.stop_reason == "pause_turn":
+                    messages.append({"role": "assistant", "content": resp.content})
+                    continue
+                break
+            text = "".join(getattr(b, "text", "") for b in (resp.content if resp else [])
+                           if getattr(b, "type", None) == "text")
+            try:
+                evidence = rl._extract_json(text)
+            except Exception:
+                evidence = {"found": False, "raw": text[:2000]}
+            seen, uniq = set(), []
+            for u in sources:
+                if u not in seen:
+                    seen.add(u)
+                    uniq.append(u)
+            return evidence, uniq
+
+        return _retry(_call)
+
+    def _score(self, title, author, genre, evidence):
+        """STAGE 2 — Opus + the validated rich rubric + the evidence brief ->
+        the 14 component scores. No tools; pure scoring judgement."""
+        evidence_text = json.dumps(evidence, indent=2, ensure_ascii=False)
+        prompt = rm.rich_prompt(title, author, genre) + _SCORING_GROUNDING.format(
+            evidence=evidence_text, n=len(LIVE))
+        client = self._client_lazy()
+
+        def _call():
+            msg = client.messages.create(
+                model=self.model, max_tokens=600,
+                messages=[{"role": "user", "content": prompt}])
+            text = "".join(getattr(b, "text", "") for b in msg.content
+                           if getattr(b, "type", None) == "text").strip()
+            data = rl._extract_json(text)
+            conf = data.pop("confidence", "unknown")
+            scores = {c: float(data[c]) for c in LIVE if c in data}
+            if len(scores) != len(LIVE):
+                missing = [c for c in LIVE if c not in scores]
+                raise ValueError(f"staged scorer returned incomplete scores, "
+                                 f"missing {missing}")
+            return scores, conf
+
+        return _retry(_call)
+
+    def _search_and_score(self, title, author, genre, max_continuations=6):
+        """Override: retrieve (cheap model) THEN score (Opus). Same return shape
+        (scores, conf, sources) as the agentic parent, so research()/the cache/
+        evaluate_researcher are all unchanged."""
+        evidence, sources = self._retrieve(title, author, genre)
+        scores, conf = self._score(title, author, genre, evidence)
+        return scores, conf, sources
 
 
 # ---------------------------------------------------------------------------

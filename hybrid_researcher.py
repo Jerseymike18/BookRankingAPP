@@ -33,6 +33,7 @@ VERIFY / RUN
 import argparse
 import datetime as _dt
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import db_loader
 import research_layer as rl
@@ -91,11 +92,31 @@ class HybridResearcher:
         """Return ({component: score} for all 14, conf_string). Grounded
         components come from the web researcher, the rest from memory; the web
         search runs at most once (and only if some component is grounded)."""
-        mem_scores, mem_conf = self.memory.research(title, author, genre)
+        # STEP 1 — cache short-circuit (before ANY sub-researcher call). A title
+        # already fully assembled in this researcher's cache returns instantly.
+        # The sub-researchers also short-circuit on their own caches (so an
+        # uncached-here-but-cached-there book still makes zero API calls); this
+        # makes the hybrid's own assembled cache load-bearing too, so a repeat
+        # research() of the same book is a pure dict hit.
+        cached = self.cache.get(title)
+        if cached and all(c in cached.get("scores", {}) for c in LIVE):
+            return ({c: float(cached["scores"][c]) for c in LIVE},
+                    cached.get("conf", "cache"))
+
+        # STEP 2 — fire the memory call and the web retrieval CONCURRENTLY. They
+        # are independent (the web search needs no memory output), so running them
+        # in parallel makes wall-clock max(mem, web) instead of mem + web. Same
+        # calls, same results — only the ordering changes; cached sub-researcher
+        # calls return instantly, so this is a no-op when both are warm.
         if self._needs_web:
-            web_scores, web_conf = self.web.research(title, author, genre)
+            with ThreadPoolExecutor(max_workers=2) as ex:
+                mem_fut = ex.submit(self.memory.research, title, author, genre)
+                web_fut = ex.submit(self.web.research, title, author, genre)
+                mem_scores, mem_conf = mem_fut.result()
+                web_scores, web_conf = web_fut.result()
             sources = self.web.cache.get(title, {}).get("sources", [])
         else:
+            mem_scores, mem_conf = self.memory.research(title, author, genre)
             web_scores, web_conf, sources = {}, None, []
 
         scores, source_of = {}, {}
@@ -134,20 +155,37 @@ class HybridResearcher:
 # ---------------------------------------------------------------------------
 HYBRID_SOURCING_DEFAULT = True
 
+# STEP 4 — when True, the production grounded upgrade uses the STAGED researcher
+# (cheap-model retrieval -> Opus scoring) instead of the single Opus agentic
+# search-and-score turn. OFF until a live evaluate_researcher A/B confirms WA MAE
+# does not regress vs the Opus-agentic baseline (~0.81). Flip to True ONLY after
+# that verification — one line, fully revertible. The staged researcher keeps its
+# own cache (cr.STAGED_WEB_CACHE), so enabling this never reads or pollutes the
+# Opus-agentic web_grounded_cache.json.
+STAGED_RETRIEVAL_DEFAULT = False
+
 _SHARED_WEB = None
+
+
+def _shared_web(key_path="apikey.txt"):
+    """Lazily build (once) the process-wide grounded researcher used by the
+    production predict path — staged or Opus-agentic per STAGED_RETRIEVAL_DEFAULT."""
+    global _SHARED_WEB
+    if _SHARED_WEB is None:
+        _SHARED_WEB = (cr.StagedWebGroundedResearcher(key_path=key_path)
+                       if STAGED_RETRIEVAL_DEFAULT
+                       else cr.WebGroundedResearcher(key_path=key_path))
+    return _SHARED_WEB
 
 
 def apply_grounded_overrides(title, author, genre, mem_scores,
                              web=None, key_path="apikey.txt", policy=None):
     """Return a COPY of mem_scores with the policy's grounded components replaced
     by web-grounded values (one cached web call); memory keeps everything else.
-    Reuses WebGroundedResearcher + web_grounded_cache.json. Raises on web failure
-    so the caller can fall back to the untouched memory scores."""
-    global _SHARED_WEB
+    Reuses the shared grounded researcher + its cache. Raises on web failure so
+    the caller can fall back to the untouched memory scores."""
     if web is None:
-        if _SHARED_WEB is None:
-            _SHARED_WEB = cr.WebGroundedResearcher(key_path=key_path)
-        web = _SHARED_WEB
+        web = _shared_web(key_path)
     web_scores, _conf = web.research(title, author, genre)
     out = dict(mem_scores)
     for c in grounded_components(policy):
