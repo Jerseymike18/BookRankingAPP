@@ -125,10 +125,12 @@ class HybridResearcher:
 # component per the policy. Sourcing only — no prediction/derived-math change.
 #
 # Default ON because the n=32 verification had hybrid (0.810) <= both pure memory
-# (0.882) and pure grounded (0.816). Flip to False to revert to memory-only.
-# NOTE: this adds ONE web_search call (~110s, ~$0.12) per *uncached* predicted
-# book; cached books (web_grounded_cache.json) are free. Intentionally applied
-# only to single-book prediction, NOT to Discover (which scores many candidates).
+# (0.882) and pure grounded (0.816). Flip to False to disable grounding entirely.
+# NOTE: a grounded upgrade adds ONE web_search call (~110s, ~$0.12) per *uncached*
+# book; cached books (web_grounded_cache.json) are free. The predict endpoint
+# applies it ONLY when the caller passes grounded=True, so the candidate list
+# scores instantly with memory and each book is refined to the hybrid in the
+# background (progressive) — never N blocking web calls up front.
 # ---------------------------------------------------------------------------
 HYBRID_SOURCING_DEFAULT = True
 

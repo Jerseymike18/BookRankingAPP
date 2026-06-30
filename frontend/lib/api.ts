@@ -148,12 +148,13 @@ export async function predictInstant(
 export async function predictResearch(
   title: string,
   author: string,
-  genre?: string
+  genre?: string,
+  grounded = false
 ): Promise<ResearchResult> {
   const res = await fetch(`${API}/api/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, author, genre: genre ?? null }),
+    body: JSON.stringify({ title, author, genre: genre ?? null, grounded }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);

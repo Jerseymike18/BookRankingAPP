@@ -885,6 +885,10 @@ class ResearchRequest(BaseModel):
     title: str
     author: str
     genre: Optional[str] = None   # None → auto-detect from the LLM
+    grounded: bool = False        # False → fast memory scores; True → hybrid
+                                  # (web-grounded) upgrade. Default is fast so the
+                                  # candidate list scores instantly; the client
+                                  # re-requests grounded=True to refine per book.
 
 
 @app.post("/api/predict/research")
@@ -930,16 +934,21 @@ def predict_research(req: ResearchRequest):
         raise HTTPException(status_code=422,
                             detail="Could not auto-detect a genre — pick one manually.")
 
-    # HYBRID SOURCING (default): override the policy's grounded components with
-    # web-grounded values; memory keeps the rest. Sourcing only — the same
-    # `scores` dict flows through correct_and_predict unchanged. Adds one cached
-    # web_search call for the grounded subset; falls back to memory on failure.
-    if _hybrid is not None and _hybrid.HYBRID_SOURCING_DEFAULT:
+    # HYBRID SOURCING (progressive): only when the caller asks for the grounded
+    # upgrade (req.grounded). The default fast path returns memory scores so the
+    # candidate list scores instantly; the client then re-requests grounded=True
+    # per book to refine it in the background (~110s web call, cached). Sourcing
+    # only — the same `scores` dict flows through correct_and_predict unchanged;
+    # falls back to memory on any web failure.
+    grounding_on = _hybrid is not None and _hybrid.HYBRID_SOURCING_DEFAULT
+    applied_grounded = False
+    if grounding_on and req.grounded:
         try:
             scores = _hybrid.apply_grounded_overrides(
                 req.title, req.author, eff_genre, scores)
+            applied_grounded = True
         except Exception:
-            pass  # keep pure-memory scores if grounding is unavailable
+            applied_grounded = False  # keep pure-memory scores if web fails
 
     try:
         corr_models = _rp.build_corr_models(books_e, cache)
@@ -978,6 +987,8 @@ def predict_research(req: ResearchRequest):
         "components": components_by_cat,
         "category_order": list(cat_comps.keys()),
         "genre_auto_detected": req.genre is None,
+        "sourcing": "hybrid" if applied_grounded else "memory",
+        "hybrid_available": bool(grounding_on and not applied_grounded),
     }
 
 

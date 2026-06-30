@@ -235,6 +235,7 @@ function DiscoverMode({
   const [scored, setScored] = useState<ScoredCandidate[]>([]);
   const [scoringIdx, setScoringIdx] = useState<number | null>(null); // which candidate is being scored now
   const [scoringDone, setScoringDone] = useState(false);
+  const [refinePending, setRefinePending] = useState(0); // books still being grounded-refined in the background
 
   // Step 3: save
   const [toSave, setToSave] = useState<Set<string>>(new Set());
@@ -250,6 +251,7 @@ function DiscoverMode({
     setCandidates(null);
     setScored([]);
     setScoringDone(false);
+    setRefinePending(0);
     setToSave(new Set());
     setSaveResults({});
     try {
@@ -269,6 +271,7 @@ function DiscoverMode({
     if (!candidates || candidates.length === 0) return;
     setScored([]);
     setScoringDone(false);
+    setRefinePending(0);
     const results: ScoredCandidate[] = [];
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];
@@ -292,6 +295,26 @@ function DiscoverMode({
     }
     setScoringIdx(null);
     setScoringDone(true);
+    void refineAll(results); // progressive: upgrade memory scores to the hybrid in the background
+  }
+
+  // Phase 2 (progressive): re-score each candidate with the grounded (hybrid)
+  // upgrade in the background and swap its score in place. The memory scores are
+  // already on screen, so the user can act immediately; grounded scores stream
+  // in (~110s each, cached) and the list re-sorts as they land.
+  async function refineAll(memResults: ScoredCandidate[]) {
+    const todo = memResults.filter((r) => !r.error && r.hybrid_available);
+    if (todo.length === 0) return;
+    setRefinePending(todo.length);
+    for (const r of todo) {
+      try {
+        const g = await predictResearch(r.title, r.author, r.genre, true);
+        setScored((prev) => prev.map((x) => (x.title === r.title ? { ...g } : x)));
+      } catch {
+        // keep the memory result if the grounded refine fails
+      }
+      setRefinePending((n) => Math.max(0, n - 1));
+    }
   }
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
@@ -466,6 +489,24 @@ function DiscoverMode({
             Grounding is the primary reliability signal. Strong = many genre books or ≥1 by
             this author. Model self-confidence shown separately as a secondary note.
           </p>
+
+          {refinePending > 0 && (
+            <div
+              className="rounded-lg px-4 py-2 text-xs flex items-center gap-2"
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-rule)",
+                color: "var(--color-muted)",
+              }}
+            >
+              <span
+                className="inline-block w-2 h-2 rounded-full animate-pulse"
+                style={{ background: "var(--color-sage)" }}
+              />
+              Refining {refinePending} {refinePending === 1 ? "book" : "books"} with reviews —
+              scores update live; you can save now.
+            </div>
+          )}
 
           {okScored.map((r, i) => (
             <ScoredCard

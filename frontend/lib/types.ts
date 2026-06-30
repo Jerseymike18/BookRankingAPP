@@ -109,6 +109,8 @@ export interface ResearchResult {
   components: CategoryComponents;
   category_order: string[];
   genre_auto_detected: boolean;
+  sourcing?: "memory" | "hybrid";   // which source produced these scores
+  hybrid_available?: boolean;        // a grounded (hybrid) upgrade can be fetched
 }
 
 export interface NonfictionPrediction {
