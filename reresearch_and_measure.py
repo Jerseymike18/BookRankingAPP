@@ -41,6 +41,14 @@ LIVE = ["Plot", "Entertainment", "Action", "Ending", "Depth",
 K_GENRE = 6.0
 K_AUTHOR = 4.0
 
+# Worldbuilding components: realist-genre books store WB actuals as the 0.0
+# "no worldbuilding" sentinel (CLAUDE.md), not NULL, while the LLM still scores
+# them normally. Rows where all three WB actuals are exactly 0 are excluded
+# from the training pool (global/genre/author deviation) for these three
+# components only — they're spurious ~8-pt errors, not real signal. This does
+# NOT change which books get predicted, only what feeds the correction stats.
+WB = ["Depth2", "Integration", "Originality"]
+
 # Reuse the exact richer prompt from the A/B test.
 RICH_DEFS = {
     "Plot": "Story structure and plotting — how events connect, build, and pay off. One of your three strongest predictors of overall rating; score it carefully.",
@@ -171,16 +179,20 @@ def fit_line(x, y):
 
 def correct_book(df, i, method):
     train = df.drop(df.index[i])
+    train_no_sentinel = train[~((train["you_Depth2"] == 0)
+                                 & (train["you_Integration"] == 0)
+                                 & (train["you_Originality"] == 0))]
     b = df.loc[df.index[i]]
     out = {}
     for c in LIVE:
         llm = b["llm_" + c]
-        dev_all = (train["you_" + c] - train["llm_" + c])
+        pool = train_no_sentinel if c in WB else train
+        dev_all = (pool["you_" + c] - pool["llm_" + c])
         global_dev = dev_all.mean()
         if method == "raw":
             out[c] = llm
         elif method == "genre_reg":
-            g = train[train["Genre"] == b["Genre"]]
+            g = pool[pool["Genre"] == b["Genre"]]
             n_g = len(g)
             line = fit_line(g["llm_" + c].values, g["you_" + c].values) if n_g >= 3 else None
             gpred = (line[0] + line[1] * llm) if line else (llm + (
@@ -189,7 +201,7 @@ def correct_book(df, i, method):
             w = n_g / (n_g + K_GENRE)
             out[c] = w * gpred + (1 - w) * global_pred
         elif method == "author_genre":
-            g = train[train["Genre"] == b["Genre"]]
+            g = pool[pool["Genre"] == b["Genre"]]
             n_g = len(g)
             line = fit_line(g["llm_" + c].values, g["you_" + c].values) if n_g >= 3 else None
             gpred = (line[0] + line[1] * llm) if line else (llm + (
@@ -197,7 +209,7 @@ def correct_book(df, i, method):
             global_pred = llm + global_dev
             wg = n_g / (n_g + K_GENRE)
             genre_pred = wg * gpred + (1 - wg) * global_pred
-            au = train[train["Author"] == b["Author"]]
+            au = pool[pool["Author"] == b["Author"]]
             n_a = len(au)
             if n_a > 0:
                 adev = (au["you_" + c] - au["llm_" + c]).mean()

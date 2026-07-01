@@ -46,7 +46,7 @@ import reresearch_and_measure as rm
 import db_loader
 
 LIVE = rm.LIVE
-WB = ["Depth2", "Integration", "Originality"]
+WB = rm.WB
 SIG_HIGH = 2.0   # |mean residual| / SE >= this -> residual bias remains
 SIG_LOW = 1.0    # below this -> already corrected; between -> borderline
 
