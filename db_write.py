@@ -465,7 +465,9 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
     Record predicted vs actual component scores and WA delta for a book that
     previously had a stored prediction. pred_scores / act_scores are both
     dicts keyed by the canonical 14 component names. Records deltas as
-    (predicted − actual). Never raises — delta logging is non-fatal.
+    (actual − predicted) — matching backfill_delta_log and the DeltaTracker
+    sheet (positive == underprediction). Never raises — delta logging is
+    non-fatal.
     """
     try:
         logged_at = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -477,13 +479,13 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
         pred_vals = [pred_scores.get(c) for c in FICTION_COMPONENTS]
         act_vals  = [act_scores.get(c)  for c in FICTION_COMPONENTS]
         d_vals    = [
-            (pred_scores.get(c) - act_scores.get(c))
+            (act_scores.get(c) - pred_scores.get(c))
             if pred_scores.get(c) is not None and act_scores.get(c) is not None
             else None
             for c in FICTION_COMPONENTS
         ]
         all_vals = (
-            [title, logged_at, pred_wa, act_wa, (pred_wa - act_wa)]
+            [title, logged_at, pred_wa, act_wa, (act_wa - pred_wa)]
             + pred_vals + act_vals + d_vals
         )
         ph = ",".join("?" for _ in all_vals)
@@ -492,7 +494,7 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
         con.execute(f"INSERT INTO delta_log ({col_str}) VALUES ({ph})", all_vals)
         con.commit()
         con.close()
-        print(f"  (delta logged for '{title}': d_wa={pred_wa - act_wa:+.3f})")
+        print(f"  (delta logged for '{title}': d_wa={act_wa - pred_wa:+.3f})")
     except Exception as exc:
         print(f"  (delta log skipped for '{title}': {exc})")
 
@@ -509,9 +511,9 @@ DELTA_BACKFILL_MARKER = "2026-06-27T00:00:00Z"   # BookRankingsNew.xlsx snapshot
 
 # SIGN CONVENTION (important): backfill_delta_log stores d_* = actual - predicted,
 # matching the workbook's DeltaTracker sheet (a positive delta == underprediction).
-# NOTE: the live path log_delta() above stores the OPPOSITE (predicted - actual).
-# The two conventions disagree; see the migration report / CLAUDE.md if you plan
-# to consume delta_log's aggregate drift across both live and backfilled rows.
+# The live path log_delta() above uses the SAME convention, so every delta_log row
+# — live or backfilled — is act - pred. resync_delta_log_signs() below enforces
+# this invariant across the table (and repaired the one legacy pred - act row).
 
 
 def backfill_delta_log(records, logged_at=DELTA_BACKFILL_MARKER, replace=True):
@@ -604,6 +606,65 @@ def backfill_delta_log(records, logged_at=DELTA_BACKFILL_MARKER, replace=True):
     print(f"  (delta_log backfill: inserted {len(valid_rows)}, "
           f"deleted {deleted} prior marker rows, skipped {len(skipped)})")
     return {"inserted": len(valid_rows), "deleted": deleted, "skipped": skipped}
+
+
+def _num_eq(a, b, tol=1e-9):
+    """None-aware numeric equality with a float tolerance."""
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    return abs(a - b) <= tol
+
+
+def resync_delta_log_signs():
+    """
+    Enforce the canonical delta convention d = actual - predicted on every
+    delta_log row by recomputing d_wa and all d_* columns from that row's OWN
+    stored pred_wa/act_wa and pred_*/act_* values. pred_*/act_* are never
+    touched — only the derived deltas are rewritten, so nothing is fabricated.
+
+    Idempotent: rows already stored as act - pred (e.g. everything written by
+    backfill_delta_log) are recomputed to the identical values and left alone.
+    Its purpose is to repair legacy rows written by the old log_delta(), which
+    stored predicted - actual. A NULL pred or act yields a NULL delta.
+
+    Returns the number of rows whose stored deltas actually changed.
+    """
+    _backup_once()
+    cols = (["id", "pred_wa", "act_wa", "d_wa"]
+            + [f"pred_{_col(c)}" for c in FICTION_COMPONENTS]
+            + [f"act_{_col(c)}"  for c in FICTION_COMPONENTS]
+            + [f"d_{_col(c)}"    for c in FICTION_COMPONENTS])
+    quoted = ",".join(f'"{c}"' for c in cols)
+    con = _connect()
+    try:
+        changed = 0
+        for row in con.execute(f"SELECT {quoted} FROM delta_log").fetchall():
+            r = dict(zip(cols, row))
+            updates = {}
+            new_dwa = (r["act_wa"] - r["pred_wa"]) if _both(r["act_wa"], r["pred_wa"]) else None
+            if not _num_eq(new_dwa, r["d_wa"]):
+                updates["d_wa"] = new_dwa
+            for c in FICTION_COMPONENTS:
+                pk, ak, dk = f"pred_{_col(c)}", f"act_{_col(c)}", f"d_{_col(c)}"
+                new_d = (r[ak] - r[pk]) if _both(r[ak], r[pk]) else None
+                if not _num_eq(new_d, r[dk]):
+                    updates[dk] = new_d
+            if updates:
+                set_clause = ",".join(f'"{k}"=?' for k in updates)
+                con.execute(f'UPDATE delta_log SET {set_clause} WHERE id=?',
+                            list(updates.values()) + [r["id"]])
+                changed += 1
+        con.commit()
+    finally:
+        con.close()
+    print(f"  (delta_log sign resync: {changed} row(s) rewritten to d = act - pred)")
+    return changed
+
+
+def _both(a, b):
+    return a is not None and b is not None
 
 
 # ---------------------------------------------------------------------------
