@@ -34,10 +34,40 @@ export async function fetchBooks(kind: BookKind = "fiction"): Promise<BooksRespo
   return res.json();
 }
 
-export async function fetchValidGenres(): Promise<string[]> {
-  const res = await fetch(`${API}/api/valid-genres`, { cache: "no-store" });
+export async function fetchValidGenres(kind: BookKind = "fiction"): Promise<string[]> {
+  const res = await fetch(`${base(kind)}/valid-genres`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+/** Partial metadata update for an already-ranked book. Only the keys present
+ * are changed (omit-unchanged); `title` is a rename (cascaded server-side). */
+export interface BookMetadataPayload {
+  title?: string;
+  author?: string;
+  genre?: string;
+  series?: string;
+  series_number?: number;
+  words?: number;
+  year_read?: number;
+}
+
+export async function updateBookMetadata(
+  currentTitle: string,
+  payload: BookMetadataPayload,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean; message: string; renamed_to: string | null; cascade: Record<string, number> }> {
+  const res = await fetch(
+    `${base(kind)}/books/${encodeURIComponent(currentTitle)}/metadata`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
 }
 
 export async function fetchBookScores(title: string): Promise<BookScoresResponse> {

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { editRating, deleteBook } from "@/lib/api";
+import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
+import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind } from "@/lib/types";
 import { seriesLabel } from "@/lib/format";
 import { useSortable, SortableTh } from "@/components/SortableTable";
@@ -175,9 +176,210 @@ function ScoreGrid({
   );
 }
 
+/* ── Editable metadata form ──────────────────────────────────────────────
+   Mirrors the score grid's raw-string / omit-unchanged discipline: numeric
+   boxes (words, year read, series #) hold raw strings so they can go empty,
+   and a blank field means "leave the stored value as-is" (see buildMetaPayload).
+   Genre is a dropdown constrained to the valid genres so a typo can't be sent;
+   title is editable but flagged as a rename. ─────────────────────────────── */
+
+type MetaForm = {
+  title: string;
+  author: string;
+  genre: string;
+  series: string;
+  series_number: string;
+  words: string;
+  year_read: string;
+};
+
+function metaFormFromBook(book: Book): MetaForm {
+  return {
+    title: book.title,
+    author: book.author ?? "",
+    genre: book.genre ?? "",
+    series: book.series ?? "",
+    series_number: book.series_number != null ? String(book.series_number) : "",
+    words: book.words != null ? String(book.words) : "",
+    year_read: book.year_read != null ? String(book.year_read) : "",
+  };
+}
+
+const NUM_INPUT_RE = /^\d*\.?\d*$/;
+
+/** Build a partial metadata payload holding only fields the user actually
+ * changed. Blank/empty inputs are omitted (leave-as-is); numeric fields are
+ * parsed and only sent when they differ from the stored value. `title` is
+ * included only on a real rename. */
+function buildMetaPayload(book: Book, form: MetaForm): BookMetadataPayload {
+  const payload: BookMetadataPayload = {};
+
+  const t = form.title.trim();
+  if (t && t !== book.title) payload.title = t;
+
+  const a = form.author.trim();
+  if (a && a !== (book.author ?? "")) payload.author = a;
+
+  if (form.genre && form.genre !== book.genre) payload.genre = form.genre;
+
+  const s = form.series.trim();
+  if (s && s !== (book.series ?? "")) payload.series = s;
+
+  const sn = form.series_number.trim();
+  if (sn !== "") {
+    const v = parseFloat(sn);
+    if (!isNaN(v) && v !== book.series_number) payload.series_number = v;
+  }
+
+  const w = form.words.trim();
+  if (w !== "") {
+    const v = parseInt(w, 10);
+    if (!isNaN(v) && v !== book.words) payload.words = v;
+  }
+
+  const y = form.year_read.trim();
+  if (y !== "") {
+    const v = parseInt(y, 10);
+    if (!isNaN(v) && v !== book.year_read) payload.year_read = v;
+  }
+
+  return payload;
+}
+
+function MetaField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function MetadataForm({
+  form,
+  validGenres,
+  onChange,
+  renameWarning,
+}: {
+  form: MetaForm;
+  validGenres: string[];
+  onChange: (field: keyof MetaForm, val: string) => void;
+  renameWarning: boolean;
+}) {
+  // Always include the current genre in the option list, even if it isn't in
+  // the valid set yet (e.g. a legacy value), so the select renders correctly.
+  const genreOptions = useMemo(() => {
+    const set = new Set(validGenres);
+    if (form.genre) set.add(form.genre);
+    return Array.from(set).sort();
+  }, [validGenres, form.genre]);
+
+  const num = (field: keyof MetaForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === "" || NUM_INPUT_RE.test(raw)) onChange(field, raw);
+  };
+
+  return (
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))" }}
+    >
+      <MetaField label="Title (rename)">
+        <input
+          type="text"
+          value={form.title}
+          onChange={(e) => onChange("title", e.target.value)}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+        {renameWarning && (
+          <p className="text-xs mt-1" style={{ color: "var(--color-clay, #C07C5A)" }}>
+            Renames the book everywhere (queue, TBR &amp; delta log follow).
+          </p>
+        )}
+      </MetaField>
+
+      <MetaField label="Author">
+        <input
+          type="text"
+          value={form.author}
+          onChange={(e) => onChange("author", e.target.value)}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      </MetaField>
+
+      <MetaField label="Genre">
+        <select
+          value={form.genre}
+          onChange={(e) => onChange("genre", e.target.value)}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        >
+          {!form.genre && <option value="">— choose —</option>}
+          {genreOptions.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+      </MetaField>
+
+      <MetaField label="Series">
+        <input
+          type="text"
+          value={form.series}
+          onChange={(e) => onChange("series", e.target.value)}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      </MetaField>
+
+      <MetaField label="Series #">
+        <input
+          type="text"
+          inputMode="decimal"
+          value={form.series_number}
+          onChange={num("series_number")}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      </MetaField>
+
+      <MetaField label="Words">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={form.words}
+          onChange={num("words")}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      </MetaField>
+
+      <MetaField label="Year read">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={form.year_read}
+          onChange={num("year_read")}
+          className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      </MetaField>
+    </div>
+  );
+}
+
 /* ── Expanded book panel ─────────────────────────────────────────────── */
 
-type CardMode = "view" | "edit" | "confirm-delete";
+type CardMode = "view" | "edit" | "edit-meta" | "confirm-delete";
 
 function BookExpandedPanel({
   book,
@@ -194,10 +396,23 @@ function BookExpandedPanel({
 }) {
   const [mode, setMode] = useState<CardMode>("view");
   const [scores, setScores] = useState<Record<string, string>>({});
+  const [metaForm, setMetaForm] = useState<MetaForm>(() => metaFormFromBook(book));
+  const [validGenres, setValidGenres] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Load the valid-genre list once we enter metadata editing, so the genre
+  // dropdown is constrained to real genres (a typo can't be submitted).
+  useEffect(() => {
+    if (mode !== "edit-meta" || validGenres.length > 0) return;
+    let cancelled = false;
+    fetchValidGenres(kind)
+      .then((g) => { if (!cancelled) setValidGenres(g); })
+      .catch(() => { /* dropdown still shows the current genre; non-fatal */ });
+    return () => { cancelled = true; };
+  }, [mode, validGenres.length, kind]);
 
   function enterEdit() {
     setScores(flattenComponentsToStrings(book.components));
@@ -206,9 +421,36 @@ function BookExpandedPanel({
     setSaveSuccess(false);
   }
 
+  function enterEditMeta() {
+    setMetaForm(metaFormFromBook(book));
+    setMode("edit-meta");
+    setActionError(null);
+    setSaveSuccess(false);
+  }
+
   function cancelEdit() {
     setMode("view");
     setActionError(null);
+  }
+
+  async function handleSaveMeta() {
+    const payload = buildMetaPayload(book, metaForm);
+    if (Object.keys(payload).length === 0) {
+      setActionError("No metadata changes to save.");
+      return;
+    }
+    setSaving(true);
+    setActionError(null);
+    try {
+      await updateBookMetadata(book.title, payload, kind);
+      setSaveSuccess(true);
+      setMode("view");
+      onRefresh();
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : "Could not save metadata.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSave() {
@@ -325,6 +567,17 @@ function BookExpandedPanel({
               Edit scores
             </button>
             <button
+              onClick={enterEditMeta}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: "transparent",
+                color: "var(--color-sage)",
+                border: "1px solid var(--color-sage)",
+              }}
+            >
+              Edit metadata
+            </button>
+            <button
               onClick={() => { setMode("confirm-delete"); setActionError(null); }}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
               style={{
@@ -358,6 +611,48 @@ function BookExpandedPanel({
               style={{ background: "var(--color-sage)", color: "#fff" }}
             >
               {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              onClick={cancelEdit}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              style={{
+                background: "transparent",
+                color: "var(--color-muted)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Edit-metadata mode: author/genre/series/words/year/title ── */}
+      {mode === "edit-meta" && (
+        <>
+          <p
+            className="text-xs font-semibold uppercase tracking-widest mb-3"
+            style={{ color: "var(--color-muted)" }}
+          >
+            Metadata — blank fields are left unchanged
+          </p>
+          <MetadataForm
+            form={metaForm}
+            validGenres={validGenres}
+            renameWarning={metaForm.title.trim() !== book.title}
+            onChange={(field, val) =>
+              setMetaForm((prev) => ({ ...prev, [field]: val }))
+            }
+          />
+          <div className="flex gap-3 mt-5">
+            <button
+              onClick={handleSaveMeta}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
+              style={{ background: "var(--color-sage)", color: "#fff" }}
+            >
+              {saving ? "Saving…" : "Save metadata"}
             </button>
             <button
               onClick={cancelEdit}

@@ -409,6 +409,55 @@ def edit_rating(title: str, req: EditRatingRequest):
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
+class BookMetadataRequest(BaseModel):
+    # Every field optional: this is a PARTIAL update. A field left None is
+    # omitted from the write (blank = leave-as-is), matching the edit surface's
+    # omit-unchanged policy. `title` carries a rename (cascaded in db_write).
+    title: Optional[str] = None
+    author: Optional[str] = None
+    genre: Optional[str] = None
+    series: Optional[str] = None
+    series_number: Optional[float] = None
+    words: Optional[int] = None
+    year_read: Optional[int] = None
+
+
+def _update_metadata(current_title: str, table: str,
+                     req: "BookMetadataRequest") -> dict:
+    """Shared handler for the fiction + nonfiction metadata endpoints. Only the
+    fields the client actually sent (non-None) are passed through, so an omitted
+    field is left unchanged. Returns the db_write report dict."""
+    fields = req.model_dump(exclude_none=True)
+    if not fields:
+        raise HTTPException(status_code=422,
+                            detail="No metadata fields provided to update.")
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            report = db_write.update_book_metadata(current_title, table, fields)
+    except db_write.ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if not report.get("ok"):
+        raise HTTPException(status_code=422,
+                            detail=report.get("error") or "Could not update metadata.")
+    return report
+
+
+@app.post("/api/books/{title}/metadata")
+def edit_book_metadata(title: str, req: BookMetadataRequest):
+    """Edit a fiction book's metadata (author/genre/series/series_number/words/
+    year_read/title) via db_write.update_book_metadata. A genre change re-weights
+    WA on the next read; a title change cascades the rename across all tables
+    that reference the book by title."""
+    report = _update_metadata(title, "books", req)
+    _invalidate_engine()
+    return {"ok": True, "renamed_to": report["renamed_to"],
+            "cascade": report["cascade"],
+            "message": f"Updated metadata for “{report['renamed_to'] or title}”."}
+
+
 class LookupRequest(BaseModel):
     title: str
     author_hint: Optional[str] = None
@@ -1649,6 +1698,29 @@ def edit_nf_scores(title: str, req: NonfictionScoresRequest):
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update scores.")
     _invalidate_nf_engine()
     return {"ok": True, "message": out.replace("✓", "").strip()}
+
+
+@app.post("/api/nonfiction/books/{title}/metadata")
+def edit_nf_book_metadata(title: str, req: BookMetadataRequest):
+    """Edit a nonfiction book's metadata via db_write.update_book_metadata (same
+    partial-update + rename-cascade behaviour as the fiction endpoint, over the
+    nonfiction tables)."""
+    report = _update_metadata(title, "nonfiction_books", req)
+    _invalidate_nf_engine()
+    return {"ok": True, "renamed_to": report["renamed_to"],
+            "cascade": report["cascade"],
+            "message": f"Updated metadata for “{report['renamed_to'] or title}”."}
+
+
+@app.get("/api/nonfiction/valid-genres")
+def get_nf_valid_genres():
+    """Genres defined in nonfiction_genre_weights (valid for the metadata genre
+    dropdown). Normally just ['Nonfiction'] until a finer taxonomy exists."""
+    con = sqlite3.connect(db_write.DB)
+    genres = sorted(r[0] for r in con.execute(
+        "SELECT genre FROM nonfiction_genre_weights"))
+    con.close()
+    return genres
 
 
 @app.delete("/api/nonfiction/books/{title}")

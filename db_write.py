@@ -1214,6 +1214,193 @@ def update_nonfiction_queue(titles):
         con.close()
 
 
+# ===========================================================================
+# METADATA EDIT  — change an already-ranked book's non-score fields.
+# ===========================================================================
+# Scores have change_rating / change_nonfiction_rating; this is the equivalent
+# for the METADATA columns (author, genre, series, series_number, words,
+# year_read, and the title itself). It mirrors add_book's validation discipline
+# and, like everything here, stores nothing derived — WA / ranks / tiers all
+# recompute in the engine on the next read, so a genre change re-weights WA
+# automatically (intended).
+
+# Metadata columns shared by both `books` and `nonfiction_books`.
+_METADATA_FIELDS = ("title", "author", "genre", "series", "series_number",
+                    "words", "year_read")
+
+# Title is the join key used elsewhere, so a rename must cascade. These are the
+# tables (besides the row's own) that reference a book BY TITLE and are updated
+# in the same transaction as the rename. Fiction: the prediction record in
+# recommendations, the ordered read_queue, and the historical delta_log.
+# Nonfiction: its TBR twins. The Excel year sheets are NOT here — they live only
+# in the import-only workbook, never in books.db, so they're outside the DB
+# cascade (and the DB is the source of truth).
+_TITLE_REF_TABLES = {
+    "books": ["recommendations", "read_queue", "delta_log"],
+    "nonfiction_books": ["nonfiction_recommendations", "nonfiction_read_queue"],
+}
+
+
+def update_book_metadata(current_title, table, fields, allow_new_genre=False):
+    """
+    Edit the METADATA (not scores) of an already-ranked book, with the same
+    validation discipline as add_book. `table` is 'books' or 'nonfiction_books'.
+    `fields` is a dict; only the keys PRESENT are updated (partial update —
+    omitted keys are left unchanged). Recognised keys: title, author, genre,
+    series, series_number, words, year_read.
+
+    Validation (mirrors add_book):
+      * genre (if given) must be in the matching genre_weights table unless
+        allow_new_genre=True — a typo is REFUSED, never silently stored. For
+        nonfiction the check only applies once nonfiction_genre_weights has
+        genres (allow_new_genre parity with add_nonfiction_book).
+      * year_read (if given) is range-checked 1900-2100.
+      * series_number (if given) is normalised to int / float (0.5 prequels ok).
+      * words (if given) must be a non-negative integer.
+      * a title change must not collide with an existing row in `table`.
+
+    TITLE RENAME cascades (option (a)): title is the join key used by the
+    delta_log, read_queue and recommendations (fiction) / their nonfiction twins,
+    so the rename is propagated to every one of those tables in the SAME
+    transaction. The returned report lists how many rows each cascade touched.
+
+    Nothing derived is stored, so WA / ranks / tiers recompute from the new
+    values on the next engine read (a genre change re-weights WA — intended).
+    Backs up the DB once per session before writing. Nothing commits on failure.
+
+    Returns a report dict:
+      {"ok": bool, "updated": {field: value}, "renamed_to": str|None,
+       "cascade": {table: rows}, "error": str|None}
+    """
+    if table not in _TITLE_REF_TABLES:
+        return {"ok": False, "updated": {}, "renamed_to": None, "cascade": {},
+                "error": f"Unknown table '{table}'. Use 'books' or 'nonfiction_books'."}
+
+    con = _connect()
+    try:
+        unknown = [k for k in fields if k not in _METADATA_FIELDS]
+        if unknown:
+            raise ValidationError(
+                f"Unknown metadata field(s): {unknown}. "
+                f"Valid: {list(_METADATA_FIELDS)}")
+
+        row = con.execute(f"SELECT 1 FROM {table} WHERE title=?",
+                          (current_title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{current_title}' in {table}.")
+
+        updates = {}  # column -> value to SET on the row
+
+        # ── genre ── validated exactly like add_book / add_nonfiction_book ──
+        if "genre" in fields:
+            genre = fields["genre"]
+            genre = None if genre is None else str(genre).strip() or None
+            if genre is not None:
+                if table == "books":
+                    valid = _valid_genres(con)
+                    enforce = valid  # fiction always has a populated table
+                else:
+                    valid = _valid_nonfiction_genres(con)
+                    enforce = valid if valid else None  # empty → skip check
+                if enforce is not None and genre not in enforce and not allow_new_genre:
+                    weights_tbl = ("genre_weights" if table == "books"
+                                   else "nonfiction_genre_weights")
+                    raise ValidationError(
+                        f"Genre '{genre}' is not in {weights_tbl}. Fix the "
+                        f"spelling (valid genres: {sorted(enforce)}) or pass "
+                        f"allow_new_genre=True and add weights for it.")
+            updates["genre"] = genre
+
+        # ── year_read ── range-checked, same rule as set_year_read ──
+        if "year_read" in fields:
+            yr = fields["year_read"]
+            if yr is None or str(yr).strip() == "":
+                updates["year_read"] = None
+            else:
+                if not (1900 <= int(yr) <= 2100):
+                    raise ValidationError(f"Year {yr} is out of range (1900-2100).")
+                updates["year_read"] = int(yr)
+
+        # ── series_number ── normalised like set_series_number ──
+        if "series_number" in fields:
+            sn = fields["series_number"]
+            if sn is None or str(sn).strip() == "":
+                updates["series_number"] = None
+            else:
+                snf = float(sn)
+                updates["series_number"] = int(snf) if snf == int(snf) else snf
+
+        # ── words ── non-negative integer ──
+        if "words" in fields:
+            w = fields["words"]
+            if w is None or str(w).strip() == "":
+                updates["words"] = None
+            else:
+                wi = int(w)
+                if wi < 0:
+                    raise ValidationError(f"Words {wi} cannot be negative.")
+                updates["words"] = wi
+
+        # ── author / series ── free text, empty → NULL ──
+        for k in ("author", "series"):
+            if k in fields:
+                v = fields[k]
+                updates[k] = (str(v).strip() or None) if v is not None else None
+
+        # ── title (rename — special, cascaded below) ──
+        new_title = None
+        if "title" in fields:
+            nt = (fields["title"] or "").strip()
+            if not nt:
+                raise ValidationError("New title cannot be empty.")
+            if nt != current_title:
+                dup = con.execute(f"SELECT 1 FROM {table} WHERE title=?",
+                                  (nt,)).fetchone()
+                if dup:
+                    raise ValidationError(
+                        f"A book titled '{nt}' already exists in {table} — "
+                        f"pick a different title.")
+                new_title = nt
+                updates["title"] = nt
+
+        if not updates:
+            raise ValidationError("No metadata fields to update.")
+
+        _backup_once()
+        set_clause = ",".join(f'"{c}"=?' for c in updates)
+        con.execute(f"UPDATE {table} SET {set_clause} WHERE title=?",
+                    list(updates.values()) + [current_title])
+
+        # Cascade the rename to every table that references this book by title.
+        cascade = {}
+        if new_title is not None:
+            for ref in _TITLE_REF_TABLES[table]:
+                cur = con.execute(f"UPDATE {ref} SET title=? WHERE title=?",
+                                  (new_title, current_title))
+                if cur.rowcount:
+                    cascade[ref] = cur.rowcount
+
+        con.commit()
+
+        shown = {k: v for k, v in updates.items() if k != "title"}
+        changed = ", ".join(f"{k}={v!r}" for k, v in shown.items()) or "(title only)"
+        print(f"  ✓ Updated metadata for '{current_title}' in {table}: {changed}")
+        if new_title is not None:
+            tail = (" — cascaded to " +
+                    ", ".join(f"{t} ({n})" for t, n in cascade.items())
+                    if cascade else " — no other tables referenced it")
+            print(f"    -> renamed to '{new_title}'{tail}")
+        return {"ok": True, "updated": shown, "renamed_to": new_title,
+                "cascade": cascade, "error": None}
+    except (ValidationError, TypeError, ValueError) as e:
+        con.rollback()
+        print(f"  ✗ Not updated — {e}")
+        return {"ok": False, "updated": {}, "renamed_to": None, "cascade": {},
+                "error": str(e)}
+    finally:
+        con.close()
+
+
 # Create the nonfiction tables on import (idempotent), same discipline as the
 # fiction schema-ensure calls near the top of this module.
 _ensure_nonfiction_schema()
