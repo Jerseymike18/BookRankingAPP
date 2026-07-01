@@ -27,11 +27,13 @@ function formatWords(words: number | null) {
   return `${words} words`;
 }
 
-function flattenComponents(components: CategoryComponents): Record<string, number> {
-  const flat: Record<string, number> = {};
+/** A missing/null score renders as an empty box, not 0, so the edit form can
+ * distinguish "no value yet" from a real 0. */
+function flattenComponentsToStrings(components: CategoryComponents): Record<string, string> {
+  const flat: Record<string, string> = {};
   for (const comps of Object.values(components)) {
     for (const [comp, val] of Object.entries(comps)) {
-      flat[comp] = val ?? 0;
+      flat[comp] = val != null ? String(val) : "";
     }
   }
   return flat;
@@ -85,6 +87,34 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
 };
 
+/* Raw string state so a box can go empty without snapping back to 0; empty
+ * means "leave this component's stored value unchanged" (see handleSave). */
+const SCORE_INPUT_RE = /^-?\d*\.?\d*$/;
+
+function clampScoreInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") return raw;
+  const v = parseFloat(trimmed);
+  if (isNaN(v)) return raw;
+  const clamped = Math.min(10, Math.max(0, v));
+  return clamped === v ? raw : String(clamped);
+}
+
+/** Only fields with a real, parseable value are included — empty/unparseable
+ * boxes are omitted so change_rating()/change_nonfiction_rating() leave them
+ * unchanged rather than overwriting with 0. */
+function buildChangedScores(raw: Record<string, string>): Record<string, number> {
+  const payload: Record<string, number> = {};
+  for (const [comp, str] of Object.entries(raw)) {
+    const trimmed = str.trim();
+    if (trimmed === "") continue;
+    const v = parseFloat(trimmed);
+    if (isNaN(v)) continue;
+    payload[comp] = Math.min(10, Math.max(0, v));
+  }
+  return payload;
+}
+
 function ScoreGrid({
   components,
   categoryOrder,
@@ -93,8 +123,8 @@ function ScoreGrid({
 }: {
   components: CategoryComponents;
   categoryOrder: string[];
-  scores: Record<string, number>;
-  onChange: (comp: string, val: number) => void;
+  scores: Record<string, string>;
+  onChange: (comp: string, val: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -126,11 +156,12 @@ function ScoreGrid({
                     min={0}
                     max={10}
                     step={0.1}
-                    value={scores[comp] ?? 0}
+                    value={scores[comp] ?? ""}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v)) onChange(comp, v);
+                      const raw = e.target.value;
+                      if (raw === "" || SCORE_INPUT_RE.test(raw)) onChange(comp, raw);
                     }}
+                    onBlur={(e) => onChange(comp, clampScoreInput(e.target.value))}
                     className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
                     style={inputStyle}
                   />
@@ -162,14 +193,14 @@ function BookExpandedPanel({
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<CardMode>("view");
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [scores, setScores] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   function enterEdit() {
-    setScores(flattenComponents(book.components));
+    setScores(flattenComponentsToStrings(book.components));
     setMode("edit");
     setActionError(null);
     setSaveSuccess(false);
@@ -181,10 +212,16 @@ function BookExpandedPanel({
   }
 
   async function handleSave() {
+    // Empty boxes mean "leave unchanged" — only send fields with a real value.
+    const payload = buildChangedScores(scores);
+    if (Object.keys(payload).length === 0) {
+      setActionError("No changes to save — enter a value in at least one field.");
+      return;
+    }
     setSaving(true);
     setActionError(null);
     try {
-      await editRating(book.title, scores, kind);
+      await editRating(book.title, payload, kind);
       setSaveSuccess(true);
       setMode("view");
       onRefresh();

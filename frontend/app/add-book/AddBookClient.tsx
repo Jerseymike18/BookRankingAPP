@@ -85,10 +85,46 @@ const COMPONENT_CATEGORIES_BY_KIND: Record<BookKind, Record<string, string[]>> =
   },
 };
 
-function defaultScores(kind: BookKind): Record<string, number> {
+// Components a new book may leave blank — mirrors db_write._validate_scores /
+// _validate_nonfiction_scores: worldbuilding is optional for realist fiction
+// genres; nonfiction has no optional components.
+const OPTIONAL_COMPONENTS_BY_KIND: Record<BookKind, Set<string>> = {
+  fiction: new Set(["Depth2", "Integration", "Originality"]),
+  nonfiction: new Set(),
+};
+
+function defaultScores(kind: BookKind): Record<string, string> {
   return Object.fromEntries(
-    Object.values(COMPONENT_CATEGORIES_BY_KIND[kind]).flat().map((c) => [c, 0])
+    Object.values(COMPONENT_CATEGORIES_BY_KIND[kind]).flat().map((c) => [c, ""])
   );
+}
+
+/* ── Score input helpers ── raw string state so a box can go empty without
+   snapping back to 0; empty is validated (required-vs-optional) at submit. ── */
+
+const SCORE_INPUT_RE = /^-?\d*\.?\d*$/;
+
+function clampScoreInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") return raw;
+  const v = parseFloat(trimmed);
+  if (isNaN(v)) return raw;
+  const clamped = Math.min(10, Math.max(0, v));
+  return clamped === v ? raw : String(clamped);
+}
+
+/** Parses only the boxes with a real, parseable value — empty/unparseable
+ * boxes are simply absent from the result (caller checks required fields). */
+function parseScores(raw: Record<string, string>): Record<string, number> {
+  const parsed: Record<string, number> = {};
+  for (const [comp, str] of Object.entries(raw)) {
+    const trimmed = str.trim();
+    if (trimmed === "") continue;
+    const v = parseFloat(trimmed);
+    if (isNaN(v)) continue;
+    parsed[comp] = Math.min(10, Math.max(0, v));
+  }
+  return parsed;
 }
 
 function ScoreGrid({
@@ -97,8 +133,8 @@ function ScoreGrid({
   onChange,
 }: {
   categories: Record<string, string[]>;
-  scores: Record<string, number>;
-  onChange: (comp: string, val: number) => void;
+  scores: Record<string, string>;
+  onChange: (comp: string, val: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -122,11 +158,12 @@ function ScoreGrid({
                   min={0}
                   max={10}
                   step={0.1}
-                  value={scores[comp] ?? 0}
+                  value={scores[comp] ?? ""}
                   onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) onChange(comp, v);
+                    const raw = e.target.value;
+                    if (raw === "" || SCORE_INPUT_RE.test(raw)) onChange(comp, raw);
                   }}
+                  onBlur={(e) => onChange(comp, clampScoreInput(e.target.value))}
                   className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
                   style={inputStyle}
                 />
@@ -167,7 +204,7 @@ export default function AddBookClient({
   const [seriesNumber, setSeriesNumber] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [yearRead, setYearRead] = useState(new Date().getFullYear());
-  const [scores, setScores] = useState<Record<string, number>>(defaultScores("fiction"));
+  const [scores, setScores] = useState<Record<string, string>>(defaultScores("fiction"));
   const [prefilled, setPrefilled] = useState(false);
 
   function changeKind(k: BookKind) {
@@ -182,7 +219,7 @@ export default function AddBookClient({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
-  function handleScoreChange(comp: string, val: number) {
+  function handleScoreChange(comp: string, val: string) {
     setScores((prev) => ({ ...prev, [comp]: val }));
   }
 
@@ -226,6 +263,18 @@ export default function AddBookClient({
   }
 
   async function handleSubmit() {
+    // A new book must have every required rating (worldbuilding is optional
+    // for fiction; nonfiction has no optional components). Empty boxes are
+    // never silently saved as 0 — block and name what's missing.
+    const parsedScores = parseScores(scores);
+    const required = Object.values(categories).flat()
+      .filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c));
+    const missing = required.filter((c) => parsedScores[c] === undefined);
+    if (missing.length > 0) {
+      setSaveError(`Missing required score(s): ${missing.join(", ")}.`);
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
@@ -233,7 +282,7 @@ export default function AddBookClient({
       const common = {
         title,
         author,
-        scores,
+        scores: parsedScores,
         series: series.trim() || undefined,
         series_number: seriesNumber ?? undefined,
         words: words > 0 ? words : undefined,
@@ -271,7 +320,7 @@ export default function AddBookClient({
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
           {kind === "nonfiction"
             ? "Scores are 0–10 across Quality / Aesthetics / Theme (8 components)."
-            : "Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left at 0 for realist genres."}
+            : "Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left blank for realist genres."}
         </p>
       </div>
 

@@ -12,6 +12,34 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
 };
 
+/* ── Score input helpers ── raw string state so a box can go empty without
+   snapping back to 0; empty means "leave unchanged" (see handleSave). ────── */
+
+const SCORE_INPUT_RE = /^-?\d*\.?\d*$/;
+
+function clampScoreInput(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") return raw;
+  const v = parseFloat(trimmed);
+  if (isNaN(v)) return raw;
+  const clamped = Math.min(10, Math.max(0, v));
+  return clamped === v ? raw : String(clamped);
+}
+
+/** Builds a payload of only the fields that have a real, parseable value —
+ * empty/unparseable boxes are omitted so change_rating() leaves them unchanged. */
+function buildChangedScores(raw: Record<string, string>): Record<string, number> {
+  const payload: Record<string, number> = {};
+  for (const [comp, str] of Object.entries(raw)) {
+    const trimmed = str.trim();
+    if (trimmed === "") continue;
+    const v = parseFloat(trimmed);
+    if (isNaN(v)) continue;
+    payload[comp] = Math.min(10, Math.max(0, v));
+  }
+  return payload;
+}
+
 /* ── Component score grid ── mirrors Rankings detail view ────────────────── */
 
 function ScoreGrid({
@@ -22,8 +50,8 @@ function ScoreGrid({
 }: {
   components: CategoryComponents;
   categoryOrder: string[];
-  scores: Record<string, number>;
-  onChange: (comp: string, val: number) => void;
+  scores: Record<string, string>;
+  onChange: (comp: string, val: string) => void;
 }) {
   return (
     <div className="space-y-5">
@@ -50,11 +78,12 @@ function ScoreGrid({
                     min={0}
                     max={10}
                     step={0.1}
-                    value={scores[comp] ?? 0}
+                    value={scores[comp] ?? ""}
                     onChange={(e) => {
-                      const v = parseFloat(e.target.value);
-                      if (!isNaN(v)) onChange(comp, v);
+                      const raw = e.target.value;
+                      if (raw === "" || SCORE_INPUT_RE.test(raw)) onChange(comp, raw);
                     }}
+                    onBlur={(e) => onChange(comp, clampScoreInput(e.target.value))}
                     className="w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
                     style={inputStyle}
                   />
@@ -79,7 +108,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
   // scores from the previous selection while the new one is fetching.
   const loadedForRef = useRef<string>("");
   const [components, setComponents] = useState<CategoryComponents>({});
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [scores, setScores] = useState<Record<string, string>>({});
   const [loadingScores, setLoadingScores] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -108,11 +137,12 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
         if (cancelled) return;
         loadedForRef.current = selectedTitle;
         setComponents(result.components);
-        // Flatten components into a single scores dict
-        const flat: Record<string, number> = {};
+        // Flatten components into a single scores dict (raw display strings;
+        // a missing/null score renders as an empty box, not 0).
+        const flat: Record<string, string> = {};
         for (const comps of Object.values(result.components)) {
           for (const [comp, val] of Object.entries(comps)) {
-            flat[comp] = val ?? 0;
+            flat[comp] = val != null ? String(val) : "";
           }
         }
         setScores(flat);
@@ -127,17 +157,23 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
     return () => { cancelled = true; };
   }, [selectedTitle]);
 
-  function handleScoreChange(comp: string, val: number) {
+  function handleScoreChange(comp: string, val: string) {
     setScores((prev) => ({ ...prev, [comp]: val }));
   }
 
   async function handleSave() {
     if (!selectedTitle || loadedForRef.current !== selectedTitle) return;
+    // Empty boxes mean "leave unchanged" — only send fields with a real value.
+    const payload = buildChangedScores(scores);
+    if (Object.keys(payload).length === 0) {
+      setSaveError("No changes to save — enter a value in at least one field.");
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
     try {
-      const result = await editRating(selectedTitle, scores);
+      const result = await editRating(selectedTitle, payload);
       setSaveSuccess(result.message || `Saved changes to "${selectedTitle}".`);
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : "Could not save changes.");
