@@ -1359,5 +1359,110 @@
       "https://www.goodreads.com/topic/show/782139-martian-chronicles",
       "https://www.goodreads.com/book/show/876229.The_Martian_Chronicles_Script"
     ]
+  },
+  "Little, Big": {
+    "scores": {
+      "Plot": 6.2,
+      "Entertainment": 5.6,
+      "Action": 3.8,
+      "Ending": 7.4,
+      "Depth": 8.3,
+      "Emotional Impact": 7.6,
+      "Motivations": 7.2,
+      "Prose": 9.3,
+      "Narration": 8.4,
+      "Insights": 8.2,
+      "Thought-Provokingness": 8.3,
+      "Depth2": 8.7,
+      "Integration": 7.5,
+      "Originality": 8.6
+    },
+    "conf": "medium",
+    "sources": [
+      "https://www.goodreads.com/book/show/90619.Little_Big",
+      "https://www.goodreads.com/topic/show/1742399-sgb-book-review-little-big-by-john-crowley",
+      "https://www.goodreads.com/author/list/52074.John_Crowley",
+      "https://www.goodreads.com/work/editions/518635-little-big",
+      "https://www.goodreads.com/book/90619/questions",
+      "https://www.goodreads.com/review/show/2921812866",
+      "https://www.goodreads.com/book/show/8534870-beasts-engine-summer-little-big",
+      "https://www.goodreads.com/author/show/52074.John_Crowley",
+      "https://www.goodreads.com/review/show/100293162",
+      "https://www.goodreads.com/shelf/show/modern-contemporary-prose",
+      "https://www.goodreads.com/book/show/236859425-last-one-out",
+      "https://www.goodreads.com/book/show/474059",
+      "https://www.goodreads.com/book/show/8636186"
+    ]
+  },
+  "The Buried Giant": {
+    "scores": {
+      "Plot": 6.3,
+      "Entertainment": 5.3,
+      "Action": 4.8,
+      "Ending": 7.4,
+      "Depth": 7.2,
+      "Emotional Impact": 6.8,
+      "Motivations": 6.7,
+      "Prose": 7.6,
+      "Narration": 7.3,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.1,
+      "Depth2": 6.2,
+      "Integration": 7.0,
+      "Originality": 7.2
+    },
+    "conf": "high",
+    "sources": [
+      "https://www.goodreads.com/book/show/22522805-the-buried-giant",
+      "https://www.goodreads.com/work/editions/41115424-the-buried-giant",
+      "https://www.goodreads.com/topic/show/23252840-the-buried-giant-kazuo-ishiguro---4-stars",
+      "https://www.goodreads.com/book/show/22522805/reviews?reviewFilters=%7B%22workId%22:%22kca://work/amzn1.gr.work.v1.x71Pj9eIdtlTqU0oV3CEaQ%22,%22languageCode%22:%22tr%22,%22after%22:%22MjA1LDE0NjI5NTg2NDUwMDA%22%7D",
+      "https://www.goodreads.com/review/show/1216202664",
+      "https://www.goodreads.com/shelf/show/ishiguro-kazuo",
+      "https://www.goodreads.com/review/show/1232974337",
+      "https://www.goodreads.com/book/show/48551447",
+      "https://www.goodreads.com/review/show/1217501243",
+      "https://www.goodreads.com/review/show/1261429637",
+      "https://www.goodreads.com/review/show/1251037293",
+      "https://www.goodreads.com/review/show/1303510444",
+      "https://www.goodreads.com/review/show/4180903875",
+      "https://www.goodreads.com/book/22522805-the-buried-giant/questions",
+      "https://www.goodreads.com/topic/show/22502932-subdue-the-buried-giant-by-kazuo-ishiguro---3-stars",
+      "https://www.goodreads.com/review/show/1490041819"
+    ]
+  },
+  "Soldier of the Mist": {
+    "scores": {
+      "Plot": 6.6,
+      "Entertainment": 6.0,
+      "Action": 6.2,
+      "Ending": 7.0,
+      "Depth": 7.6,
+      "Emotional Impact": 6.8,
+      "Motivations": 6.9,
+      "Prose": 8.4,
+      "Narration": 8.6,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.5,
+      "Depth2": 8.3,
+      "Integration": 8.0,
+      "Originality": 8.7
+    },
+    "conf": "medium",
+    "sources": [
+      "https://www.goodreads.com/book/show/322067.Soldier_of_the_Mist",
+      "https://www.goodreads.com/work/editions/1408393-soldier-of-the-mist",
+      "https://www.goodreads.com/review/show/461764117",
+      "https://www.goodreads.com/series/49453-latro",
+      "https://www.goodreads.com/review/show/1157867721",
+      "https://www.goodreads.com/review/show/849195221",
+      "https://www.goodreads.com/book/show/141869111-latro-in-the-mist",
+      "https://www.goodreads.com/en/book/show/630402",
+      "https://www.goodreads.com/book/similar/1408393-soldier-of-the-mist",
+      "https://www.goodreads.com/shelf/show/gene-wolf",
+      "https://www.goodreads.com/book/show/344935.Latro_in_the_Mist",
+      "https://www.goodreads.com/en/book/show/630402.Soldier_of_Arete",
+      "https://www.goodreads.com/en/book/show/55691449-a-chapter-guide-to-gene-wolfe-s-latro-novels"
+    ]
   }
 }

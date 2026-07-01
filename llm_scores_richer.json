@@ -3051,5 +3051,74 @@
     "keywords": "literary fiction, satire, unreliable narrator, publishing industry, dark comedy, social media, race, thriller-paced, voice-driven",
     "genre": "Literary Fiction",
     "words": 95000
+  },
+  "The Buried Giant": {
+    "scores": {
+      "Plot": 6.2,
+      "Entertainment": 5.5,
+      "Action": 4.8,
+      "Ending": 7.4,
+      "Depth": 7.6,
+      "Emotional Impact": 7.8,
+      "Motivations": 7.0,
+      "Prose": 7.5,
+      "Narration": 7.2,
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.3,
+      "Depth2": 5.8,
+      "Integration": 6.5,
+      "Originality": 7.3
+    },
+    "conf": "medium",
+    "blurb": "A spare, melancholic post-Arthurian fable about an elderly couple journeying across a mist-shrouded Britain where collective forgetting buries old wartime atrocities; suits readers who want allegory and meditation on memory and grief over fantasy adventure.",
+    "keywords": "literary fantasy, allegory, post-arthurian, memory, melancholy, slow-paced, elegiac, fable, quest",
+    "genre": "Literary Fantasy",
+    "words": 110000
+  },
+  "Little, Big": {
+    "scores": {
+      "Plot": 6.0,
+      "Entertainment": 5.8,
+      "Action": 3.5,
+      "Ending": 7.0,
+      "Depth": 8.7,
+      "Emotional Impact": 7.8,
+      "Motivations": 7.5,
+      "Prose": 9.4,
+      "Narration": 8.8,
+      "Insights": 8.6,
+      "Thought-Provokingness": 8.4,
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 9.0
+    },
+    "conf": "medium",
+    "blurb": "A sprawling, dreamlike multigenerational saga where a family's encounters with faerie unfold as a 'Tale' larger than any of them; ravishing prose and mythic structure for patient readers who prize atmosphere and meaning over momentum.",
+    "keywords": "literary fantasy, faerie, multigenerational, dreamlike, lyrical prose, mythic, slow-burn, atmospheric, americana, melancholy",
+    "genre": "Literary Fantasy",
+    "words": 200000
+  },
+  "Soldier of the Mist": {
+    "scores": {
+      "Plot": 6.5,
+      "Entertainment": 6.0,
+      "Action": 6.3,
+      "Ending": 5.8,
+      "Depth": 7.8,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.8,
+      "Prose": 8.6,
+      "Narration": 8.9,
+      "Insights": 8.2,
+      "Thought-Provokingness": 8.7,
+      "Depth2": 8.4,
+      "Integration": 8.0,
+      "Originality": 8.8
+    },
+    "conf": "medium",
+    "blurb": "A mercenary in ancient Greece who forgets everything each day but can see gods writes his life on a scroll \u2014 a puzzle-box narrative demanding active reconstruction, suited to patient readers who relish ambiguity and mythological texture over conventional plot momentum.",
+    "keywords": "literary fantasy, ancient greece, unreliable narrator, mythological, amnesia, puzzle-box, gods, dense, slow-burn",
+    "genre": "Literary Fantasy",
+    "words": 100000
   }
 }
