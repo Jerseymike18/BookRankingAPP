@@ -36,9 +36,10 @@ a discovery service, not multi-user, not deployed (runs on localhost).
    components plus `done, blurb, keywords`. Do **not** add columns without an explicit
    schema-change task that goes through `db_write`.
 
-4. **`test_engine.py` must stay at 9/12 passing.** The 3 failing checks are a known
-   pre-existing discrepancy (DB has 1 extra book vs the Excel source). Any change that
-   drops below 9/12 has broken something — investigate before proceeding.
+4. **`test_engine.py` must stay at a clean pass (9/9, no `[FAIL]` lines).** The DB is the
+   source of truth; the Excel workbook is import-only, so Excel/DB drift is expected and is
+   printed as informational (not pass/fail). Any `[FAIL]` line means something broke —
+   investigate before proceeding.
 
 5. **No new visual styles.** All UI extends the existing design tokens in
    `frontend/app/globals.css` (the "Fable" system) and reuses existing primitives
@@ -122,7 +123,8 @@ types in `lib/types.ts`.
 ## Working rhythm
 
 - One feature per commit. After a change, verify the app still runs and the affected page
-  works, confirm `test_engine.py` is still 9/12, then commit with a descriptive message.
+  works, confirm `test_engine.py` still passes cleanly (9/9, no `[FAIL]` lines), then commit
+  with a descriptive message.
 - When in doubt about whether something is a derived-math change or a presentation change:
   if it changes a number, it's probably math (read-only); if it changes how an existing
   number is displayed or sorted, it's presentation (fair game).

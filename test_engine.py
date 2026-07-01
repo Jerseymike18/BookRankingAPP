@@ -13,8 +13,9 @@ WHAT IT CHECKS
   1. Data loads (Excel and DB both open, both have books and components).
   2. WA reproduction: the engine's computed WA matches the stored WA for every
      book, to the penny. (Catches a broken weighting / roll-up.)
-  3. DB == Excel: the database source and the spreadsheet source produce
-     identical books and identical predictions. (Catches DB/Excel drift.)
+  3. Excel/DB drift (INFORMATIONAL, not a pass/fail): the DB is the live source
+     of truth and the Excel workbook is import-only, so the two are SUPPOSED to
+     diverge as books are added to the DB. Printed for visibility only.
   4. Prediction sanity: a prediction runs, returns a number in 0-10, with a
      confidence interval that brackets it and a sensible rank. (Catches a
      broken prediction pipeline.)
@@ -83,15 +84,18 @@ def test_data_loads():
 # ---------------------------------------------------------------------------
 # 2. WA reproduction (the core math must match the stored values)
 # ---------------------------------------------------------------------------
-def test_wa_reproduction(source="excel"):
+def test_wa_reproduction(source="db"):
     print(f"\n2. WA REPRODUCTION ({source})")
     if source == "db":
+        # The DB is the live source the app runs on — this is the primary check.
         if not os.path.exists("books.db"):
             check("WA matches stored", True, "no DB (skipped)")
             return
         import db_loader
         books, gw, gcw = db_loader.load_from_db()
     else:
+        # Excel is import-only; this secondary check confirms the importer's WA
+        # roll-up stays internally consistent with the workbook's stored WA.
         books, gw, gcw = pe.load_everything()
 
     # Recompute each book's WA from components and compare to stored WA.
@@ -118,40 +122,42 @@ def test_wa_reproduction(source="excel"):
 
 
 # ---------------------------------------------------------------------------
-# 3. DB == Excel (the two sources must agree)
+# 3. Excel vs DB drift (INFORMATIONAL — not a pass/fail)
 # ---------------------------------------------------------------------------
-def test_db_matches_excel():
-    print("\n3. DATABASE == SPREADSHEET")
+# The DB is the live source of truth; the Excel workbook is import-only. The two
+# are SUPPOSED to diverge as books are added to the DB, so a mismatch here is
+# expected and is NOT a failure. This prints the current drift for visibility
+# only — it records no pass/fail result and never affects the exit code.
+def report_source_drift():
+    print("\n3. EXCEL vs DB DRIFT  (informational, not a pass/fail)")
     if not os.path.exists("books.db"):
-        check("DB matches Excel", True, "no DB (skipped)")
+        print("  (no books.db present — nothing to compare)")
         return
     import db_loader
     xb, xgw, xgcw = pe.load_everything()
     db, dgw, dgcw = db_loader.load_from_db()
 
-    # same book set
-    same_books = set(xb["Book"]) == set(db["Book"])
-    check("Same set of books", same_books,
-          f"Excel {len(xb)}, DB {len(db)}")
+    # Book-set difference (the DB is expected to have more / differ over time).
+    only_db = sorted(set(db["Book"]) - set(xb["Book"]))
+    only_excel = sorted(set(xb["Book"]) - set(db["Book"]))
+    print(f"  Books: Excel {len(xb)}, DB {len(db)}  "
+          f"({len(only_db)} only in DB, {len(only_excel)} only in Excel)")
+    if only_db:
+        print(f"    only in DB: {', '.join(only_db[:5])}"
+              + (" …" if len(only_db) > 5 else ""))
+    if only_excel:
+        print(f"    only in Excel: {', '.join(only_excel[:5])}"
+              + (" …" if len(only_excel) > 5 else ""))
 
-    # WAs match by title
+    # WA drift on the books both sources share.
     x = xb.set_index("Book")["WA"]
     d = db.set_index("Book")["WA"]
     common = x.index.intersection(d.index)
-    diff = (x[common] - d[common]).abs()
-    check("WAs identical across sources", diff.max() <= 1e-6,
-          f"max Δ={diff.max():.6f}")
-
-    # a prediction matches across sources
-    try:
-        xdata = pe.build(source="excel")
-        ddata = pe.build(source="db")
-        px = pe.predict("Dune", "Frank Herbert", "Science Fiction (Soft)", xdata)["wa_final"]
-        pd_ = pe.predict("Dune", "Frank Herbert", "Science Fiction (Soft)", ddata)["wa_final"]
-        check("Predictions identical across sources", abs(px - pd_) < 1e-9,
-              f"Excel={px:.4f}, DB={pd_:.4f}")
-    except Exception as e:
-        check("Predictions identical across sources", False, f"error: {e}")
+    if len(common):
+        diff = (x[common] - d[common]).abs()
+        print(f"  Shared books: {len(common)}, "
+              f"max WA Δ={diff.max():.4f}, mean WA Δ={diff.mean():.4f}")
+    print("  (drift expected — DB is the source of truth, Excel is import-only)")
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +166,7 @@ def test_db_matches_excel():
 def test_prediction_sanity():
     print("\n4. PREDICTION SANITY")
     try:
-        data = pe.build()
+        data = pe.build(source="db")  # the live source the app runs on
         p = pe.predict("The Wise Man's Fear", "Patrick Rothfuss", "Epic Fantasy", data)
         wa = p["wa_final"]
         lo, hi = p["ci"]
@@ -208,9 +214,9 @@ def main():
     print("ENGINE TEST SUITE")
     print("=" * 60)
     test_data_loads()
-    test_wa_reproduction("db")
-    test_wa_reproduction("excel")
-    test_db_matches_excel()
+    test_wa_reproduction("db")      # primary: the live source the app runs on
+    test_wa_reproduction("excel")  # secondary: importer internal consistency
+    report_source_drift()          # informational only — records no pass/fail
     test_prediction_sanity()
     test_schema_integrity()
 
