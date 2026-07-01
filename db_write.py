@@ -498,6 +498,115 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
 
 
 # ---------------------------------------------------------------------------
+# WRITE: bulk backfill of HISTORICAL prediction-vs-actual rows into delta_log
+# ---------------------------------------------------------------------------
+# Sentinel stamped on every backfilled row's logged_at, so a batch import is
+# distinguishable from live-logged rows (which carry a real wall-clock UTC time
+# such as 2026-06-30T04:24:55Z). It doubles as the idempotency key: re-running
+# the backfill first clears rows bearing this exact marker and never touches
+# any row with a different logged_at (i.e. the live-logged rows are safe).
+DELTA_BACKFILL_MARKER = "2026-06-27T00:00:00Z"   # BookRankingsNew.xlsx snapshot date
+
+# SIGN CONVENTION (important): backfill_delta_log stores d_* = actual - predicted,
+# matching the workbook's DeltaTracker sheet (a positive delta == underprediction).
+# NOTE: the live path log_delta() above stores the OPPOSITE (predicted - actual).
+# The two conventions disagree; see the migration report / CLAUDE.md if you plan
+# to consume delta_log's aggregate drift across both live and backfilled rows.
+
+
+def backfill_delta_log(records, logged_at=DELTA_BACKFILL_MARKER, replace=True):
+    """
+    Bulk-insert historical predicted-vs-actual rows into delta_log.
+
+    Each record is a dict:
+        {
+          "title":   str,            # stored verbatim (use the books-table title)
+          "pred_wa": float,          # TBRFinished 'Predicted Score'
+          "act_wa":  float,          # engine WA from the books table
+          "pred":    {comp: value},  # all 14 canonical FICTION_COMPONENTS
+          "act":     {comp: value},  # all 14 canonical FICTION_COMPONENTS
+        }
+
+    Deltas are computed HERE as (actual - predicted) so a caller cannot get the
+    sign wrong (see DELTA_BACKFILL_MARKER note about the opposite live convention).
+
+    `logged_at` is stamped on every row as a clearly-historical backfill marker.
+    With replace=True the write is idempotent: rows already bearing this exact
+    logged_at marker are deleted first, then the batch is inserted in one
+    transaction. Rows with any other logged_at are never touched.
+
+    Validation mirrors the rest of db_write: each record must have a non-empty
+    title, a numeric pred_wa/act_wa, and every one of the 14 components present
+    and in range 0-10 on BOTH sides (worldbuilding included — history rows are
+    complete). Malformed records are SKIPPED (never fabricated) and returned in
+    the report; a partial/invalid record writes nothing.
+
+    Returns: {"inserted": int, "deleted": int, "skipped": [(title, reason), ...]}
+    """
+    _backup_once()
+    pred_cols = [f'"pred_{_col(c)}"' for c in FICTION_COMPONENTS]
+    act_cols  = [f'"act_{_col(c)}"'  for c in FICTION_COMPONENTS]
+    d_cols    = [f'"d_{_col(c)}"'    for c in FICTION_COMPONENTS]
+    all_cols  = (["title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+                 + pred_cols + act_cols + d_cols)
+    col_str = ",".join(all_cols)
+    ph = ",".join("?" for _ in all_cols)
+
+    valid_rows, skipped = [], []
+    for rec in records:
+        title = (rec.get("title") or "").strip()
+        pred  = rec.get("pred") or {}
+        act   = rec.get("act") or {}
+        try:
+            if not title:
+                raise ValidationError("empty title")
+            if rec.get("pred_wa") is None or rec.get("act_wa") is None:
+                raise ValidationError("missing pred_wa/act_wa")
+            # Completeness/range: the 11 core components are required on both
+            # sides; worldbuilding (Depth2/Integration/Originality) is optional
+            # and legitimately blank for realist genres — same rule as
+            # _validate_scores. A missing worldbuilding value stays None (never
+            # fabricated), and its delta is left None (undefined without both).
+            for side_name, side in (("pred", pred), ("act", act)):
+                for c in FICTION_COMPONENTS:
+                    v = side.get(c)
+                    if v is None:
+                        if c in WORLDBUILDING:
+                            continue
+                        raise ValidationError(f"missing {side_name} component '{c}'")
+                    if not (0 <= float(v) <= 10):
+                        raise ValidationError(f"{side_name} '{c}'={v} out of range 0-10")
+            pw = float(rec["pred_wa"])
+            aw = float(rec["act_wa"])
+            def _f(x):
+                return None if x is None else float(x)
+            pred_vals = [_f(pred.get(c)) for c in FICTION_COMPONENTS]
+            act_vals  = [_f(act.get(c))  for c in FICTION_COMPONENTS]
+            d_vals    = [(a - p) if (p is not None and a is not None) else None
+                         for p, a in zip(pred_vals, act_vals)]  # actual - predicted
+            valid_rows.append([title, logged_at, pw, aw, (aw - pw)]
+                              + pred_vals + act_vals + d_vals)
+        except (ValidationError, TypeError, ValueError) as exc:
+            skipped.append((title or "<no title>", str(exc)))
+
+    con = _connect()
+    try:
+        deleted = 0
+        if replace:
+            deleted = con.execute(
+                "DELETE FROM delta_log WHERE logged_at=?", (logged_at,)).rowcount
+        if valid_rows:
+            con.executemany(
+                f"INSERT INTO delta_log ({col_str}) VALUES ({ph})", valid_rows)
+        con.commit()
+    finally:
+        con.close()
+    print(f"  (delta_log backfill: inserted {len(valid_rows)}, "
+          f"deleted {deleted} prior marker rows, skipped {len(skipped)})")
+    return {"inserted": len(valid_rows), "deleted": deleted, "skipped": skipped}
+
+
+# ---------------------------------------------------------------------------
 # Read helpers + a computed-WA preview (so you see the effect of a write)
 # ---------------------------------------------------------------------------
 def _show_computed_wa(con, title):
