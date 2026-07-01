@@ -29,11 +29,10 @@ work. The clean tests are gems whose appeal is about QUALITIES not author
 HOW TO RUN (Thonny): press Run, confirm the small spend. Needs apikey.txt.
 """
 
-import json
-import re
 import numpy as np
 import anthropic
 import predict_engine as pe
+import research_layer as rl
 
 MODEL = "claude-sonnet-4-5"
 
@@ -91,10 +90,8 @@ def gen_candidates(client, system_context):
 Recommend {N_CANDIDATES} books this reader would likely love and has NOT already read. Return ONLY a JSON list of objects with "title" and "author". No prose."""
     msg = client.messages.create(model=MODEL, max_tokens=800,
                                  messages=[{"role": "user", "content": prompt}])
-    text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
     try:
-        data = json.loads(text)
+        data = rl._extract_json(msg.content[0].text)
         return [(d.get("title", ""), d.get("author", "")) for d in data]
     except Exception:
         return []

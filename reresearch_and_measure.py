@@ -25,11 +25,11 @@ After it finishes, llm_scores_richer.json is your upgraded cache.
 
 import json
 import os
-import re
 import numpy as np
 import pandas as pd
 import anthropic
 import predict_engine as pe
+import research_layer as rl
 
 MODEL = "claude-opus-4-8"
 RICH_CACHE = "llm_scores_richer.json"
@@ -99,9 +99,7 @@ def research_rich(client, title, author, genre):
     msg = client.messages.create(
         model=MODEL, max_tokens=400,
         messages=[{"role": "user", "content": rich_prompt(title, author, genre)}])
-    text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(msg.content[0].text)
     conf = data.pop("confidence", "unknown")
     return {c: float(data[c]) for c in LIVE if c in data}, conf
 

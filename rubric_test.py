@@ -33,11 +33,11 @@ HOW TO RUN (Thonny): press Run, confirm the spend. Needs apikey.txt.
 """
 
 import json
-import re
 import numpy as np
 import pandas as pd
 import anthropic
 import predict_engine as pe
+import research_layer as rl
 
 MODEL = "claude-sonnet-4-5"
 CACHE = "llm_scores_cache.json"
@@ -106,9 +106,7 @@ def research_rich(client, title, author, genre):
     msg = client.messages.create(
         model=MODEL, max_tokens=400,
         messages=[{"role": "user", "content": rich_prompt(title, author, genre)}])
-    text = msg.content[0].text.strip()
-    text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-    data = json.loads(text)
+    data = rl._extract_json(msg.content[0].text)
     data.pop("confidence", None)
     return {c: float(data[c]) for c in LIVE if c in data}
 

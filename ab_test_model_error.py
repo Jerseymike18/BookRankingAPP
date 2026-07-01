@@ -18,8 +18,6 @@ Output:
     - Resumable: books already in CSV are skipped on restart
 """
 
-import re
-import json
 import sys
 import csv
 import time
@@ -34,6 +32,7 @@ sys.path.insert(0, "backend")
 import anthropic
 import db_loader
 import reresearch_and_measure as rm
+import research_layer as rl
 
 # ---------------------------------------------------------------------------
 # Config
@@ -90,9 +89,7 @@ def call_model_raw(client, title, author, genre, model):
             max_tokens=400,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = msg.content[0].text.strip()
-        text = re.sub(r"^```(json)?|```$", "", text, flags=re.MULTILINE).strip()
-        data = json.loads(text)
+        data = rl._extract_json(msg.content[0].text)
         conf = data.pop("confidence", "unknown")
         scores = {c: float(data[c]) for c in rm.LIVE if c in data}
         return scores, conf, msg.usage
