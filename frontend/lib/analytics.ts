@@ -222,7 +222,12 @@ export interface AuthorStat {
    no penalty). */
 const FAV_DECAY = 0.6;
 const DEPTH_WEIGHT = 0.15;
-const DEPTH_CAP_BOOKS = 6; // depth credit saturates here; more volume isn't rewarded
+// Depth credit saturates here; volume past this adds nothing. NOT a first-principles
+// number — it's the tightest cap that still ranks a strong deep catalog (Jordan, 12
+// books) above a strong shallow one (Simmons, 3) on the current library; tighter and
+// depth stops distinguishing catalog sizes at all. 6 vs 7 is a wash on today's data,
+// and it's tuned to those specific authors — retune if the deep/shallow crossover shifts.
+const DEPTH_CAP_BOOKS = 6;
 const CONSISTENCY_WEIGHT = 0.05;
 
 export function favoriteScore(was: number[]): number {
