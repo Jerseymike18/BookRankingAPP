@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow, BookKind } from "@/lib/types";
+import { useState, useMemo } from "react";
+import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow, BookKind, Book } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { seriesLabel } from "@/lib/format";
+import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -93,10 +94,68 @@ const BY_AUTHOR_COLS: ColDef<AuthorRow>[] = [
   { key: "avg_wa", label: "Avg WA", type: "numeric", getValue: (r) => r.avg_wa, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
 ];
 
+/* ── Category-average columns (fiction only, derived client-side from books) ──
+   The reading-stats endpoint (views.reading_stats) is read-only and doesn't
+   carry per-category averages, so we compute them here from the live /api/books
+   payload — the same source of truth, grouped by genre / author. */
+
+const CAT_ABBR: Record<Category, string> = {
+  Story: "Story", Character: "Char", Aesthetics: "Aes", Theme: "Theme", Worldbuilding: "WB",
+};
+
+function groupByKey<T>(items: T[], keyOf: (t: T) => string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const it of items) {
+    const k = keyOf(it);
+    const arr = m.get(k);
+    if (arr) arr.push(it);
+    else m.set(k, [it]);
+  }
+  return m;
+}
+
+/** One ColDef per category, reading the pre-grouped averages by row key. */
+function catCols<T>(
+  keyOf: (r: T) => string,
+  lookup: Map<string, Record<Category, number | null>>,
+): ColDef<T>[] {
+  return CATEGORIES.map((cat): ColDef<T> => ({
+    key: `cat_${cat}`,
+    label: CAT_ABBR[cat],
+    type: "numeric",
+    getValue: (r) => lookup.get(keyOf(r))?.[cat] ?? null,
+    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
+  }));
+}
+
 /* ── Stats tab ────────────────────────────────────────────────────────────── */
 
-function StatsTab({ stats, kind }: { stats: ReadingStatsResponse; kind: BookKind }) {
+function StatsTab({ stats, kind, books }: { stats: ReadingStatsResponse; kind: BookKind; books?: Book[] }) {
   const { summary, per_year, by_genre, by_author } = stats;
+
+  // Fiction gets per-category averages (Story/Char/Aes/Theme/WB) folded into the
+  // by-genre and by-author tables, computed live from the books payload.
+  const hasCats = kind === "fiction" && !!books && books.length > 0;
+
+  const { genreCols, authorCols } = useMemo(() => {
+    if (!hasCats || !books) return { genreCols: BY_GENRE_COLS, authorCols: BY_AUTHOR_COLS };
+    const genreAvgs = new Map(
+      [...groupByKey(books, (b) => b.genre)].map(([k, bs]) => [k, categoryAverages(bs)] as const)
+    );
+    const authorAvgs = new Map(
+      [...groupByKey(books, (b) => b.author)].map(([k, bs]) => [k, categoryAverages(bs)] as const)
+    );
+    return {
+      // Genre: slot the 5 category columns in just before the trailing "Avg Words".
+      genreCols: [
+        ...BY_GENRE_COLS.slice(0, -1),
+        ...catCols<GenreRow>((r) => r.genre, genreAvgs),
+        BY_GENRE_COLS[BY_GENRE_COLS.length - 1],
+      ],
+      // Author: append the 5 category columns after "Avg WA".
+      authorCols: [...BY_AUTHOR_COLS, ...catCols<AuthorRow>((r) => r.author, authorAvgs)],
+    };
+  }, [hasCats, books]);
 
   return (
     <div>
@@ -119,20 +178,28 @@ function StatsTab({ stats, kind }: { stats: ReadingStatsResponse; kind: BookKind
         <>
           <SectionHeading>By genre</SectionHeading>
           <SortableTable
-            columns={BY_GENRE_COLS}
+            columns={genreCols}
             data={by_genre}
             defaultSort={{ key: "books", dir: "desc" }}
             getRowKey={(r) => r.genre}
+            scrollX={hasCats}
           />
+          {hasCats && (
+            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
+              Story, Char, Aes, Theme, and WB are the average weighted score per category (0–10).
+              WB (Worldbuilding) is averaged over only the books that scored it, so realist genres show “—”.
+            </p>
+          )}
         </>
       )}
 
       <SectionHeading>By author</SectionHeading>
       <SortableTable
-        columns={BY_AUTHOR_COLS}
+        columns={authorCols}
         data={by_author}
         defaultSort={{ key: "books", dir: "desc" }}
         getRowKey={(r) => r.author}
+        scrollX={hasCats}
       />
     </div>
   );
@@ -284,10 +351,13 @@ export default function ReadingView({
   stats,
   status,
   kind = "fiction",
+  books,
 }: {
   stats: ReadingStatsResponse;
   status: ReadingStatusResponse;
   kind?: BookKind;
+  /** Fiction only: live books payload, used to derive per-category averages. */
+  books?: Book[];
 }) {
   const [tab, setTab] = useState<Tab>("stats");
 
@@ -308,7 +378,7 @@ export default function ReadingView({
       <SubTabs active={tab} onChange={setTab} />
 
       {tab === "stats" ? (
-        <StatsTab stats={stats} kind={kind} />
+        <StatsTab stats={stats} kind={kind} books={books} />
       ) : (
         <StatusTab status={status} kind={kind} />
       )}

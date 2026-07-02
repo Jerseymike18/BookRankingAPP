@@ -128,6 +128,7 @@ export function SortableTable<T extends object>({
   getRowKey,
   emptyMessage = "No data.",
   tableStyle,
+  scrollX = false,
 }: {
   columns: ColDef<T>[];
   data: T[];
@@ -135,11 +136,16 @@ export function SortableTable<T extends object>({
   getRowKey: (row: T, idx: number) => string;
   emptyMessage?: string;
   tableStyle?: React.CSSProperties;
+  /** Allow horizontal scroll for wide tables instead of clipping (default: clip). */
+  scrollX?: boolean;
 }) {
   const { sorted, sortState, handleSort } = useSortable(data, columns, defaultSort);
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-rule)" }}>
+    <div
+      className="rounded-xl"
+      style={{ border: "1px solid var(--color-rule)", overflowX: scrollX ? "auto" : "hidden", overflowY: "hidden" }}
+    >
       <table
         className="w-full text-sm"
         style={{ borderCollapse: "collapse", ...tableStyle }}
