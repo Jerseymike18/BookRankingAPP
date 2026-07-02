@@ -662,8 +662,9 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
       <SectionHeading>Authors: favorites &amp; reliability</SectionHeading>
       <Caption>
         Favorite score weights an author&apos;s best work far above their weakest, so one dud
-        doesn&apos;t sink a great catalog. Consistency (σ) is the spread of their ratings — lower is
-        steadier. Shown with at least 2 books.
+        doesn&apos;t sink a great catalog — with a small nudge toward steadier authors as a
+        tie-breaker. Consistency (σ) is the spread of their ratings — lower is steadier. Shown
+        with at least 2 books.
       </Caption>
       <SortableTable
         columns={AUTHOR_COLS}
