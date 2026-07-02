@@ -212,14 +212,17 @@ export interface AuthorStat {
 
 /* Peak-weighted author score. Sort the author's WAs descending, weight the
    k-th best book by decay^k (best book counts fully; tail fades), then add a
-   small capped depth bonus so a deep excellent catalog edges out a one-hit
-   author. decay=0.6 ≈ "your top 2–3 books define you." Finally subtract a small
-   σ penalty as a gentle tie-breaker: among otherwise-close authors the steadier
-   catalog edges ahead. It is deliberately small — the peak-weighting still leads,
-   so a great-but-erratic author isn't sunk by one weak book (σ=null for <2 books
-   → no penalty). */
+   small depth bonus so a deep excellent catalog edges out a one-hit author —
+   capped at DEPTH_CAP_BOOKS books so raw volume past a healthy catalog stops
+   adding credit (a 6-book and an 18-book author get the same depth bonus).
+   decay=0.6 ≈ "your top 2–3 books define you." Finally subtract a small σ penalty
+   as a gentle tie-breaker: among otherwise-close authors the steadier catalog
+   edges ahead. Both nudges stay small — the peak-weighting still leads, so a
+   great-but-erratic author isn't sunk by one weak book (σ=null for <2 books →
+   no penalty). */
 const FAV_DECAY = 0.6;
 const DEPTH_WEIGHT = 0.15;
+const DEPTH_CAP_BOOKS = 6; // depth credit saturates here; more volume isn't rewarded
 const CONSISTENCY_WEIGHT = 0.05;
 
 export function favoriteScore(was: number[]): number {
@@ -231,7 +234,8 @@ export function favoriteScore(was: number[]): number {
     den += w;
   }
   const weighted = num / den;                       // decay-weighted mean
-  const depthBonus = DEPTH_WEIGHT * Math.log2(sorted.length + 1);
+  const depthBooks = Math.min(sorted.length, DEPTH_CAP_BOOKS); // cap volume reward
+  const depthBonus = DEPTH_WEIGHT * Math.log2(depthBooks + 1);
   const consistencyPenalty = CONSISTENCY_WEIGHT * (stdev(sorted) ?? 0); // gentle σ tie-breaker
   return weighted + depthBonus - consistencyPenalty;
 }
