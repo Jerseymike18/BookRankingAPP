@@ -516,6 +516,14 @@ const AUTHOR_COLS: ColDef<AuthorStat>[] = [
   { key: "books", label: "Books", type: "numeric", getValue: (r) => r.books },
   { key: "avgWA", label: "Avg WA", type: "numeric", getValue: (r) => r.avgWA, formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
   {
+    key: "favorite",
+    label: "Favorite",
+    type: "numeric",
+    getValue: (r) => r.favoriteScore,
+    defaultDir: "desc", // best work first
+    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
+  },
+  {
     key: "consistency",
     label: "Consistency (σ)",
     type: "numeric",
@@ -651,15 +659,16 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
       </Panel>
 
       {/* 5. Author leaderboard */}
-      <SectionHeading>Who reliably delivers</SectionHeading>
+      <SectionHeading>Authors: favorites &amp; reliability</SectionHeading>
       <Caption>
-        Authors by average WA. Consistency is the spread (σ) of that author&apos;s WAs — lower means
-        more reliable. Shown only with at least 2 books.
+        Favorite score weights an author&apos;s best work far above their weakest, so one dud
+        doesn&apos;t sink a great catalog. Consistency (σ) is the spread of their ratings — lower is
+        steadier. Shown with at least 2 books.
       </Caption>
       <SortableTable
         columns={AUTHOR_COLS}
         data={authors}
-        defaultSort={{ key: "avgWA", dir: "desc" }}
+        defaultSort={{ key: "favorite", dir: "desc" }}
         getRowKey={(r) => r.author}
         emptyMessage="No authors in this slice."
       />

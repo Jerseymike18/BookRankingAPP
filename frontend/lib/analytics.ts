@@ -198,7 +198,7 @@ export function genresByVolume(books: Book[]): string[] {
   return genreAffinity(books).map((g) => g.genre);
 }
 
-/* ── 5. Author leaderboard: reliability ────────────────────────────────────── */
+/* ── 5. Author leaderboard: favorites + reliability ────────────────────────── */
 
 export interface AuthorStat {
   author: string;
@@ -206,6 +206,28 @@ export interface AuthorStat {
   avgWA: number;
   /** stdev of this author's WAs; null when fewer than 2 books. */
   consistency: number | null;
+  /** peak-weighted score: best work counts far above the tail (see favoriteScore). */
+  favoriteScore: number;
+}
+
+/* Peak-weighted author score. Sort the author's WAs descending, weight the
+   k-th best book by decay^k (best book counts fully; tail fades), then add a
+   small capped depth bonus so a deep excellent catalog edges out a one-hit
+   author. decay=0.6 ≈ "your top 2–3 books define you." */
+const FAV_DECAY = 0.6;
+const DEPTH_WEIGHT = 0.15;
+
+export function favoriteScore(was: number[]): number {
+  const sorted = [...was].sort((a, b) => b - a);
+  let num = 0, den = 0;
+  for (let k = 0; k < sorted.length; k++) {
+    const w = Math.pow(FAV_DECAY, k);
+    num += w * sorted[k];
+    den += w;
+  }
+  const weighted = num / den;                       // decay-weighted mean
+  const depthBonus = DEPTH_WEIGHT * Math.log2(sorted.length + 1);
+  return weighted + depthBonus;
 }
 
 export function authorLeaderboard(books: Book[]): AuthorStat[] {
@@ -220,6 +242,7 @@ export function authorLeaderboard(books: Book[]): AuthorStat[] {
     books: was.length,
     avgWA: was.reduce((a, b) => a + b, 0) / was.length,
     consistency: was.length >= 2 ? stdev(was) : null,
+    favoriteScore: favoriteScore(was),
   }));
 }
 
