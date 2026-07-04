@@ -43,6 +43,24 @@ scripts/setup-hooks.sh
 Verify with `git config core.hooksPath` → should print `scripts/hooks`. If the
 hooks ever seem not to fire, this is the first thing to check.
 
+## Silent auto-publish (hands-off)
+
+`bash start.sh` also launches a watcher ([scripts/autopublish.sh](scripts/autopublish.sh)) that
+commits and pushes every book edit automatically — so editing a book in the web app updates the
+live site with **no git commands at all**. It debounces a burst of edits into one push and only
+ever commits `books.db` + the snapshot; if other files are dirty it waits rather than sweep
+unrelated work into a data commit. It goes through the same hooks, so a push still can't ship a
+stale or invalid snapshot; a failed push (offline / remote ahead) keeps the commit and retries on
+the next edit.
+
+- **Disable for a run:** `AUTOPUBLISH=0 bash start.sh`
+- **Run standalone** (no servers): `scripts/autopublish.sh` (Ctrl-C to stop)
+- **One-shot** (publish what's pending, then exit): `scripts/autopublish.sh --once`
+- **Tune timing:** `AUTOPUBLISH_POLL` / `AUTOPUBLISH_QUIET` (seconds)
+
+Prefer explicit publishing? Set `AUTOPUBLISH=0` and use `git commit`/`git push` or
+`scripts/publish.sh` as below.
+
 ## What the hooks do
 
 - **pre-commit** — if a commit touches data-affecting files (`books.db`,
