@@ -409,6 +409,101 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
 
 
 # ---------------------------------------------------------------------------
+# Prediction-mechanism metadata (READ-ONLY) — reconstruct, for one prediction,
+# the dimensions delta_log now records so residuals can later be grouped by HOW
+# a prediction was made, not just by which book. Called by backend._maybe_log_delta
+# when a forecast book is finally rated, so the metadata lands on the delta_log
+# row alongside predicted-vs-actual.
+#
+# Faithfulness: every value comes from the SAME persisted inputs and reference
+# functions the prediction itself used — build_pairs / correct_book (the exact
+# author_genre correction) / _wa_from_components / the engine's resid_sd. No
+# engine math is reimplemented and nothing is written. The correction split is
+# read straight off correct_book's own ladder: 'raw' (post-smoothing baseline),
+# 'genre_reg' (adds the genre layer), 'author_genre' (adds the author layer) —
+# so corr_genre + corr_author == corr_wa by construction.
+#
+# Every field degrades to absent on missing inputs (e.g. a hand-scored book with
+# no cached raw LLM scores gets genre/author/words/analog counts/CI but no
+# correction split or conf), so partial metadata still logs rather than nothing.
+#
+# NOTE ON TIMING: this runs when the book is READ, re-deriving against the
+# current library. correct_and_predict excludes the target row from its training
+# pool (df[df.Book != title]); we replicate that, so counts/corrections match the
+# prediction closely. Any residual drift is only from books added between predict
+# and read — negligible for resid_sd (global, stable) and small for the n counts.
+# ---------------------------------------------------------------------------
+def build_prediction_meta(title, author, genre, words, pred_wa, resid_sd,
+                          books, gw, gcw, cache, corr_models=None):
+    """Return a dict of delta_log mechanism-metadata columns for this prediction.
+    Keys map 1:1 to db_write.DELTA_META_COLUMNS; any that cannot be derived are
+    omitted. Never raises for a single-field failure — best-effort per field."""
+    meta = {"pred_genre": genre, "pred_author": author}
+    try:
+        meta["pred_words"] = int(words) if words not in (None, "") else None
+    except (TypeError, ValueError):
+        pass
+
+    # Confidence/CI at prediction time. The half-width is the engine's own
+    # 1.645 * resid_sd (identical to correct_and_predict); the centre is pred_wa.
+    try:
+        half = 1.645 * float(resid_sd)
+        meta["ci_low"] = round(float(pred_wa) - half, 4)
+        meta["ci_high"] = round(float(pred_wa) + half, 4)
+        meta["ci_width"] = round(2 * half, 4)
+    except (TypeError, ValueError):
+        pass
+
+    entry = cache.get(title) if isinstance(cache, dict) else None
+    raw = entry.get("scores") if isinstance(entry, dict) else None
+    if isinstance(entry, dict) and entry.get("conf"):
+        meta["conf"] = entry["conf"]
+
+    # Grounding counts = analog blend weights (author layer n/(n+K_AUTHOR), genre
+    # layer n/(n+K_GENRE)). Same training pool as correct_and_predict, target row
+    # excluded. analog_src names the tightest pool that actually fired.
+    df = None
+    try:
+        df = rm.build_pairs(books, cache)
+        df = df[df["Book"] != title].reset_index(drop=True)
+        n_genre = int((df["Genre"] == genre).sum())
+        n_author = int((df["Author"] == author).sum())
+        meta["n_genre"] = n_genre
+        meta["n_author"] = n_author
+        meta["analog_src"] = ("author" if n_author > 0
+                              else "genre" if n_genre > 0 else "global")
+    except Exception:
+        df = None
+
+    # Correction split, read off correct_book's ladder on THIS book's cached raw
+    # LLM scores (smoothed first when corr_models given, exactly as production).
+    try:
+        if df is not None and isinstance(raw, dict) and all(c in raw for c in LIVE):
+            smoothed = smooth_components(raw, corr_models) if corr_models else dict(raw)
+            newrow = {"Book": title, "Genre": genre, "Author": author}
+            for c in LIVE:
+                newrow["llm_" + c] = float(smoothed[c])
+            df2 = pd.concat([df, pd.DataFrame([newrow])], ignore_index=True)
+            i = len(df2) - 1
+            base_wa = _wa_from_components(rm.correct_book(df2, i, "raw"), genre, gw, gcw)
+            gen_wa  = _wa_from_components(rm.correct_book(df2, i, "genre_reg"), genre, gw, gcw)
+            full_wa = _wa_from_components(rm.correct_book(df2, i, "author_genre"), genre, gw, gcw)
+            meta["corr_genre"] = round(gen_wa - base_wa, 4)
+            meta["corr_author"] = round(full_wa - gen_wa, 4)
+            meta["corr_wa"] = round(full_wa - base_wa, 4)
+            # DeltaTracker per-component correction is a manual Excel P-step and
+            # is NOT wired into this coded path (see residual_bias_diagnostic.py),
+            # so it is left NULL here rather than fabricated.
+            meta["corr_dtracker"] = None
+            meta["corr_method"] = ("corr_smooth+author_genre" if corr_models
+                                   else "author_genre")
+    except Exception:
+        pass
+
+    return meta
+
+
+# ---------------------------------------------------------------------------
 # Discover: idea-generation step. One API call asks the LLM to PROPOSE candidate
 # books for a free-text request, aimed at your taste and avoiding what you've
 # read. It returns candidates ONLY (no scores, no opinions) — your engine scores

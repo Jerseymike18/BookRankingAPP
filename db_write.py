@@ -78,15 +78,57 @@ def _ensure_series_number():
 
 
 # ---------------------------------------------------------------------------
+# Research model that produces predictions (Opus-era). Kept in sync with
+# research_layer.MODEL — the canonical research-pipeline constant (CLAUDE.md:
+# "single named constant per pipeline"). Stamped onto every live delta_log row
+# so Opus-era predicted-vs-actual pairs can later be recomputed in isolation,
+# without the older Sonnet-era rows (which stay NULL and are never relabeled).
+# ---------------------------------------------------------------------------
+RESEARCH_MODEL = "claude-opus-4-8"
+
+
+# ---------------------------------------------------------------------------
+# Mechanism-metadata columns on delta_log (2026-07 upgrade). Each captures ONE
+# dimension of HOW a prediction was made, so residuals can later be grouped by
+# mechanism (genre / author / confidence / correction magnitude / CI width),
+# not just by book — turning calibration from book-level to mechanism-level.
+# All nullable; the idempotent ALTER-if-missing path (mirroring how pred_model
+# was added) leaves every historical row NULL and never relabels it. Populated
+# going forward by log_delta(meta=...). Kept as one (name, type) list so
+# _ensure_delta_log builds both the CREATE fragment and the ALTER loop from it,
+# and log_delta whitelists writes against it.
+#   analogs+weights : n_author / n_genre ARE the blend weights — the author layer
+#                     gets n/(n+K_AUTHOR), the genre layer n/(n+K_GENRE)
+#                     (reresearch_and_measure.correct_book); analog_src names the
+#                     pool that fired.
+#   corrections     : corr_method = which corrections ran; corr_genre/corr_author
+#                     = the two hierarchical author_genre layers in WA points;
+#                     corr_dtracker = the manual DeltaTracker per-component pass
+#                     (Excel-only P-step — NULL on the coded path); corr_wa = net.
+#   confidence/CI   : conf = model's own flag; ci_low/ci_high/ci_width at predict.
+# ---------------------------------------------------------------------------
+DELTA_META_COLUMNS = [
+    ("pred_genre", "TEXT"), ("pred_author", "TEXT"), ("pred_words", "INTEGER"),
+    ("analog_src", "TEXT"), ("n_author", "INTEGER"), ("n_genre", "INTEGER"),
+    ("corr_method", "TEXT"), ("corr_genre", "REAL"), ("corr_author", "REAL"),
+    ("corr_dtracker", "REAL"), ("corr_wa", "REAL"),
+    ("ci_low", "REAL"), ("ci_high", "REAL"), ("ci_width", "REAL"), ("conf", "TEXT"),
+]
+
+
 # Schema migration: delta_log table (created once on first import)
 # ---------------------------------------------------------------------------
 def _ensure_delta_log():
-    """Create the delta_log table if it doesn't exist yet."""
+    """Create the delta_log table if it doesn't exist yet, and add newer tag
+    columns (pred_model, then the DELTA_META_COLUMNS mechanism-metadata block)
+    on older DBs that predate them. Idempotent ALTER-if-missing; pre-existing
+    rows keep every added column NULL — historical deltas are never relabeled."""
     comp_cols = []
     for prefix in ("pred_", "act_", "d_"):
         for c in FICTION_COMPONENTS:
             comp_cols.append(f'"{prefix}{_col(c)}" REAL')
     col_ddl = ",\n    ".join(comp_cols)
+    meta_ddl = ",\n    ".join(f"{name} {typ}" for name, typ in DELTA_META_COLUMNS)
     ddl = f"""
     CREATE TABLE IF NOT EXISTS delta_log (
         id         INTEGER PRIMARY KEY,
@@ -95,10 +137,19 @@ def _ensure_delta_log():
         pred_wa    REAL,
         act_wa     REAL,
         d_wa       REAL,
-        {col_ddl}
+        {col_ddl},
+        pred_model TEXT,
+        {meta_ddl}
     )"""
     con = _connect()
     con.execute(ddl)
+    # Back-compat: add each newer column to DBs created before it existed. Rows
+    # that predate a column keep it NULL (never retroactively relabeled) — the
+    # same discipline pred_model shipped with, now extended to the metadata block.
+    have = [r[1] for r in con.execute("PRAGMA table_info(delta_log)").fetchall()]
+    for name, typ in [("pred_model", "TEXT")] + DELTA_META_COLUMNS:
+        if name not in have:
+            con.execute(f"ALTER TABLE delta_log ADD COLUMN {name} {typ}")
     con.commit()
     con.close()
 
@@ -460,7 +511,8 @@ def update_queue(titles):
 # WRITE: record a prediction-vs-actual delta when a forecast book gets rated
 # ---------------------------------------------------------------------------
 def log_delta(title: str, pred_scores: dict, pred_wa: float,
-              act_scores: dict, act_wa: float) -> None:
+              act_scores: dict, act_wa: float,
+              pred_model: str = None, meta: dict = None) -> None:
     """
     Record predicted vs actual component scores and WA delta for a book that
     previously had a stored prediction. pred_scores / act_scores are both
@@ -468,6 +520,17 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
     (actual − predicted) — matching backfill_delta_log and the DeltaTracker
     sheet (positive == underprediction). Never raises — delta logging is
     non-fatal.
+
+    pred_model tags which research model produced the prediction; it defaults
+    to RESEARCH_MODEL (the current Opus pipeline) so live pairs accrue under
+    the Opus tag for later isolated recalibration. Historical Sonnet-era rows
+    stay NULL and are never relabeled.
+
+    meta (optional) carries the prediction-mechanism metadata for this row:
+    any subset of DELTA_META_COLUMNS keys (genre/author/words, analog counts,
+    correction split, CI, confidence). Only recognised, non-None keys are
+    written; anything absent stays NULL. meta=None reproduces the pre-upgrade
+    write exactly, so backfill_delta_log and any legacy caller are unaffected.
     """
     try:
         logged_at = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -475,7 +538,7 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
         act_cols  = [f'"act_{_col(c)}"'  for c in FICTION_COMPONENTS]
         d_cols    = [f'"d_{_col(c)}"'    for c in FICTION_COMPONENTS]
         all_cols  = (["title", "logged_at", "pred_wa", "act_wa", "d_wa"]
-                     + pred_cols + act_cols + d_cols)
+                     + pred_cols + act_cols + d_cols + ["pred_model"])
         pred_vals = [pred_scores.get(c) for c in FICTION_COMPONENTS]
         act_vals  = [act_scores.get(c)  for c in FICTION_COMPONENTS]
         d_vals    = [
@@ -484,17 +547,26 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
             else None
             for c in FICTION_COMPONENTS
         ]
+        model_tag = pred_model if pred_model is not None else RESEARCH_MODEL
         all_vals = (
             [title, logged_at, pred_wa, act_wa, (act_wa - pred_wa)]
-            + pred_vals + act_vals + d_vals
+            + pred_vals + act_vals + d_vals + [model_tag]
         )
+        # Append recognised mechanism-metadata fields (whitelisted against
+        # DELTA_META_COLUMNS so a stray key can never inject a column name).
+        if meta:
+            for name, _typ in DELTA_META_COLUMNS:
+                if meta.get(name) is not None:
+                    all_cols.append(name)
+                    all_vals.append(meta[name])
         ph = ",".join("?" for _ in all_vals)
         col_str = ",".join(all_cols)
         con = _connect()
         con.execute(f"INSERT INTO delta_log ({col_str}) VALUES ({ph})", all_vals)
         con.commit()
         con.close()
-        print(f"  (delta logged for '{title}': d_wa={act_wa - pred_wa:+.3f})")
+        print(f"  (delta logged for '{title}': d_wa={act_wa - pred_wa:+.3f}, "
+              f"model={model_tag})")
     except Exception as exc:
         print(f"  (delta log skipped for '{title}': {exc})")
 

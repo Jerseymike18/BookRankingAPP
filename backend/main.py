@@ -355,7 +355,8 @@ def _maybe_log_delta(title: str, act_scores: dict) -> None:
     """Check recommendations for a stored prediction and log delta if found."""
     con = sqlite3.connect(db_write.DB)
     row = con.execute(
-        "SELECT genre, " + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
+        "SELECT genre, author, words, "
+        + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
         + ' FROM recommendations WHERE LOWER(title)=LOWER(?) ORDER BY id DESC LIMIT 1',
         (title,)
     ).fetchone()
@@ -363,13 +364,14 @@ def _maybe_log_delta(title: str, act_scores: dict) -> None:
     if row is None:
         return  # no prediction on record
 
-    genre = row[0]
-    pred_scores = dict(zip(db_write.FICTION_COMPONENTS, row[1:]))
+    genre, author, words = row[0], row[1], row[2]
+    pred_scores = dict(zip(db_write.FICTION_COMPONENTS, row[3:]))
     if not any(v is not None for v in pred_scores.values()):
         return  # recommendation exists but has no component scores
 
     # Compute pred_wa by running the same WA formula as db_loader
-    books, gw, gcw = _get_engine()[:3]
+    engine = _get_engine()
+    books, gw, gcw, resid_sd = engine[0], engine[1], engine[2], engine[5]
     wcats = {
         cat: db_loader._weighted_cat_avg(pred_scores, genre, cat, gcw)
         for cat in db_loader.CATEGORY_OF_INTEREST
@@ -383,7 +385,30 @@ def _maybe_log_delta(title: str, act_scores: dict) -> None:
         return
     act_wa = float(match.iloc[0]["WA"])
 
-    db_write.log_delta(title, pred_scores, pred_wa, act_scores, act_wa)
+    # Reconstruct the prediction-mechanism metadata (genre/author/words, analog
+    # counts = blend weights, correction split, CI, confidence) from the SAME
+    # persisted inputs and reference functions the prediction used — read-only,
+    # no engine math reimplemented. Best-effort: partial or None on any failure,
+    # and log_delta writes whatever survives (missing fields stay NULL).
+    meta = None
+    if _rp is not None:
+        try:
+            cache = _rp.load_cache()
+            try:
+                corr_models = _rp.build_corr_models(books, cache)
+            except Exception:
+                corr_models = None
+            meta = _rp.build_prediction_meta(
+                title, author, genre, words, pred_wa, resid_sd,
+                books, gw, gcw, cache, corr_models=corr_models)
+        except Exception:
+            meta = None
+
+    # Tag the delta with the current research model (Opus pipeline) so
+    # Opus-era predicted-vs-actual pairs accrue under their own label for a
+    # later clean recalibration. Pre-Opus rows stay NULL (not relabeled).
+    db_write.log_delta(title, pred_scores, pred_wa, act_scores, act_wa,
+                       pred_model=db_write.RESEARCH_MODEL, meta=meta)
 
 
 class EditRatingRequest(BaseModel):

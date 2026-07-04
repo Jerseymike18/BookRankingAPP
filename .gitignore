@@ -11,6 +11,8 @@ out/
 
 # Local DB backups created by db_write._backup_once() — keep on disk, don't track
 books.db.backup-*
+# Local workbook backups (made before manual xlsx edits) — keep on disk, don't track
+BookRankingsNew.xlsx.backup-*
 
 # Stray SQLite files if a tool opens a db from the frontend dir (the real DB is
 # books.db at the project root). frontend/ never legitimately holds one.
