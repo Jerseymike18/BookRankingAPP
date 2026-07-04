@@ -139,52 +139,6 @@
       "year_read": 2025
     },
     {
-      "author": "Steven Erikson",
-      "category_avgs": {
-        "Aesthetics": 9.0875,
-        "Character": 9.25,
-        "Story": 9.49,
-        "Theme": 9.2143,
-        "Worldbuilding": 9.4444
-      },
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.9,
-          "Prose": 9.2
-        },
-        "Character": {
-          "Depth": 8.9,
-          "Emotional Impact": 9.8,
-          "Motivations": 9.1
-        },
-        "Story": {
-          "Action": 9.8,
-          "Ending": 9.7,
-          "Entertainment": 9.5,
-          "Plot": 9.2
-        },
-        "Theme": {
-          "Insights": 8.7,
-          "Thought-Provokingness": 9.6
-        },
-        "Worldbuilding": {
-          "Depth2": 9.5,
-          "Integration": 9.3,
-          "Originality": 9.5
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 4,
-      "series": "Malazan: Book of the Fallen",
-      "series_number": 2,
-      "slug": "deadhouse-gates",
-      "title": "Deadhouse Gates",
-      "wa": 9.3447,
-      "words": 267000,
-      "year": 2026,
-      "year_read": 2026
-    },
-    {
       "author": "Michael Ende",
       "category_avgs": {
         "Aesthetics": 9.2125,
@@ -220,7 +174,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 5,
+      "rank": 4,
       "series": "Standalone",
       "series_number": null,
       "slug": "the-neverending-story",
@@ -229,6 +183,52 @@
       "words": 111000,
       "year": 2025,
       "year_read": 2025
+    },
+    {
+      "author": "Steven Erikson",
+      "category_avgs": {
+        "Aesthetics": 9.0875,
+        "Character": 9.25,
+        "Story": 9.49,
+        "Theme": 9.0429,
+        "Worldbuilding": 9.4444
+      },
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.9,
+          "Prose": 9.2
+        },
+        "Character": {
+          "Depth": 8.9,
+          "Emotional Impact": 9.8,
+          "Motivations": 9.1
+        },
+        "Story": {
+          "Action": 9.8,
+          "Ending": 9.7,
+          "Entertainment": 9.5,
+          "Plot": 9.2
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.3
+        },
+        "Worldbuilding": {
+          "Depth2": 9.5,
+          "Integration": 9.3,
+          "Originality": 9.5
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 5,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 2,
+      "slug": "deadhouse-gates",
+      "title": "Deadhouse Gates",
+      "wa": 9.3233,
+      "words": 267000,
+      "year": 2026,
+      "year_read": 2026
     },
     {
       "author": "Steven Erikson",

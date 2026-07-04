@@ -115,44 +115,6 @@
       "year_read": 2025
     },
     {
-      "author": "Steven Erikson",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.9,
-          "Prose": 9.2
-        },
-        "Character": {
-          "Depth": 8.9,
-          "Emotional Impact": 9.8,
-          "Motivations": 9.1
-        },
-        "Story": {
-          "Action": 9.8,
-          "Ending": 9.7,
-          "Entertainment": 9.5,
-          "Plot": 9.2
-        },
-        "Theme": {
-          "Insights": 8.7,
-          "Thought-Provokingness": 9.6
-        },
-        "Worldbuilding": {
-          "Depth2": 9.5,
-          "Integration": 9.3,
-          "Originality": 9.5
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 4,
-      "series": "Malazan: Book of the Fallen",
-      "series_number": 2,
-      "tier": "S",
-      "title": "Deadhouse Gates",
-      "wa": 9.3447,
-      "words": 267000,
-      "year_read": 2026
-    },
-    {
       "author": "Michael Ende",
       "components": {
         "Aesthetics": {
@@ -181,7 +143,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 5,
+      "rank": 4,
       "series": "Standalone",
       "series_number": null,
       "tier": "S",
@@ -189,6 +151,44 @@
       "wa": 9.329,
       "words": 111000,
       "year_read": 2025
+    },
+    {
+      "author": "Steven Erikson",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.9,
+          "Prose": 9.2
+        },
+        "Character": {
+          "Depth": 8.9,
+          "Emotional Impact": 9.8,
+          "Motivations": 9.1
+        },
+        "Story": {
+          "Action": 9.8,
+          "Ending": 9.7,
+          "Entertainment": 9.5,
+          "Plot": 9.2
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.3
+        },
+        "Worldbuilding": {
+          "Depth2": 9.5,
+          "Integration": 9.3,
+          "Originality": 9.5
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 5,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 2,
+      "tier": "S",
+      "title": "Deadhouse Gates",
+      "wa": 9.3233,
+      "words": 267000,
+      "year_read": 2026
     },
     {
       "author": "Steven Erikson",
