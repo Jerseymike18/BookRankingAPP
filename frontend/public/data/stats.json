@@ -33,22 +33,22 @@
       "wa": 9.5582
     },
     {
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "rank": 3,
+      "title": "The Neverending Story",
+      "total_average": 9.32,
+      "type": "fiction",
+      "wa": 9.329
+    },
+    {
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
-      "rank": 3,
+      "rank": 4,
       "title": "Deadhouse Gates",
       "total_average": 9.29,
       "type": "fiction",
       "wa": 9.3447
-    },
-    {
-      "author": "Michael Ende",
-      "genre": "Literary Fantasy",
-      "rank": 4,
-      "title": "The Neverending Story",
-      "total_average": 9.285,
-      "type": "fiction",
-      "wa": 9.2905
     },
     {
       "author": "Steven Erikson",

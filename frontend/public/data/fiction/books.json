@@ -189,8 +189,8 @@
       "category_avgs": {
         "Aesthetics": 9.2125,
         "Character": 9.65,
-        "Story": 9.055,
-        "Theme": 9.1,
+        "Story": 9.1,
+        "Theme": 9.2,
         "Worldbuilding": 9.6556
       },
       "components": {
@@ -204,13 +204,13 @@
           "Motivations": 9.6
         },
         "Story": {
-          "Action": 6.8,
+          "Action": 7.1,
           "Ending": 9.5,
           "Entertainment": 9.3,
           "Plot": 9.5
         },
         "Theme": {
-          "Insights": 8.8,
+          "Insights": 9.0,
           "Thought-Provokingness": 9.4
         },
         "Worldbuilding": {
@@ -225,7 +225,7 @@
       "series_number": null,
       "slug": "the-neverending-story",
       "title": "The Neverending Story",
-      "wa": 9.2905,
+      "wa": 9.329,
       "words": 111000,
       "year": 2025,
       "year_read": 2025

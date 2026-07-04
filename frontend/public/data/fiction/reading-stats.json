@@ -72,7 +72,7 @@
     },
     {
       "author": "Michael Ende",
-      "avg_wa": 8.67,
+      "avg_wa": 8.69,
       "books": 2
     },
     {
@@ -284,7 +284,7 @@
       "genre": "Science Fiction (Hard)"
     },
     {
-      "avg_total_average": 7.13,
+      "avg_total_average": 7.14,
       "avg_wa": 7.1,
       "avg_words": 99923.0,
       "books": 13,
@@ -314,7 +314,7 @@
   ],
   "per_year": [
     {
-      "avg_total_average": 7.24,
+      "avg_total_average": 7.25,
       "avg_wa": 7.51,
       "avg_words": 205640.0,
       "books": 73,
