@@ -128,3 +128,6 @@ types in `lib/types.ts`.
 - When in doubt about whether something is a derived-math change or a presentation change:
   if it changes a number, it's probably math (read-only); if it changes how an existing
   number is displayed or sorted, it's presentation (fair game).
+- Pre-deploy: if `predict_engine.py` or `validate_engine.py` changed, regenerate the
+  prediction-interval residual table (`python3 validate_engine.py --write-residuals`) so
+  `calibration/residuals.json` matches the live engine (else served intervals show "stale").

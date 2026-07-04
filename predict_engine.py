@@ -41,6 +41,44 @@ CATEGORY_WAVG_HEADER = {
 }
 REGRESSION_CATS = ["Story", "Character", "Aesthetics", "Theme"]
 
+# ---------------------------------------------------------------------------
+# Analog-baseline selection mode (per-component)
+# ---------------------------------------------------------------------------
+# The per-component analog baseline (see estimate_components) has three nested
+# tiers in THIS engine: global -> genre -> author. `author` is the innermost
+# (tightest) pool; there is no sub-author "cluster" grouping, so the four-tier
+# cluster/author/genre/global scheme from the shrinkage brief collapses to
+# three tiers here (author plays the innermost/"cluster" role).
+#
+#   "hard"   — original behaviour: pick ONE tier by a hard fallback ladder
+#              (author mean if >=2 books, else genre mean if >=2, else global).
+#              A mean over 2-4 books is trusted as fully as a mean over 10.
+#   "shrunk" — empirical-Bayes shrinkage: blend each tier toward its parent,
+#              weighted by sample support, so thin tiers get pulled toward the
+#              broader (safer) mean and data-rich tiers barely move.
+#
+# This flag stayed "hard" until the leave-one-out gate in validate_engine.py
+# passed, then flipped to "shrunk". Gate result (127-book LOO, K=0.5/0.5):
+#   overall WA MAE 0.7740 -> 0.7203 ; small-n bucket 0.6488 -> 0.6326 (better) ;
+#   data-rich bucket 0.7565 -> 0.7513 (within +0.03) ; test_engine.py green.
+# The shrinkage is strictly UPSTREAM of the genre-bias / DeltaTracker
+# corrections — those are unchanged. Re-run `python3 validate_engine.py` to
+# reproduce the A/B and the gate.
+ANALOG_MODE = "shrunk"    # "hard" | "shrunk"
+
+# Shrinkage strengths ("how many books of support before a tier is trusted on
+# its own"). Shared per tier, NOT per component — 126 books cannot support
+# per-component tuning without overfitting. Tuned by LOO grid search over the
+# brief's grid {0.5,1,2,3,5,8,12}, minimising overall component MAE; the minimum
+# is at (0.5, 0.5). LOO MAE keeps dropping marginally below 0.5 (~0.003 WA MAE
+# from 0.5 -> 0.1) but that only comes from trusting singleton pools ever harder
+# (weight 0.67 at k=0.5 vs 0.91 at k=0.1) — i.e. re-introducing the very
+# tiny-pool overfitting this change exists to fix — so 0.5 is the deliberate,
+# robust floor. See validate_engine.tune_k(). (research_predict.py uses K_GENRE=6
+# / K_AUTHOR=4 for its own, differently-structured WA-level blend.)
+K_AUTHOR = 0.5            # author mean -> genre_hat
+K_GENRE = 0.5            # genre mean  -> global mean
+
 
 def _header_map(ws):
     hdr = next(ws.iter_rows(values_only=True))
@@ -164,26 +202,95 @@ def fit_upstream(books):
     return out
 
 
-def estimate_components(books, author, genre, upstream):
+def _shrink(n, level_mean, parent_hat, k):
+    """One empirical-Bayes shrink step.
+
+    Blend a tier's own mean toward its parent estimate, weighted by how much
+    data supports the tier:  (n*level_mean + k*parent_hat) / (n + k).
+      * n == 0  -> collapses exactly to parent_hat (the tier contributes
+        nothing), so a missing tier needs no special-casing.
+      * n >> k  -> converges to level_mean (a data-rich tier barely moves).
+    """
+    return (n * level_mean + k * parent_hat) / (n + k)
+
+
+def _shrunk_component_estimates(books, by_author, by_genre, all_components,
+                                k_author, k_genre):
+    """Per-component nested EB shrinkage: global -> genre_hat -> author_hat.
+
+    author_hat is the analog baseline. Missing tiers have n=0 and collapse to
+    their parent (see _shrink), so there is no fallback branching — a book by an
+    unseen author shrinks to the genre estimate, and an unseen genre to global.
+    n is counted per component (a tier can have full support for Prose but none
+    for an optional Worldbuilding component); shrinkage is applied independently
+    per component using the shared per-tier constants.
+    """
+    est = {}
+    for comp in all_components:
+        gvals = books[comp].dropna()
+        global_mean = float(gvals.mean()) if len(gvals) else np.nan
+        avals = by_author[comp].dropna()
+        grvals = by_genre[comp].dropna()
+        n_a, n_g = len(avals), len(grvals)
+        author_mean = float(avals.mean()) if n_a else 0.0
+        genre_mean = float(grvals.mean()) if n_g else 0.0
+        genre_hat = _shrink(n_g, genre_mean, global_mean, k_genre)
+        author_hat = _shrink(n_a, author_mean, genre_hat, k_author)
+        est[comp] = author_hat
+    return est
+
+
+def estimate_components(books, author, genre, upstream, mode=None,
+                        k_author=None, k_genre=None):
+    """Estimate the per-component prior for an unread book.
+
+    mode="hard"   -> original fallback ladder (author>=2 else genre>=2 else
+                     global), byte-identical to the pre-shrinkage engine.
+    mode="shrunk" -> empirical-Bayes shrinkage across the same three tiers.
+    mode=None     -> use the module default ANALOG_MODE.
+
+    The Section-7 upstream refinement (Ending / Emotional Impact) is applied
+    identically in both modes — it is downstream of the analog baseline, so it
+    never confounds the hard-vs-shrunk comparison.
+    """
+    if mode is None:
+        mode = ANALOG_MODE
     all_components = components_of(books)
     by_author = books[books["Author"] == author]
     by_genre = books[books["Genre"] == genre]
-    if len(by_author) >= 2:
-        src_name, src = "author", by_author
-    elif len(by_genre) >= 2:
-        src_name, src = "genre", by_genre
-    else:
-        src_name, src = "global", books
-    est = {}
-    for comp in all_components:
-        vals = src[comp].dropna()
-        est[comp] = float(vals.mean()) if len(vals) else float(books[comp].dropna().mean())
+
+    if mode == "shrunk":
+        est = _shrunk_component_estimates(
+            books, by_author, by_genre, all_components,
+            K_AUTHOR if k_author is None else k_author,
+            K_GENRE if k_genre is None else k_genre)
+        # src label is for the human-facing report only; the shrunk baseline is
+        # a blend, so we name the tightest pool that carried any weight.
+        if len(by_author):
+            src_name, n_src = "author-shrunk", len(by_author)
+        elif len(by_genre):
+            src_name, n_src = "genre-shrunk", len(by_genre)
+        else:
+            src_name, n_src = "global-shrunk", len(books)
+    else:  # "hard" — original behaviour, unchanged
+        if len(by_author) >= 2:
+            src_name, src = "author", by_author
+        elif len(by_genre) >= 2:
+            src_name, src = "genre", by_genre
+        else:
+            src_name, src = "global", books
+        est = {}
+        for comp in all_components:
+            vals = src[comp].dropna()
+            est[comp] = float(vals.mean()) if len(vals) else float(books[comp].dropna().mean())
+        n_src = len(src)
+
     for target, model in upstream.items():
         coef, drivers = model["coef"], model["drivers"]
         if all(d in est for d in drivers):
             pred = coef[0] + sum(coef[k + 1] * est[drivers[k]] for k in range(len(drivers)))
             est[target] = 0.5 * est[target] + 0.5 * float(pred)
-    return est, src_name, len(src)
+    return est, src_name, n_src
 
 
 def components_to_wcats(comp_values, genre, gcw, books=None):

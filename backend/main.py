@@ -74,6 +74,31 @@ except Exception:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# CONFORMAL PREDICTION INTERVALS  (additive — never changes a point prediction)
+# ─────────────────────────────────────────────────────────────────────────────
+# calibration/residuals.json is a precomputed OFFLINE snapshot of leave-one-out
+# residuals bucketed by data density, built by:
+#     python3 validate_engine.py --write-residuals
+# We load it ONCE at import (never per request — LOO refits ~127 times) and use
+# it to attach an 80% interval to /api/predict/instant. If the file is missing,
+# the interval fields are simply omitted; a width is never invented. If the file
+# was built by a different engine (hash mismatch) we warn once and mark served
+# intervals "stale".
+import intervals as _intervals
+
+_RESIDUALS_PATH = os.path.join(PROJECT_ROOT, "calibration", "residuals.json")
+_RESIDUALS = _intervals.load_residuals(_RESIDUALS_PATH)
+_ENGINE_HASH = _intervals.engine_hash(PROJECT_ROOT)
+if _RESIDUALS is not None and _RESIDUALS.get("engine_hash") != _ENGINE_HASH:
+    import logging
+    logging.getLogger("uvicorn.error").warning(
+        "calibration/residuals.json was built by a different engine "
+        "(table=%s, serving=%s); prediction intervals will be marked 'stale'. "
+        "Regenerate with `python3 validate_engine.py --write-residuals`.",
+        _RESIDUALS.get("engine_hash"), _ENGINE_HASH)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ENGINE CACHE
 # ─────────────────────────────────────────────────────────────────────────────
 # The engine tuple (books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream) is
@@ -936,7 +961,7 @@ def predict_instant(title: str, author: str, genre: str):
         p = pe.predict(title, author, genre, data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
-    return {
+    resp = {
         "title": title, "author": author, "genre": genre,
         "wa_final": round(p["wa_final"], 4),
         "ci": [round(p["ci"][0], 4), round(p["ci"][1], 4)],
@@ -953,6 +978,25 @@ def predict_instant(title: str, author: str, genre: str):
         "resid_sd": round(p["resid_sd"], 4),
         "est": {k: round(float(v), 4) for k, v in p["est"].items()},
     }
+    # Additive 80% conformal interval. Bucket the NEW prediction by how many
+    # same-author analogs the library holds — the SAME density definition the
+    # LOO residual table uses (intervals.density_bucket), so no miscoverage from
+    # drift. Omit the fields entirely when no table is loaded / no width exists.
+    if _RESIDUALS is not None:
+        n_author = int((books_e["Author"] == author).sum())
+        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+        if iv is not None:
+            hw = iv["half_width"]
+            resp.update({
+                "wa_low": round(p["wa_final"] - hw, 4),
+                "wa_high": round(p["wa_final"] + hw, 4),
+                "bucket": iv["bucket"],
+                "bucket_label": iv["bucket_label"],
+                "pooled": iv["pooled"],
+                "calibrated_at": iv["calibrated_at"],
+                "stale": iv["stale"],
+            })
+    return resp
 
 
 class ResearchRequest(BaseModel):
@@ -1045,7 +1089,7 @@ def predict_research(req: ResearchRequest):
     # would multiply that. Both are deferred to /api/recommendations (save time),
     # so they're only paid for books the reader actually keeps. The plain research
     # blurb below is what's shown while browsing; save upgrades it.
-    return {
+    resp = {
         "title": res["title"], "author": res["author"], "genre": res["genre"],
         "wa": round(res["wa"], 4),
         "ci": [round(res["ci"][0], 4), round(res["ci"][1], 4)],
@@ -1064,6 +1108,28 @@ def predict_research(req: ResearchRequest):
         "sourcing": "hybrid" if applied_grounded else "memory",
         "hybrid_available": bool(grounding_on and not applied_grounded),
     }
+    # Additive 80% conformal interval — the SAME density-bucketed table served by
+    # /api/predict/instant. n_author is recomputed from the library exactly as the
+    # instant path does, so bucketing can't drift from the LOO definition. The band
+    # is calibrated on the analog engine's LOO residuals and centred here on the
+    # research WA as an empirical error band at this data density (mildly
+    # conservative for the usually-tighter research prediction). Omitted entirely
+    # when no residual table is loaded — a width is never invented.
+    if _RESIDUALS is not None:
+        n_author = int((books_e["Author"] == res["author"]).sum())
+        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+        if iv is not None:
+            hw = iv["half_width"]
+            resp.update({
+                "wa_low": round(res["wa"] - hw, 4),
+                "wa_high": round(res["wa"] + hw, 4),
+                "bucket": iv["bucket"],
+                "bucket_label": iv["bucket_label"],
+                "pooled": iv["pooled"],
+                "calibrated_at": iv["calibrated_at"],
+                "stale": iv["stale"],
+            })
+    return resp
 
 
 # ─────────────────────────────────────────────────────────────────────────────

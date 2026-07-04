@@ -664,9 +664,14 @@ function ScoredCard({
           }}
         >
           <div className="flex gap-3 text-sm flex-wrap">
-            <span style={{ color: "var(--color-ink)" }}>
-              <strong>90% CI:</strong> {result.ci[0].toFixed(2)} – {result.ci[1].toFixed(2)}
-            </span>
+            {/* Regression 90% CI is shown only as a fallback: when the empirical
+                80% interval is available (below) it supersedes this narrower,
+                overconfident band, so we don't show both. */}
+            {result.wa_low == null && (
+              <span style={{ color: "var(--color-ink)" }}>
+                <strong>90% CI:</strong> {result.ci[0].toFixed(2)} – {result.ci[1].toFixed(2)}
+              </span>
+            )}
             {result.words && (
               <span style={{ color: "var(--color-muted)" }}>
                 ~{result.words.toLocaleString()} words
@@ -676,6 +681,25 @@ function ScoredCard({
 
           {/* PRIMARY: grounding */}
           <GroundingBadge nGenre={result.n_genre} nAuthor={result.n_author} />
+
+          {/* Empirical 80% interval from LOO residuals at this data density.
+              Secondary to grounding, per the display decision. */}
+          {result.wa_low != null && result.wa_high != null && (
+            <p className="text-sm" style={{ color: "var(--color-ink)" }}>
+              <strong>{result.wa.toFixed(1)}</strong>{" "}
+              <span style={{ color: "var(--color-muted)" }}>
+                ({result.wa_low.toFixed(1)}–{result.wa_high.toFixed(1)}, 80% interval)
+              </span>
+              {result.bucket_label && (
+                <span style={{ color: "var(--color-faint)" }}>
+                  {" · "}{result.bucket_label}
+                  {result.pooled && " (pooled)"}
+                  {result.stale && " · stale"}
+                </span>
+              )}
+            </p>
+          )}
+
           <p className="text-xs" style={{ color: "var(--color-faint)" }}>
             Model self-confidence: {result.conf} — less reliable than the grounding signal above.
           </p>

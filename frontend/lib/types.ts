@@ -111,6 +111,15 @@ export interface ResearchResult {
   genre_auto_detected: boolean;
   sourcing?: "memory" | "hybrid";   // which source produced these scores
   hybrid_available?: boolean;        // a grounded (hybrid) upgrade can be fetched
+  // Additive conformal 80% interval — present only when the backend has a
+  // residual table loaded (calibration/residuals.json). Omitted otherwise.
+  wa_low?: number;
+  wa_high?: number;
+  bucket?: string;                   // internal density-bucket key
+  bucket_label?: string;             // human label: author-rich / genre only / …
+  pooled?: boolean;                  // half-width borrowed from a neighbour bucket
+  calibrated_at?: string;            // residual table generation timestamp
+  stale?: boolean;                   // table built by a different engine hash
 }
 
 export interface NonfictionPrediction {
