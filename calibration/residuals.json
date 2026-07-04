@@ -1,0 +1,1213 @@
+{
+  "analog_mode": "shrunk",
+  "buckets": {
+    "author-only n=1": {
+      "half_width": 0.9501,
+      "mean_residual": -0.0793,
+      "n": 12,
+      "pool_n": 43,
+      "pooled": true,
+      "pooled_with": "cluster 2<=n<6",
+      "q10": -1.5562,
+      "q90": 1.4436
+    },
+    "cluster 2<=n<6": {
+      "half_width": 0.8471,
+      "mean_residual": -0.0593,
+      "n": 31,
+      "pool_n": 31,
+      "pooled": false,
+      "pooled_with": null,
+      "q10": -0.8471,
+      "q90": 0.7847
+    },
+    "cluster n>=6": {
+      "half_width": 0.9209,
+      "mean_residual": 0.027,
+      "n": 59,
+      "pool_n": 59,
+      "pooled": false,
+      "pooled_with": null,
+      "q10": -0.8371,
+      "q90": 1.0847
+    },
+    "genre-only n=0": {
+      "half_width": 1.3439,
+      "mean_residual": -0.0075,
+      "n": 25,
+      "pool_n": 25,
+      "pooled": false,
+      "pooled_with": null,
+      "q10": -1.2705,
+      "q90": 1.1059
+    }
+  },
+  "coverage": {
+    "by_bucket": {
+      "author-only n=1": 0.6667,
+      "cluster 2<=n<6": 0.8065,
+      "cluster n>=6": 0.7966,
+      "genre-only n=0": 0.8
+    },
+    "by_bucket_n": {
+      "author-only n=1": 12,
+      "cluster 2<=n<6": 31,
+      "cluster n>=6": 59,
+      "genre-only n=0": 25
+    },
+    "overall": 0.7874,
+    "target": 0.8
+  },
+  "coverage_target": 0.8,
+  "engine_hash": "sha256:0c96e1c227afb735",
+  "generated_at": "2026-07-04T14:58:42-04:00",
+  "k_author": 0.5,
+  "k_genre": 0.5,
+  "min_bucket_n": 20,
+  "n_books": 127,
+  "residuals": [
+    {
+      "actual": 9.7877,
+      "book": "Toll the Hounds",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 8.9136,
+      "residual": 0.8741
+    },
+    {
+      "actual": 9.5582,
+      "book": "The Crippled God",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 8.9441,
+      "residual": 0.6142
+    },
+    {
+      "actual": 9.348,
+      "book": "Speaker For The Dead",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 6.5237,
+      "residual": 2.8244
+    },
+    {
+      "actual": 9.3233,
+      "book": "Deadhouse Gates",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 8.9707,
+      "residual": 0.3526
+    },
+    {
+      "actual": 9.0153,
+      "book": "The Fall of Hyperion",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 13,
+      "pred": 8.2306,
+      "residual": 0.7847
+    },
+    {
+      "actual": 9.329,
+      "book": "The Neverending Story",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 12,
+      "pred": 7.5336,
+      "residual": 1.7954
+    },
+    {
+      "actual": 9.2741,
+      "book": "Memories of Ice",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 8.9736,
+      "residual": 0.3005
+    },
+    {
+      "actual": 9.2409,
+      "book": "Hyperion",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 13,
+      "pred": 8.1208,
+      "residual": 1.1201
+    },
+    {
+      "actual": 9.1595,
+      "book": "A Memory of Light",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 8.5285,
+      "residual": 0.6309
+    },
+    {
+      "actual": 9.1751,
+      "book": "The Bonehunters",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 8.983,
+      "residual": 0.1921
+    },
+    {
+      "actual": 9.0211,
+      "book": "The Gathering Storm",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 8.5478,
+      "residual": 0.4733
+    },
+    {
+      "actual": 9.0002,
+      "book": "The Heroes",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 7.9154,
+      "residual": 1.0848
+    },
+    {
+      "actual": 8.9677,
+      "book": "Dust of Dreams",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 9.0108,
+      "residual": -0.0431
+    },
+    {
+      "actual": 8.9208,
+      "book": "The Great Hunt",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.0083,
+      "residual": 0.9124
+    },
+    {
+      "actual": 8.8803,
+      "book": "Dark Age",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.012,
+      "residual": 0.8682
+    },
+    {
+      "actual": 8.8556,
+      "book": "Lord of Chaos",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.013,
+      "residual": 0.8425
+    },
+    {
+      "actual": 8.8434,
+      "book": "The Lions of Al-Rassan",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 12,
+      "pred": 7.3017,
+      "residual": 1.5418
+    },
+    {
+      "actual": 8.8054,
+      "book": "Knife of Dreams",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.017,
+      "residual": 0.7884
+    },
+    {
+      "actual": 8.9341,
+      "book": "Midnight Tides",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 9.011,
+      "residual": -0.0769
+    },
+    {
+      "actual": 8.7536,
+      "book": "Words of Radiance",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.9103,
+      "residual": 1.8433
+    },
+    {
+      "actual": 8.7443,
+      "book": "Reaper's Gale",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 9.0399,
+      "residual": -0.2956
+    },
+    {
+      "actual": 8.664,
+      "book": "The Two Towers",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 3,
+      "n_genre": 53,
+      "pred": 8.0612,
+      "residual": 0.6028
+    },
+    {
+      "actual": 8.6531,
+      "book": "The Return of the King",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 3,
+      "n_genre": 53,
+      "pred": 8.0923,
+      "residual": 0.5608
+    },
+    {
+      "actual": 8.5822,
+      "book": "Between Two Fires",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 12,
+      "pred": 7.0058,
+      "residual": 1.5764
+    },
+    {
+      "actual": 8.5723,
+      "book": "The Shadow Rising",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.0385,
+      "residual": 0.5338
+    },
+    {
+      "actual": 8.5478,
+      "book": "Golden Son",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.0835,
+      "residual": 0.4643
+    },
+    {
+      "actual": 8.5504,
+      "book": "Oathbringer",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.928,
+      "residual": 1.6224
+    },
+    {
+      "actual": 8.5439,
+      "book": "Lightbringer",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.0881,
+      "residual": 0.4559
+    },
+    {
+      "actual": 8.5242,
+      "book": "The Idiot",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 2,
+      "pred": 8.0521,
+      "residual": 0.4721
+    },
+    {
+      "actual": 8.5048,
+      "book": "Frankenstein",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 1,
+      "pred": 7.8672,
+      "residual": 0.6376
+    },
+    {
+      "actual": 8.4732,
+      "book": "Rhythm of War",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.9324,
+      "residual": 1.5408
+    },
+    {
+      "actual": 8.4222,
+      "book": "The Dragon Reborn",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.0563,
+      "residual": 0.3659
+    },
+    {
+      "actual": 8.4537,
+      "book": "Ender's Game",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 6.6493,
+      "residual": 1.8044
+    },
+    {
+      "actual": 8.4103,
+      "book": "The Strength of the Few",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 53,
+      "pred": 7.8504,
+      "residual": 0.5599
+    },
+    {
+      "actual": 8.3697,
+      "book": "Demon in White",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.6686,
+      "residual": 0.7011
+    },
+    {
+      "actual": 8.3517,
+      "book": "Don Quixote",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 7.5892,
+      "residual": 0.7625
+    },
+    {
+      "actual": 8.3097,
+      "book": "House of Chains",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 9.0794,
+      "residual": -0.7697
+    },
+    {
+      "actual": 8.3037,
+      "book": "The Fires of Heaven",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.0636,
+      "residual": 0.2402
+    },
+    {
+      "actual": 8.2609,
+      "book": "The Way of Kings",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.9485,
+      "residual": 1.3124
+    },
+    {
+      "actual": 8.2108,
+      "book": "Gardens of the Moon",
+      "bucket": "cluster n>=6",
+      "n_author": 9,
+      "n_genre": 53,
+      "pred": 9.0979,
+      "residual": -0.8871
+    },
+    {
+      "actual": 8.1969,
+      "book": "Towers of Midnight",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 8.9193,
+      "residual": -0.7223
+    },
+    {
+      "actual": 8.1787,
+      "book": "Disquiet Gods",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.6963,
+      "residual": 0.4824
+    },
+    {
+      "actual": 8.1512,
+      "book": "The Death of Ivan Ilyich",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 8.2488,
+      "residual": -0.0976
+    },
+    {
+      "actual": 8.0873,
+      "book": "The Odyssey",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 7.7176,
+      "residual": 0.3697
+    },
+    {
+      "actual": 8.055,
+      "book": "The Last Argument of Kings",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 8.1016,
+      "residual": -0.0465
+    },
+    {
+      "actual": 8.0473,
+      "book": "Momo",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 12,
+      "pred": 7.9698,
+      "residual": 0.0775
+    },
+    {
+      "actual": 8.0326,
+      "book": "Morning Star",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.1825,
+      "residual": -0.1499
+    },
+    {
+      "actual": 8.0167,
+      "book": "Notes From a Dead House",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 2,
+      "pred": 8.3544,
+      "residual": -0.3377
+    },
+    {
+      "actual": 8.0017,
+      "book": "Winter's Heart",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.0956,
+      "residual": -0.0939
+    },
+    {
+      "actual": 7.9686,
+      "book": "The Blade Itself",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 8.1197,
+      "residual": -0.1511
+    },
+    {
+      "actual": 7.9376,
+      "book": "Neuromancer",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 0,
+      "pred": 7.5524,
+      "residual": 0.3852
+    },
+    {
+      "actual": 7.9303,
+      "book": "Ashes of Man",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.7469,
+      "residual": 0.1834
+    },
+    {
+      "actual": 7.9128,
+      "book": "The Fellowship of the Ring",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 3,
+      "n_genre": 53,
+      "pred": 8.2898,
+      "residual": -0.377
+    },
+    {
+      "actual": 7.8902,
+      "book": "Kingdoms of Death",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.7573,
+      "residual": 0.1329
+    },
+    {
+      "actual": 7.886,
+      "book": "This Inevitable Ruin",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.2361,
+      "residual": 0.65
+    },
+    {
+      "actual": 7.8718,
+      "book": "Picture of Dorian Gray",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 1,
+      "pred": 8.4786,
+      "residual": -0.6068
+    },
+    {
+      "actual": 7.8266,
+      "book": "Before They Are Hanged",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 8.1478,
+      "residual": -0.3213
+    },
+    {
+      "actual": 7.8299,
+      "book": "Best Served Cold",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 8.1381,
+      "residual": -0.3082
+    },
+    {
+      "actual": 7.8072,
+      "book": "Piranesi",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 12,
+      "pred": 7.0734,
+      "residual": 0.7338
+    },
+    {
+      "actual": 7.8073,
+      "book": "The Hobbit",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 3,
+      "n_genre": 53,
+      "pred": 8.3303,
+      "residual": -0.523
+    },
+    {
+      "actual": 7.8057,
+      "book": "The Will of the Many",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 53,
+      "pred": 8.1664,
+      "residual": -0.3607
+    },
+    {
+      "actual": 7.7845,
+      "book": "Ender's Shadow",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 6.7567,
+      "residual": 1.0278
+    },
+    {
+      "actual": 7.7646,
+      "book": "The Butcher's Masquerade",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.2548,
+      "residual": 0.5098
+    },
+    {
+      "actual": 7.7503,
+      "book": "Blindsight",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 13,
+      "pred": 7.3069,
+      "residual": 0.4434
+    },
+    {
+      "actual": 7.7291,
+      "book": "Red Rising",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.2362,
+      "residual": -0.5071
+    },
+    {
+      "actual": 7.7048,
+      "book": "Sailing to Sarantium",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 12,
+      "pred": 7.7781,
+      "residual": -0.0734
+    },
+    {
+      "actual": 7.6406,
+      "book": "The Path of Daggers",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.1156,
+      "residual": -0.475
+    },
+    {
+      "actual": 7.6441,
+      "book": "The Final Empire",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.9851,
+      "residual": 0.659
+    },
+    {
+      "actual": 7.6313,
+      "book": "Howling Dark",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.7904,
+      "residual": -0.1592
+    },
+    {
+      "actual": 7.6291,
+      "book": "A Crown of Swords",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.1173,
+      "residual": -0.4882
+    },
+    {
+      "actual": 7.6332,
+      "book": "The Hero of Ages",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 6.9876,
+      "residual": 0.6456
+    },
+    {
+      "actual": 7.6042,
+      "book": "The Lies of Locke Lamora",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 7.0815,
+      "residual": 0.5228
+    },
+    {
+      "actual": 7.5829,
+      "book": "Red Country",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 53,
+      "pred": 8.1971,
+      "residual": -0.6142
+    },
+    {
+      "actual": 7.5442,
+      "book": "Crossroads of Twilight",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.1268,
+      "residual": -0.5826
+    },
+    {
+      "actual": 7.4847,
+      "book": "The Oresteia",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 1,
+      "pred": 7.2602,
+      "residual": 0.2245
+    },
+    {
+      "actual": 7.4738,
+      "book": "New Spring",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.1345,
+      "residual": -0.6607
+    },
+    {
+      "actual": 7.4714,
+      "book": "There Is No Antimemetics Division",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 13,
+      "pred": 7.3286,
+      "residual": 0.1427
+    },
+    {
+      "actual": 7.4715,
+      "book": "A Parade of Horribles",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.2971,
+      "residual": 0.1744
+    },
+    {
+      "actual": 7.4474,
+      "book": "Iron Gold",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 5,
+      "n_genre": 16,
+      "pred": 8.2945,
+      "residual": -0.8471
+    },
+    {
+      "actual": 7.4396,
+      "book": "The Eye of the Bedlam Bride",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.3,
+      "residual": 0.1396
+    },
+    {
+      "actual": 7.4365,
+      "book": "Shadows Upon Time",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.8262,
+      "residual": -0.3897
+    },
+    {
+      "actual": 7.3201,
+      "book": "The Eye of the World",
+      "bucket": "cluster n>=6",
+      "n_author": 11,
+      "n_genre": 53,
+      "pred": 8.1447,
+      "residual": -0.8246
+    },
+    {
+      "actual": 7.3239,
+      "book": "The Gate of the Feral Gods",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.3124,
+      "residual": 0.0115
+    },
+    {
+      "actual": 7.2773,
+      "book": "Project Hail Mary",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 13,
+      "pred": 7.3455,
+      "residual": -0.0682
+    },
+    {
+      "actual": 7.2456,
+      "book": "Rosencrantz and Guildenstern are Dead",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 1,
+      "pred": 7.4917,
+      "residual": -0.246
+    },
+    {
+      "actual": 7.2217,
+      "book": "The Dungeon Anarchist's Cookbook",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.3258,
+      "residual": -0.1042
+    },
+    {
+      "actual": 7.2282,
+      "book": "The Fires of Vengeance",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 53,
+      "pred": 7.4098,
+      "residual": -0.1816
+    },
+    {
+      "actual": 7.2108,
+      "book": "Warbreaker",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 6.9425,
+      "residual": 0.2683
+    },
+    {
+      "actual": 7.1322,
+      "book": "Elantris",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 6.9527,
+      "residual": 0.1795
+    },
+    {
+      "actual": 7.1259,
+      "book": "Empire of Silence",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 16,
+      "pred": 7.873,
+      "residual": -0.7471
+    },
+    {
+      "actual": 7.1314,
+      "book": "The Well of Ascension",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 7.0245,
+      "residual": 0.1068
+    },
+    {
+      "actual": 7.1209,
+      "book": "Carl's Doomsday Scenario",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.3421,
+      "residual": -0.2212
+    },
+    {
+      "actual": 7.1035,
+      "book": "The Martian Chronicles",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 5.6192,
+      "residual": 1.4842
+    },
+    {
+      "actual": 7.0988,
+      "book": "Inferno",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 8.2048,
+      "residual": -1.106
+    },
+    {
+      "actual": 7.0636,
+      "book": "Silence",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 3,
+      "pred": 5.7288,
+      "residual": 1.3348
+    },
+    {
+      "actual": 6.9988,
+      "book": "Twenty Thousand Leagues Under the Sea",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 13,
+      "pred": 7.3671,
+      "residual": -0.3683
+    },
+    {
+      "actual": 6.9811,
+      "book": "Xenocide",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 6.9263,
+      "residual": 0.0548
+    },
+    {
+      "actual": 6.982,
+      "book": "Children of the Mind",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 6.9152,
+      "residual": 0.0668
+    },
+    {
+      "actual": 6.9363,
+      "book": "Wind and Truth",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 53,
+      "pred": 7.0371,
+      "residual": -0.1008
+    },
+    {
+      "actual": 6.9027,
+      "book": "The Fifth Season",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 16,
+      "pred": 7.4994,
+      "residual": -0.5966
+    },
+    {
+      "actual": 6.863,
+      "book": "Rendezvous with Rama",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 13,
+      "pred": 7.3749,
+      "residual": -0.5119
+    },
+    {
+      "actual": 6.8666,
+      "book": "The Rage of Dragons",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 53,
+      "pred": 7.6351,
+      "residual": -0.7685
+    },
+    {
+      "actual": 6.7708,
+      "book": "Red Seas Under Red Skies",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 7.4671,
+      "residual": -0.6963
+    },
+    {
+      "actual": 6.6949,
+      "book": "The Dragonbone Chair",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 6.0303,
+      "residual": 0.6646
+    },
+    {
+      "actual": 6.6864,
+      "book": "The Name of the Wind",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 53,
+      "pred": 8.0666,
+      "residual": -1.3802
+    },
+    {
+      "actual": 6.6805,
+      "book": "Dungeon Crawler Carl",
+      "bucket": "cluster n>=6",
+      "n_author": 7,
+      "n_genre": 10,
+      "pred": 7.4004,
+      "residual": -0.7199
+    },
+    {
+      "actual": 6.554,
+      "book": "Sister Carrie",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 3,
+      "pred": 5.8928,
+      "residual": 0.6612
+    },
+    {
+      "actual": 6.5342,
+      "book": "Dark Force Rising",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 10,
+      "pred": 5.8991,
+      "residual": 0.635
+    },
+    {
+      "actual": 6.3431,
+      "book": "Shadows in Flight",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 7.031,
+      "residual": -0.6879
+    },
+    {
+      "actual": 6.2101,
+      "book": "To Green Angel Tower",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 6.1915,
+      "residual": 0.0185
+    },
+    {
+      "actual": 6.1984,
+      "book": "The Emperor's Soul",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 7.0132,
+      "residual": -0.8147
+    },
+    {
+      "actual": 6.0888,
+      "book": "Edgedancer",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 7.0224,
+      "residual": -0.9336
+    },
+    {
+      "actual": 5.9618,
+      "book": "Heir to the Empire",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 10,
+      "pred": 6.1963,
+      "residual": -0.2346
+    },
+    {
+      "actual": 5.9099,
+      "book": "Einstein's Dreams",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 6.1943,
+      "residual": -0.2844
+    },
+    {
+      "actual": 5.8954,
+      "book": "Dawnshard",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 7.0439,
+      "residual": -1.1485
+    },
+    {
+      "actual": 5.5959,
+      "book": "Martin Eden",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 3,
+      "pred": 6.1989,
+      "residual": -0.603
+    },
+    {
+      "actual": 5.3671,
+      "book": "The Last Command",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 10,
+      "pred": 6.3718,
+      "residual": -1.0047
+    },
+    {
+      "actual": 5.1542,
+      "book": "Station 11",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 2,
+      "pred": 6.5439,
+      "residual": -1.3897
+    },
+    {
+      "actual": 5.0699,
+      "book": "Shadows for Silence",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 7.1017,
+      "residual": -2.0319
+    },
+    {
+      "actual": 4.7755,
+      "book": "Ironweed",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 3,
+      "pred": 6.4592,
+      "residual": -1.6837
+    },
+    {
+      "actual": 4.5388,
+      "book": "The Stone of Farewell",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 6.8244,
+      "residual": -2.2856
+    },
+    {
+      "actual": 4.5092,
+      "book": "Ready Player One",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 16,
+      "pred": 6.153,
+      "residual": -1.6438
+    },
+    {
+      "actual": 4.3985,
+      "book": "Mistborn: Secret History",
+      "bucket": "cluster n>=6",
+      "n_author": 14,
+      "n_genre": 12,
+      "pred": 7.1448,
+      "residual": -2.7463
+    },
+    {
+      "actual": 4.2579,
+      "book": "Ready Player Two",
+      "bucket": "author-only n=1",
+      "n_author": 1,
+      "n_genre": 16,
+      "pred": 6.2903,
+      "residual": -2.0324
+    },
+    {
+      "actual": 2.2993,
+      "book": "The Last Shadow",
+      "bucket": "cluster n>=6",
+      "n_author": 6,
+      "n_genre": 13,
+      "pred": 7.6646,
+      "residual": -5.3653
+    },
+    {
+      "actual": 7.5731,
+      "book": "Endymion",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 16,
+      "pred": 8.9293,
+      "residual": -1.3562
+    },
+    {
+      "actual": 6.8177,
+      "book": "The Republic of Thieves",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 2,
+      "n_genre": 53,
+      "pred": 7.3978,
+      "residual": -0.5801
+    }
+  ]
+}

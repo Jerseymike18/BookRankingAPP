@@ -49,20 +49,26 @@ sweeps the k grid and runs both modes over the cached folds).
 Needs predict_engine.py + db_loader.py in the same folder.
 """
 
+import json
+import os
+
 import numpy as np
 import pandas as pd
 
 # Reuse the engine we already built & validated.
 import predict_engine as pe
+# Canonical density-bucket definition + conformal-interval helpers. Importing it
+# here (rather than redefining the buckets) guarantees the LOO residual table and
+# the live serving path bucket predictions identically — no drift, no miscoverage.
+import intervals
 
 WORKBOOK = pe.WORKBOOK
 
 # k grid for the shrinkage tuning sweep (shared per tier; see tune_k).
 DEFAULT_K_GRID = [0.5, 1, 2, 3, 5, 8, 12]
 
-# Display order for the density buckets.
-BUCKET_ORDER = ["cluster n>=6", "cluster 2<=n<6", "author-only n=1",
-                "genre-only n=0"]
+# Display order for the density buckets (single source of truth: intervals.py).
+BUCKET_ORDER = intervals.BUCKET_ORDER
 
 
 # ---------------------------------------------------------------------------
@@ -120,9 +126,11 @@ def _build_folds(books):
         train = books.drop(i)
         coeffs, r2, resid_sd, ginfo, upstream = fit_on(train)
         n_peers = int((train["Author"] == test_row["Author"]).sum())
+        n_genre = int((train["Genre"] == test_row["Genre"]).sum())
         folds.append({"i": i, "test_row": test_row, "train": train,
                       "coeffs": coeffs, "resid_sd": resid_sd, "ginfo": ginfo,
-                      "upstream": upstream, "n_peers": n_peers})
+                      "upstream": upstream, "n_peers": n_peers,
+                      "n_genre": n_genre})
     return folds
 
 
@@ -146,23 +154,6 @@ def _loo_sweep(folds, books, gw, gcw, mode, k_author=None, k_genre=None,
             if a is not None and not (isinstance(a, float) and np.isnan(a)):
                 comp_err[c].append(abs(est[c] - a))
     return np.array(wa_pred), comp_err, n_peers
-
-
-def _density_bucket(n_peers):
-    """Bucket a held-out book by how many same-author training books its
-    prediction had (n-1 for an author with n books total). Maps the brief's four
-    density strata onto this engine's tiers, where author is the innermost pool:
-      >=6  -> data-rich  (e.g. EF-Erikson)   | must not regress by >0.03
-      2..5 -> small-n    (e.g. SF-Card)       | the expected win
-      1    -> author-only (hard falls to genre)
-      0    -> genre-only  (no author signal)."""
-    if n_peers >= 6:
-        return "cluster n>=6"
-    if n_peers >= 2:
-        return "cluster 2<=n<6"
-    if n_peers == 1:
-        return "author-only n=1"
-    return "genre-only n=0"
 
 
 def _summarize(books, wa_pred, comp_err, n_peers):
@@ -199,7 +190,7 @@ def _summarize(books, wa_pred, comp_err, n_peers):
                           "verdict": verdict})
     per_genre.sort(key=lambda x: x["mae"])
 
-    npa = np.array([_density_bucket(int(x)) for x in n_peers])
+    npa = np.array([intervals.density_bucket(int(x)) for x in n_peers])
     by_bucket = {}
     for b in BUCKET_ORDER:
         mask = (npa == b) & m
@@ -266,6 +257,149 @@ def run_loo(books=None, gw=None, gcw=None, mode=None, k_author=None,
         "mode": mode if mode is not None else pe.ANALOG_MODE,
     })
     return s
+
+
+# ---------------------------------------------------------------------------
+# Conformal residual table (offline snapshot that powers prediction intervals)
+# ---------------------------------------------------------------------------
+# The serving path (backend/main.py) must NEVER run LOO per request (~127
+# refits). Instead this persists, ONCE and offline, a small residuals.json that
+# maps each density bucket to an empirical interval half-width; intervals.py
+# reads it at serve time. Regenerate after any engine-math change:
+#     python3 validate_engine.py --write-residuals
+#
+# The residual is (actual - predicted) under the SHRUNK estimator with the
+# genre-bias correction applied -- i.e. the error of the exact number the user
+# is shown -- so the interval is honest about the served prediction.
+
+def half_width_from_residuals(residuals, target=intervals.COVERAGE_TARGET):
+    """Symmetric interval half-width = the target-th percentile of |residual|.
+    Pure and unit-tested. Empty input -> None."""
+    r = np.abs(np.asarray(residuals, dtype=float))
+    if r.size == 0:
+        return None
+    return float(np.percentile(r, target * 100.0))
+
+
+def coverage(residuals, half_width):
+    """Fraction of residuals whose magnitude is within half_width -- i.e. the
+    actual WA lands inside [pred-hw, pred+hw]. Pure and unit-tested."""
+    r = np.abs(np.asarray(residuals, dtype=float))
+    if r.size == 0 or half_width is None:
+        return None
+    return float((r <= half_width + 1e-12).mean())
+
+
+def _pooled_residuals(bucket, by_bucket, all_residuals):
+    """The residual set used to SIZE `bucket`'s interval: its own residuals, or
+    -- when it is thin (< MIN_BUCKET_N) -- pooled with its nearest neighbour by
+    data richness (see intervals.POOL_PARTNER). Returns (residuals, pooled)."""
+    own = list(by_bucket.get(bucket, []))
+    if not intervals.should_pool(bucket, len(own)):
+        return own, False
+    partner = intervals.POOL_PARTNER[bucket]
+    if partner == "__global__":
+        # Pool with the WHOLE set (which already contains `own`).
+        return list(all_residuals), True
+    # A named partner is a disjoint bucket, so concatenate.
+    return own + list(by_bucket.get(partner, [])), True
+
+
+def build_residual_table(books=None, gw=None, gcw=None, folds=None):
+    """Run the LOO sweep under the SHRUNK estimator (the live engine) and return
+    the residual-table dict: per-book residuals + density stats, and per-bucket
+    half-widths / signed quantiles / mean residual / pooling flags, plus
+    in-sample coverage diagnostics. Pure w.r.t. disk (see write_residuals)."""
+    import datetime
+    if books is None:
+        import db_loader
+        books, gw, gcw = db_loader.load_from_db()
+    if folds is None:
+        folds = _build_folds(books)
+
+    wa_pred, _, _ = _loo_sweep(folds, books, gw, gcw, "shrunk", apply_bias=True)
+    actual = books["WA"].values
+    titles = books["Book"].tolist()
+
+    records, by_bucket = [], {b: [] for b in BUCKET_ORDER}
+    for k, f in enumerate(folds):
+        na, ng = int(f["n_peers"]), int(f["n_genre"])
+        bucket = intervals.density_bucket(na)
+        resid = float(actual[k] - wa_pred[k])
+        records.append({"book": titles[k], "actual": round(float(actual[k]), 4),
+                        "pred": round(float(wa_pred[k]), 4),
+                        "residual": round(resid, 4),
+                        "n_author": na, "n_genre": ng, "bucket": bucket})
+        by_bucket[bucket].append(resid)
+
+    all_resid = [r["residual"] for r in records]
+    buckets_out = {}
+    for b in BUCKET_ORDER:
+        own = by_bucket[b]
+        resid_set, pooled = _pooled_residuals(b, by_bucket, all_resid)
+        hw = half_width_from_residuals(resid_set)
+        buckets_out[b] = {
+            "n": len(own),
+            "half_width": None if hw is None else round(hw, 4),
+            "q10": None if not own else round(float(np.percentile(own, 10)), 4),
+            "q90": None if not own else round(float(np.percentile(own, 90)), 4),
+            "mean_residual": None if not own else round(float(np.mean(own)), 4),
+            "pooled": pooled,
+            "pooled_with": intervals.POOL_PARTNER[b] if pooled else None,
+            "pool_n": len(resid_set),
+        }
+
+    # In-sample coverage using each book's FINAL (possibly pooled) half-width --
+    # the same half-width the serving path would apply to that density.
+    cov_hits, cov_tot = 0, 0
+    by_bucket_cov = {b: [0, 0] for b in BUCKET_ORDER}
+    for r in records:
+        hw = buckets_out[r["bucket"]]["half_width"]
+        if hw is None:
+            continue
+        hit = abs(r["residual"]) <= hw + 1e-12
+        cov_hits += hit
+        cov_tot += 1
+        by_bucket_cov[r["bucket"]][0] += hit
+        by_bucket_cov[r["bucket"]][1] += 1
+
+    coverage_out = {
+        "target": intervals.COVERAGE_TARGET,
+        "overall": None if not cov_tot else round(cov_hits / cov_tot, 4),
+        "by_bucket": {b: (None if c[1] == 0 else round(c[0] / c[1], 4))
+                      for b, c in by_bucket_cov.items()},
+        "by_bucket_n": {b: c[1] for b, c in by_bucket_cov.items()},
+    }
+
+    return {
+        "generated_at":
+            datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "engine_hash": intervals.engine_hash(),
+        "analog_mode": "shrunk",
+        "k_author": pe.K_AUTHOR,
+        "k_genre": pe.K_GENRE,
+        "n_books": len(records),
+        "coverage_target": intervals.COVERAGE_TARGET,
+        "min_bucket_n": intervals.MIN_BUCKET_N,
+        "buckets": buckets_out,
+        "coverage": coverage_out,
+        "residuals": records,
+    }
+
+
+def write_residuals(out_path=None, books=None, gw=None, gcw=None, folds=None):
+    """Build the residual table and write it atomically to `out_path`
+    (default calibration/residuals.json). Returns the table dict."""
+    out_path = out_path or os.path.join("calibration", "residuals.json")
+    table = build_residual_table(books, gw, gcw, folds)
+    out_dir = os.path.dirname(out_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
+    tmp = out_path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(table, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, out_path)
+    return table
 
 
 # ---------------------------------------------------------------------------
@@ -349,9 +483,68 @@ def _fmt(x, w=8, p=4):
     return (" " * (w - 1) + "-") if x is None else f"{x:>{w}.{p}f}"
 
 
+def _write_residuals_cli(books, gw, gcw, out_path):
+    """--write-residuals entry: build + persist the table, then print the
+    per-bucket summary and in-sample coverage (the deliverable numbers)."""
+    print("=" * 72)
+    print("CONFORMAL RESIDUAL TABLE  (shrunk LOO — offline snapshot for intervals)")
+    print("=" * 72)
+    print(f"{len(books)} books. Running leave-one-out under ANALOG_MODE='shrunk' "
+          f"(K_AUTHOR={pe.K_AUTHOR}, K_GENRE={pe.K_GENRE})...")
+    table = write_residuals(out_path=out_path, books=books, gw=gw, gcw=gcw)
+    print(f"\nWrote {out_path}")
+    print(f"  engine_hash : {table['engine_hash']}")
+    print(f"  generated   : {table['generated_at']}")
+
+    print("\n" + "-" * 72)
+    print("PER-BUCKET  (half = 80th pct |resid|;  q10/q90/mean are SIGNED)")
+    print("-" * 72)
+    print(f"  {'bucket':<20}{'n':>4}{'half':>8}{'q10':>8}{'q90':>8}{'mean':>8}"
+          f"  pooled")
+    print("  " + "-" * 64)
+    for b in BUCKET_ORDER:
+        bi = table["buckets"][b]
+        pooled = ("" if not bi["pooled"]
+                  else f"yes ← +{bi['pooled_with']} (pool n={bi['pool_n']})")
+        print(f"  {b:<20}{bi['n']:>4}{_fmt(bi['half_width'])}{_fmt(bi['q10'])}"
+              f"{_fmt(bi['q90'])}{_fmt(bi['mean_residual'])}  {pooled}")
+
+    cov = table["coverage"]
+    ov = cov["overall"]
+    band = "PASS" if (ov is not None and 0.72 <= ov <= 0.88) else "OUT OF BAND"
+    print("\n" + "-" * 72)
+    print("IN-SAMPLE COVERAGE  (share inside the bucket's 80% interval)")
+    print("-" * 72)
+    print(f"  overall : {'-' if ov is None else f'{ov:.1%}'}   "
+          f"[{band}]   (gate band 72–88%)")
+    for b in BUCKET_ORDER:
+        cb, nb = cov["by_bucket"][b], cov["by_bucket_n"][b]
+        print(f"    {b:<20} n={nb:>3}  "
+              f"{'-' if cb is None else f'{cb:.1%}':>6}   (informational)")
+    print("=" * 72)
+
+
 def main():
+    import argparse
     import db_loader
+
+    ap = argparse.ArgumentParser(
+        description="Leave-one-out validation: the hard-vs-shrunk A/B report "
+                    "(default), or --write-residuals to persist the conformal "
+                    "residual table the prediction intervals are served from.")
+    ap.add_argument("--write-residuals", action="store_true",
+                    help="Run the shrunk LOO sweep and write the residual table "
+                         "to --out (default calibration/residuals.json).")
+    ap.add_argument("--out", default=os.path.join("calibration", "residuals.json"),
+                    help="Destination for --write-residuals.")
+    args = ap.parse_args()
+
     books, gw, gcw = db_loader.load_from_db()
+
+    if args.write_residuals:
+        _write_residuals_cli(books, gw, gcw, args.out)
+        return
+
     n = len(books)
 
     print("=" * 72)

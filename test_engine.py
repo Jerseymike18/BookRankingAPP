@@ -309,6 +309,65 @@ def test_analog_shrinkage():
           f"{len(pairs)} author/genre pairs, worst Δ={worst:.2e}")
 
 
+# ---------------------------------------------------------------------------
+# 7. Conformal prediction intervals (ADDITIVE — no point-prediction change)
+# ---------------------------------------------------------------------------
+def test_conformal_intervals():
+    print("\n7. CONFORMAL PREDICTION INTERVALS")
+    import os as _os
+    import intervals
+    import validate_engine as ve
+
+    # (a) Bucket assignment matches the LOO bucket definition on the boundary
+    #     values, and the SAME function backs both the table and live serving
+    #     (definition drift would silently miscover).
+    cases = {0: "genre-only n=0", 1: "author-only n=1", 2: "cluster 2<=n<6",
+             5: "cluster 2<=n<6", 6: "cluster n>=6", 9: "cluster n>=6"}
+    check("bucket assignment correct at n=0/1/2/5/6/9",
+          all(intervals.density_bucket(k) == v for k, v in cases.items()),
+          "boundaries 1->author-only, 2->2<=n<6, 6->cluster n>=6")
+    check("LOO harness + serving share ONE bucket definition (no drift)",
+          ve.intervals is intervals and ve.BUCKET_ORDER is intervals.BUCKET_ORDER)
+
+    # (b) Pooling triggers strictly below MIN_BUCKET_N (=20) for the thin buckets,
+    #     and never for the large author buckets (they have no pooling partner).
+    thin = "author-only n=1"
+    check("pooling triggers exactly below 20 (thin buckets only)",
+          intervals.should_pool(thin, 19) is True
+          and intervals.should_pool(thin, 20) is False
+          and intervals.should_pool(thin, 21) is False
+          and intervals.should_pool("genre-only n=0", 19) is True
+          and intervals.should_pool("genre-only n=0", 20) is False
+          and intervals.should_pool("cluster n>=6", 5) is False)
+
+    # (c) A missing residuals.json yields no table and no interval, so the serving
+    #     path omits the interval fields entirely (never invents a width).
+    check("missing residuals.json -> interval omitted (None)",
+          intervals.load_residuals("does_not_exist_zzz.json") is None
+          and intervals.interval_for(None, 5) is None)
+
+    # (d) Coverage / half-width math on a synthetic set with a known 80th pct:
+    #     |resid| = 0..9 -> 80th pct = 7.2; 8 of 10 within -> coverage 0.80. The
+    #     signed case confirms magnitudes (not signs) drive both.
+    hw = ve.half_width_from_residuals(list(range(10)), target=0.80)
+    cov = ve.coverage(list(range(10)), hw)
+    signed = ve.coverage([-3.0, 3.0], ve.half_width_from_residuals([-3.0, 3.0]))
+    check("coverage math correct on synthetic residuals (hw=7.2, cov=0.80)",
+          abs(hw - 7.2) < 1e-9 and abs(cov - 0.80) < 1e-9 and abs(signed - 1.0) < 1e-9,
+          f"hw={hw:.3f}, coverage={cov:.3f}")
+
+    # (e) If the real table is present, its overall in-sample coverage must sit in
+    #     the acceptance band [72%, 88%] — the gate, encoded as a regression guard.
+    tbl = intervals.load_residuals(_os.path.join("calibration", "residuals.json"))
+    if tbl is None:
+        check("residuals.json overall coverage in [72%,88%]", True,
+              "no table present (skipped)")
+    else:
+        ov = tbl.get("coverage", {}).get("overall")
+        check("residuals.json overall coverage in [72%,88%]",
+              ov is not None and 0.72 <= ov <= 0.88, f"overall={ov}")
+
+
 def main():
     print("=" * 60)
     print("ENGINE TEST SUITE")
@@ -320,6 +379,7 @@ def main():
     test_prediction_sanity()
     test_schema_integrity()
     test_analog_shrinkage()
+    test_conformal_intervals()
 
     passed = sum(1 for _, ok, _ in _results if ok)
     total = len(_results)
