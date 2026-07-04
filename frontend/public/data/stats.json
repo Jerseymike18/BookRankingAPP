@@ -1,17 +1,17 @@
 {
   "totals": {
-    "total_books": 133,
-    "fiction_books": 127,
+    "total_books": 134,
+    "fiction_books": 128,
     "nonfiction_books": 6,
-    "total_words": 25145553,
-    "avg_total_average": 7.59
+    "total_words": 25540553,
+    "avg_total_average": 7.57
   },
   "by_type": {
     "fiction": {
-      "books": 127,
-      "avg_wa": 7.58,
-      "avg_total_average": 7.6,
-      "total_words": 25145553
+      "books": 128,
+      "avg_wa": 7.56,
+      "avg_total_average": 7.58,
+      "total_words": 25540553
     },
     "nonfiction": {
       "books": 6,
@@ -34,7 +34,7 @@
       "S+": 2,
       "S": 11,
       "A": 19,
-      "B": 31,
+      "B": 32,
       "C": 31,
       "D": 19,
       "F": 14
@@ -58,9 +58,9 @@
     },
     {
       "year": 2026,
-      "fiction": 54,
+      "fiction": 55,
       "nonfiction": 3,
-      "books": 57
+      "books": 58
     }
   ],
   "combined_ranking": [
@@ -1217,13 +1217,22 @@
       "rank": 128
     },
     {
+      "title": "The Wise Man's Fear",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "type": "fiction",
+      "total_average": 5.0,
+      "wa": 5.0,
+      "rank": 129
+    },
+    {
       "title": "The Stone of Farewell",
       "author": "Tad Williams",
       "genre": "Epic Fantasy",
       "type": "fiction",
       "total_average": 4.9817,
       "wa": 4.5388,
-      "rank": 129
+      "rank": 130
     },
     {
       "title": "Ironweed",
@@ -1232,7 +1241,7 @@
       "type": "fiction",
       "total_average": 4.6083,
       "wa": 4.7755,
-      "rank": 130
+      "rank": 131
     },
     {
       "title": "Ready Player One",
@@ -1241,7 +1250,7 @@
       "type": "fiction",
       "total_average": 4.5533,
       "wa": 4.5092,
-      "rank": 131
+      "rank": 132
     },
     {
       "title": "Ready Player Two",
@@ -1250,7 +1259,7 @@
       "type": "fiction",
       "total_average": 4.365,
       "wa": 4.2579,
-      "rank": 132
+      "rank": 133
     },
     {
       "title": "The Last Shadow",
@@ -1259,7 +1268,7 @@
       "type": "fiction",
       "total_average": 2.71,
       "wa": 2.2993,
-      "rank": 133
+      "rank": 134
     }
   ]
 }

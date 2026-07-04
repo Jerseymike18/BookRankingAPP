@@ -542,7 +542,7 @@
       "year_read": 2026,
       "wa": 8.5048,
       "rank": 15,
-      "tier": "B",
+      "tier": "A",
       "components": {
         "Story": {
           "Plot": 7.8,
@@ -1036,7 +1036,7 @@
       "year_read": 2026,
       "wa": 7.8073,
       "rank": 28,
-      "tier": "C",
+      "tier": "B",
       "components": {
         "Story": {
           "Plot": 7.6,
@@ -1530,7 +1530,7 @@
       "year_read": 2026,
       "wa": 7.1209,
       "rank": 41,
-      "tier": "D",
+      "tier": "C",
       "components": {
         "Story": {
           "Plot": 6.4,
@@ -1834,7 +1834,7 @@
       "year_read": 2026,
       "wa": 6.6805,
       "rank": 49,
-      "tier": "F",
+      "tier": "D",
       "components": {
         "Story": {
           "Plot": 6.8,
@@ -1939,6 +1939,44 @@
       }
     },
     {
+      "title": "The Wise Man's Fear",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "series": "The Kingkiller Chronicles",
+      "series_number": 2,
+      "words": 395000,
+      "year_read": 2026,
+      "wa": 5.0,
+      "rank": 52,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 5.0,
+          "Entertainment": 5.0,
+          "Action": 5.0,
+          "Ending": 5.0
+        },
+        "Character": {
+          "Depth": 5.0,
+          "Emotional Impact": 5.0,
+          "Motivations": 5.0
+        },
+        "Aesthetics": {
+          "Prose": 5.0,
+          "Narration": 5.0
+        },
+        "Theme": {
+          "Insights": 5.0,
+          "Thought-Provokingness": 5.0
+        },
+        "Worldbuilding": {
+          "Depth2": 5.0,
+          "Integration": 5.0,
+          "Originality": 5.0
+        }
+      }
+    },
+    {
       "title": "Ready Player One",
       "author": "Ernest Cline",
       "genre": "Science Fiction (Soft)",
@@ -1947,7 +1985,7 @@
       "words": 136500,
       "year_read": 2026,
       "wa": 4.5092,
-      "rank": 52,
+      "rank": 53,
       "tier": "F",
       "components": {
         "Story": {
@@ -1985,7 +2023,7 @@
       "words": 117000,
       "year_read": 2026,
       "wa": 4.2579,
-      "rank": 53,
+      "rank": 54,
       "tier": "F",
       "components": {
         "Story": {
@@ -2023,7 +2061,7 @@
       "words": 100000,
       "year_read": 2026,
       "wa": 2.2993,
-      "rank": 54,
+      "rank": 55,
       "tier": "F",
       "components": {
         "Story": {
@@ -2056,7 +2094,7 @@
   "tier_counts": {
     "S+": 2,
     "S": 5,
-    "A": 7,
+    "A": 8,
     "B": 13,
     "C": 13,
     "D": 8,

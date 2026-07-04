@@ -5567,6 +5567,52 @@
       "slug": "shadows-for-silence"
     },
     {
+      "title": "The Wise Man's Fear",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "series": "The Kingkiller Chronicles",
+      "series_number": 2,
+      "words": 395000,
+      "year": 2026,
+      "year_read": 2026,
+      "wa": 5.0,
+      "components": {
+        "Story": {
+          "Plot": 5.0,
+          "Entertainment": 5.0,
+          "Action": 5.0,
+          "Ending": 5.0
+        },
+        "Character": {
+          "Depth": 5.0,
+          "Emotional Impact": 5.0,
+          "Motivations": 5.0
+        },
+        "Aesthetics": {
+          "Prose": 5.0,
+          "Narration": 5.0
+        },
+        "Theme": {
+          "Insights": 5.0,
+          "Thought-Provokingness": 5.0
+        },
+        "Worldbuilding": {
+          "Depth2": 5.0,
+          "Integration": 5.0,
+          "Originality": 5.0
+        }
+      },
+      "category_avgs": {
+        "Story": 5.0,
+        "Character": 5.0,
+        "Aesthetics": 5.0,
+        "Theme": 5.0,
+        "Worldbuilding": 5.0
+      },
+      "rank": 122,
+      "slug": "the-wise-man-s-fear"
+    },
+    {
       "title": "Ironweed",
       "author": "William Kennedy",
       "genre": "Literary Fiction",
@@ -5609,7 +5655,7 @@
         "Theme": 6.1,
         "Worldbuilding": 0.0
       },
-      "rank": 122,
+      "rank": 123,
       "slug": "ironweed"
     },
     {
@@ -5655,7 +5701,7 @@
         "Theme": 6.0571,
         "Worldbuilding": 4.9444
       },
-      "rank": 123,
+      "rank": 124,
       "slug": "the-stone-of-farewell"
     },
     {
@@ -5701,7 +5747,7 @@
         "Theme": 4.2308,
         "Worldbuilding": 5.1167
       },
-      "rank": 124,
+      "rank": 125,
       "slug": "ready-player-one"
     },
     {
@@ -5747,7 +5793,7 @@
         "Theme": 4.5,
         "Worldbuilding": 7.45
       },
-      "rank": 125,
+      "rank": 126,
       "slug": "mistborn-secret-history"
     },
     {
@@ -5793,7 +5839,7 @@
         "Theme": 5.1154,
         "Worldbuilding": 5.0333
       },
-      "rank": 126,
+      "rank": 127,
       "slug": "ready-player-two"
     },
     {
@@ -5839,7 +5885,7 @@
         "Theme": 2.0667,
         "Worldbuilding": 1.9
       },
-      "rank": 127,
+      "rank": 128,
       "slug": "the-last-shadow"
     }
   ],

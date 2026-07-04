@@ -162,16 +162,6 @@
     },
     {
       "rank": 17,
-      "series": "The Kingkiller Chronicles",
-      "author": "Patrick Rothfuss",
-      "genre": "Epic Fantasy",
-      "books": 1,
-      "avg_wa": 6.69,
-      "adjusted_wa": 6.286,
-      "avg_total_average": 6.83
-    },
-    {
-      "rank": 18,
       "series": "Thrawn Trilogy",
       "author": "Timothy Zahn",
       "genre": "Science Fantasy",
@@ -181,7 +171,7 @@
       "avg_total_average": 5.97
     },
     {
-      "rank": 19,
+      "rank": 18,
       "series": "Memory, Sorrow, Thorn",
       "author": "Tad Williams",
       "genre": "Epic Fantasy",
@@ -189,6 +179,16 @@
       "avg_wa": 5.81,
       "adjusted_wa": 5.837,
       "avg_total_average": 6.15
+    },
+    {
+      "rank": 19,
+      "series": "The Kingkiller Chronicles",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "books": 2,
+      "avg_wa": 5.84,
+      "adjusted_wa": 5.654,
+      "avg_total_average": 5.92
     },
     {
       "rank": 20,

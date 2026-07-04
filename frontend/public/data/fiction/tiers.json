@@ -2404,7 +2404,7 @@
       "year_read": 2026,
       "wa": 7.7503,
       "rank": 64,
-      "tier": "C",
+      "tier": "B",
       "components": {
         "Story": {
           "Plot": 6.4,
@@ -3582,7 +3582,7 @@
       "year_read": 2025,
       "wa": 7.0988,
       "rank": 95,
-      "tier": "D",
+      "tier": "C",
       "components": {
         "Story": {
           "Plot": 7.5,
@@ -4304,7 +4304,7 @@
       "year_read": 2025,
       "wa": 6.0888,
       "rank": 114,
-      "tier": "F",
+      "tier": "D",
       "components": {
         "Story": {
           "Plot": 7.3,
@@ -4599,6 +4599,44 @@
       }
     },
     {
+      "title": "The Wise Man's Fear",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "series": "The Kingkiller Chronicles",
+      "series_number": 2,
+      "words": 395000,
+      "year_read": 2026,
+      "wa": 5.0,
+      "rank": 122,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 5.0,
+          "Entertainment": 5.0,
+          "Action": 5.0,
+          "Ending": 5.0
+        },
+        "Character": {
+          "Depth": 5.0,
+          "Emotional Impact": 5.0,
+          "Motivations": 5.0
+        },
+        "Aesthetics": {
+          "Prose": 5.0,
+          "Narration": 5.0
+        },
+        "Theme": {
+          "Insights": 5.0,
+          "Thought-Provokingness": 5.0
+        },
+        "Worldbuilding": {
+          "Depth2": 5.0,
+          "Integration": 5.0,
+          "Originality": 5.0
+        }
+      }
+    },
+    {
       "title": "Ironweed",
       "author": "William Kennedy",
       "genre": "Literary Fiction",
@@ -4607,7 +4645,7 @@
       "words": 57000,
       "year_read": 2025,
       "wa": 4.7755,
-      "rank": 122,
+      "rank": 123,
       "tier": "F",
       "components": {
         "Story": {
@@ -4645,7 +4683,7 @@
       "words": 175000,
       "year_read": 2025,
       "wa": 4.5388,
-      "rank": 123,
+      "rank": 124,
       "tier": "F",
       "components": {
         "Story": {
@@ -4683,7 +4721,7 @@
       "words": 136500,
       "year_read": 2026,
       "wa": 4.5092,
-      "rank": 124,
+      "rank": 125,
       "tier": "F",
       "components": {
         "Story": {
@@ -4721,7 +4759,7 @@
       "words": 41000,
       "year_read": 2025,
       "wa": 4.3985,
-      "rank": 125,
+      "rank": 126,
       "tier": "F",
       "components": {
         "Story": {
@@ -4759,7 +4797,7 @@
       "words": 117000,
       "year_read": 2026,
       "wa": 4.2579,
-      "rank": 126,
+      "rank": 127,
       "tier": "F",
       "components": {
         "Story": {
@@ -4797,7 +4835,7 @@
       "words": 100000,
       "year_read": 2026,
       "wa": 2.2993,
-      "rank": 127,
+      "rank": 128,
       "tier": "F",
       "components": {
         "Story": {
@@ -4831,7 +4869,7 @@
     "S+": 2,
     "S": 11,
     "A": 19,
-    "B": 31,
+    "B": 32,
     "C": 31,
     "D": 19,
     "F": 14

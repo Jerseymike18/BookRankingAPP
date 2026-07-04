@@ -1,0 +1,32 @@
+{
+  "title": "The Wise Man's Fear",
+  "author": "Patrick Rothfuss",
+  "genre": "Epic Fantasy",
+  "wa": 5.0,
+  "components": {
+    "Story": {
+      "Plot": 5.0,
+      "Entertainment": 5.0,
+      "Action": 5.0,
+      "Ending": 5.0
+    },
+    "Character": {
+      "Depth": 5.0,
+      "Emotional Impact": 5.0,
+      "Motivations": 5.0
+    },
+    "Aesthetics": {
+      "Prose": 5.0,
+      "Narration": 5.0
+    },
+    "Theme": {
+      "Insights": 5.0,
+      "Thought-Provokingness": 5.0
+    },
+    "Worldbuilding": {
+      "Depth2": 5.0,
+      "Integration": 5.0,
+      "Originality": 5.0
+    }
+  }
+}

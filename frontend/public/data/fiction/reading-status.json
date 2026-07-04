@@ -1,20 +1,20 @@
 {
   "last_read": {
-    "title": "The Republic of Thieves",
-    "author": "Scott Lynch",
+    "title": "The Wise Man's Fear",
+    "author": "Patrick Rothfuss",
     "genre": "Epic Fantasy",
-    "series": "Gentleman Bastards",
-    "series_number": 3,
+    "series": "The Kingkiller Chronicles",
+    "series_number": 2,
     "has_prediction": false,
-    "wa": 6.82,
-    "rank": 104,
-    "total": 127,
+    "wa": 5.0,
+    "rank": 122,
+    "total": 128,
     "category_avgs": {
-      "Story": 6.71,
-      "Character": 6.91,
-      "Aesthetics": 8.19,
-      "Theme": 6.33,
-      "Worldbuilding": 6.24
+      "Story": 5.0,
+      "Character": 5.0,
+      "Aesthetics": 5.0,
+      "Theme": 5.0,
+      "Worldbuilding": 5.0
     }
   },
   "currently_reading": {
@@ -26,7 +26,7 @@
     "has_prediction": true,
     "wa": 8.02,
     "rank": 48,
-    "total": 127,
+    "total": 128,
     "category_avgs": {
       "Story": 7.78,
       "Character": 7.07,
@@ -44,7 +44,7 @@
     "has_prediction": true,
     "wa": 8.16,
     "rank": 43,
-    "total": 127,
+    "total": 128,
     "category_avgs": {
       "Story": 8.19,
       "Character": 8.49,

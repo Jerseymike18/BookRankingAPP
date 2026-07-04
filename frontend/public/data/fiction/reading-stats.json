@@ -1,9 +1,9 @@
 {
   "summary": {
-    "total_books": 127,
-    "avg_wa": 7.58,
-    "avg_total_average": 7.35,
-    "avg_words": 197996.0
+    "total_books": 128,
+    "avg_wa": 7.56,
+    "avg_total_average": 7.33,
+    "avg_words": 199536.0
   },
   "per_year": [
     {
@@ -15,10 +15,10 @@
     },
     {
       "year": 2026,
-      "books": 54,
-      "avg_wa": 7.68,
-      "avg_total_average": 7.5,
-      "avg_words": 187663.0
+      "books": 55,
+      "avg_wa": 7.63,
+      "avg_total_average": 7.45,
+      "avg_words": 191433.0
     }
   ],
   "by_genre": [
@@ -38,10 +38,10 @@
     },
     {
       "genre": "Epic Fantasy",
-      "books": 54,
-      "avg_wa": 8.05,
-      "avg_total_average": 8.05,
-      "avg_words": 279034.0
+      "books": 55,
+      "avg_wa": 7.99,
+      "avg_total_average": 7.99,
+      "avg_words": 281143.0
     },
     {
       "genre": "Cyberpunk",
@@ -199,6 +199,11 @@
       "avg_wa": 7.05
     },
     {
+      "author": "Patrick Rothfuss",
+      "books": 2,
+      "avg_wa": 5.84
+    },
+    {
       "author": "Ernest Cline",
       "books": 2,
       "avg_wa": 4.38
@@ -297,11 +302,6 @@
       "author": "Arthur C. Clarke",
       "books": 1,
       "avg_wa": 6.86
-    },
-    {
-      "author": "Patrick Rothfuss",
-      "books": 1,
-      "avg_wa": 6.69
     },
     {
       "author": "Theodore Dreiser",
