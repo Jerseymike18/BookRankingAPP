@@ -113,6 +113,14 @@ DELTA_META_COLUMNS = [
     ("corr_method", "TEXT"), ("corr_genre", "REAL"), ("corr_author", "REAL"),
     ("corr_dtracker", "REAL"), ("corr_wa", "REAL"),
     ("ci_low", "REAL"), ("ci_high", "REAL"), ("ci_width", "REAL"), ("conf", "TEXT"),
+    # Retro-sweep provenance (2026-07 calibration project). `tag` permanently
+    # distinguishes bulk retro-sweep calibration rows (e.g. retro_sweep_v1_shrunk)
+    # from genuine prospective rows so the two can never be confused and the sweep
+    # can be isolated/queried/re-run idempotently on (title, tag). `analog_wa`
+    # records the pure-analog leave-one-out baseline WA alongside the research
+    # prediction (pred_wa) for mechanism analysis. Both nullable; the idempotent
+    # ALTER-if-missing path leaves every prospective/historical row NULL.
+    ("tag", "TEXT"), ("analog_wa", "REAL"),
 ]
 
 
