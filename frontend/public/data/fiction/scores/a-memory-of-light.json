@@ -1,0 +1,32 @@
+{
+  "title": "A Memory of Light",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 9.1595,
+  "components": {
+    "Story": {
+      "Plot": 9.5,
+      "Entertainment": 9.8,
+      "Action": 9.9,
+      "Ending": 10.0
+    },
+    "Character": {
+      "Depth": 8.6,
+      "Emotional Impact": 9.9,
+      "Motivations": 8.5
+    },
+    "Aesthetics": {
+      "Prose": 7.8,
+      "Narration": 8.3
+    },
+    "Theme": {
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 8.8,
+      "Integration": 9.3,
+      "Originality": 9.2
+    }
+  }
+}

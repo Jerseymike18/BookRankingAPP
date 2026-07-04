@@ -1,0 +1,32 @@
+{
+  "title": "Sister Carrie",
+  "author": "Theodore Dreiser",
+  "genre": "Literary Fiction",
+  "wa": 6.554,
+  "components": {
+    "Story": {
+      "Plot": 6.4,
+      "Entertainment": 5.7,
+      "Action": 3.1,
+      "Ending": 5.4
+    },
+    "Character": {
+      "Depth": 6.8,
+      "Emotional Impact": 6.4,
+      "Motivations": 5.3
+    },
+    "Aesthetics": {
+      "Prose": 5.5,
+      "Narration": 5.7
+    },
+    "Theme": {
+      "Insights": 7.6,
+      "Thought-Provokingness": 8.4
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

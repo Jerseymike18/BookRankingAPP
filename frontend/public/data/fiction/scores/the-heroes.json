@@ -1,0 +1,32 @@
+{
+  "title": "The Heroes",
+  "author": "Joe Abercrombie",
+  "genre": "Epic Fantasy",
+  "wa": 9.0002,
+  "components": {
+    "Story": {
+      "Plot": 9.5,
+      "Entertainment": 9.5,
+      "Action": 9.4,
+      "Ending": 8.5
+    },
+    "Character": {
+      "Depth": 9.2,
+      "Emotional Impact": 8.9,
+      "Motivations": 8.3
+    },
+    "Aesthetics": {
+      "Prose": 8.2,
+      "Narration": 9.3
+    },
+    "Theme": {
+      "Insights": 9.0,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 8.7,
+      "Integration": 9.1,
+      "Originality": 8.9
+    }
+  }
+}

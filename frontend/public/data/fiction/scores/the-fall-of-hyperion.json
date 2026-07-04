@@ -1,0 +1,32 @@
+{
+  "title": "The Fall of Hyperion",
+  "author": "Dan Simmons",
+  "genre": "Science Fiction (Hard)",
+  "wa": 9.0153,
+  "components": {
+    "Story": {
+      "Plot": 8.8,
+      "Entertainment": 8.9,
+      "Action": 8.0,
+      "Ending": 9.2
+    },
+    "Character": {
+      "Depth": 8.9,
+      "Emotional Impact": 9.0,
+      "Motivations": 9.3
+    },
+    "Aesthetics": {
+      "Prose": 9.4,
+      "Narration": 9.5
+    },
+    "Theme": {
+      "Insights": 9.1,
+      "Thought-Provokingness": 9.0
+    },
+    "Worldbuilding": {
+      "Depth2": 9.3,
+      "Integration": 9.8,
+      "Originality": 9.3
+    }
+  }
+}

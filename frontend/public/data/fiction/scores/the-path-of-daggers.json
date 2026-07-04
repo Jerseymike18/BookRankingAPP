@@ -1,0 +1,32 @@
+{
+  "title": "The Path of Daggers",
+  "author": "Robert Jordan",
+  "genre": "Epic Fantasy",
+  "wa": 7.6406,
+  "components": {
+    "Story": {
+      "Plot": 7.27,
+      "Entertainment": 6.8,
+      "Action": 7.1,
+      "Ending": 7.4
+    },
+    "Character": {
+      "Depth": 8.4,
+      "Emotional Impact": 7.8,
+      "Motivations": 8.2
+    },
+    "Aesthetics": {
+      "Prose": 7.9,
+      "Narration": 7.7
+    },
+    "Theme": {
+      "Insights": 7.8,
+      "Thought-Provokingness": 7.1
+    },
+    "Worldbuilding": {
+      "Depth2": 8.3,
+      "Integration": 8.2,
+      "Originality": 8.2
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "The Fifth Season",
+  "author": "N.K. Jemisin",
+  "genre": "Science Fiction (Soft)",
+  "wa": 6.9027,
+  "components": {
+    "Story": {
+      "Plot": 6.5,
+      "Entertainment": 6.9,
+      "Action": 7.2,
+      "Ending": 7.0
+    },
+    "Character": {
+      "Depth": 6.2,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.6
+    },
+    "Aesthetics": {
+      "Prose": 7.7,
+      "Narration": 5.0
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.0
+    },
+    "Worldbuilding": {
+      "Depth2": 7.9,
+      "Integration": 8.2,
+      "Originality": 8.5
+    }
+  }
+}

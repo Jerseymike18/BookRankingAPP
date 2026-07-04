@@ -1,0 +1,32 @@
+{
+  "title": "Elantris",
+  "author": "Brandon Sanderson",
+  "genre": "Literary Fantasy",
+  "wa": 7.1322,
+  "components": {
+    "Story": {
+      "Plot": 8.2,
+      "Entertainment": 7.5,
+      "Action": 8.2,
+      "Ending": 8.8
+    },
+    "Character": {
+      "Depth": 7.3,
+      "Emotional Impact": 7.1,
+      "Motivations": 7.6
+    },
+    "Aesthetics": {
+      "Prose": 6.2,
+      "Narration": 6.9
+    },
+    "Theme": {
+      "Insights": 5.3,
+      "Thought-Provokingness": 5.9
+    },
+    "Worldbuilding": {
+      "Depth2": 8.9,
+      "Integration": 8.8,
+      "Originality": 9.0
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Wind and Truth",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 6.9363,
+  "components": {
+    "Story": {
+      "Plot": 7.2,
+      "Entertainment": 7.5,
+      "Action": 7.4,
+      "Ending": 7.1
+    },
+    "Character": {
+      "Depth": 6.4,
+      "Emotional Impact": 6.8,
+      "Motivations": 6.2
+    },
+    "Aesthetics": {
+      "Prose": 5.4,
+      "Narration": 5.2
+    },
+    "Theme": {
+      "Insights": 6.5,
+      "Thought-Provokingness": 7.1
+    },
+    "Worldbuilding": {
+      "Depth2": 8.4,
+      "Integration": 8.7,
+      "Originality": 8.1
+    }
+  }
+}

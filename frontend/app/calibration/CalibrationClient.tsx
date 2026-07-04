@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { runLooValidation, fetchResearcherComparison } from "@/lib/api";
+import { READONLY } from "@/lib/readonly";
 import type { CalibrationHealth, LooResult, ResearcherComparison } from "@/lib/types";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
@@ -91,7 +92,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
         Regression health metrics from the live engine ({health.n_books} rated books).
-        LOO accuracy requires a separate run — trigger it below.
+        {!READONLY && " LOO accuracy requires a separate run — trigger it below."}
       </p>
 
       {/* ── Regression health ── */}
@@ -214,7 +215,9 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
         </table>
       </div>
 
-      {/* ── LOO section ── */}
+      {/* ── LOO section (write/compute — hidden on a read-only deploy) ── */}
+      {!READONLY && (
+      <>
       <SectionHeader>Leave-one-out accuracy</SectionHeader>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
         Each book is removed, the engine refit on the remaining {health.n_books - 1}, and the
@@ -401,6 +404,8 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
             Re-run LOO
           </button>
         </div>
+      )}
+      </>
       )}
 
       {/* ── Researcher comparison (read-only; from compare_researchers.py) ── */}

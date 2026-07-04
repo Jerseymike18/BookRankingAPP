@@ -1,0 +1,32 @@
+{
+  "title": "The Lions of Al-Rassan",
+  "author": "Guy Gavriel Kay",
+  "genre": "Literary Fantasy",
+  "wa": 8.8434,
+  "components": {
+    "Story": {
+      "Plot": 8.5,
+      "Entertainment": 8.2,
+      "Action": 8.1,
+      "Ending": 9.4
+    },
+    "Character": {
+      "Depth": 9.2,
+      "Emotional Impact": 9.5,
+      "Motivations": 9.0
+    },
+    "Aesthetics": {
+      "Prose": 9.1,
+      "Narration": 9.2
+    },
+    "Theme": {
+      "Insights": 8.8,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 7.8,
+      "Integration": 8.3,
+      "Originality": 6.0
+    }
+  }
+}

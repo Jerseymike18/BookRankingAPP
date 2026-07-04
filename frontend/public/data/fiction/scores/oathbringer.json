@@ -1,0 +1,32 @@
+{
+  "title": "Oathbringer",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 8.5504,
+  "components": {
+    "Story": {
+      "Plot": 8.3,
+      "Entertainment": 8.5,
+      "Action": 8.8,
+      "Ending": 9.5
+    },
+    "Character": {
+      "Depth": 8.3,
+      "Emotional Impact": 8.6,
+      "Motivations": 8.2
+    },
+    "Aesthetics": {
+      "Prose": 7.5,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 7.6,
+      "Thought-Provokingness": 8.3
+    },
+    "Worldbuilding": {
+      "Depth2": 9.7,
+      "Integration": 10.0,
+      "Originality": 9.5
+    }
+  }
+}

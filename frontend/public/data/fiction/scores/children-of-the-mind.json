@@ -1,0 +1,32 @@
+{
+  "title": "Children of the Mind",
+  "author": "Orson Scott Card",
+  "genre": "Science Fiction (Hard)",
+  "wa": 6.982,
+  "components": {
+    "Story": {
+      "Plot": 6.1,
+      "Entertainment": 6.2,
+      "Action": 5.8,
+      "Ending": 8.3
+    },
+    "Character": {
+      "Depth": 7.1,
+      "Emotional Impact": 9.7,
+      "Motivations": 7.7
+    },
+    "Aesthetics": {
+      "Prose": 7.1,
+      "Narration": 7.5
+    },
+    "Theme": {
+      "Insights": 6.4,
+      "Thought-Provokingness": 7.2
+    },
+    "Worldbuilding": {
+      "Depth2": 7.5,
+      "Integration": 7.0,
+      "Originality": 6.8
+    }
+  }
+}

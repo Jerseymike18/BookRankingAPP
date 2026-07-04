@@ -1,0 +1,32 @@
+{
+  "title": "Edgedancer",
+  "author": "Brandon Sanderson",
+  "genre": "Literary Fantasy",
+  "wa": 6.0888,
+  "components": {
+    "Story": {
+      "Plot": 7.3,
+      "Entertainment": 6.8,
+      "Action": 5.4,
+      "Ending": 5.5
+    },
+    "Character": {
+      "Depth": 5.9,
+      "Emotional Impact": 5.5,
+      "Motivations": 7.1
+    },
+    "Aesthetics": {
+      "Prose": 6.5,
+      "Narration": 8.0
+    },
+    "Theme": {
+      "Insights": 5.5,
+      "Thought-Provokingness": 5.4
+    },
+    "Worldbuilding": {
+      "Depth2": 6.2,
+      "Integration": 6.0,
+      "Originality": 6.8
+    }
+  }
+}

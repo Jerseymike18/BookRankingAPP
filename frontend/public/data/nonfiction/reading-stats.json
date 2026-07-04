@@ -1,0 +1,57 @@
+{
+  "summary": {
+    "total_books": 6,
+    "avg_wa": 7.24,
+    "avg_total_average": 7.34,
+    "avg_words": null
+  },
+  "per_year": [
+    {
+      "year": 2025,
+      "books": 3,
+      "avg_wa": 7.32,
+      "avg_total_average": 7.35,
+      "avg_words": null
+    },
+    {
+      "year": 2026,
+      "books": 3,
+      "avg_wa": 7.15,
+      "avg_total_average": 7.33,
+      "avg_words": null
+    }
+  ],
+  "by_genre": [],
+  "by_author": [
+    {
+      "author": "Sigmund Freud",
+      "books": 1,
+      "avg_wa": 8.0
+    },
+    {
+      "author": "Jonathan Haidt",
+      "books": 1,
+      "avg_wa": 8.16
+    },
+    {
+      "author": "Nicolo Machiavelli",
+      "books": 1,
+      "avg_wa": 7.84
+    },
+    {
+      "author": "Augustine",
+      "books": 1,
+      "avg_wa": 7.46
+    },
+    {
+      "author": "Ben Mezrich",
+      "books": 1,
+      "avg_wa": 6.35
+    },
+    {
+      "author": "Friedrich Nietzsche",
+      "books": 1,
+      "avg_wa": 5.61
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "title": "The Fires of Heaven",
+  "author": "Robert Jordan",
+  "genre": "Epic Fantasy",
+  "wa": 8.3037,
+  "components": {
+    "Story": {
+      "Plot": 7.8,
+      "Entertainment": 8.1,
+      "Action": 8.6,
+      "Ending": 9.5
+    },
+    "Character": {
+      "Depth": 8.4,
+      "Emotional Impact": 8.5,
+      "Motivations": 8.4
+    },
+    "Aesthetics": {
+      "Prose": 8.4,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 7.6,
+      "Thought-Provokingness": 7.5
+    },
+    "Worldbuilding": {
+      "Depth2": 8.3,
+      "Integration": 8.6,
+      "Originality": 8.5
+    }
+  }
+}

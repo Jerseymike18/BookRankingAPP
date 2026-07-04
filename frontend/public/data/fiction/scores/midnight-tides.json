@@ -1,0 +1,32 @@
+{
+  "title": "Midnight Tides",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 8.9341,
+  "components": {
+    "Story": {
+      "Plot": 8.8,
+      "Entertainment": 8.7,
+      "Action": 8.9,
+      "Ending": 9.0
+    },
+    "Character": {
+      "Depth": 8.7,
+      "Emotional Impact": 9.0,
+      "Motivations": 8.6
+    },
+    "Aesthetics": {
+      "Prose": 8.6,
+      "Narration": 9.7
+    },
+    "Theme": {
+      "Insights": 9.1,
+      "Thought-Provokingness": 8.8
+    },
+    "Worldbuilding": {
+      "Depth2": 9.7,
+      "Integration": 9.4,
+      "Originality": 9.8
+    }
+  }
+}

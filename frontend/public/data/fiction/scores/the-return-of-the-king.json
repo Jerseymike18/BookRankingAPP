@@ -1,0 +1,32 @@
+{
+  "title": "The Return of the King",
+  "author": "J.R.R. Tolkien",
+  "genre": "Epic Fantasy",
+  "wa": 8.6531,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 8.2,
+      "Action": 8.0,
+      "Ending": 8.5
+    },
+    "Character": {
+      "Depth": 8.8,
+      "Emotional Impact": 9.3,
+      "Motivations": 9.5
+    },
+    "Aesthetics": {
+      "Prose": 9.0,
+      "Narration": 9.2
+    },
+    "Theme": {
+      "Insights": 8.0,
+      "Thought-Provokingness": 7.9
+    },
+    "Worldbuilding": {
+      "Depth2": 10.0,
+      "Integration": 9.5,
+      "Originality": 10.0
+    }
+  }
+}

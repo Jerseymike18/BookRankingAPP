@@ -1,0 +1,32 @@
+{
+  "title": "Shadows in Flight",
+  "author": "Orson Scott Card",
+  "genre": "Science Fiction (Hard)",
+  "wa": 6.3431,
+  "components": {
+    "Story": {
+      "Plot": 5.2,
+      "Entertainment": 4.8,
+      "Action": 4.9,
+      "Ending": 7.9
+    },
+    "Character": {
+      "Depth": 6.1,
+      "Emotional Impact": 8.8,
+      "Motivations": 6.3
+    },
+    "Aesthetics": {
+      "Prose": 5.1,
+      "Narration": 4.8
+    },
+    "Theme": {
+      "Insights": 7.1,
+      "Thought-Provokingness": 7.4
+    },
+    "Worldbuilding": {
+      "Depth2": 5.1,
+      "Integration": 5.4,
+      "Originality": 5.5
+    }
+  }
+}

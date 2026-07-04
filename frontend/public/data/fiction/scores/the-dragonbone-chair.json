@@ -1,0 +1,32 @@
+{
+  "title": "The Dragonbone Chair",
+  "author": "Tad Williams",
+  "genre": "Epic Fantasy",
+  "wa": 6.6949,
+  "components": {
+    "Story": {
+      "Plot": 6.2,
+      "Entertainment": 6.6,
+      "Action": 7.3,
+      "Ending": 6.8
+    },
+    "Character": {
+      "Depth": 6.3,
+      "Emotional Impact": 5.8,
+      "Motivations": 6.7
+    },
+    "Aesthetics": {
+      "Prose": 7.1,
+      "Narration": 7.5
+    },
+    "Theme": {
+      "Insights": 6.9,
+      "Thought-Provokingness": 6.8
+    },
+    "Worldbuilding": {
+      "Depth2": 7.8,
+      "Integration": 7.7,
+      "Originality": 7.1
+    }
+  }
+}

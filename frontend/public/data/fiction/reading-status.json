@@ -1,0 +1,56 @@
+{
+  "last_read": {
+    "title": "The Republic of Thieves",
+    "author": "Scott Lynch",
+    "genre": "Epic Fantasy",
+    "series": "Gentleman Bastards",
+    "series_number": 3,
+    "has_prediction": false,
+    "wa": 6.82,
+    "rank": 104,
+    "total": 127,
+    "category_avgs": {
+      "Story": 6.71,
+      "Character": 6.91,
+      "Aesthetics": 8.19,
+      "Theme": 6.33,
+      "Worldbuilding": 6.24
+    }
+  },
+  "currently_reading": {
+    "title": "The Rise of Endymion",
+    "author": "Dan Simmons",
+    "genre": "Science Fiction (Hard)",
+    "series": "Hyperion Cantos",
+    "series_number": 4,
+    "has_prediction": true,
+    "wa": 8.02,
+    "rank": 48,
+    "total": 127,
+    "category_avgs": {
+      "Story": 7.78,
+      "Character": 7.07,
+      "Aesthetics": 7.87,
+      "Theme": 8.5,
+      "Worldbuilding": 8.87
+    }
+  },
+  "reading_next": {
+    "title": "Lord of Emperors",
+    "author": "Guy Gavriel Kay",
+    "genre": "Literary Fantasy",
+    "series": "The Sarantine Mosaic",
+    "series_number": 2,
+    "has_prediction": true,
+    "wa": 8.16,
+    "rank": 43,
+    "total": 127,
+    "category_avgs": {
+      "Story": 8.19,
+      "Character": 8.49,
+      "Aesthetics": 8.57,
+      "Theme": 7.7,
+      "Worldbuilding": 7.41
+    }
+  }
+}

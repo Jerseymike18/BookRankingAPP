@@ -1,0 +1,32 @@
+{
+  "title": "Kingdoms of Death",
+  "author": "Christopher Ruocchio",
+  "genre": "Science Fiction (Soft)",
+  "wa": 7.8902,
+  "components": {
+    "Story": {
+      "Plot": 7.7,
+      "Entertainment": 9.1,
+      "Action": 7.5,
+      "Ending": 9.3
+    },
+    "Character": {
+      "Depth": 7.5,
+      "Emotional Impact": 8.8,
+      "Motivations": 6.3
+    },
+    "Aesthetics": {
+      "Prose": 7.9,
+      "Narration": 8.3
+    },
+    "Theme": {
+      "Insights": 7.4,
+      "Thought-Provokingness": 7.6
+    },
+    "Worldbuilding": {
+      "Depth2": 8.0,
+      "Integration": 8.3,
+      "Originality": 8.2
+    }
+  }
+}

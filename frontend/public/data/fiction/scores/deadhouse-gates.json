@@ -1,0 +1,32 @@
+{
+  "title": "Deadhouse Gates",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 9.3447,
+  "components": {
+    "Story": {
+      "Plot": 9.2,
+      "Entertainment": 9.5,
+      "Action": 9.8,
+      "Ending": 9.7
+    },
+    "Character": {
+      "Depth": 8.9,
+      "Emotional Impact": 9.8,
+      "Motivations": 9.1
+    },
+    "Aesthetics": {
+      "Prose": 9.2,
+      "Narration": 8.9
+    },
+    "Theme": {
+      "Insights": 8.7,
+      "Thought-Provokingness": 9.6
+    },
+    "Worldbuilding": {
+      "Depth2": 9.5,
+      "Integration": 9.3,
+      "Originality": 9.5
+    }
+  }
+}

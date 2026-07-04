@@ -1,0 +1,32 @@
+{
+  "title": "The Republic of Thieves",
+  "author": "Scott Lynch",
+  "genre": "Epic Fantasy",
+  "wa": 6.8177,
+  "components": {
+    "Story": {
+      "Plot": 7.1,
+      "Entertainment": 7.2,
+      "Action": 6.3,
+      "Ending": 5.9
+    },
+    "Character": {
+      "Depth": 7.2,
+      "Emotional Impact": 6.8,
+      "Motivations": 6.2
+    },
+    "Aesthetics": {
+      "Prose": 8.3,
+      "Narration": 8.0
+    },
+    "Theme": {
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.2
+    },
+    "Worldbuilding": {
+      "Depth2": 6.4,
+      "Integration": 6.0,
+      "Originality": 6.0
+    }
+  }
+}

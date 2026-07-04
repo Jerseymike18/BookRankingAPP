@@ -1,0 +1,32 @@
+{
+  "title": "Station 11",
+  "author": "Emily St. John Mandel",
+  "genre": "Speculative Literary Fiction",
+  "wa": 5.1542,
+  "components": {
+    "Story": {
+      "Plot": 4.2,
+      "Entertainment": 2.1,
+      "Action": 5.8,
+      "Ending": 4.4
+    },
+    "Character": {
+      "Depth": 4.5,
+      "Emotional Impact": 3.2,
+      "Motivations": 6.3
+    },
+    "Aesthetics": {
+      "Prose": 6.1,
+      "Narration": 5.2
+    },
+    "Theme": {
+      "Insights": 6.4,
+      "Thought-Provokingness": 7.5
+    },
+    "Worldbuilding": {
+      "Depth2": 5.5,
+      "Integration": 7.2,
+      "Originality": 5.4
+    }
+  }
+}

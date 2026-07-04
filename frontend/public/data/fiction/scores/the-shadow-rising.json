@@ -1,0 +1,32 @@
+{
+  "title": "The Shadow Rising",
+  "author": "Robert Jordan",
+  "genre": "Epic Fantasy",
+  "wa": 8.5723,
+  "components": {
+    "Story": {
+      "Plot": 8.5,
+      "Entertainment": 8.6,
+      "Action": 8.8,
+      "Ending": 9.1
+    },
+    "Character": {
+      "Depth": 8.9,
+      "Emotional Impact": 9.1,
+      "Motivations": 8.3
+    },
+    "Aesthetics": {
+      "Prose": 8.1,
+      "Narration": 8.0
+    },
+    "Theme": {
+      "Insights": 7.8,
+      "Thought-Provokingness": 7.8
+    },
+    "Worldbuilding": {
+      "Depth2": 8.6,
+      "Integration": 8.5,
+      "Originality": 8.8
+    }
+  }
+}

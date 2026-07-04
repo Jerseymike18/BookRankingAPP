@@ -1,0 +1,32 @@
+{
+  "title": "Red Seas Under Red Skies",
+  "author": "Scott Lynch",
+  "genre": "Epic Fantasy",
+  "wa": 6.7708,
+  "components": {
+    "Story": {
+      "Plot": 5.9,
+      "Entertainment": 7.0,
+      "Action": 6.5,
+      "Ending": 7.1
+    },
+    "Character": {
+      "Depth": 6.8,
+      "Emotional Impact": 7.9,
+      "Motivations": 6.6
+    },
+    "Aesthetics": {
+      "Prose": 7.9,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 6.1,
+      "Thought-Provokingness": 6.4
+    },
+    "Worldbuilding": {
+      "Depth2": 6.0,
+      "Integration": 5.7,
+      "Originality": 5.8
+    }
+  }
+}

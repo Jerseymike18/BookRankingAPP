@@ -1,0 +1,32 @@
+{
+  "title": "House of Chains",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 8.3097,
+  "components": {
+    "Story": {
+      "Plot": 8.3,
+      "Entertainment": 8.6,
+      "Action": 8.3,
+      "Ending": 8.4
+    },
+    "Character": {
+      "Depth": 8.1,
+      "Emotional Impact": 7.5,
+      "Motivations": 7.8
+    },
+    "Aesthetics": {
+      "Prose": 8.4,
+      "Narration": 7.3
+    },
+    "Theme": {
+      "Insights": 7.9,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 9.7,
+      "Integration": 9.3,
+      "Originality": 9.5
+    }
+  }
+}

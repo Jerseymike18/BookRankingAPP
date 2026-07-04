@@ -1,0 +1,32 @@
+{
+  "title": "Best Served Cold",
+  "author": "Joe Abercrombie",
+  "genre": "Epic Fantasy",
+  "wa": 7.8299,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 8.0,
+      "Action": 8.8,
+      "Ending": 7.7
+    },
+    "Character": {
+      "Depth": 8.0,
+      "Emotional Impact": 7.3,
+      "Motivations": 7.6
+    },
+    "Aesthetics": {
+      "Prose": 7.6,
+      "Narration": 8.0
+    },
+    "Theme": {
+      "Insights": 7.9,
+      "Thought-Provokingness": 7.2
+    },
+    "Worldbuilding": {
+      "Depth2": 7.8,
+      "Integration": 8.1,
+      "Originality": 7.4
+    }
+  }
+}

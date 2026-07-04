@@ -1,0 +1,32 @@
+{
+  "title": "The Odyssey",
+  "author": "Homer",
+  "genre": "Classical Epic",
+  "wa": 8.0873,
+  "components": {
+    "Story": {
+      "Plot": 8.8,
+      "Entertainment": 8.4,
+      "Action": 8.5,
+      "Ending": 8.8
+    },
+    "Character": {
+      "Depth": 7.6,
+      "Emotional Impact": 6.4,
+      "Motivations": 8.5
+    },
+    "Aesthetics": {
+      "Prose": 8.5,
+      "Narration": 7.4
+    },
+    "Theme": {
+      "Insights": 7.3,
+      "Thought-Provokingness": 9.5
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

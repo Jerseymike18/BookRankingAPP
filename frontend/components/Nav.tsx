@@ -3,11 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import { READONLY } from "@/lib/readonly";
 
 type NavItem = { href: string; label: string };
 type NavGroup =
   | { label: string; items: NavItem[] }            // dropdown section
   | { label: string; href: string };               // top-level direct link
+
+// Predict and Add a Book are write/compute flows — dropped on a read-only
+// deploy. Read Queue stays (it renders view-only). Their pages also guard
+// themselves so a direct URL shows the read-only notice.
+const PREDICTION_ITEMS: NavItem[] = READONLY
+  ? [{ href: "/read-queue", label: "Read Queue" }]
+  : [
+      { href: "/predict", label: "Predict" },
+      { href: "/read-queue", label: "Read Queue" },
+      { href: "/add-book", label: "Add a Book" },
+    ];
 
 const sections: NavGroup[] = [
   { label: "Stats", href: "/stats" },
@@ -34,11 +46,7 @@ const sections: NavGroup[] = [
   },
   {
     label: "Predictions",
-    items: [
-      { href: "/predict", label: "Predict" },
-      { href: "/read-queue", label: "Read Queue" },
-      { href: "/add-book", label: "Add a Book" },
-    ],
+    items: PREDICTION_ITEMS,
   },
   {
     label: "More",

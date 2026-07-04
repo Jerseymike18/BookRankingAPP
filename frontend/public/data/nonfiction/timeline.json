@@ -1,0 +1,27 @@
+{
+  "rows": [
+    {
+      "year": 2025,
+      "books": 3,
+      "avg_wa": 7.32,
+      "avg_words": null,
+      "quality": 6.96,
+      "aesthetics": 7.27,
+      "theme": 7.82
+    },
+    {
+      "year": 2026,
+      "books": 3,
+      "avg_wa": 7.15,
+      "avg_words": null,
+      "quality": 6.06,
+      "aesthetics": 7.65,
+      "theme": 8.28
+    }
+  ],
+  "categories": [
+    "Quality",
+    "Aesthetics",
+    "Theme"
+  ]
+}

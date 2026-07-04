@@ -1,0 +1,32 @@
+{
+  "title": "The Gathering Storm",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 9.0211,
+  "components": {
+    "Story": {
+      "Plot": 9.0,
+      "Entertainment": 9.2,
+      "Action": 8.9,
+      "Ending": 9.6
+    },
+    "Character": {
+      "Depth": 9.3,
+      "Emotional Impact": 9.8,
+      "Motivations": 8.9
+    },
+    "Aesthetics": {
+      "Prose": 7.5,
+      "Narration": 7.4
+    },
+    "Theme": {
+      "Insights": 8.8,
+      "Thought-Provokingness": 9.5
+    },
+    "Worldbuilding": {
+      "Depth2": 8.6,
+      "Integration": 8.8,
+      "Originality": 8.1
+    }
+  }
+}

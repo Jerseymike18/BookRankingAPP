@@ -1,0 +1,32 @@
+{
+  "title": "Howling Dark",
+  "author": "Christopher Ruocchio",
+  "genre": "Science Fiction (Soft)",
+  "wa": 7.6313,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 8.6,
+      "Action": 8.5,
+      "Ending": 9.1
+    },
+    "Character": {
+      "Depth": 6.8,
+      "Emotional Impact": 7.3,
+      "Motivations": 7.2
+    },
+    "Aesthetics": {
+      "Prose": 7.5,
+      "Narration": 7.1
+    },
+    "Theme": {
+      "Insights": 6.8,
+      "Thought-Provokingness": 7.1
+    },
+    "Worldbuilding": {
+      "Depth2": 7.5,
+      "Integration": 7.1,
+      "Originality": 7.0
+    }
+  }
+}

@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useRef, useTransition } from "re
 import type { ReadQueueResponse, Recommendation } from "@/lib/types";
 import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
+import { READONLY } from "@/lib/readonly";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -235,8 +236,8 @@ function RecExpandedPanel({
         </div>
       )}
 
-      {/* Generate blurb & keywords */}
-      {!blurb && !keywords && (
+      {/* Generate blurb & keywords (LLM spend — hidden on a read-only deploy) */}
+      {!READONLY && !blurb && !keywords && (
         <div>
           <button
             onClick={handleGenerate}
@@ -259,7 +260,8 @@ function RecExpandedPanel({
       {/* Component scores */}
       <ComponentScores components={rec.components} />
 
-      {/* Delete */}
+      {/* Delete (mutation — hidden on a read-only deploy) */}
+      {!READONLY && (
       <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: "var(--color-rule)" }}>
         {!deleteConfirm ? (
           <button
@@ -305,6 +307,7 @@ function RecExpandedPanel({
           <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -1029,12 +1032,13 @@ export default function ReadQueueClient({
         </p>
       </div>
 
-      {/* Tab bar */}
+      {/* Tab bar — the Queue tab is an editor (reorder/remove/add), so it's
+          hidden on a read-only deploy; Mood Scores stays as a view. */}
       <div
         className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
       >
-        {(["mood", "queue"] as const).map((t) => (
+        {(READONLY ? (["mood"] as const) : (["mood", "queue"] as const)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -1049,7 +1053,7 @@ export default function ReadQueueClient({
         ))}
       </div>
 
-      {tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
+      {!READONLY && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
       {tab === "mood" && recommendations.length === 0 ? (
         <div

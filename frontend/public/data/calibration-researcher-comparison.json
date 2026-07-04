@@ -1,0 +1,175 @@
+{
+  "generated_at": "2026-06-29T09:53:26",
+  "model": "claude-opus-4-8",
+  "sample_size": 32,
+  "n_common": 32,
+  "n_per_genre": 3,
+  "seed": 42,
+  "wa_mae": {
+    "memory": 0.8824,
+    "grounded": 0.8162,
+    "delta": 0.0662
+  },
+  "components": [
+    {
+      "component": "Originality",
+      "n": 16,
+      "memory_mae": 1.9563,
+      "grounded_mae": 1.7437,
+      "delta": 0.2125,
+      "verdict": "grounding helps",
+      "loo_mae": 1.2283,
+      "signal": "weak / noisy"
+    },
+    {
+      "component": "Insights",
+      "n": 32,
+      "memory_mae": 0.8375,
+      "grounded_mae": 0.6906,
+      "delta": 0.1469,
+      "verdict": "grounding helps",
+      "loo_mae": 0.8838,
+      "signal": "strong signal"
+    },
+    {
+      "component": "Depth2",
+      "n": 16,
+      "memory_mae": 1.7688,
+      "grounded_mae": 1.6375,
+      "delta": 0.1313,
+      "verdict": "grounding helps",
+      "loo_mae": 1.2583,
+      "signal": "weak / noisy"
+    },
+    {
+      "component": "Ending",
+      "n": 32,
+      "memory_mae": 1.5531,
+      "grounded_mae": 1.4281,
+      "delta": 0.125,
+      "verdict": "grounding helps",
+      "loo_mae": 1.2523,
+      "signal": "weak / noisy"
+    },
+    {
+      "component": "Integration",
+      "n": 16,
+      "memory_mae": 1.8125,
+      "grounded_mae": 1.6938,
+      "delta": 0.1188,
+      "verdict": "grounding helps",
+      "loo_mae": 1.3626,
+      "signal": "weak / noisy"
+    },
+    {
+      "component": "Depth",
+      "n": 32,
+      "memory_mae": 1.0094,
+      "grounded_mae": 0.9219,
+      "delta": 0.0875,
+      "verdict": "grounding helps",
+      "loo_mae": 0.9754,
+      "signal": "moderate"
+    },
+    {
+      "component": "Emotional Impact",
+      "n": 32,
+      "memory_mae": 1.3438,
+      "grounded_mae": 1.2969,
+      "delta": 0.0469,
+      "verdict": "no change",
+      "loo_mae": 1.1831,
+      "signal": "weak / noisy"
+    },
+    {
+      "component": "Motivations",
+      "n": 32,
+      "memory_mae": 1.2719,
+      "grounded_mae": 1.2437,
+      "delta": 0.0281,
+      "verdict": "no change",
+      "loo_mae": 0.9578,
+      "signal": "moderate"
+    },
+    {
+      "component": "Action",
+      "n": 32,
+      "memory_mae": 0.8281,
+      "grounded_mae": 0.8313,
+      "delta": -0.0031,
+      "verdict": "no change",
+      "loo_mae": 1.0127,
+      "signal": "moderate"
+    },
+    {
+      "component": "Prose",
+      "n": 32,
+      "memory_mae": 1.0531,
+      "grounded_mae": 1.0719,
+      "delta": -0.0187,
+      "verdict": "no change",
+      "loo_mae": 0.7066,
+      "signal": "strong signal"
+    },
+    {
+      "component": "Plot",
+      "n": 32,
+      "memory_mae": 0.9844,
+      "grounded_mae": 1.025,
+      "delta": -0.0406,
+      "verdict": "no change",
+      "loo_mae": 0.9343,
+      "signal": "moderate"
+    },
+    {
+      "component": "Entertainment",
+      "n": 32,
+      "memory_mae": 1.0969,
+      "grounded_mae": 1.1406,
+      "delta": -0.0438,
+      "verdict": "no change",
+      "loo_mae": 0.9527,
+      "signal": "moderate"
+    },
+    {
+      "component": "Narration",
+      "n": 32,
+      "memory_mae": 1.1031,
+      "grounded_mae": 1.1969,
+      "delta": -0.0938,
+      "verdict": "grounding HURTS",
+      "loo_mae": 0.9218,
+      "signal": "moderate"
+    },
+    {
+      "component": "Thought-Provokingness",
+      "n": 32,
+      "memory_mae": 0.6656,
+      "grounded_mae": 0.7625,
+      "delta": -0.0969,
+      "verdict": "grounding HURTS",
+      "loo_mae": 0.9716,
+      "signal": "moderate"
+    }
+  ],
+  "trust_crowd": [
+    "Originality",
+    "Insights",
+    "Depth2",
+    "Ending",
+    "Integration",
+    "Depth"
+  ],
+  "trust_analogs": [
+    "Narration",
+    "Thought-Provokingness"
+  ],
+  "neutral": [
+    "Emotional Impact",
+    "Motivations",
+    "Action",
+    "Prose",
+    "Plot",
+    "Entertainment"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Dawnshard",
+  "author": "Brandon Sanderson",
+  "genre": "Literary Fantasy",
+  "wa": 5.8954,
+  "components": {
+    "Story": {
+      "Plot": 5.7,
+      "Entertainment": 6.1,
+      "Action": 6.5,
+      "Ending": 6.7
+    },
+    "Character": {
+      "Depth": 6.1,
+      "Emotional Impact": 6.8,
+      "Motivations": 5.5
+    },
+    "Aesthetics": {
+      "Prose": 6.0,
+      "Narration": 7.2
+    },
+    "Theme": {
+      "Insights": 5.8,
+      "Thought-Provokingness": 3.5
+    },
+    "Worldbuilding": {
+      "Depth2": 7.1,
+      "Integration": 7.3,
+      "Originality": 6.9
+    }
+  }
+}

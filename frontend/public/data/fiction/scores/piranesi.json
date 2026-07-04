@@ -1,0 +1,32 @@
+{
+  "title": "Piranesi",
+  "author": "Susanna Clarke",
+  "genre": "Literary Fantasy",
+  "wa": 7.8072,
+  "components": {
+    "Story": {
+      "Plot": 7.48,
+      "Entertainment": 8.2,
+      "Action": 6.5,
+      "Ending": 8.2
+    },
+    "Character": {
+      "Depth": 8.4,
+      "Emotional Impact": 8.2,
+      "Motivations": 6.3
+    },
+    "Aesthetics": {
+      "Prose": 8.1,
+      "Narration": 8.9
+    },
+    "Theme": {
+      "Insights": 7.2,
+      "Thought-Provokingness": 7.4
+    },
+    "Worldbuilding": {
+      "Depth2": 8.1,
+      "Integration": 9.4,
+      "Originality": 8.7
+    }
+  }
+}

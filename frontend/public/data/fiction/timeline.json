@@ -1,0 +1,33 @@
+{
+  "rows": [
+    {
+      "year": 2025,
+      "books": 73,
+      "avg_wa": 7.51,
+      "avg_words": 205640.0,
+      "story": 7.49,
+      "character": 7.51,
+      "aesthetics": 7.41,
+      "theme": 7.39,
+      "worldbuilding": 6.43
+    },
+    {
+      "year": 2026,
+      "books": 54,
+      "avg_wa": 7.68,
+      "avg_words": 187663.0,
+      "story": 7.63,
+      "character": 7.57,
+      "aesthetics": 7.68,
+      "theme": 7.64,
+      "worldbuilding": 6.97
+    }
+  ],
+  "categories": [
+    "Story",
+    "Character",
+    "Aesthetics",
+    "Theme",
+    "Worldbuilding"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "title": "The Rage of Dragons",
+  "author": "Evan Winter",
+  "genre": "Epic Fantasy",
+  "wa": 6.8666,
+  "components": {
+    "Story": {
+      "Plot": 7.0,
+      "Entertainment": 8.4,
+      "Action": 9.0,
+      "Ending": 7.6
+    },
+    "Character": {
+      "Depth": 5.5,
+      "Emotional Impact": 6.0,
+      "Motivations": 5.1
+    },
+    "Aesthetics": {
+      "Prose": 7.1,
+      "Narration": 7.2
+    },
+    "Theme": {
+      "Insights": 6.8,
+      "Thought-Provokingness": 6.4
+    },
+    "Worldbuilding": {
+      "Depth2": 6.8,
+      "Integration": 6.2,
+      "Originality": 7.0
+    }
+  }
+}

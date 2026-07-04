@@ -1,0 +1,32 @@
+{
+  "title": "Shadows for Silence",
+  "author": "Brandon Sanderson",
+  "genre": "Literary Fantasy",
+  "wa": 5.0699,
+  "components": {
+    "Story": {
+      "Plot": 5.6,
+      "Entertainment": 6.1,
+      "Action": 6.9,
+      "Ending": 5.2
+    },
+    "Character": {
+      "Depth": 5.0,
+      "Emotional Impact": 5.3,
+      "Motivations": 4.1
+    },
+    "Aesthetics": {
+      "Prose": 5.8,
+      "Narration": 5.2
+    },
+    "Theme": {
+      "Insights": 3.6,
+      "Thought-Provokingness": 3.9
+    },
+    "Worldbuilding": {
+      "Depth2": 6.5,
+      "Integration": 7.2,
+      "Originality": 6.8
+    }
+  }
+}

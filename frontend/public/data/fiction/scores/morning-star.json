@@ -1,0 +1,32 @@
+{
+  "title": "Morning Star",
+  "author": "Pierce Brown",
+  "genre": "Science Fiction (Soft)",
+  "wa": 8.0326,
+  "components": {
+    "Story": {
+      "Plot": 8.2,
+      "Entertainment": 9.1,
+      "Action": 9.4,
+      "Ending": 8.0
+    },
+    "Character": {
+      "Depth": 7.5,
+      "Emotional Impact": 9.1,
+      "Motivations": 8.0
+    },
+    "Aesthetics": {
+      "Prose": 8.4,
+      "Narration": 8.1
+    },
+    "Theme": {
+      "Insights": 6.5,
+      "Thought-Provokingness": 6.9
+    },
+    "Worldbuilding": {
+      "Depth2": 7.9,
+      "Integration": 7.7,
+      "Originality": 7.4
+    }
+  }
+}

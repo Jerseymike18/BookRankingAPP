@@ -1,0 +1,237 @@
+{
+  "books": [
+    {
+      "title": "Future of an Illusion",
+      "author": "Sigmund Freud",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2026,
+      "year_read": 2026,
+      "wa": 7.9983,
+      "total_average": 8.1111,
+      "components": {
+        "Quality": {
+          "Informativeness": 6.2,
+          "Argumentation": 8.8,
+          "Entertainment": 5.9
+        },
+        "Aesthetics": {
+          "Prose": 7.9,
+          "Phraseology": 8.3
+        },
+        "Theme": {
+          "Insights": 9.3,
+          "Philosophizing": 9.6,
+          "Thought-Provokingness": 8.9
+        }
+      },
+      "category_avgs": {
+        "Quality": 6.9667,
+        "Aesthetics": 8.1,
+        "Theme": 9.2667
+      },
+      "rank": 1,
+      "tier": "S"
+    },
+    {
+      "title": "The Anxious Generation",
+      "author": "Jonathan Haidt",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2025,
+      "year_read": 2025,
+      "wa": 8.1567,
+      "total_average": 8.0833,
+      "components": {
+        "Quality": {
+          "Informativeness": 9.2,
+          "Argumentation": 9.5,
+          "Entertainment": 5.8
+        },
+        "Aesthetics": {
+          "Prose": 7.4,
+          "Phraseology": 7.9
+        },
+        "Theme": {
+          "Insights": 8.3,
+          "Philosophizing": 7.5,
+          "Thought-Provokingness": 9.5
+        }
+      },
+      "category_avgs": {
+        "Quality": 8.1667,
+        "Aesthetics": 7.65,
+        "Theme": 8.4333
+      },
+      "rank": 2,
+      "tier": "B"
+    },
+    {
+      "title": "The Prince",
+      "author": "Nicolo Machiavelli",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2026,
+      "year_read": 2026,
+      "wa": 7.845,
+      "total_average": 7.8556,
+      "components": {
+        "Quality": {
+          "Informativeness": 7.3,
+          "Argumentation": 8.5,
+          "Entertainment": 5.4
+        },
+        "Aesthetics": {
+          "Prose": 7.9,
+          "Phraseology": 6.9
+        },
+        "Theme": {
+          "Insights": 8.8,
+          "Philosophizing": 9.1,
+          "Thought-Provokingness": 9.4
+        }
+      },
+      "category_avgs": {
+        "Quality": 7.0667,
+        "Aesthetics": 7.4,
+        "Theme": 9.1
+      },
+      "rank": 3,
+      "tier": "B"
+    },
+    {
+      "title": "Confessions",
+      "author": "Augustine",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2025,
+      "year_read": 2025,
+      "wa": 7.4567,
+      "total_average": 7.5722,
+      "components": {
+        "Quality": {
+          "Informativeness": 5.9,
+          "Argumentation": 7.1,
+          "Entertainment": 4.8
+        },
+        "Aesthetics": {
+          "Prose": 8.1,
+          "Phraseology": 6.4
+        },
+        "Theme": {
+          "Insights": 9.4,
+          "Philosophizing": 9.6,
+          "Thought-Provokingness": 9.6
+        }
+      },
+      "category_avgs": {
+        "Quality": 5.9333,
+        "Aesthetics": 7.25,
+        "Theme": 9.5333
+      },
+      "rank": 4,
+      "tier": "C"
+    },
+    {
+      "title": "Bringing Down the House",
+      "author": "Ben Mezrich",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2025,
+      "year_read": 2025,
+      "wa": 6.35,
+      "total_average": 6.3889,
+      "components": {
+        "Quality": {
+          "Informativeness": 6.2,
+          "Argumentation": 5.8,
+          "Entertainment": 8.3
+        },
+        "Aesthetics": {
+          "Prose": 7.3,
+          "Phraseology": 6.5
+        },
+        "Theme": {
+          "Insights": 5.9,
+          "Philosophizing": 4.2,
+          "Thought-Provokingness": 6.4
+        }
+      },
+      "category_avgs": {
+        "Quality": 6.7667,
+        "Aesthetics": 6.9,
+        "Theme": 5.5
+      },
+      "rank": 5,
+      "tier": "D"
+    },
+    {
+      "title": "Twilight of the Idols",
+      "author": "Friedrich Nietzsche",
+      "genre": "Nonfiction",
+      "series": "",
+      "series_number": null,
+      "words": null,
+      "year": 2026,
+      "year_read": 2026,
+      "wa": 5.6133,
+      "total_average": 6.0167,
+      "components": {
+        "Quality": {
+          "Informativeness": 3.7,
+          "Argumentation": 5.1,
+          "Entertainment": 3.6
+        },
+        "Aesthetics": {
+          "Prose": 6.8,
+          "Phraseology": 8.1
+        },
+        "Theme": {
+          "Insights": 4.3,
+          "Philosophizing": 5.6,
+          "Thought-Provokingness": 9.5
+        }
+      },
+      "category_avgs": {
+        "Quality": 4.1333,
+        "Aesthetics": 7.45,
+        "Theme": 6.4667
+      },
+      "rank": 6,
+      "tier": "F"
+    }
+  ],
+  "tier_counts": {
+    "S+": 0,
+    "S": 1,
+    "A": 0,
+    "B": 2,
+    "C": 1,
+    "D": 1,
+    "F": 1
+  },
+  "tier_order": [
+    "S+",
+    "S",
+    "A",
+    "B",
+    "C",
+    "D",
+    "F"
+  ],
+  "category_order": [
+    "Quality",
+    "Aesthetics",
+    "Theme"
+  ]
+}

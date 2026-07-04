@@ -1,0 +1,32 @@
+{
+  "title": "The Name of the Wind",
+  "author": "Patrick Rothfuss",
+  "genre": "Epic Fantasy",
+  "wa": 6.6864,
+  "components": {
+    "Story": {
+      "Plot": 6.2,
+      "Entertainment": 8.8,
+      "Action": 6.1,
+      "Ending": 5.8
+    },
+    "Character": {
+      "Depth": 6.5,
+      "Emotional Impact": 5.8,
+      "Motivations": 5.4
+    },
+    "Aesthetics": {
+      "Prose": 9.0,
+      "Narration": 8.8
+    },
+    "Theme": {
+      "Insights": 6.3,
+      "Thought-Provokingness": 6.1
+    },
+    "Worldbuilding": {
+      "Depth2": 6.5,
+      "Integration": 6.7,
+      "Originality": 6.1
+    }
+  }
+}

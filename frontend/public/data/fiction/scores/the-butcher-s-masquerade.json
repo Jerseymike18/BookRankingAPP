@@ -1,0 +1,32 @@
+{
+  "title": "The Butcher's Masquerade",
+  "author": "Matt Dinniman",
+  "genre": "Science Fantasy",
+  "wa": 7.7646,
+  "components": {
+    "Story": {
+      "Plot": 7.4,
+      "Entertainment": 9.1,
+      "Action": 9.0,
+      "Ending": 9.3
+    },
+    "Character": {
+      "Depth": 8.4,
+      "Emotional Impact": 8.8,
+      "Motivations": 7.5
+    },
+    "Aesthetics": {
+      "Prose": 6.5,
+      "Narration": 6.9
+    },
+    "Theme": {
+      "Insights": 6.8,
+      "Thought-Provokingness": 6.3
+    },
+    "Worldbuilding": {
+      "Depth2": 7.6,
+      "Integration": 8.7,
+      "Originality": 7.9
+    }
+  }
+}

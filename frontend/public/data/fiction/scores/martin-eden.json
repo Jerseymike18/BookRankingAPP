@@ -1,0 +1,32 @@
+{
+  "title": "Martin Eden",
+  "author": "Jack London",
+  "genre": "Literary Fiction",
+  "wa": 5.5959,
+  "components": {
+    "Story": {
+      "Plot": 5.2,
+      "Entertainment": 3.4,
+      "Action": 3.9,
+      "Ending": 3.4
+    },
+    "Character": {
+      "Depth": 5.8,
+      "Emotional Impact": 4.1,
+      "Motivations": 2.5
+    },
+    "Aesthetics": {
+      "Prose": 6.2,
+      "Narration": 6.9
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.3
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

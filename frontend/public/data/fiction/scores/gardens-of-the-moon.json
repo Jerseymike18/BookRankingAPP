@@ -1,0 +1,32 @@
+{
+  "title": "Gardens of the Moon",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 8.2108,
+  "components": {
+    "Story": {
+      "Plot": 8.2,
+      "Entertainment": 8.1,
+      "Action": 8.4,
+      "Ending": 8.8
+    },
+    "Character": {
+      "Depth": 8.1,
+      "Emotional Impact": 7.3,
+      "Motivations": 7.6
+    },
+    "Aesthetics": {
+      "Prose": 8.5,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.6
+    },
+    "Worldbuilding": {
+      "Depth2": 9.5,
+      "Integration": 9.8,
+      "Originality": 9.3
+    }
+  }
+}

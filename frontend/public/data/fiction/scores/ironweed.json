@@ -1,0 +1,32 @@
+{
+  "title": "Ironweed",
+  "author": "William Kennedy",
+  "genre": "Literary Fiction",
+  "wa": 4.7755,
+  "components": {
+    "Story": {
+      "Plot": 4.3,
+      "Entertainment": 3.3,
+      "Action": 4.2,
+      "Ending": 5.0
+    },
+    "Character": {
+      "Depth": 6.3,
+      "Emotional Impact": 2.5,
+      "Motivations": 4.5
+    },
+    "Aesthetics": {
+      "Prose": 4.1,
+      "Narration": 3.3
+    },
+    "Theme": {
+      "Insights": 6.5,
+      "Thought-Provokingness": 5.7
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

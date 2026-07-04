@@ -1,0 +1,32 @@
+{
+  "title": "Memories of Ice",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 9.2741,
+  "components": {
+    "Story": {
+      "Plot": 9.1,
+      "Entertainment": 9.0,
+      "Action": 9.7,
+      "Ending": 9.4
+    },
+    "Character": {
+      "Depth": 9.4,
+      "Emotional Impact": 9.3,
+      "Motivations": 9.2
+    },
+    "Aesthetics": {
+      "Prose": 8.7,
+      "Narration": 8.5
+    },
+    "Theme": {
+      "Insights": 9.1,
+      "Thought-Provokingness": 9.5
+    },
+    "Worldbuilding": {
+      "Depth2": 9.9,
+      "Integration": 9.7,
+      "Originality": 9.7
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "The Fellowship of the Ring",
+  "author": "J.R.R. Tolkien",
+  "genre": "Epic Fantasy",
+  "wa": 7.9128,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 7.5,
+      "Action": 7.2,
+      "Ending": 7.5
+    },
+    "Character": {
+      "Depth": 7.3,
+      "Emotional Impact": 7.6,
+      "Motivations": 7.7
+    },
+    "Aesthetics": {
+      "Prose": 8.8,
+      "Narration": 9.0
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.8
+    },
+    "Worldbuilding": {
+      "Depth2": 9.6,
+      "Integration": 9.5,
+      "Originality": 10.0
+    }
+  }
+}

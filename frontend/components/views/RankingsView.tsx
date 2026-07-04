@@ -6,6 +6,7 @@ import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/
 import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind } from "@/lib/types";
 import { seriesLabel } from "@/lib/format";
+import { READONLY } from "@/lib/readonly";
 import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 
@@ -558,6 +559,7 @@ function BookExpandedPanel({
       {mode === "view" && (
         <>
           <ComponentGrid components={book.components} categoryOrder={categoryOrder} />
+          {!READONLY && (
           <div className="flex gap-3 mt-5">
             <button
               onClick={enterEdit}
@@ -589,6 +591,7 @@ function BookExpandedPanel({
               Delete book
             </button>
           </div>
+          )}
         </>
       )}
 

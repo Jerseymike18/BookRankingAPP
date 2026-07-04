@@ -1,0 +1,32 @@
+{
+  "title": "Knife of Dreams",
+  "author": "Robert Jordan",
+  "genre": "Epic Fantasy",
+  "wa": 8.8054,
+  "components": {
+    "Story": {
+      "Plot": 8.5,
+      "Entertainment": 9.2,
+      "Action": 8.7,
+      "Ending": 9.0
+    },
+    "Character": {
+      "Depth": 9.0,
+      "Emotional Impact": 9.5,
+      "Motivations": 9.2
+    },
+    "Aesthetics": {
+      "Prose": 8.5,
+      "Narration": 8.6
+    },
+    "Theme": {
+      "Insights": 8.1,
+      "Thought-Provokingness": 7.9
+    },
+    "Worldbuilding": {
+      "Depth2": 8.8,
+      "Integration": 9.3,
+      "Originality": 8.4
+    }
+  }
+}

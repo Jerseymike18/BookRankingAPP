@@ -1,0 +1,32 @@
+{
+  "title": "The Way of Kings",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 8.2609,
+  "components": {
+    "Story": {
+      "Plot": 8.6,
+      "Entertainment": 8.3,
+      "Action": 8.3,
+      "Ending": 9.5
+    },
+    "Character": {
+      "Depth": 8.1,
+      "Emotional Impact": 8.4,
+      "Motivations": 7.8
+    },
+    "Aesthetics": {
+      "Prose": 6.8,
+      "Narration": 7.3
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 7.2
+    },
+    "Worldbuilding": {
+      "Depth2": 9.3,
+      "Integration": 9.1,
+      "Originality": 8.8
+    }
+  }
+}

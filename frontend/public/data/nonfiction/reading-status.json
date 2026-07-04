@@ -1,0 +1,21 @@
+{
+  "last_read": {
+    "title": "Twilight of the Idols",
+    "author": "Friedrich Nietzsche",
+    "genre": "Nonfiction",
+    "series": "",
+    "series_number": null,
+    "has_prediction": false,
+    "wa": 5.61,
+    "total_average": 6.02,
+    "rank": 6,
+    "total": 6,
+    "category_avgs": {
+      "Quality": 4.13,
+      "Aesthetics": 7.45,
+      "Theme": 6.47
+    }
+  },
+  "currently_reading": null,
+  "reading_next": null
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Ashes of Man",
+  "author": "Christopher Ruocchio",
+  "genre": "Science Fiction (Soft)",
+  "wa": 7.9303,
+  "components": {
+    "Story": {
+      "Plot": 8.2,
+      "Entertainment": 8.2,
+      "Action": 8.6,
+      "Ending": 9.0
+    },
+    "Character": {
+      "Depth": 7.7,
+      "Emotional Impact": 8.7,
+      "Motivations": 7.4
+    },
+    "Aesthetics": {
+      "Prose": 8.3,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 7.2,
+      "Thought-Provokingness": 6.5
+    },
+    "Worldbuilding": {
+      "Depth2": 7.7,
+      "Integration": 7.9,
+      "Originality": 8.5
+    }
+  }
+}

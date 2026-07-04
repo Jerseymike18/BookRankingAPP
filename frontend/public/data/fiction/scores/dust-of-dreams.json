@@ -1,0 +1,32 @@
+{
+  "title": "Dust of Dreams",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 8.9677,
+  "components": {
+    "Story": {
+      "Plot": 7.4,
+      "Entertainment": 8.5,
+      "Action": 8.3,
+      "Ending": 9.3
+    },
+    "Character": {
+      "Depth": 9.3,
+      "Emotional Impact": 9.5,
+      "Motivations": 8.8
+    },
+    "Aesthetics": {
+      "Prose": 9.4,
+      "Narration": 9.3
+    },
+    "Theme": {
+      "Insights": 9.4,
+      "Thought-Provokingness": 9.5
+    },
+    "Worldbuilding": {
+      "Depth2": 9.8,
+      "Integration": 9.8,
+      "Originality": 9.6
+    }
+  }
+}

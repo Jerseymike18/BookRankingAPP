@@ -1,0 +1,32 @@
+{
+  "title": "Inferno",
+  "author": "Dante Aligheri",
+  "genre": "Classical Epic",
+  "wa": 7.0988,
+  "components": {
+    "Story": {
+      "Plot": 7.5,
+      "Entertainment": 6.2,
+      "Action": 5.5,
+      "Ending": 7.3
+    },
+    "Character": {
+      "Depth": 6.1,
+      "Emotional Impact": 6.5,
+      "Motivations": 6.2
+    },
+    "Aesthetics": {
+      "Prose": 8.1,
+      "Narration": 8.6
+    },
+    "Theme": {
+      "Insights": 8.4,
+      "Thought-Provokingness": 9.6
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

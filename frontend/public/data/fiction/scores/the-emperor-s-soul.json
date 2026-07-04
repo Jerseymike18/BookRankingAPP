@@ -1,0 +1,32 @@
+{
+  "title": "The Emperor's Soul",
+  "author": "Brandon Sanderson",
+  "genre": "Literary Fantasy",
+  "wa": 6.1984,
+  "components": {
+    "Story": {
+      "Plot": 5.5,
+      "Entertainment": 6.8,
+      "Action": 3.3,
+      "Ending": 4.2
+    },
+    "Character": {
+      "Depth": 6.9,
+      "Emotional Impact": 6.3,
+      "Motivations": 7.2
+    },
+    "Aesthetics": {
+      "Prose": 7.1,
+      "Narration": 6.4
+    },
+    "Theme": {
+      "Insights": 6.8,
+      "Thought-Provokingness": 6.0
+    },
+    "Worldbuilding": {
+      "Depth2": 7.3,
+      "Integration": 7.7,
+      "Originality": 7.1
+    }
+  }
+}

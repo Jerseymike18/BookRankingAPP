@@ -1,0 +1,32 @@
+{
+  "title": "The Hobbit",
+  "author": "J.R.R. Tolkien",
+  "genre": "Epic Fantasy",
+  "wa": 7.8073,
+  "components": {
+    "Story": {
+      "Plot": 7.6,
+      "Entertainment": 7.8,
+      "Action": 7.3,
+      "Ending": 8.0
+    },
+    "Character": {
+      "Depth": 7.2,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.1
+    },
+    "Aesthetics": {
+      "Prose": 8.5,
+      "Narration": 8.9
+    },
+    "Theme": {
+      "Insights": 7.3,
+      "Thought-Provokingness": 7.5
+    },
+    "Worldbuilding": {
+      "Depth2": 8.7,
+      "Integration": 8.5,
+      "Originality": 10.0
+    }
+  }
+}

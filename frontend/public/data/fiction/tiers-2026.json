@@ -1,0 +1,2081 @@
+{
+  "books": [
+    {
+      "title": "Toll the Hounds",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 8,
+      "words": 389000,
+      "year_read": 2026,
+      "wa": 9.7823,
+      "rank": 1,
+      "tier": "S+",
+      "components": {
+        "Story": {
+          "Plot": 9.6,
+          "Entertainment": 9.8,
+          "Action": 9.3,
+          "Ending": 10.0
+        },
+        "Character": {
+          "Depth": 9.9,
+          "Emotional Impact": 9.9,
+          "Motivations": 9.6
+        },
+        "Aesthetics": {
+          "Prose": 9.7,
+          "Narration": 10.0
+        },
+        "Theme": {
+          "Insights": 9.7,
+          "Thought-Provokingness": 10.0
+        },
+        "Worldbuilding": {
+          "Depth2": 9.8,
+          "Integration": 9.6,
+          "Originality": 9.8
+        }
+      }
+    },
+    {
+      "title": "The Crippled God",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 10,
+      "words": 385000,
+      "year_read": 2026,
+      "wa": 9.5582,
+      "rank": 2,
+      "tier": "S+",
+      "components": {
+        "Story": {
+          "Plot": 9.2,
+          "Entertainment": 9.4,
+          "Action": 9.3,
+          "Ending": 9.8
+        },
+        "Character": {
+          "Depth": 9.7,
+          "Emotional Impact": 10.0,
+          "Motivations": 9.4
+        },
+        "Aesthetics": {
+          "Prose": 9.2,
+          "Narration": 9.6
+        },
+        "Theme": {
+          "Insights": 9.4,
+          "Thought-Provokingness": 9.6
+        },
+        "Worldbuilding": {
+          "Depth2": 9.9,
+          "Integration": 9.8,
+          "Originality": 9.5
+        }
+      }
+    },
+    {
+      "title": "Deadhouse Gates",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 2,
+      "words": 267000,
+      "year_read": 2026,
+      "wa": 9.3447,
+      "rank": 3,
+      "tier": "S",
+      "components": {
+        "Story": {
+          "Plot": 9.2,
+          "Entertainment": 9.5,
+          "Action": 9.8,
+          "Ending": 9.7
+        },
+        "Character": {
+          "Depth": 8.9,
+          "Emotional Impact": 9.8,
+          "Motivations": 9.1
+        },
+        "Aesthetics": {
+          "Prose": 9.2,
+          "Narration": 8.9
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.6
+        },
+        "Worldbuilding": {
+          "Depth2": 9.5,
+          "Integration": 9.3,
+          "Originality": 9.5
+        }
+      }
+    },
+    {
+      "title": "Memories of Ice",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 3,
+      "words": 355000,
+      "year_read": 2026,
+      "wa": 9.2741,
+      "rank": 4,
+      "tier": "S",
+      "components": {
+        "Story": {
+          "Plot": 9.1,
+          "Entertainment": 9.0,
+          "Action": 9.7,
+          "Ending": 9.4
+        },
+        "Character": {
+          "Depth": 9.4,
+          "Emotional Impact": 9.3,
+          "Motivations": 9.2
+        },
+        "Aesthetics": {
+          "Prose": 8.7,
+          "Narration": 8.5
+        },
+        "Theme": {
+          "Insights": 9.1,
+          "Thought-Provokingness": 9.5
+        },
+        "Worldbuilding": {
+          "Depth2": 9.9,
+          "Integration": 9.7,
+          "Originality": 9.7
+        }
+      }
+    },
+    {
+      "title": "Hyperion",
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Hard)",
+      "series": "Hyperion Cantos",
+      "series_number": 1,
+      "words": 235000,
+      "year_read": 2026,
+      "wa": 9.2409,
+      "rank": 5,
+      "tier": "S",
+      "components": {
+        "Story": {
+          "Plot": 9.5,
+          "Entertainment": 9.4,
+          "Action": 7.2,
+          "Ending": 8.5
+        },
+        "Character": {
+          "Depth": 9.3,
+          "Emotional Impact": 9.4,
+          "Motivations": 9.6
+        },
+        "Aesthetics": {
+          "Prose": 9.3,
+          "Narration": 9.4
+        },
+        "Theme": {
+          "Insights": 9.3,
+          "Thought-Provokingness": 9.5
+        },
+        "Worldbuilding": {
+          "Depth2": 9.4,
+          "Integration": 9.1,
+          "Originality": 9.6
+        }
+      }
+    },
+    {
+      "title": "The Bonehunters",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 6,
+      "words": 355000,
+      "year_read": 2026,
+      "wa": 9.1751,
+      "rank": 6,
+      "tier": "S",
+      "components": {
+        "Story": {
+          "Plot": 9.3,
+          "Entertainment": 9.4,
+          "Action": 9.8,
+          "Ending": 9.5
+        },
+        "Character": {
+          "Depth": 8.8,
+          "Emotional Impact": 9.0,
+          "Motivations": 9.1
+        },
+        "Aesthetics": {
+          "Prose": 9.0,
+          "Narration": 8.9
+        },
+        "Theme": {
+          "Insights": 9.0,
+          "Thought-Provokingness": 8.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.5,
+          "Integration": 9.1,
+          "Originality": 9.3
+        }
+      }
+    },
+    {
+      "title": "The Fall of Hyperion",
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Hard)",
+      "series": "Hyperion Cantos",
+      "series_number": 2,
+      "words": 235000,
+      "year_read": 2026,
+      "wa": 9.0153,
+      "rank": 7,
+      "tier": "S",
+      "components": {
+        "Story": {
+          "Plot": 8.8,
+          "Entertainment": 8.9,
+          "Action": 8.0,
+          "Ending": 9.2
+        },
+        "Character": {
+          "Depth": 8.9,
+          "Emotional Impact": 9.0,
+          "Motivations": 9.3
+        },
+        "Aesthetics": {
+          "Prose": 9.4,
+          "Narration": 9.5
+        },
+        "Theme": {
+          "Insights": 9.1,
+          "Thought-Provokingness": 9.0
+        },
+        "Worldbuilding": {
+          "Depth2": 9.3,
+          "Integration": 9.8,
+          "Originality": 9.3
+        }
+      }
+    },
+    {
+      "title": "The Heroes",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 203000,
+      "year_read": 2026,
+      "wa": 9.0002,
+      "rank": 8,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 9.5,
+          "Entertainment": 9.5,
+          "Action": 9.4,
+          "Ending": 8.5
+        },
+        "Character": {
+          "Depth": 9.2,
+          "Emotional Impact": 8.9,
+          "Motivations": 8.3
+        },
+        "Aesthetics": {
+          "Prose": 8.2,
+          "Narration": 9.3
+        },
+        "Theme": {
+          "Insights": 9.0,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 8.7,
+          "Integration": 9.1,
+          "Originality": 8.9
+        }
+      }
+    },
+    {
+      "title": "Dust of Dreams",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 9,
+      "words": 382000,
+      "year_read": 2026,
+      "wa": 8.9677,
+      "rank": 9,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 7.4,
+          "Entertainment": 8.5,
+          "Action": 8.3,
+          "Ending": 9.3
+        },
+        "Character": {
+          "Depth": 9.3,
+          "Emotional Impact": 9.5,
+          "Motivations": 8.8
+        },
+        "Aesthetics": {
+          "Prose": 9.4,
+          "Narration": 9.3
+        },
+        "Theme": {
+          "Insights": 9.4,
+          "Thought-Provokingness": 9.5
+        },
+        "Worldbuilding": {
+          "Depth2": 9.8,
+          "Integration": 9.8,
+          "Originality": 9.6
+        }
+      }
+    },
+    {
+      "title": "Midnight Tides",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 5,
+      "words": 267000,
+      "year_read": 2026,
+      "wa": 8.9341,
+      "rank": 10,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 8.8,
+          "Entertainment": 8.7,
+          "Action": 8.9,
+          "Ending": 9.0
+        },
+        "Character": {
+          "Depth": 8.7,
+          "Emotional Impact": 9.0,
+          "Motivations": 8.6
+        },
+        "Aesthetics": {
+          "Prose": 8.6,
+          "Narration": 9.7
+        },
+        "Theme": {
+          "Insights": 9.1,
+          "Thought-Provokingness": 8.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.7,
+          "Integration": 9.4,
+          "Originality": 9.8
+        }
+      }
+    },
+    {
+      "title": "Reaper's Gale",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 7,
+      "words": 382000,
+      "year_read": 2026,
+      "wa": 8.7443,
+      "rank": 11,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 7.4,
+          "Entertainment": 7.9,
+          "Action": 8.4,
+          "Ending": 8.9
+        },
+        "Character": {
+          "Depth": 9.1,
+          "Emotional Impact": 9.8,
+          "Motivations": 8.8
+        },
+        "Aesthetics": {
+          "Prose": 8.8,
+          "Narration": 9.2
+        },
+        "Theme": {
+          "Insights": 8.9,
+          "Thought-Provokingness": 8.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.6,
+          "Integration": 9.8,
+          "Originality": 9.5
+        }
+      }
+    },
+    {
+      "title": "The Two Towers",
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "series": "Lord of the Rings",
+      "series_number": 2,
+      "words": 143000,
+      "year_read": 2026,
+      "wa": 8.664,
+      "rank": 12,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 8.5,
+          "Entertainment": 8.3,
+          "Action": 9.0,
+          "Ending": 8.5
+        },
+        "Character": {
+          "Depth": 8.3,
+          "Emotional Impact": 8.5,
+          "Motivations": 9.0
+        },
+        "Aesthetics": {
+          "Prose": 8.9,
+          "Narration": 9.2
+        },
+        "Theme": {
+          "Insights": 8.6,
+          "Thought-Provokingness": 8.2
+        },
+        "Worldbuilding": {
+          "Depth2": 9.8,
+          "Integration": 9.6,
+          "Originality": 10.0
+        }
+      }
+    },
+    {
+      "title": "The Return of the King",
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "series": "Lord of the Rings",
+      "series_number": 3,
+      "words": 137000,
+      "year_read": 2026,
+      "wa": 8.6531,
+      "rank": 13,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 8.0,
+          "Entertainment": 8.2,
+          "Action": 8.0,
+          "Ending": 8.5
+        },
+        "Character": {
+          "Depth": 8.8,
+          "Emotional Impact": 9.3,
+          "Motivations": 9.5
+        },
+        "Aesthetics": {
+          "Prose": 9.0,
+          "Narration": 9.2
+        },
+        "Theme": {
+          "Insights": 8.0,
+          "Thought-Provokingness": 7.9
+        },
+        "Worldbuilding": {
+          "Depth2": 10.0,
+          "Integration": 9.5,
+          "Originality": 10.0
+        }
+      }
+    },
+    {
+      "title": "Between Two Fires",
+      "author": "Christopher Buehlman",
+      "genre": "Literary Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 120000,
+      "year_read": 2026,
+      "wa": 8.5822,
+      "rank": 14,
+      "tier": "A",
+      "components": {
+        "Story": {
+          "Plot": 8.3,
+          "Entertainment": 8.7,
+          "Action": 7.8,
+          "Ending": 8.3
+        },
+        "Character": {
+          "Depth": 9.0,
+          "Emotional Impact": 8.7,
+          "Motivations": 8.4
+        },
+        "Aesthetics": {
+          "Prose": 8.7,
+          "Narration": 9.3
+        },
+        "Theme": {
+          "Insights": 8.5,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 8.3,
+          "Integration": 8.8,
+          "Originality": 7.4
+        }
+      }
+    },
+    {
+      "title": "Frankenstein",
+      "author": "Mary Shelley",
+      "genre": "Gothic Fiction",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 72000,
+      "year_read": 2026,
+      "wa": 8.5048,
+      "rank": 15,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 7.8,
+          "Entertainment": 7.8,
+          "Action": 6.2,
+          "Ending": 8.4
+        },
+        "Character": {
+          "Depth": 9.3,
+          "Emotional Impact": 8.0,
+          "Motivations": 8.1
+        },
+        "Aesthetics": {
+          "Prose": 8.8,
+          "Narration": 9.6
+        },
+        "Theme": {
+          "Insights": 8.8,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "House of Chains",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 4,
+      "words": 302000,
+      "year_read": 2026,
+      "wa": 8.3097,
+      "rank": 16,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.3,
+          "Entertainment": 8.6,
+          "Action": 8.3,
+          "Ending": 8.4
+        },
+        "Character": {
+          "Depth": 8.1,
+          "Emotional Impact": 7.5,
+          "Motivations": 7.8
+        },
+        "Aesthetics": {
+          "Prose": 8.4,
+          "Narration": 7.3
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 9.7,
+          "Integration": 9.3,
+          "Originality": 9.5
+        }
+      }
+    },
+    {
+      "title": "Gardens of the Moon",
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 1,
+      "words": 209000,
+      "year_read": 2026,
+      "wa": 8.2108,
+      "rank": 17,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.2,
+          "Entertainment": 8.1,
+          "Action": 8.4,
+          "Ending": 8.8
+        },
+        "Character": {
+          "Depth": 8.1,
+          "Emotional Impact": 7.3,
+          "Motivations": 7.6
+        },
+        "Aesthetics": {
+          "Prose": 8.5,
+          "Narration": 8.2
+        },
+        "Theme": {
+          "Insights": 7.5,
+          "Thought-Provokingness": 7.6
+        },
+        "Worldbuilding": {
+          "Depth2": 9.5,
+          "Integration": 9.8,
+          "Originality": 9.3
+        }
+      }
+    },
+    {
+      "title": "The Death of Ivan Ilyich",
+      "author": "Leo Tolstoy",
+      "genre": "Russian Literature",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 34000,
+      "year_read": 2026,
+      "wa": 8.1512,
+      "rank": 18,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.0,
+          "Entertainment": 7.1,
+          "Action": 5.3,
+          "Ending": 9.5
+        },
+        "Character": {
+          "Depth": 8.5,
+          "Emotional Impact": 7.2,
+          "Motivations": 8.8
+        },
+        "Aesthetics": {
+          "Prose": 6.5,
+          "Narration": 6.9
+        },
+        "Theme": {
+          "Insights": 8.6,
+          "Thought-Provokingness": 9.4
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "The Last Argument of Kings",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "The First Law",
+      "series_number": 3,
+      "words": 234100,
+      "year_read": 2026,
+      "wa": 8.055,
+      "rank": 19,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.2,
+          "Entertainment": 7.9,
+          "Action": 8.2,
+          "Ending": 8.5
+        },
+        "Character": {
+          "Depth": 8.6,
+          "Emotional Impact": 8.2,
+          "Motivations": 8.1
+        },
+        "Aesthetics": {
+          "Prose": 7.8,
+          "Narration": 8.1
+        },
+        "Theme": {
+          "Insights": 7.8,
+          "Thought-Provokingness": 7.2
+        },
+        "Worldbuilding": {
+          "Depth2": 7.4,
+          "Integration": 7.8,
+          "Originality": 6.9
+        }
+      }
+    },
+    {
+      "title": "Momo",
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 100000,
+      "year_read": 2026,
+      "wa": 8.0473,
+      "rank": 20,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.2,
+          "Entertainment": 8.2,
+          "Action": 6.5,
+          "Ending": 8.7
+        },
+        "Character": {
+          "Depth": 8.4,
+          "Emotional Impact": 8.7,
+          "Motivations": 8.5
+        },
+        "Aesthetics": {
+          "Prose": 8.8,
+          "Narration": 8.5
+        },
+        "Theme": {
+          "Insights": 8.6,
+          "Thought-Provokingness": 9.0
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "Notes From a Dead House",
+      "author": "Fyodor Dostoevsky",
+      "genre": "Russian Literature",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 120000,
+      "year_read": 2026,
+      "wa": 8.0167,
+      "rank": 21,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 5.9,
+          "Entertainment": 8.2,
+          "Action": 5.0,
+          "Ending": 7.1
+        },
+        "Character": {
+          "Depth": 8.8,
+          "Emotional Impact": 8.6,
+          "Motivations": 8.2
+        },
+        "Aesthetics": {
+          "Prose": 8.2,
+          "Narration": 9.3
+        },
+        "Theme": {
+          "Insights": 9.1,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "The Blade Itself",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "The First Law",
+      "series_number": 1,
+      "words": 191200,
+      "year_read": 2026,
+      "wa": 7.9686,
+      "rank": 22,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.2,
+          "Entertainment": 8.3,
+          "Action": 8.6,
+          "Ending": 8.8
+        },
+        "Character": {
+          "Depth": 8.1,
+          "Emotional Impact": 8.2,
+          "Motivations": 7.6
+        },
+        "Aesthetics": {
+          "Prose": 7.5,
+          "Narration": 8.4
+        },
+        "Theme": {
+          "Insights": 7.3,
+          "Thought-Provokingness": 7.1
+        },
+        "Worldbuilding": {
+          "Depth2": 7.1,
+          "Integration": 6.8,
+          "Originality": 6.5
+        }
+      }
+    },
+    {
+      "title": "The Fellowship of the Ring",
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "series": "Lord of the Rings",
+      "series_number": 1,
+      "words": 177000,
+      "year_read": 2026,
+      "wa": 7.9128,
+      "rank": 23,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.0,
+          "Entertainment": 7.5,
+          "Action": 7.2,
+          "Ending": 7.5
+        },
+        "Character": {
+          "Depth": 7.3,
+          "Emotional Impact": 7.6,
+          "Motivations": 7.7
+        },
+        "Aesthetics": {
+          "Prose": 8.8,
+          "Narration": 9.0
+        },
+        "Theme": {
+          "Insights": 7.5,
+          "Thought-Provokingness": 7.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.6,
+          "Integration": 9.5,
+          "Originality": 10.0
+        }
+      }
+    },
+    {
+      "title": "This Inevitable Ruin",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 7,
+      "words": 220000,
+      "year_read": 2026,
+      "wa": 7.886,
+      "rank": 24,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 7.7,
+          "Entertainment": 9.1,
+          "Action": 9.3,
+          "Ending": 9.3
+        },
+        "Character": {
+          "Depth": 7.8,
+          "Emotional Impact": 8.4,
+          "Motivations": 7.4
+        },
+        "Aesthetics": {
+          "Prose": 6.9,
+          "Narration": 7.2
+        },
+        "Theme": {
+          "Insights": 7.0,
+          "Thought-Provokingness": 7.3
+        },
+        "Worldbuilding": {
+          "Depth2": 7.5,
+          "Integration": 7.9,
+          "Originality": 8.1
+        }
+      }
+    },
+    {
+      "title": "Picture of Dorian Gray",
+      "author": "Oscar Wilde",
+      "genre": "Gothic Fiction",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 55000,
+      "year_read": 2026,
+      "wa": 7.8718,
+      "rank": 25,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 7.7,
+          "Entertainment": 7.4,
+          "Action": 4.3,
+          "Ending": 7.5
+        },
+        "Character": {
+          "Depth": 8.5,
+          "Emotional Impact": 8.2,
+          "Motivations": 8.6
+        },
+        "Aesthetics": {
+          "Prose": 7.4,
+          "Narration": 7.8
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 8.8
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "Best Served Cold",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 228000,
+      "year_read": 2026,
+      "wa": 7.8299,
+      "rank": 26,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 8.0,
+          "Entertainment": 8.0,
+          "Action": 8.8,
+          "Ending": 7.7
+        },
+        "Character": {
+          "Depth": 8.0,
+          "Emotional Impact": 7.3,
+          "Motivations": 7.6
+        },
+        "Aesthetics": {
+          "Prose": 7.6,
+          "Narration": 8.0
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 7.2
+        },
+        "Worldbuilding": {
+          "Depth2": 7.8,
+          "Integration": 8.1,
+          "Originality": 7.4
+        }
+      }
+    },
+    {
+      "title": "Before They Are Hanged",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "The First Law",
+      "series_number": 2,
+      "words": 198300,
+      "year_read": 2026,
+      "wa": 7.8266,
+      "rank": 27,
+      "tier": "B",
+      "components": {
+        "Story": {
+          "Plot": 7.6,
+          "Entertainment": 7.7,
+          "Action": 8.3,
+          "Ending": 7.9
+        },
+        "Character": {
+          "Depth": 8.3,
+          "Emotional Impact": 7.6,
+          "Motivations": 8.2
+        },
+        "Aesthetics": {
+          "Prose": 7.7,
+          "Narration": 8.3
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 6.8
+        },
+        "Worldbuilding": {
+          "Depth2": 7.8,
+          "Integration": 8.2,
+          "Originality": 8.0
+        }
+      }
+    },
+    {
+      "title": "The Hobbit",
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 95000,
+      "year_read": 2026,
+      "wa": 7.8073,
+      "rank": 28,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.6,
+          "Entertainment": 7.8,
+          "Action": 7.3,
+          "Ending": 8.0
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 8.0,
+          "Motivations": 7.1
+        },
+        "Aesthetics": {
+          "Prose": 8.5,
+          "Narration": 8.9
+        },
+        "Theme": {
+          "Insights": 7.3,
+          "Thought-Provokingness": 7.5
+        },
+        "Worldbuilding": {
+          "Depth2": 8.7,
+          "Integration": 8.5,
+          "Originality": 10.0
+        }
+      }
+    },
+    {
+      "title": "Piranesi",
+      "author": "Susanna Clarke",
+      "genre": "Literary Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 90000,
+      "year_read": 2026,
+      "wa": 7.8072,
+      "rank": 29,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.48,
+          "Entertainment": 8.2,
+          "Action": 6.5,
+          "Ending": 8.2
+        },
+        "Character": {
+          "Depth": 8.4,
+          "Emotional Impact": 8.2,
+          "Motivations": 6.3
+        },
+        "Aesthetics": {
+          "Prose": 8.1,
+          "Narration": 8.9
+        },
+        "Theme": {
+          "Insights": 7.2,
+          "Thought-Provokingness": 7.4
+        },
+        "Worldbuilding": {
+          "Depth2": 8.1,
+          "Integration": 9.4,
+          "Originality": 8.7
+        }
+      }
+    },
+    {
+      "title": "The Butcher's Masquerade",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 5,
+      "words": 180000,
+      "year_read": 2026,
+      "wa": 7.7646,
+      "rank": 30,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.4,
+          "Entertainment": 9.1,
+          "Action": 9.0,
+          "Ending": 9.3
+        },
+        "Character": {
+          "Depth": 8.4,
+          "Emotional Impact": 8.8,
+          "Motivations": 7.5
+        },
+        "Aesthetics": {
+          "Prose": 6.5,
+          "Narration": 6.9
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 6.3
+        },
+        "Worldbuilding": {
+          "Depth2": 7.6,
+          "Integration": 8.7,
+          "Originality": 7.9
+        }
+      }
+    },
+    {
+      "title": "Blindsight",
+      "author": "Peter Watts",
+      "genre": "Science Fiction (Hard)",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 90000,
+      "year_read": 2026,
+      "wa": 7.7503,
+      "rank": 31,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 6.4,
+          "Entertainment": 7.1,
+          "Action": 6.0,
+          "Ending": 6.5
+        },
+        "Character": {
+          "Depth": 7.1,
+          "Emotional Impact": 6.8,
+          "Motivations": 6.2
+        },
+        "Aesthetics": {
+          "Prose": 8.3,
+          "Narration": 8.7
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.0
+        },
+        "Worldbuilding": {
+          "Depth2": 8.0,
+          "Integration": 8.2,
+          "Originality": 7.4
+        }
+      }
+    },
+    {
+      "title": "The Lies of Locke Lamora",
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "series": "Gentleman Bastards",
+      "series_number": 1,
+      "words": 180500,
+      "year_read": 2026,
+      "wa": 7.6042,
+      "rank": 32,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 8.1,
+          "Entertainment": 7.9,
+          "Action": 7.3,
+          "Ending": 7.6
+        },
+        "Character": {
+          "Depth": 7.1,
+          "Emotional Impact": 8.0,
+          "Motivations": 7.6
+        },
+        "Aesthetics": {
+          "Prose": 8.6,
+          "Narration": 8.3
+        },
+        "Theme": {
+          "Insights": 7.2,
+          "Thought-Provokingness": 7.0
+        },
+        "Worldbuilding": {
+          "Depth2": 6.9,
+          "Integration": 7.0,
+          "Originality": 6.4
+        }
+      }
+    },
+    {
+      "title": "Red Country",
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 172000,
+      "year_read": 2026,
+      "wa": 7.5829,
+      "rank": 33,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.5,
+          "Entertainment": 7.1,
+          "Action": 8.0,
+          "Ending": 8.2
+        },
+        "Character": {
+          "Depth": 7.5,
+          "Emotional Impact": 7.5,
+          "Motivations": 7.1
+        },
+        "Aesthetics": {
+          "Prose": 8.1,
+          "Narration": 7.9
+        },
+        "Theme": {
+          "Insights": 7.4,
+          "Thought-Provokingness": 7.1
+        },
+        "Worldbuilding": {
+          "Depth2": 7.7,
+          "Integration": 7.9,
+          "Originality": 7.2
+        }
+      }
+    },
+    {
+      "title": "Endymion",
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Soft)",
+      "series": "Hyperion Cantos",
+      "series_number": 3,
+      "words": 180000,
+      "year_read": 2026,
+      "wa": 7.5731,
+      "rank": 34,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 8.2,
+          "Entertainment": 8.4,
+          "Action": 7.9,
+          "Ending": 7.5
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 6.5,
+          "Motivations": 6.9
+        },
+        "Aesthetics": {
+          "Prose": 7.2,
+          "Narration": 6.3
+        },
+        "Theme": {
+          "Insights": 6.5,
+          "Thought-Provokingness": 7.4
+        },
+        "Worldbuilding": {
+          "Depth2": 8.9,
+          "Integration": 9.6,
+          "Originality": 9.0
+        }
+      }
+    },
+    {
+      "title": "A Parade of Horribles",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 7,
+      "words": 220000,
+      "year_read": 2026,
+      "wa": 7.4715,
+      "rank": 35,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.0,
+          "Entertainment": 7.8,
+          "Action": 8.5,
+          "Ending": 9.6
+        },
+        "Character": {
+          "Depth": 7.3,
+          "Emotional Impact": 7.5,
+          "Motivations": 7.2
+        },
+        "Aesthetics": {
+          "Prose": 6.7,
+          "Narration": 7.1
+        },
+        "Theme": {
+          "Insights": 7.0,
+          "Thought-Provokingness": 6.9
+        },
+        "Worldbuilding": {
+          "Depth2": 7.5,
+          "Integration": 7.8,
+          "Originality": 7.9
+        }
+      }
+    },
+    {
+      "title": "There Is No Antimemetics Division",
+      "author": "qntm",
+      "genre": "Science Fiction (Hard)",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 65000,
+      "year_read": 2026,
+      "wa": 7.4714,
+      "rank": 36,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 6.16,
+          "Entertainment": 7.7,
+          "Action": 6.4,
+          "Ending": 6.3
+        },
+        "Character": {
+          "Depth": 5.5,
+          "Emotional Impact": 7.0,
+          "Motivations": 6.8
+        },
+        "Aesthetics": {
+          "Prose": 6.2,
+          "Narration": 6.0
+        },
+        "Theme": {
+          "Insights": 8.0,
+          "Thought-Provokingness": 9.6
+        },
+        "Worldbuilding": {
+          "Depth2": 7.1,
+          "Integration": 8.3,
+          "Originality": 4.5
+        }
+      }
+    },
+    {
+      "title": "The Eye of the Bedlam Bride",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 6,
+      "words": 210000,
+      "year_read": 2026,
+      "wa": 7.4396,
+      "rank": 37,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.0,
+          "Entertainment": 8.5,
+          "Action": 8.8,
+          "Ending": 9.0
+        },
+        "Character": {
+          "Depth": 7.0,
+          "Emotional Impact": 7.4,
+          "Motivations": 7.1
+        },
+        "Aesthetics": {
+          "Prose": 6.0,
+          "Narration": 6.3
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 7.7
+        },
+        "Worldbuilding": {
+          "Depth2": 7.9,
+          "Integration": 8.3,
+          "Originality": 7.2
+        }
+      }
+    },
+    {
+      "title": "The Gate of the Feral Gods",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 4,
+      "words": 165000,
+      "year_read": 2026,
+      "wa": 7.3239,
+      "rank": 38,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 7.2,
+          "Entertainment": 8.4,
+          "Action": 9.1,
+          "Ending": 8.6
+        },
+        "Character": {
+          "Depth": 7.0,
+          "Emotional Impact": 6.7,
+          "Motivations": 7.8
+        },
+        "Aesthetics": {
+          "Prose": 6.4,
+          "Narration": 6.8
+        },
+        "Theme": {
+          "Insights": 6.4,
+          "Thought-Provokingness": 6.3
+        },
+        "Worldbuilding": {
+          "Depth2": 7.2,
+          "Integration": 7.7,
+          "Originality": 8.5
+        }
+      }
+    },
+    {
+      "title": "The Fires of Vengeance",
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "series": "The Burning",
+      "series_number": 2,
+      "words": 130000,
+      "year_read": 2026,
+      "wa": 7.2282,
+      "rank": 39,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 6.8,
+          "Entertainment": 8.6,
+          "Action": 9.2,
+          "Ending": 7.8
+        },
+        "Character": {
+          "Depth": 6.8,
+          "Emotional Impact": 6.5,
+          "Motivations": 5.6
+        },
+        "Aesthetics": {
+          "Prose": 7.3,
+          "Narration": 7.6
+        },
+        "Theme": {
+          "Insights": 6.9,
+          "Thought-Provokingness": 7.1
+        },
+        "Worldbuilding": {
+          "Depth2": 6.4,
+          "Integration": 7.3,
+          "Originality": 7.1
+        }
+      }
+    },
+    {
+      "title": "The Dungeon Anarchist's Cookbook",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 3,
+      "words": 150000,
+      "year_read": 2026,
+      "wa": 7.2217,
+      "rank": 40,
+      "tier": "C",
+      "components": {
+        "Story": {
+          "Plot": 6.7,
+          "Entertainment": 8.6,
+          "Action": 8.5,
+          "Ending": 7.3
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 7.6,
+          "Motivations": 7.3
+        },
+        "Aesthetics": {
+          "Prose": 6.4,
+          "Narration": 7.0
+        },
+        "Theme": {
+          "Insights": 6.7,
+          "Thought-Provokingness": 6.9
+        },
+        "Worldbuilding": {
+          "Depth2": 7.4,
+          "Integration": 7.1,
+          "Originality": 7.0
+        }
+      }
+    },
+    {
+      "title": "Carl's Doomsday Scenario",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 2,
+      "words": 130000,
+      "year_read": 2026,
+      "wa": 7.1209,
+      "rank": 41,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 6.4,
+          "Entertainment": 8.8,
+          "Action": 8.6,
+          "Ending": 7.9
+        },
+        "Character": {
+          "Depth": 7.0,
+          "Emotional Impact": 7.3,
+          "Motivations": 6.6
+        },
+        "Aesthetics": {
+          "Prose": 6.2,
+          "Narration": 7.0
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 7.1
+        },
+        "Worldbuilding": {
+          "Depth2": 6.4,
+          "Integration": 6.8,
+          "Originality": 8.3
+        }
+      }
+    },
+    {
+      "title": "The Martian Chronicles",
+      "author": "Ray Bradbury",
+      "genre": "Speculative Literary Fiction",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 64198,
+      "year_read": 2026,
+      "wa": 7.1035,
+      "rank": 42,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 5.9,
+          "Entertainment": 6.6,
+          "Action": 5.5,
+          "Ending": 6.8
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 6.8,
+          "Motivations": 5.9
+        },
+        "Aesthetics": {
+          "Prose": 7.8,
+          "Narration": 7.7
+        },
+        "Theme": {
+          "Insights": 7.4,
+          "Thought-Provokingness": 7.8
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "The Fifth Season",
+      "author": "N.K. Jemisin",
+      "genre": "Science Fiction (Soft)",
+      "series": "Broken Earth",
+      "series_number": 1,
+      "words": 105000,
+      "year_read": 2026,
+      "wa": 6.9027,
+      "rank": 43,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 6.5,
+          "Entertainment": 6.9,
+          "Action": 7.2,
+          "Ending": 7.0
+        },
+        "Character": {
+          "Depth": 6.2,
+          "Emotional Impact": 6.5,
+          "Motivations": 6.6
+        },
+        "Aesthetics": {
+          "Prose": 7.7,
+          "Narration": 5.0
+        },
+        "Theme": {
+          "Insights": 7.5,
+          "Thought-Provokingness": 7.0
+        },
+        "Worldbuilding": {
+          "Depth2": 7.9,
+          "Integration": 8.2,
+          "Originality": 8.5
+        }
+      }
+    },
+    {
+      "title": "The Rage of Dragons",
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "series": "The Burning",
+      "series_number": 1,
+      "words": 130000,
+      "year_read": 2026,
+      "wa": 6.8666,
+      "rank": 44,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 7.0,
+          "Entertainment": 8.4,
+          "Action": 9.0,
+          "Ending": 7.6
+        },
+        "Character": {
+          "Depth": 5.5,
+          "Emotional Impact": 6.0,
+          "Motivations": 5.1
+        },
+        "Aesthetics": {
+          "Prose": 7.1,
+          "Narration": 7.2
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 6.4
+        },
+        "Worldbuilding": {
+          "Depth2": 6.8,
+          "Integration": 6.2,
+          "Originality": 7.0
+        }
+      }
+    },
+    {
+      "title": "Rendezvous with Rama",
+      "author": "Arthur C. Clarke",
+      "genre": "Science Fiction (Hard)",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 80000,
+      "year_read": 2026,
+      "wa": 6.863,
+      "rank": 45,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 6.6,
+          "Entertainment": 7.8,
+          "Action": 5.7,
+          "Ending": 7.1
+        },
+        "Character": {
+          "Depth": 5.7,
+          "Emotional Impact": 5.3,
+          "Motivations": 6.1
+        },
+        "Aesthetics": {
+          "Prose": 6.2,
+          "Narration": 5.3
+        },
+        "Theme": {
+          "Insights": 6.4,
+          "Thought-Provokingness": 8.0
+        },
+        "Worldbuilding": {
+          "Depth2": 8.3,
+          "Integration": 9.4,
+          "Originality": 9.0
+        }
+      }
+    },
+    {
+      "title": "The Republic of Thieves",
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "series": "Gentleman Bastards",
+      "series_number": 3,
+      "words": 215000,
+      "year_read": 2026,
+      "wa": 6.8177,
+      "rank": 46,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 7.1,
+          "Entertainment": 7.2,
+          "Action": 6.3,
+          "Ending": 5.9
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 6.8,
+          "Motivations": 6.2
+        },
+        "Aesthetics": {
+          "Prose": 8.3,
+          "Narration": 8.0
+        },
+        "Theme": {
+          "Insights": 6.5,
+          "Thought-Provokingness": 6.2
+        },
+        "Worldbuilding": {
+          "Depth2": 6.4,
+          "Integration": 6.0,
+          "Originality": 6.0
+        }
+      }
+    },
+    {
+      "title": "Red Seas Under Red Skies",
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "series": "Gentleman Bastards",
+      "series_number": 2,
+      "words": 210000,
+      "year_read": 2026,
+      "wa": 6.7708,
+      "rank": 47,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 5.9,
+          "Entertainment": 7.0,
+          "Action": 6.5,
+          "Ending": 7.1
+        },
+        "Character": {
+          "Depth": 6.8,
+          "Emotional Impact": 7.9,
+          "Motivations": 6.6
+        },
+        "Aesthetics": {
+          "Prose": 7.9,
+          "Narration": 8.2
+        },
+        "Theme": {
+          "Insights": 6.1,
+          "Thought-Provokingness": 6.4
+        },
+        "Worldbuilding": {
+          "Depth2": 6.0,
+          "Integration": 5.7,
+          "Originality": 5.8
+        }
+      }
+    },
+    {
+      "title": "The Name of the Wind",
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "series": "The Kingkiller Chronicles",
+      "series_number": 1,
+      "words": 259000,
+      "year_read": 2026,
+      "wa": 6.6864,
+      "rank": 48,
+      "tier": "D",
+      "components": {
+        "Story": {
+          "Plot": 6.2,
+          "Entertainment": 8.8,
+          "Action": 6.1,
+          "Ending": 5.8
+        },
+        "Character": {
+          "Depth": 6.5,
+          "Emotional Impact": 5.8,
+          "Motivations": 5.4
+        },
+        "Aesthetics": {
+          "Prose": 9.0,
+          "Narration": 8.8
+        },
+        "Theme": {
+          "Insights": 6.3,
+          "Thought-Provokingness": 6.1
+        },
+        "Worldbuilding": {
+          "Depth2": 6.5,
+          "Integration": 6.7,
+          "Originality": 6.1
+        }
+      }
+    },
+    {
+      "title": "Dungeon Crawler Carl",
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "series": "Dungeon Crawler Carl",
+      "series_number": 1,
+      "words": 100000,
+      "year_read": 2026,
+      "wa": 6.6805,
+      "rank": 49,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 6.8,
+          "Entertainment": 7.8,
+          "Action": 8.3,
+          "Ending": 6.4
+        },
+        "Character": {
+          "Depth": 6.7,
+          "Emotional Impact": 6.8,
+          "Motivations": 6.1
+        },
+        "Aesthetics": {
+          "Prose": 6.1,
+          "Narration": 6.6
+        },
+        "Theme": {
+          "Insights": 5.5,
+          "Thought-Provokingness": 6.8
+        },
+        "Worldbuilding": {
+          "Depth2": 6.0,
+          "Integration": 6.2,
+          "Originality": 8.1
+        }
+      }
+    },
+    {
+      "title": "To Green Angel Tower",
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "series": "Memory, Sorrow, Thorn",
+      "series_number": 3,
+      "words": 520000,
+      "year_read": 2026,
+      "wa": 6.2101,
+      "rank": 50,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 6.6,
+          "Entertainment": 7.2,
+          "Action": 7.1,
+          "Ending": 4.3
+        },
+        "Character": {
+          "Depth": 5.5,
+          "Emotional Impact": 4.3,
+          "Motivations": 5.7
+        },
+        "Aesthetics": {
+          "Prose": 7.3,
+          "Narration": 7.1
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 6.0
+        },
+        "Worldbuilding": {
+          "Depth2": 8.0,
+          "Integration": 8.2,
+          "Originality": 6.8
+        }
+      }
+    },
+    {
+      "title": "Einstein's Dreams",
+      "author": "Albert Einstein",
+      "genre": "Speculative Literary Fiction",
+      "series": "Standalone",
+      "series_number": null,
+      "words": 44000,
+      "year_read": 2026,
+      "wa": 5.9099,
+      "rank": 51,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 5.0,
+          "Entertainment": 5.6,
+          "Action": 5.0,
+          "Ending": 4.4
+        },
+        "Character": {
+          "Depth": 4.5,
+          "Emotional Impact": 7.3,
+          "Motivations": 6.1
+        },
+        "Aesthetics": {
+          "Prose": 3.1,
+          "Narration": 3.6
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.6
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      }
+    },
+    {
+      "title": "Ready Player One",
+      "author": "Ernest Cline",
+      "genre": "Science Fiction (Soft)",
+      "series": "Ready Player One",
+      "series_number": 1,
+      "words": 136500,
+      "year_read": 2026,
+      "wa": 4.5092,
+      "rank": 52,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 4.7,
+          "Entertainment": 6.0,
+          "Action": 4.3,
+          "Ending": 3.0
+        },
+        "Character": {
+          "Depth": 4.2,
+          "Emotional Impact": 3.0,
+          "Motivations": 5.3
+        },
+        "Aesthetics": {
+          "Prose": 4.9,
+          "Narration": 4.3
+        },
+        "Theme": {
+          "Insights": 4.6,
+          "Thought-Provokingness": 4.0
+        },
+        "Worldbuilding": {
+          "Depth2": 4.8,
+          "Integration": 5.9,
+          "Originality": 4.9
+        }
+      }
+    },
+    {
+      "title": "Ready Player Two",
+      "author": "Ernest Cline",
+      "genre": "Science Fiction (Soft)",
+      "series": "Ready Player One",
+      "series_number": 2,
+      "words": 117000,
+      "year_read": 2026,
+      "wa": 4.2579,
+      "rank": 53,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 3.9,
+          "Entertainment": 5.0,
+          "Action": 3.8,
+          "Ending": 2.0
+        },
+        "Character": {
+          "Depth": 4.0,
+          "Emotional Impact": 5.5,
+          "Motivations": 4.3
+        },
+        "Aesthetics": {
+          "Prose": 3.9,
+          "Narration": 3.2
+        },
+        "Theme": {
+          "Insights": 4.5,
+          "Thought-Provokingness": 5.5
+        },
+        "Worldbuilding": {
+          "Depth2": 4.6,
+          "Integration": 6.4,
+          "Originality": 4.0
+        }
+      }
+    },
+    {
+      "title": "The Last Shadow",
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "series": "Ender's Shadow",
+      "series_number": 6,
+      "words": 100000,
+      "year_read": 2026,
+      "wa": 2.2993,
+      "rank": 54,
+      "tier": "F",
+      "components": {
+        "Story": {
+          "Plot": 1.7,
+          "Entertainment": 1.8,
+          "Action": 1.5,
+          "Ending": 1.0
+        },
+        "Character": {
+          "Depth": 3.8,
+          "Emotional Impact": 5.6,
+          "Motivations": 4.4
+        },
+        "Aesthetics": {
+          "Prose": 3.1,
+          "Narration": 2.5
+        },
+        "Theme": {
+          "Insights": 3.2,
+          "Thought-Provokingness": 1.5
+        },
+        "Worldbuilding": {
+          "Depth2": 1.8,
+          "Integration": 1.4,
+          "Originality": 3.7
+        }
+      }
+    }
+  ],
+  "tier_counts": {
+    "S+": 2,
+    "S": 5,
+    "A": 7,
+    "B": 13,
+    "C": 13,
+    "D": 8,
+    "F": 6
+  },
+  "tier_order": [
+    "S+",
+    "S",
+    "A",
+    "B",
+    "C",
+    "D",
+    "F"
+  ],
+  "category_order": [
+    "Story",
+    "Character",
+    "Aesthetics",
+    "Theme",
+    "Worldbuilding"
+  ]
+}

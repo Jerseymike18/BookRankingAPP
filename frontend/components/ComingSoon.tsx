@@ -1,4 +1,10 @@
-export default function ComingSoon({ title }: { title: string }) {
+export default function ComingSoon({
+  title,
+  subtitle = "Coming in a later stage.",
+}: {
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-32 gap-4">
       <h1
@@ -8,7 +14,7 @@ export default function ComingSoon({ title }: { title: string }) {
         {title}
       </h1>
       <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-        Coming in a later stage.
+        {subtitle}
       </p>
     </div>
   );

@@ -1,0 +1,32 @@
+{
+  "title": "Crossroads of Twilight",
+  "author": "Robert Jordan",
+  "genre": "Epic Fantasy",
+  "wa": 7.5442,
+  "components": {
+    "Story": {
+      "Plot": 6.1,
+      "Entertainment": 6.6,
+      "Action": 7.0,
+      "Ending": 7.5
+    },
+    "Character": {
+      "Depth": 8.7,
+      "Emotional Impact": 7.7,
+      "Motivations": 8.3
+    },
+    "Aesthetics": {
+      "Prose": 7.9,
+      "Narration": 8.2
+    },
+    "Theme": {
+      "Insights": 7.8,
+      "Thought-Provokingness": 7.3
+    },
+    "Worldbuilding": {
+      "Depth2": 8.5,
+      "Integration": 8.3,
+      "Originality": 8.2
+    }
+  }
+}

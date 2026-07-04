@@ -1,0 +1,32 @@
+{
+  "title": "Reaper's Gale",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 8.7443,
+  "components": {
+    "Story": {
+      "Plot": 7.4,
+      "Entertainment": 7.9,
+      "Action": 8.4,
+      "Ending": 8.9
+    },
+    "Character": {
+      "Depth": 9.1,
+      "Emotional Impact": 9.8,
+      "Motivations": 8.8
+    },
+    "Aesthetics": {
+      "Prose": 8.8,
+      "Narration": 9.2
+    },
+    "Theme": {
+      "Insights": 8.9,
+      "Thought-Provokingness": 8.8
+    },
+    "Worldbuilding": {
+      "Depth2": 9.6,
+      "Integration": 9.8,
+      "Originality": 9.5
+    }
+  }
+}

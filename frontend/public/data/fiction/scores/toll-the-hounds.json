@@ -1,0 +1,32 @@
+{
+  "title": "Toll the Hounds",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 9.7823,
+  "components": {
+    "Story": {
+      "Plot": 9.6,
+      "Entertainment": 9.8,
+      "Action": 9.3,
+      "Ending": 10.0
+    },
+    "Character": {
+      "Depth": 9.9,
+      "Emotional Impact": 9.9,
+      "Motivations": 9.6
+    },
+    "Aesthetics": {
+      "Prose": 9.7,
+      "Narration": 10.0
+    },
+    "Theme": {
+      "Insights": 9.7,
+      "Thought-Provokingness": 10.0
+    },
+    "Worldbuilding": {
+      "Depth2": 9.8,
+      "Integration": 9.6,
+      "Originality": 9.8
+    }
+  }
+}

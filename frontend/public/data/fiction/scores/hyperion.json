@@ -1,0 +1,32 @@
+{
+  "title": "Hyperion",
+  "author": "Dan Simmons",
+  "genre": "Science Fiction (Hard)",
+  "wa": 9.2409,
+  "components": {
+    "Story": {
+      "Plot": 9.5,
+      "Entertainment": 9.4,
+      "Action": 7.2,
+      "Ending": 8.5
+    },
+    "Character": {
+      "Depth": 9.3,
+      "Emotional Impact": 9.4,
+      "Motivations": 9.6
+    },
+    "Aesthetics": {
+      "Prose": 9.3,
+      "Narration": 9.4
+    },
+    "Theme": {
+      "Insights": 9.3,
+      "Thought-Provokingness": 9.5
+    },
+    "Worldbuilding": {
+      "Depth2": 9.4,
+      "Integration": 9.1,
+      "Originality": 9.6
+    }
+  }
+}

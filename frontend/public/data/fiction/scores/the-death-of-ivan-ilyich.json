@@ -1,0 +1,32 @@
+{
+  "title": "The Death of Ivan Ilyich",
+  "author": "Leo Tolstoy",
+  "genre": "Russian Literature",
+  "wa": 8.1512,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 7.1,
+      "Action": 5.3,
+      "Ending": 9.5
+    },
+    "Character": {
+      "Depth": 8.5,
+      "Emotional Impact": 7.2,
+      "Motivations": 8.8
+    },
+    "Aesthetics": {
+      "Prose": 6.5,
+      "Narration": 6.9
+    },
+    "Theme": {
+      "Insights": 8.6,
+      "Thought-Provokingness": 9.4
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

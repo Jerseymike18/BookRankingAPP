@@ -1,0 +1,32 @@
+{
+  "title": "Frankenstein",
+  "author": "Mary Shelley",
+  "genre": "Gothic Fiction",
+  "wa": 8.5048,
+  "components": {
+    "Story": {
+      "Plot": 7.8,
+      "Entertainment": 7.8,
+      "Action": 6.2,
+      "Ending": 8.4
+    },
+    "Character": {
+      "Depth": 9.3,
+      "Emotional Impact": 8.0,
+      "Motivations": 8.1
+    },
+    "Aesthetics": {
+      "Prose": 8.8,
+      "Narration": 9.6
+    },
+    "Theme": {
+      "Insights": 8.8,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

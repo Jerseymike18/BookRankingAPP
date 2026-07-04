@@ -1,0 +1,32 @@
+{
+  "title": "Momo",
+  "author": "Michael Ende",
+  "genre": "Literary Fantasy",
+  "wa": 8.0473,
+  "components": {
+    "Story": {
+      "Plot": 8.2,
+      "Entertainment": 8.2,
+      "Action": 6.5,
+      "Ending": 8.7
+    },
+    "Character": {
+      "Depth": 8.4,
+      "Emotional Impact": 8.7,
+      "Motivations": 8.5
+    },
+    "Aesthetics": {
+      "Prose": 8.8,
+      "Narration": 8.5
+    },
+    "Theme": {
+      "Insights": 8.6,
+      "Thought-Provokingness": 9.0
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

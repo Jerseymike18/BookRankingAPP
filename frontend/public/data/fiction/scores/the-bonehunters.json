@@ -1,0 +1,32 @@
+{
+  "title": "The Bonehunters",
+  "author": "Steven Erikson",
+  "genre": "Epic Fantasy",
+  "wa": 9.1751,
+  "components": {
+    "Story": {
+      "Plot": 9.3,
+      "Entertainment": 9.4,
+      "Action": 9.8,
+      "Ending": 9.5
+    },
+    "Character": {
+      "Depth": 8.8,
+      "Emotional Impact": 9.0,
+      "Motivations": 9.1
+    },
+    "Aesthetics": {
+      "Prose": 9.0,
+      "Narration": 8.9
+    },
+    "Theme": {
+      "Insights": 9.0,
+      "Thought-Provokingness": 8.8
+    },
+    "Worldbuilding": {
+      "Depth2": 9.5,
+      "Integration": 9.1,
+      "Originality": 9.3
+    }
+  }
+}

@@ -8,6 +8,7 @@ import {
   setNonfictionDone,
   deleteNonfictionRecommendation,
 } from "@/lib/api";
+import { READONLY } from "@/lib/readonly";
 
 function fmtWords(w: number | null) {
   if (!w) return null;
@@ -182,12 +183,14 @@ export default function NonfictionReadQueueClient({
                 rec={rec}
                 position={i + 1}
                 controls={
+                  READONLY ? null : (
                   <>
                     <MiniButton onClick={() => move(i, -1)} disabled={busy || i === 0}>↑</MiniButton>
                     <MiniButton onClick={() => move(i, 1)} disabled={busy || i === queue.length - 1}>↓</MiniButton>
                     <MiniButton onClick={() => persistQueue(queue.filter((t) => t !== title))} disabled={busy}>Remove</MiniButton>
                     <MiniButton onClick={() => markRead(title)} disabled={busy}>Mark read</MiniButton>
                   </>
+                  )
                 }
               />
             );
@@ -208,11 +211,13 @@ export default function NonfictionReadQueueClient({
               key={rec.title}
               rec={rec}
               controls={
+                READONLY ? null : (
                 <>
                   <MiniButton onClick={() => persistQueue([...queue, rec.title])} disabled={busy}>Add to queue</MiniButton>
                   <MiniButton onClick={() => markRead(rec.title)} disabled={busy}>Mark read</MiniButton>
                   <MiniButton onClick={() => remove(rec.title)} disabled={busy} danger>Remove</MiniButton>
                 </>
+                )
               }
             />
           ))}

@@ -1,0 +1,32 @@
+{
+  "title": "Silence",
+  "author": "Shusaku Endo",
+  "genre": "Literary Fiction",
+  "wa": 7.0636,
+  "components": {
+    "Story": {
+      "Plot": 6.9,
+      "Entertainment": 6.3,
+      "Action": 4.8,
+      "Ending": 7.3
+    },
+    "Character": {
+      "Depth": 7.8,
+      "Emotional Impact": 7.0,
+      "Motivations": 7.2
+    },
+    "Aesthetics": {
+      "Prose": 6.7,
+      "Narration": 6.4
+    },
+    "Theme": {
+      "Insights": 7.2,
+      "Thought-Provokingness": 7.3
+    },
+    "Worldbuilding": {
+      "Depth2": 0.0,
+      "Integration": 0.0,
+      "Originality": 0.0
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Carl's Doomsday Scenario",
+  "author": "Matt Dinniman",
+  "genre": "Science Fantasy",
+  "wa": 7.1209,
+  "components": {
+    "Story": {
+      "Plot": 6.4,
+      "Entertainment": 8.8,
+      "Action": 8.6,
+      "Ending": 7.9
+    },
+    "Character": {
+      "Depth": 7.0,
+      "Emotional Impact": 7.3,
+      "Motivations": 6.6
+    },
+    "Aesthetics": {
+      "Prose": 6.2,
+      "Narration": 7.0
+    },
+    "Theme": {
+      "Insights": 6.8,
+      "Thought-Provokingness": 7.1
+    },
+    "Worldbuilding": {
+      "Depth2": 6.4,
+      "Integration": 6.8,
+      "Originality": 8.3
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "title": "Towers of Midnight",
+  "author": "Brandon Sanderson",
+  "genre": "Epic Fantasy",
+  "wa": 8.1969,
+  "components": {
+    "Story": {
+      "Plot": 8.0,
+      "Entertainment": 7.4,
+      "Action": 7.8,
+      "Ending": 8.8
+    },
+    "Character": {
+      "Depth": 8.6,
+      "Emotional Impact": 9.3,
+      "Motivations": 8.3
+    },
+    "Aesthetics": {
+      "Prose": 7.1,
+      "Narration": 7.0
+    },
+    "Theme": {
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.5
+    },
+    "Worldbuilding": {
+      "Depth2": 8.0,
+      "Integration": 8.9,
+      "Originality": 8.0
+    }
+  }
+}
