@@ -209,6 +209,106 @@ def test_schema_integrity():
           else f"{len(bad)} incomplete, e.g. {bad[0]}")
 
 
+# ---------------------------------------------------------------------------
+# 6. Analog shrinkage (empirical-Bayes baseline)
+# ---------------------------------------------------------------------------
+# Reference copy of the PRE-shrinkage per-component estimator (the original
+# author>=2 / genre>=2 / global hard fallback). Used only to prove that
+# estimate_components(mode="hard") is byte-identical to the old behaviour.
+def _original_hard_estimate(books, author, genre, upstream):
+    all_components = pe.components_of(books)
+    by_author = books[books["Author"] == author]
+    by_genre = books[books["Genre"] == genre]
+    if len(by_author) >= 2:
+        src_name, src = "author", by_author
+    elif len(by_genre) >= 2:
+        src_name, src = "genre", by_genre
+    else:
+        src_name, src = "global", books
+    est = {}
+    for comp in all_components:
+        vals = src[comp].dropna()
+        est[comp] = float(vals.mean()) if len(vals) else float(books[comp].dropna().mean())
+    for target, model in upstream.items():
+        coef, drivers = model["coef"], model["drivers"]
+        if all(d in est for d in drivers):
+            pred = coef[0] + sum(coef[k + 1] * est[drivers[k]] for k in range(len(drivers)))
+            est[target] = 0.5 * est[target] + 0.5 * float(pred)
+    return est, src_name, len(src)
+
+
+def test_analog_shrinkage():
+    print("\n6. ANALOG SHRINKAGE (empirical-Bayes baseline)")
+    import db_loader
+    books, gw, gcw = db_loader.load_from_db()
+    comps = pe.components_of(books)
+
+    # --- _shrink boundary behaviour (unit) --------------------------------
+    check("shrink n=0 collapses exactly to parent",
+          pe._shrink(0, 5.0, 7.3, 0.5) == 7.3,
+          f"got {pe._shrink(0, 5.0, 7.3, 0.5)}")
+    conv = pe._shrink(1e6, 8.5, 2.0, 0.5)
+    check("shrink n>>k converges to the raw mean", abs(conv - 8.5) < 1e-4,
+          f"{conv:.6f} -> 8.5")
+
+    # --- (a) missing tiers collapse to parent (no fallback branching) ------
+    genre = books["Genre"].mode()[0]
+    by_genre = books[books["Genre"] == genre]
+    est_a, _, _ = pe.estimate_components(books, "__NO_AUTHOR__", genre,
+                                         upstream={}, mode="shrunk")
+    est_g, _, _ = pe.estimate_components(books, "__NO_AUTHOR__", "__NO_GENRE__",
+                                         upstream={}, mode="shrunk")
+    collapse_a = collapse_g = True
+    for c in comps:
+        gv = books[c].dropna()
+        glob = float(gv.mean()) if len(gv) else np.nan
+        grv = by_genre[c].dropna()
+        genre_hat = pe._shrink(len(grv),
+                               float(grv.mean()) if len(grv) else 0.0,
+                               glob, pe.K_GENRE)
+        if not (np.isnan(genre_hat) and np.isnan(est_a[c])):
+            collapse_a &= abs(est_a[c] - genre_hat) <= 1e-12
+        if not (np.isnan(glob) and np.isnan(est_g[c])):
+            collapse_g &= abs(est_g[c] - glob) <= 1e-12
+    check("unseen author collapses to the genre estimate", collapse_a,
+          f"genre='{genre}', n_g={len(by_genre)}")
+    check("unseen author+genre collapses to the global mean", collapse_g)
+
+    # --- (b) a data-rich author barely moves from its raw mean -------------
+    big_author = books["Author"].value_counts().idxmax()
+    n_big = int(books["Author"].value_counts().max())
+    ba = books[books["Author"] == big_author]
+    est_b, _, _ = pe.estimate_components(books, big_author,
+                                         ba["Genre"].mode()[0],
+                                         upstream={}, mode="shrunk")
+    w_big = n_big / (n_big + pe.K_AUTHOR)          # author weight n/(n+k)
+    budget = (1 - w_big) * 10.0                     # max possible move (0-10 scale)
+    max_dev = max(abs(est_b[c] - float(ba[c].dropna().mean()))
+                  for c in comps if len(ba[c].dropna()))
+    check(f"data-rich author ({big_author}, n={n_big}) stays near raw mean",
+          w_big >= 0.9 and max_dev <= budget + 1e-9,
+          f"w={w_big:.3f}, max dev {max_dev:.3f} <= budget {budget:.3f}")
+
+    # --- (c) hard mode is byte-identical to the pre-shrinkage engine -------
+    upstream = pe.fit_upstream(books)
+    pairs = books[["Author", "Genre"]].drop_duplicates().values.tolist()
+    identical, worst = True, 0.0
+    for author, genre_ in pairs:
+        e_new, s_new, n_new = pe.estimate_components(books, author, genre_,
+                                                     upstream, mode="hard")
+        e_ref, s_ref, n_ref = _original_hard_estimate(books, author, genre_,
+                                                       upstream)
+        if s_new != s_ref or n_new != n_ref:
+            identical = False
+        for c in comps:
+            dv = abs(e_new[c] - e_ref[c])
+            worst = max(worst, dv)
+            if dv != 0.0:
+                identical = False
+    check("hard mode byte-identical to original behaviour", identical,
+          f"{len(pairs)} author/genre pairs, worst Δ={worst:.2e}")
+
+
 def main():
     print("=" * 60)
     print("ENGINE TEST SUITE")
@@ -219,6 +319,7 @@ def main():
     report_source_drift()          # informational only — records no pass/fail
     test_prediction_sanity()
     test_schema_integrity()
+    test_analog_shrinkage()
 
     passed = sum(1 for _, ok, _ in _results if ok)
     total = len(_results)
