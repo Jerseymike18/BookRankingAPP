@@ -50,6 +50,10 @@ still has every write/predict/queue flow.
    read-only GET endpoints. Requires `python3` with the backend's deps installed
    (`fastapi`, and `httpx` for the TestClient — both already pulled in by
    FastAPI; no extra install for this repo).
+
+   The export is deterministic: re-running it without a `books.db` change
+   produces no diff, so a "refresh" commit only appears when the data actually
+   moved.
 3. Commit the regenerated data and push:
    ```bash
    git add public/data && git commit -m "Refresh public data snapshot" && git push
