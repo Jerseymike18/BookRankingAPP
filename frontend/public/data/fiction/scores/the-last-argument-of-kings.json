@@ -1,23 +1,20 @@
 {
-  "title": "The Last Argument of Kings",
   "author": "Joe Abercrombie",
-  "genre": "Epic Fantasy",
-  "wa": 8.055,
   "components": {
-    "Story": {
-      "Plot": 8.2,
-      "Entertainment": 7.9,
-      "Action": 8.2,
-      "Ending": 8.5
+    "Aesthetics": {
+      "Narration": 8.1,
+      "Prose": 7.8
     },
     "Character": {
       "Depth": 8.6,
       "Emotional Impact": 8.2,
       "Motivations": 8.1
     },
-    "Aesthetics": {
-      "Prose": 7.8,
-      "Narration": 8.1
+    "Story": {
+      "Action": 8.2,
+      "Ending": 8.5,
+      "Entertainment": 7.9,
+      "Plot": 8.2
     },
     "Theme": {
       "Insights": 7.8,
@@ -28,5 +25,8 @@
       "Integration": 7.8,
       "Originality": 6.9
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Last Argument of Kings",
+  "wa": 8.055
 }

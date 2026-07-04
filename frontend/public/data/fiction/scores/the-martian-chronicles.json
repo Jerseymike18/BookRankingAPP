@@ -1,23 +1,20 @@
 {
-  "title": "The Martian Chronicles",
   "author": "Ray Bradbury",
-  "genre": "Speculative Literary Fiction",
-  "wa": 7.1035,
   "components": {
-    "Story": {
-      "Plot": 5.9,
-      "Entertainment": 6.6,
-      "Action": 5.5,
-      "Ending": 6.8
+    "Aesthetics": {
+      "Narration": 7.7,
+      "Prose": 7.8
     },
     "Character": {
       "Depth": 7.2,
       "Emotional Impact": 6.8,
       "Motivations": 5.9
     },
-    "Aesthetics": {
-      "Prose": 7.8,
-      "Narration": 7.7
+    "Story": {
+      "Action": 5.5,
+      "Ending": 6.8,
+      "Entertainment": 6.6,
+      "Plot": 5.9
     },
     "Theme": {
       "Insights": 7.4,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Speculative Literary Fiction",
+  "title": "The Martian Chronicles",
+  "wa": 7.1035
 }

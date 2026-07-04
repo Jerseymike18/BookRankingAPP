@@ -1,23 +1,20 @@
 {
-  "title": "Before They Are Hanged",
   "author": "Joe Abercrombie",
-  "genre": "Epic Fantasy",
-  "wa": 7.8266,
   "components": {
-    "Story": {
-      "Plot": 7.6,
-      "Entertainment": 7.7,
-      "Action": 8.3,
-      "Ending": 7.9
+    "Aesthetics": {
+      "Narration": 8.3,
+      "Prose": 7.7
     },
     "Character": {
       "Depth": 8.3,
       "Emotional Impact": 7.6,
       "Motivations": 8.2
     },
-    "Aesthetics": {
-      "Prose": 7.7,
-      "Narration": 8.3
+    "Story": {
+      "Action": 8.3,
+      "Ending": 7.9,
+      "Entertainment": 7.7,
+      "Plot": 7.6
     },
     "Theme": {
       "Insights": 7.9,
@@ -28,5 +25,8 @@
       "Integration": 8.2,
       "Originality": 8.0
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "Before They Are Hanged",
+  "wa": 7.8266
 }

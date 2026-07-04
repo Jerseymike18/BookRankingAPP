@@ -1,23 +1,20 @@
 {
-  "title": "Empire of Silence",
   "author": "Christopher Ruocchio",
-  "genre": "Science Fiction (Soft)",
-  "wa": 7.1259,
   "components": {
-    "Story": {
-      "Plot": 7.29,
-      "Entertainment": 7.1,
-      "Action": 7.4,
-      "Ending": 7.8
+    "Aesthetics": {
+      "Narration": 6.5,
+      "Prose": 7.3
     },
     "Character": {
       "Depth": 7.0,
       "Emotional Impact": 7.9,
       "Motivations": 7.1
     },
-    "Aesthetics": {
-      "Prose": 7.3,
-      "Narration": 6.5
+    "Story": {
+      "Action": 7.4,
+      "Ending": 7.8,
+      "Entertainment": 7.1,
+      "Plot": 7.29
     },
     "Theme": {
       "Insights": 6.8,
@@ -28,5 +25,8 @@
       "Integration": 6.8,
       "Originality": 7.3
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Empire of Silence",
+  "wa": 7.1259
 }

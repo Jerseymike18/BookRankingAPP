@@ -1,23 +1,20 @@
 {
-  "title": "Rhythm of War",
   "author": "Brandon Sanderson",
-  "genre": "Epic Fantasy",
-  "wa": 8.4732,
   "components": {
-    "Story": {
-      "Plot": 7.5,
-      "Entertainment": 8.2,
-      "Action": 8.0,
-      "Ending": 9.7
+    "Aesthetics": {
+      "Narration": 8.4,
+      "Prose": 7.5
     },
     "Character": {
       "Depth": 8.8,
       "Emotional Impact": 9.6,
       "Motivations": 8.5
     },
-    "Aesthetics": {
-      "Prose": 7.5,
-      "Narration": 8.4
+    "Story": {
+      "Action": 8.0,
+      "Ending": 9.7,
+      "Entertainment": 8.2,
+      "Plot": 7.5
     },
     "Theme": {
       "Insights": 8.3,
@@ -28,5 +25,8 @@
       "Integration": 8.8,
       "Originality": 8.6
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "Rhythm of War",
+  "wa": 8.4732
 }

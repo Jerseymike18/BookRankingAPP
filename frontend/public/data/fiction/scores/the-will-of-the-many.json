@@ -1,23 +1,20 @@
 {
-  "title": "The Will of the Many",
   "author": "James Islington",
-  "genre": "Epic Fantasy",
-  "wa": 7.8057,
   "components": {
-    "Story": {
-      "Plot": 7.7,
-      "Entertainment": 8.4,
-      "Action": 8.6,
-      "Ending": 8.4
+    "Aesthetics": {
+      "Narration": 8.1,
+      "Prose": 8.2
     },
     "Character": {
       "Depth": 7.3,
       "Emotional Impact": 8.0,
       "Motivations": 7.5
     },
-    "Aesthetics": {
-      "Prose": 8.2,
-      "Narration": 8.1
+    "Story": {
+      "Action": 8.6,
+      "Ending": 8.4,
+      "Entertainment": 8.4,
+      "Plot": 7.7
     },
     "Theme": {
       "Insights": 6.3,
@@ -28,5 +25,8 @@
       "Integration": 7.8,
       "Originality": 7.4
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Will of the Many",
+  "wa": 7.8057
 }

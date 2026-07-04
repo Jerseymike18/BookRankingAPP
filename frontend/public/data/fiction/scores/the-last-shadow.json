@@ -1,23 +1,20 @@
 {
-  "title": "The Last Shadow",
   "author": "Orson Scott Card",
-  "genre": "Science Fiction (Hard)",
-  "wa": 2.2993,
   "components": {
-    "Story": {
-      "Plot": 1.7,
-      "Entertainment": 1.8,
-      "Action": 1.5,
-      "Ending": 1.0
+    "Aesthetics": {
+      "Narration": 2.5,
+      "Prose": 3.1
     },
     "Character": {
       "Depth": 3.8,
       "Emotional Impact": 5.6,
       "Motivations": 4.4
     },
-    "Aesthetics": {
-      "Prose": 3.1,
-      "Narration": 2.5
+    "Story": {
+      "Action": 1.5,
+      "Ending": 1.0,
+      "Entertainment": 1.8,
+      "Plot": 1.7
     },
     "Theme": {
       "Insights": 3.2,
@@ -28,5 +25,8 @@
       "Integration": 1.4,
       "Originality": 3.7
     }
-  }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "The Last Shadow",
+  "wa": 2.2993
 }

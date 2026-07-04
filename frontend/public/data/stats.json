@@ -1,26 +1,1250 @@
 {
-  "totals": {
-    "total_books": 134,
-    "fiction_books": 128,
-    "nonfiction_books": 6,
-    "total_words": 25540553,
-    "avg_total_average": 7.57
-  },
   "by_type": {
     "fiction": {
-      "books": 128,
-      "avg_wa": 7.56,
-      "avg_total_average": 7.58,
-      "total_words": 25540553
+      "avg_total_average": 7.6,
+      "avg_wa": 7.58,
+      "books": 127,
+      "total_words": 25145553
     },
     "nonfiction": {
-      "books": 6,
-      "avg_wa": 7.24,
       "avg_total_average": 7.34,
+      "avg_wa": 7.24,
+      "books": 6,
       "total_words": 0
     }
   },
+  "combined_ranking": [
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 1,
+      "title": "Toll the Hounds",
+      "total_average": 9.7817,
+      "type": "fiction",
+      "wa": 9.7823
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 2,
+      "title": "The Crippled God",
+      "total_average": 9.5517,
+      "type": "fiction",
+      "wa": 9.5582
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 3,
+      "title": "Deadhouse Gates",
+      "total_average": 9.29,
+      "type": "fiction",
+      "wa": 9.3447
+    },
+    {
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "rank": 4,
+      "title": "The Neverending Story",
+      "total_average": 9.285,
+      "type": "fiction",
+      "wa": 9.2905
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 5,
+      "title": "Memories of Ice",
+      "total_average": 9.2533,
+      "type": "fiction",
+      "wa": 9.2741
+    },
+    {
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Hard)",
+      "rank": 6,
+      "title": "Hyperion",
+      "total_average": 9.24,
+      "type": "fiction",
+      "wa": 9.2409
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 7,
+      "title": "Dust of Dreams",
+      "total_average": 9.2217,
+      "type": "fiction",
+      "wa": 8.9677
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 8,
+      "title": "Speaker For The Dead",
+      "total_average": 9.195,
+      "type": "fiction",
+      "wa": 9.348
+    },
+    {
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Hard)",
+      "rank": 9,
+      "title": "The Fall of Hyperion",
+      "total_average": 9.1517,
+      "type": "fiction",
+      "wa": 9.0153
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 10,
+      "title": "The Bonehunters",
+      "total_average": 9.1233,
+      "type": "fiction",
+      "wa": 9.1751
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 11,
+      "title": "Midnight Tides",
+      "total_average": 9.07,
+      "type": "fiction",
+      "wa": 8.9341
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 12,
+      "title": "Reaper's Gale",
+      "total_average": 8.9733,
+      "type": "fiction",
+      "wa": 8.7443
+    },
+    {
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 13,
+      "title": "A Memory of Light",
+      "total_average": 8.9,
+      "type": "fiction",
+      "wa": 9.1595
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 14,
+      "title": "The Heroes",
+      "total_average": 8.895,
+      "type": "fiction",
+      "wa": 9.0002
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "rank": 15,
+      "title": "The Two Towers",
+      "total_average": 8.885,
+      "type": "fiction",
+      "wa": 8.664
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "rank": 16,
+      "title": "The Return of the King",
+      "total_average": 8.8517,
+      "type": "fiction",
+      "wa": 8.6531
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 17,
+      "title": "Lord of Chaos",
+      "total_average": 8.78,
+      "type": "fiction",
+      "wa": 8.8556
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 18,
+      "title": "The Great Hunt",
+      "total_average": 8.7783,
+      "type": "fiction",
+      "wa": 8.9208
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 19,
+      "title": "Dark Age",
+      "total_average": 8.7567,
+      "type": "fiction",
+      "wa": 8.8803
+    },
+    {
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 20,
+      "title": "The Gathering Storm",
+      "total_average": 8.7217,
+      "type": "fiction",
+      "wa": 9.0211
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 21,
+      "title": "Ender's Game",
+      "total_average": 8.6937,
+      "type": "fiction",
+      "wa": 8.4537
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 22,
+      "title": "Knife of Dreams",
+      "total_average": 8.6933,
+      "type": "fiction",
+      "wa": 8.8054
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 23,
+      "title": "Words of Radiance",
+      "total_average": 8.6267,
+      "type": "fiction",
+      "wa": 8.7536
+    },
+    {
+      "author": "Guy Gavriel Kay",
+      "genre": "Literary Fantasy",
+      "rank": 24,
+      "title": "The Lions of Al-Rassan",
+      "total_average": 8.6,
+      "type": "fiction",
+      "wa": 8.8434
+    },
+    {
+      "author": "Christopher Buehlman",
+      "genre": "Literary Fantasy",
+      "rank": 25,
+      "title": "Between Two Fires",
+      "total_average": 8.5383,
+      "type": "fiction",
+      "wa": 8.5822
+    },
+    {
+      "author": "Miguel de Cervantes",
+      "genre": "Classical Epic",
+      "rank": 26,
+      "title": "Don Quixote",
+      "total_average": 8.5375,
+      "type": "fiction",
+      "wa": 8.3517
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 27,
+      "title": "Oathbringer",
+      "total_average": 8.535,
+      "type": "fiction",
+      "wa": 8.5504
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 28,
+      "title": "Lightbringer",
+      "total_average": 8.495,
+      "type": "fiction",
+      "wa": 8.5439
+    },
+    {
+      "author": "Mary Shelley",
+      "genre": "Gothic Fiction",
+      "rank": 29,
+      "title": "Frankenstein",
+      "total_average": 8.4792,
+      "type": "fiction",
+      "wa": 8.5048
+    },
+    {
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "rank": 30,
+      "title": "Momo",
+      "total_average": 8.4708,
+      "type": "fiction",
+      "wa": 8.0473
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 31,
+      "title": "Rhythm of War",
+      "total_average": 8.42,
+      "type": "fiction",
+      "wa": 8.4732
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 32,
+      "title": "The Shadow Rising",
+      "total_average": 8.4,
+      "type": "fiction",
+      "wa": 8.5723
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 33,
+      "title": "House of Chains",
+      "total_average": 8.36,
+      "type": "fiction",
+      "wa": 8.3097
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 34,
+      "title": "Golden Son",
+      "total_average": 8.3578,
+      "type": "fiction",
+      "wa": 8.5478
+    },
+    {
+      "author": "Fyodor Dostoevsky",
+      "genre": "Russian Literature",
+      "rank": 35,
+      "title": "The Idiot",
+      "total_average": 8.3458,
+      "type": "fiction",
+      "wa": 8.5242
+    },
+    {
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "rank": 36,
+      "title": "Gardens of the Moon",
+      "total_average": 8.295,
+      "type": "fiction",
+      "wa": 8.2108
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 37,
+      "title": "Demon in White",
+      "total_average": 8.2867,
+      "type": "fiction",
+      "wa": 8.3697
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "rank": 38,
+      "title": "The Fellowship of the Ring",
+      "total_average": 8.2667,
+      "type": "fiction",
+      "wa": 7.9128
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 39,
+      "title": "The Dragon Reborn",
+      "total_average": 8.25,
+      "type": "fiction",
+      "wa": 8.4222
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 40,
+      "title": "The Fires of Heaven",
+      "total_average": 8.25,
+      "type": "fiction",
+      "wa": 8.3037
+    },
+    {
+      "author": "James Islington",
+      "genre": "Epic Fantasy",
+      "rank": 41,
+      "title": "The Strength of the Few",
+      "total_average": 8.24,
+      "type": "fiction",
+      "wa": 8.4103
+    },
+    {
+      "author": "William Gibson",
+      "genre": "Cyberpunk",
+      "rank": 42,
+      "title": "Neuromancer",
+      "total_average": 8.2033,
+      "type": "fiction",
+      "wa": 7.9376
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 43,
+      "title": "Ender's Shadow",
+      "total_average": 8.1792,
+      "type": "fiction",
+      "wa": 7.7845
+    },
+    {
+      "author": "Fyodor Dostoevsky",
+      "genre": "Russian Literature",
+      "rank": 44,
+      "title": "Notes From a Dead House",
+      "total_average": 8.1708,
+      "type": "fiction",
+      "wa": 8.0167
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 45,
+      "title": "Disquiet Gods",
+      "total_average": 8.1467,
+      "type": "fiction",
+      "wa": 8.1787
+    },
+    {
+      "author": "Homer",
+      "genre": "Classical Epic",
+      "rank": 46,
+      "title": "The Odyssey",
+      "total_average": 8.1188,
+      "type": "fiction",
+      "wa": 8.0873
+    },
+    {
+      "author": "Sigmund Freud",
+      "genre": "Nonfiction",
+      "rank": 47,
+      "title": "Future of an Illusion",
+      "total_average": 8.1111,
+      "type": "nonfiction",
+      "wa": 7.9983
+    },
+    {
+      "author": "Jonathan Haidt",
+      "genre": "Nonfiction",
+      "rank": 48,
+      "title": "The Anxious Generation",
+      "total_average": 8.0833,
+      "type": "nonfiction",
+      "wa": 8.1567
+    },
+    {
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 49,
+      "title": "Towers of Midnight",
+      "total_average": 8.0667,
+      "type": "fiction",
+      "wa": 8.1969
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "rank": 50,
+      "title": "The Hobbit",
+      "total_average": 8.055,
+      "type": "fiction",
+      "wa": 7.8073
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 51,
+      "title": "The Way of Kings",
+      "total_average": 8.0483,
+      "type": "fiction",
+      "wa": 8.2609
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 52,
+      "title": "Winter's Heart",
+      "total_average": 7.9617,
+      "type": "fiction",
+      "wa": 8.0017
+    },
+    {
+      "author": "Susanna Clarke",
+      "genre": "Literary Fantasy",
+      "rank": 53,
+      "title": "Piranesi",
+      "total_average": 7.9523,
+      "type": "fiction",
+      "wa": 7.8072
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 54,
+      "title": "Kingdoms of Death",
+      "total_average": 7.94,
+      "type": "fiction",
+      "wa": 7.8902
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 55,
+      "title": "Ashes of Man",
+      "total_average": 7.9133,
+      "type": "fiction",
+      "wa": 7.9303
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 56,
+      "title": "Morning Star",
+      "total_average": 7.8983,
+      "type": "fiction",
+      "wa": 8.0326
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 57,
+      "title": "The Last Argument of Kings",
+      "total_average": 7.8633,
+      "type": "fiction",
+      "wa": 8.055
+    },
+    {
+      "author": "Nicolo Machiavelli",
+      "genre": "Nonfiction",
+      "rank": 58,
+      "title": "The Prince",
+      "total_average": 7.8556,
+      "type": "nonfiction",
+      "wa": 7.845
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 59,
+      "title": "Before They Are Hanged",
+      "total_average": 7.8517,
+      "type": "fiction",
+      "wa": 7.8266
+    },
+    {
+      "author": "Leo Tolstoy",
+      "genre": "Russian Literature",
+      "rank": 60,
+      "title": "The Death of Ivan Ilyich",
+      "total_average": 7.8354,
+      "type": "fiction",
+      "wa": 8.1512
+    },
+    {
+      "author": "Oscar Wilde",
+      "genre": "Gothic Fiction",
+      "rank": 61,
+      "title": "Picture of Dorian Gray",
+      "total_average": 7.8021,
+      "type": "fiction",
+      "wa": 7.8718
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 62,
+      "title": "Crossroads of Twilight",
+      "total_average": 7.7933,
+      "type": "fiction",
+      "wa": 7.5442
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 63,
+      "title": "A Crown of Swords",
+      "total_average": 7.7862,
+      "type": "fiction",
+      "wa": 7.6291
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 64,
+      "title": "Best Served Cold",
+      "total_average": 7.775,
+      "type": "fiction",
+      "wa": 7.8299
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 65,
+      "title": "The Path of Daggers",
+      "total_average": 7.7518,
+      "type": "fiction",
+      "wa": 7.6406
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 66,
+      "title": "This Inevitable Ruin",
+      "total_average": 7.75,
+      "type": "fiction",
+      "wa": 7.886
+    },
+    {
+      "author": "Andy Weir",
+      "genre": "Science Fiction (Hard)",
+      "rank": 67,
+      "title": "Project Hail Mary",
+      "total_average": 7.7292,
+      "type": "fiction",
+      "wa": 7.2773
+    },
+    {
+      "author": "Guy Gavriel Kay",
+      "genre": "Literary Fantasy",
+      "rank": 68,
+      "title": "Sailing to Sarantium",
+      "total_average": 7.7033,
+      "type": "fiction",
+      "wa": 7.7048
+    },
+    {
+      "author": "James Islington",
+      "genre": "Epic Fantasy",
+      "rank": 69,
+      "title": "The Will of the Many",
+      "total_average": 7.6883,
+      "type": "fiction",
+      "wa": 7.8057
+    },
+    {
+      "author": "Peter Watts",
+      "genre": "Science Fiction (Hard)",
+      "rank": 70,
+      "title": "Blindsight",
+      "total_average": 7.6833,
+      "type": "fiction",
+      "wa": 7.7503
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 71,
+      "title": "The Blade Itself",
+      "total_average": 7.6783,
+      "type": "fiction",
+      "wa": 7.9686
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 72,
+      "title": "The Butcher's Masquerade",
+      "total_average": 7.65,
+      "type": "fiction",
+      "wa": 7.7646
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 73,
+      "title": "The Hero of Ages",
+      "total_average": 7.6383,
+      "type": "fiction",
+      "wa": 7.6332
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 74,
+      "title": "Red Rising",
+      "total_average": 7.6167,
+      "type": "fiction",
+      "wa": 7.7291
+    },
+    {
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "rank": 75,
+      "title": "Red Country",
+      "total_average": 7.5833,
+      "type": "fiction",
+      "wa": 7.5829
+    },
+    {
+      "author": "Aeschylus",
+      "genre": "Classical Drama",
+      "rank": 76,
+      "title": "The Oresteia",
+      "total_average": 7.575,
+      "type": "fiction",
+      "wa": 7.4847
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 77,
+      "title": "The Final Empire",
+      "total_average": 7.5733,
+      "type": "fiction",
+      "wa": 7.6441
+    },
+    {
+      "author": "Augustine",
+      "genre": "Nonfiction",
+      "rank": 78,
+      "title": "Confessions",
+      "total_average": 7.5722,
+      "type": "nonfiction",
+      "wa": 7.4567
+    },
+    {
+      "author": "Dante Aligheri",
+      "genre": "Classical Epic",
+      "rank": 79,
+      "title": "Inferno",
+      "total_average": 7.5604,
+      "type": "fiction",
+      "wa": 7.0988
+    },
+    {
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Soft)",
+      "rank": 80,
+      "title": "Endymion",
+      "total_average": 7.5467,
+      "type": "fiction",
+      "wa": 7.5731
+    },
+    {
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "rank": 81,
+      "title": "The Lies of Locke Lamora",
+      "total_average": 7.5217,
+      "type": "fiction",
+      "wa": 7.6042
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 82,
+      "title": "New Spring",
+      "total_average": 7.4933,
+      "type": "fiction",
+      "wa": 7.4738
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 83,
+      "title": "Shadows Upon Time",
+      "total_average": 7.47,
+      "type": "fiction",
+      "wa": 7.4365
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 84,
+      "title": "A Parade of Horribles",
+      "total_average": 7.4283,
+      "type": "fiction",
+      "wa": 7.4715
+    },
+    {
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "rank": 85,
+      "title": "Iron Gold",
+      "total_average": 7.4283,
+      "type": "fiction",
+      "wa": 7.4474
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 86,
+      "title": "Howling Dark",
+      "total_average": 7.42,
+      "type": "fiction",
+      "wa": 7.6313
+    },
+    {
+      "author": "Tom Stoppard",
+      "genre": "Classical Drama",
+      "rank": 87,
+      "title": "Rosencrantz and Guildenstern are Dead",
+      "total_average": 7.3792,
+      "type": "fiction",
+      "wa": 7.2456
+    },
+    {
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "rank": 88,
+      "title": "The Eye of the World",
+      "total_average": 7.3538,
+      "type": "fiction",
+      "wa": 7.3201
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 89,
+      "title": "The Eye of the Bedlam Bride",
+      "total_average": 7.3383,
+      "type": "fiction",
+      "wa": 7.4396
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 90,
+      "title": "Elantris",
+      "total_average": 7.3117,
+      "type": "fiction",
+      "wa": 7.1322
+    },
+    {
+      "author": "Jules Verne",
+      "genre": "Science Fiction (Hard)",
+      "rank": 91,
+      "title": "Twenty Thousand Leagues Under the Sea",
+      "total_average": 7.2958,
+      "type": "fiction",
+      "wa": 6.9988
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 92,
+      "title": "The Gate of the Feral Gods",
+      "total_average": 7.2483,
+      "type": "fiction",
+      "wa": 7.3239
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 93,
+      "title": "Children of the Mind",
+      "total_average": 7.1933,
+      "type": "fiction",
+      "wa": 6.982
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 94,
+      "title": "Warbreaker",
+      "total_average": 7.1917,
+      "type": "fiction",
+      "wa": 7.2108
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 95,
+      "title": "The Dungeon Anarchist's Cookbook",
+      "total_average": 7.1617,
+      "type": "fiction",
+      "wa": 7.2217
+    },
+    {
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "rank": 96,
+      "title": "The Fires of Vengeance",
+      "total_average": 7.1567,
+      "type": "fiction",
+      "wa": 7.2282
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 97,
+      "title": "Carl's Doomsday Scenario",
+      "total_average": 7.1217,
+      "type": "fiction",
+      "wa": 7.1209
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 98,
+      "title": "The Well of Ascension",
+      "total_average": 7.105,
+      "type": "fiction",
+      "wa": 7.1314
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "rank": 99,
+      "title": "Empire of Silence",
+      "total_average": 7.0595,
+      "type": "fiction",
+      "wa": 7.1259
+    },
+    {
+      "author": "Ray Bradbury",
+      "genre": "Speculative Literary Fiction",
+      "rank": 100,
+      "title": "The Martian Chronicles",
+      "total_average": 7.0458,
+      "type": "fiction",
+      "wa": 7.1035
+    },
+    {
+      "author": "N.K. Jemisin",
+      "genre": "Science Fiction (Soft)",
+      "rank": 101,
+      "title": "The Fifth Season",
+      "total_average": 7.0267,
+      "type": "fiction",
+      "wa": 6.9027
+    },
+    {
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "rank": 102,
+      "title": "The Dragonbone Chair",
+      "total_average": 6.935,
+      "type": "fiction",
+      "wa": 6.6949
+    },
+    {
+      "author": "qntm",
+      "genre": "Science Fiction (Hard)",
+      "rank": 103,
+      "title": "There Is No Antimemetics Division",
+      "total_average": 6.9213,
+      "type": "fiction",
+      "wa": 7.4714
+    },
+    {
+      "author": "Arthur C. Clarke",
+      "genre": "Science Fiction (Hard)",
+      "rank": 104,
+      "title": "Rendezvous with Rama",
+      "total_average": 6.87,
+      "type": "fiction",
+      "wa": 6.863
+    },
+    {
+      "author": "Shusaku Endo",
+      "genre": "Literary Fiction",
+      "rank": 105,
+      "title": "Silence",
+      "total_average": 6.8646,
+      "type": "fiction",
+      "wa": 7.0636
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "rank": 106,
+      "title": "Wind and Truth",
+      "total_average": 6.8533,
+      "type": "fiction",
+      "wa": 6.9363
+    },
+    {
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "rank": 107,
+      "title": "The Name of the Wind",
+      "total_average": 6.8317,
+      "type": "fiction",
+      "wa": 6.6864
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 108,
+      "title": "Xenocide",
+      "total_average": 6.8253,
+      "type": "fiction",
+      "wa": 6.9811
+    },
+    {
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "rank": 109,
+      "title": "The Republic of Thieves",
+      "total_average": 6.7983,
+      "type": "fiction",
+      "wa": 6.8177
+    },
+    {
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "rank": 110,
+      "title": "The Rage of Dragons",
+      "total_average": 6.79,
+      "type": "fiction",
+      "wa": 6.8666
+    },
+    {
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "rank": 111,
+      "title": "Red Seas Under Red Skies",
+      "total_average": 6.7717,
+      "type": "fiction",
+      "wa": 6.7708
+    },
+    {
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "rank": 112,
+      "title": "Dungeon Crawler Carl",
+      "total_average": 6.625,
+      "type": "fiction",
+      "wa": 6.6805
+    },
+    {
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "rank": 113,
+      "title": "To Green Angel Tower",
+      "total_average": 6.5467,
+      "type": "fiction",
+      "wa": 6.2101
+    },
+    {
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "rank": 114,
+      "title": "Dark Force Rising",
+      "total_average": 6.4633,
+      "type": "fiction",
+      "wa": 6.5342
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 115,
+      "title": "The Emperor's Soul",
+      "total_average": 6.4533,
+      "type": "fiction",
+      "wa": 6.1984
+    },
+    {
+      "author": "Ben Mezrich",
+      "genre": "Nonfiction",
+      "rank": 116,
+      "title": "Bringing Down the House",
+      "total_average": 6.3889,
+      "type": "nonfiction",
+      "wa": 6.35
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 117,
+      "title": "Edgedancer",
+      "total_average": 6.29,
+      "type": "fiction",
+      "wa": 6.0888
+    },
+    {
+      "author": "Theodore Dreiser",
+      "genre": "Literary Fiction",
+      "rank": 118,
+      "title": "Sister Carrie",
+      "total_average": 6.2292,
+      "type": "fiction",
+      "wa": 6.554
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 119,
+      "title": "Dawnshard",
+      "total_average": 6.1467,
+      "type": "fiction",
+      "wa": 5.8954
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 120,
+      "title": "Shadows in Flight",
+      "total_average": 6.06,
+      "type": "fiction",
+      "wa": 6.3431
+    },
+    {
+      "author": "Friedrich Nietzsche",
+      "genre": "Nonfiction",
+      "rank": 121,
+      "title": "Twilight of the Idols",
+      "total_average": 6.0167,
+      "type": "nonfiction",
+      "wa": 5.6133
+    },
+    {
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "rank": 122,
+      "title": "Heir to the Empire",
+      "total_average": 5.9033,
+      "type": "fiction",
+      "wa": 5.9618
+    },
+    {
+      "author": "Albert Einstein",
+      "genre": "Speculative Literary Fiction",
+      "rank": 123,
+      "title": "Einstein's Dreams",
+      "total_average": 5.8667,
+      "type": "fiction",
+      "wa": 5.9099
+    },
+    {
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "rank": 124,
+      "title": "The Last Command",
+      "total_average": 5.555,
+      "type": "fiction",
+      "wa": 5.3671
+    },
+    {
+      "author": "Jack London",
+      "genre": "Literary Fiction",
+      "rank": 125,
+      "title": "Martin Eden",
+      "total_average": 5.5146,
+      "type": "fiction",
+      "wa": 5.5959
+    },
+    {
+      "author": "Emily St. John Mandel",
+      "genre": "Speculative Literary Fiction",
+      "rank": 126,
+      "title": "Station 11",
+      "total_average": 5.485,
+      "type": "fiction",
+      "wa": 5.1542
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 127,
+      "title": "Shadows for Silence",
+      "total_average": 5.3667,
+      "type": "fiction",
+      "wa": 5.0699
+    },
+    {
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "rank": 128,
+      "title": "Mistborn: Secret History",
+      "total_average": 5.1233,
+      "type": "fiction",
+      "wa": 4.3985
+    },
+    {
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "rank": 129,
+      "title": "The Stone of Farewell",
+      "total_average": 4.9817,
+      "type": "fiction",
+      "wa": 4.5388
+    },
+    {
+      "author": "William Kennedy",
+      "genre": "Literary Fiction",
+      "rank": 130,
+      "title": "Ironweed",
+      "total_average": 4.6083,
+      "type": "fiction",
+      "wa": 4.7755
+    },
+    {
+      "author": "Ernest Cline",
+      "genre": "Science Fiction (Soft)",
+      "rank": 131,
+      "title": "Ready Player One",
+      "total_average": 4.5533,
+      "type": "fiction",
+      "wa": 4.5092
+    },
+    {
+      "author": "Ernest Cline",
+      "genre": "Science Fiction (Soft)",
+      "rank": 132,
+      "title": "Ready Player Two",
+      "total_average": 4.365,
+      "type": "fiction",
+      "wa": 4.2579
+    },
+    {
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "rank": 133,
+      "title": "The Last Shadow",
+      "total_average": 2.71,
+      "type": "fiction",
+      "wa": 2.2993
+    }
+  ],
+  "per_year": [
+    {
+      "books": 76,
+      "fiction": 73,
+      "nonfiction": 3,
+      "year": 2025
+    },
+    {
+      "books": 57,
+      "fiction": 54,
+      "nonfiction": 3,
+      "year": 2026
+    }
+  ],
   "tier_distribution": {
+    "fiction": {
+      "A": 19,
+      "B": 31,
+      "C": 31,
+      "D": 19,
+      "F": 14,
+      "S": 11,
+      "S+": 2
+    },
+    "nonfiction": {
+      "A": 0,
+      "B": 2,
+      "C": 1,
+      "D": 1,
+      "F": 1,
+      "S": 1,
+      "S+": 0
+    },
     "tier_order": [
       "S+",
       "S",
@@ -29,1246 +1253,13 @@
       "C",
       "D",
       "F"
-    ],
-    "fiction": {
-      "S+": 2,
-      "S": 11,
-      "A": 19,
-      "B": 32,
-      "C": 31,
-      "D": 19,
-      "F": 14
-    },
-    "nonfiction": {
-      "S+": 0,
-      "S": 1,
-      "A": 0,
-      "B": 2,
-      "C": 1,
-      "D": 1,
-      "F": 1
-    }
+    ]
   },
-  "per_year": [
-    {
-      "year": 2025,
-      "fiction": 73,
-      "nonfiction": 3,
-      "books": 76
-    },
-    {
-      "year": 2026,
-      "fiction": 55,
-      "nonfiction": 3,
-      "books": 58
-    }
-  ],
-  "combined_ranking": [
-    {
-      "title": "Toll the Hounds",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.7817,
-      "wa": 9.7823,
-      "rank": 1
-    },
-    {
-      "title": "The Crippled God",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.5517,
-      "wa": 9.5582,
-      "rank": 2
-    },
-    {
-      "title": "Deadhouse Gates",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.29,
-      "wa": 9.3447,
-      "rank": 3
-    },
-    {
-      "title": "The Neverending Story",
-      "author": "Michael Ende",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 9.285,
-      "wa": 9.2905,
-      "rank": 4
-    },
-    {
-      "title": "Memories of Ice",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.2533,
-      "wa": 9.2741,
-      "rank": 5
-    },
-    {
-      "title": "Hyperion",
-      "author": "Dan Simmons",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 9.24,
-      "wa": 9.2409,
-      "rank": 6
-    },
-    {
-      "title": "Dust of Dreams",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.2217,
-      "wa": 8.9677,
-      "rank": 7
-    },
-    {
-      "title": "Speaker For The Dead",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 9.195,
-      "wa": 9.348,
-      "rank": 8
-    },
-    {
-      "title": "The Fall of Hyperion",
-      "author": "Dan Simmons",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 9.1517,
-      "wa": 9.0153,
-      "rank": 9
-    },
-    {
-      "title": "The Bonehunters",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.1233,
-      "wa": 9.1751,
-      "rank": 10
-    },
-    {
-      "title": "Midnight Tides",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 9.07,
-      "wa": 8.9341,
-      "rank": 11
-    },
-    {
-      "title": "Reaper's Gale",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.9733,
-      "wa": 8.7443,
-      "rank": 12
-    },
-    {
-      "title": "A Memory of Light",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.9,
-      "wa": 9.1595,
-      "rank": 13
-    },
-    {
-      "title": "The Heroes",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.895,
-      "wa": 9.0002,
-      "rank": 14
-    },
-    {
-      "title": "The Two Towers",
-      "author": "J.R.R. Tolkien",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.885,
-      "wa": 8.664,
-      "rank": 15
-    },
-    {
-      "title": "The Return of the King",
-      "author": "J.R.R. Tolkien",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.8517,
-      "wa": 8.6531,
-      "rank": 16
-    },
-    {
-      "title": "Lord of Chaos",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.78,
-      "wa": 8.8556,
-      "rank": 17
-    },
-    {
-      "title": "The Great Hunt",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.7783,
-      "wa": 8.9208,
-      "rank": 18
-    },
-    {
-      "title": "Dark Age",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 8.7567,
-      "wa": 8.8803,
-      "rank": 19
-    },
-    {
-      "title": "The Gathering Storm",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.7217,
-      "wa": 9.0211,
-      "rank": 20
-    },
-    {
-      "title": "Ender's Game",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 8.6937,
-      "wa": 8.4537,
-      "rank": 21
-    },
-    {
-      "title": "Knife of Dreams",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.6933,
-      "wa": 8.8054,
-      "rank": 22
-    },
-    {
-      "title": "Words of Radiance",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.6267,
-      "wa": 8.7536,
-      "rank": 23
-    },
-    {
-      "title": "The Lions of Al-Rassan",
-      "author": "Guy Gavriel Kay",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 8.6,
-      "wa": 8.8434,
-      "rank": 24
-    },
-    {
-      "title": "Between Two Fires",
-      "author": "Christopher Buehlman",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 8.5383,
-      "wa": 8.5822,
-      "rank": 25
-    },
-    {
-      "title": "Don Quixote",
-      "author": "Miguel de Cervantes",
-      "genre": "Classical Epic",
-      "type": "fiction",
-      "total_average": 8.5375,
-      "wa": 8.3517,
-      "rank": 26
-    },
-    {
-      "title": "Oathbringer",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.535,
-      "wa": 8.5504,
-      "rank": 27
-    },
-    {
-      "title": "Lightbringer",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 8.495,
-      "wa": 8.5439,
-      "rank": 28
-    },
-    {
-      "title": "Frankenstein",
-      "author": "Mary Shelley",
-      "genre": "Gothic Fiction",
-      "type": "fiction",
-      "total_average": 8.4792,
-      "wa": 8.5048,
-      "rank": 29
-    },
-    {
-      "title": "Momo",
-      "author": "Michael Ende",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 8.4708,
-      "wa": 8.0473,
-      "rank": 30
-    },
-    {
-      "title": "Rhythm of War",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.42,
-      "wa": 8.4732,
-      "rank": 31
-    },
-    {
-      "title": "The Shadow Rising",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.4,
-      "wa": 8.5723,
-      "rank": 32
-    },
-    {
-      "title": "House of Chains",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.36,
-      "wa": 8.3097,
-      "rank": 33
-    },
-    {
-      "title": "Golden Son",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 8.3578,
-      "wa": 8.5478,
-      "rank": 34
-    },
-    {
-      "title": "The Idiot",
-      "author": "Fyodor Dostoevsky",
-      "genre": "Russian Literature",
-      "type": "fiction",
-      "total_average": 8.3458,
-      "wa": 8.5242,
-      "rank": 35
-    },
-    {
-      "title": "Gardens of the Moon",
-      "author": "Steven Erikson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.295,
-      "wa": 8.2108,
-      "rank": 36
-    },
-    {
-      "title": "Demon in White",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 8.2867,
-      "wa": 8.3697,
-      "rank": 37
-    },
-    {
-      "title": "The Fellowship of the Ring",
-      "author": "J.R.R. Tolkien",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.2667,
-      "wa": 7.9128,
-      "rank": 38
-    },
-    {
-      "title": "The Dragon Reborn",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.25,
-      "wa": 8.4222,
-      "rank": 39
-    },
-    {
-      "title": "The Fires of Heaven",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.25,
-      "wa": 8.3037,
-      "rank": 40
-    },
-    {
-      "title": "The Strength of the Few",
-      "author": "James Islington",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.24,
-      "wa": 8.4103,
-      "rank": 41
-    },
-    {
-      "title": "Neuromancer",
-      "author": "William Gibson",
-      "genre": "Cyberpunk",
-      "type": "fiction",
-      "total_average": 8.2033,
-      "wa": 7.9376,
-      "rank": 42
-    },
-    {
-      "title": "Ender's Shadow",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 8.1792,
-      "wa": 7.7845,
-      "rank": 43
-    },
-    {
-      "title": "Notes From a Dead House",
-      "author": "Fyodor Dostoevsky",
-      "genre": "Russian Literature",
-      "type": "fiction",
-      "total_average": 8.1708,
-      "wa": 8.0167,
-      "rank": 44
-    },
-    {
-      "title": "Disquiet Gods",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 8.1467,
-      "wa": 8.1787,
-      "rank": 45
-    },
-    {
-      "title": "The Odyssey",
-      "author": "Homer",
-      "genre": "Classical Epic",
-      "type": "fiction",
-      "total_average": 8.1188,
-      "wa": 8.0873,
-      "rank": 46
-    },
-    {
-      "title": "Future of an Illusion",
-      "author": "Sigmund Freud",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 8.1111,
-      "wa": 7.9983,
-      "rank": 47
-    },
-    {
-      "title": "The Anxious Generation",
-      "author": "Jonathan Haidt",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 8.0833,
-      "wa": 8.1567,
-      "rank": 48
-    },
-    {
-      "title": "Towers of Midnight",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.0667,
-      "wa": 8.1969,
-      "rank": 49
-    },
-    {
-      "title": "The Hobbit",
-      "author": "J.R.R. Tolkien",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.055,
-      "wa": 7.8073,
-      "rank": 50
-    },
-    {
-      "title": "The Way of Kings",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 8.0483,
-      "wa": 8.2609,
-      "rank": 51
-    },
-    {
-      "title": "Winter's Heart",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.9617,
-      "wa": 8.0017,
-      "rank": 52
-    },
-    {
-      "title": "Piranesi",
-      "author": "Susanna Clarke",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 7.9523,
-      "wa": 7.8072,
-      "rank": 53
-    },
-    {
-      "title": "Kingdoms of Death",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.94,
-      "wa": 7.8902,
-      "rank": 54
-    },
-    {
-      "title": "Ashes of Man",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.9133,
-      "wa": 7.9303,
-      "rank": 55
-    },
-    {
-      "title": "Morning Star",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.8983,
-      "wa": 8.0326,
-      "rank": 56
-    },
-    {
-      "title": "The Last Argument of Kings",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.8633,
-      "wa": 8.055,
-      "rank": 57
-    },
-    {
-      "title": "The Prince",
-      "author": "Nicolo Machiavelli",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 7.8556,
-      "wa": 7.845,
-      "rank": 58
-    },
-    {
-      "title": "Before They Are Hanged",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.8517,
-      "wa": 7.8266,
-      "rank": 59
-    },
-    {
-      "title": "The Death of Ivan Ilyich",
-      "author": "Leo Tolstoy",
-      "genre": "Russian Literature",
-      "type": "fiction",
-      "total_average": 7.8354,
-      "wa": 8.1512,
-      "rank": 60
-    },
-    {
-      "title": "Picture of Dorian Gray",
-      "author": "Oscar Wilde",
-      "genre": "Gothic Fiction",
-      "type": "fiction",
-      "total_average": 7.8021,
-      "wa": 7.8718,
-      "rank": 61
-    },
-    {
-      "title": "Crossroads of Twilight",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.7933,
-      "wa": 7.5442,
-      "rank": 62
-    },
-    {
-      "title": "A Crown of Swords",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.7862,
-      "wa": 7.6291,
-      "rank": 63
-    },
-    {
-      "title": "Best Served Cold",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.775,
-      "wa": 7.8299,
-      "rank": 64
-    },
-    {
-      "title": "The Path of Daggers",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.7518,
-      "wa": 7.6406,
-      "rank": 65
-    },
-    {
-      "title": "This Inevitable Ruin",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.75,
-      "wa": 7.886,
-      "rank": 66
-    },
-    {
-      "title": "Project Hail Mary",
-      "author": "Andy Weir",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 7.7292,
-      "wa": 7.2773,
-      "rank": 67
-    },
-    {
-      "title": "Sailing to Sarantium",
-      "author": "Guy Gavriel Kay",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 7.7033,
-      "wa": 7.7048,
-      "rank": 68
-    },
-    {
-      "title": "The Will of the Many",
-      "author": "James Islington",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.6883,
-      "wa": 7.8057,
-      "rank": 69
-    },
-    {
-      "title": "Blindsight",
-      "author": "Peter Watts",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 7.6833,
-      "wa": 7.7503,
-      "rank": 70
-    },
-    {
-      "title": "The Blade Itself",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.6783,
-      "wa": 7.9686,
-      "rank": 71
-    },
-    {
-      "title": "The Butcher's Masquerade",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.65,
-      "wa": 7.7646,
-      "rank": 72
-    },
-    {
-      "title": "The Hero of Ages",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.6383,
-      "wa": 7.6332,
-      "rank": 73
-    },
-    {
-      "title": "Red Rising",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.6167,
-      "wa": 7.7291,
-      "rank": 74
-    },
-    {
-      "title": "Red Country",
-      "author": "Joe Abercrombie",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.5833,
-      "wa": 7.5829,
-      "rank": 75
-    },
-    {
-      "title": "The Oresteia",
-      "author": "Aeschylus",
-      "genre": "Classical Drama",
-      "type": "fiction",
-      "total_average": 7.575,
-      "wa": 7.4847,
-      "rank": 76
-    },
-    {
-      "title": "The Final Empire",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.5733,
-      "wa": 7.6441,
-      "rank": 77
-    },
-    {
-      "title": "Confessions",
-      "author": "Augustine",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 7.5722,
-      "wa": 7.4567,
-      "rank": 78
-    },
-    {
-      "title": "Inferno",
-      "author": "Dante Aligheri",
-      "genre": "Classical Epic",
-      "type": "fiction",
-      "total_average": 7.5604,
-      "wa": 7.0988,
-      "rank": 79
-    },
-    {
-      "title": "Endymion",
-      "author": "Dan Simmons",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.5467,
-      "wa": 7.5731,
-      "rank": 80
-    },
-    {
-      "title": "The Lies of Locke Lamora",
-      "author": "Scott Lynch",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.5217,
-      "wa": 7.6042,
-      "rank": 81
-    },
-    {
-      "title": "New Spring",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.4933,
-      "wa": 7.4738,
-      "rank": 82
-    },
-    {
-      "title": "Shadows Upon Time",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.47,
-      "wa": 7.4365,
-      "rank": 83
-    },
-    {
-      "title": "A Parade of Horribles",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.4283,
-      "wa": 7.4715,
-      "rank": 84
-    },
-    {
-      "title": "Iron Gold",
-      "author": "Pierce Brown",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.4283,
-      "wa": 7.4474,
-      "rank": 85
-    },
-    {
-      "title": "Howling Dark",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.42,
-      "wa": 7.6313,
-      "rank": 86
-    },
-    {
-      "title": "Rosencrantz and Guildenstern are Dead",
-      "author": "Tom Stoppard",
-      "genre": "Classical Drama",
-      "type": "fiction",
-      "total_average": 7.3792,
-      "wa": 7.2456,
-      "rank": 87
-    },
-    {
-      "title": "The Eye of the World",
-      "author": "Robert Jordan",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.3538,
-      "wa": 7.3201,
-      "rank": 88
-    },
-    {
-      "title": "The Eye of the Bedlam Bride",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.3383,
-      "wa": 7.4396,
-      "rank": 89
-    },
-    {
-      "title": "Elantris",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 7.3117,
-      "wa": 7.1322,
-      "rank": 90
-    },
-    {
-      "title": "Twenty Thousand Leagues Under the Sea",
-      "author": "Jules Verne",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 7.2958,
-      "wa": 6.9988,
-      "rank": 91
-    },
-    {
-      "title": "The Gate of the Feral Gods",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.2483,
-      "wa": 7.3239,
-      "rank": 92
-    },
-    {
-      "title": "Children of the Mind",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 7.1933,
-      "wa": 6.982,
-      "rank": 93
-    },
-    {
-      "title": "Warbreaker",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 7.1917,
-      "wa": 7.2108,
-      "rank": 94
-    },
-    {
-      "title": "The Dungeon Anarchist's Cookbook",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.1617,
-      "wa": 7.2217,
-      "rank": 95
-    },
-    {
-      "title": "The Fires of Vengeance",
-      "author": "Evan Winter",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.1567,
-      "wa": 7.2282,
-      "rank": 96
-    },
-    {
-      "title": "Carl's Doomsday Scenario",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 7.1217,
-      "wa": 7.1209,
-      "rank": 97
-    },
-    {
-      "title": "The Well of Ascension",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 7.105,
-      "wa": 7.1314,
-      "rank": 98
-    },
-    {
-      "title": "Empire of Silence",
-      "author": "Christopher Ruocchio",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.0595,
-      "wa": 7.1259,
-      "rank": 99
-    },
-    {
-      "title": "The Martian Chronicles",
-      "author": "Ray Bradbury",
-      "genre": "Speculative Literary Fiction",
-      "type": "fiction",
-      "total_average": 7.0458,
-      "wa": 7.1035,
-      "rank": 100
-    },
-    {
-      "title": "The Fifth Season",
-      "author": "N.K. Jemisin",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 7.0267,
-      "wa": 6.9027,
-      "rank": 101
-    },
-    {
-      "title": "The Dragonbone Chair",
-      "author": "Tad Williams",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.935,
-      "wa": 6.6949,
-      "rank": 102
-    },
-    {
-      "title": "There Is No Antimemetics Division",
-      "author": "qntm",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 6.9213,
-      "wa": 7.4714,
-      "rank": 103
-    },
-    {
-      "title": "Rendezvous with Rama",
-      "author": "Arthur C. Clarke",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 6.87,
-      "wa": 6.863,
-      "rank": 104
-    },
-    {
-      "title": "Silence",
-      "author": "Shusaku Endo",
-      "genre": "Literary Fiction",
-      "type": "fiction",
-      "total_average": 6.8646,
-      "wa": 7.0636,
-      "rank": 105
-    },
-    {
-      "title": "Wind and Truth",
-      "author": "Brandon Sanderson",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.8533,
-      "wa": 6.9363,
-      "rank": 106
-    },
-    {
-      "title": "The Name of the Wind",
-      "author": "Patrick Rothfuss",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.8317,
-      "wa": 6.6864,
-      "rank": 107
-    },
-    {
-      "title": "Xenocide",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 6.8253,
-      "wa": 6.9811,
-      "rank": 108
-    },
-    {
-      "title": "The Republic of Thieves",
-      "author": "Scott Lynch",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.7983,
-      "wa": 6.8177,
-      "rank": 109
-    },
-    {
-      "title": "The Rage of Dragons",
-      "author": "Evan Winter",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.79,
-      "wa": 6.8666,
-      "rank": 110
-    },
-    {
-      "title": "Red Seas Under Red Skies",
-      "author": "Scott Lynch",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.7717,
-      "wa": 6.7708,
-      "rank": 111
-    },
-    {
-      "title": "Dungeon Crawler Carl",
-      "author": "Matt Dinniman",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 6.625,
-      "wa": 6.6805,
-      "rank": 112
-    },
-    {
-      "title": "To Green Angel Tower",
-      "author": "Tad Williams",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 6.5467,
-      "wa": 6.2101,
-      "rank": 113
-    },
-    {
-      "title": "Dark Force Rising",
-      "author": "Timothy Zahn",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 6.4633,
-      "wa": 6.5342,
-      "rank": 114
-    },
-    {
-      "title": "The Emperor's Soul",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 6.4533,
-      "wa": 6.1984,
-      "rank": 115
-    },
-    {
-      "title": "Bringing Down the House",
-      "author": "Ben Mezrich",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 6.3889,
-      "wa": 6.35,
-      "rank": 116
-    },
-    {
-      "title": "Edgedancer",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 6.29,
-      "wa": 6.0888,
-      "rank": 117
-    },
-    {
-      "title": "Sister Carrie",
-      "author": "Theodore Dreiser",
-      "genre": "Literary Fiction",
-      "type": "fiction",
-      "total_average": 6.2292,
-      "wa": 6.554,
-      "rank": 118
-    },
-    {
-      "title": "Dawnshard",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 6.1467,
-      "wa": 5.8954,
-      "rank": 119
-    },
-    {
-      "title": "Shadows in Flight",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 6.06,
-      "wa": 6.3431,
-      "rank": 120
-    },
-    {
-      "title": "Twilight of the Idols",
-      "author": "Friedrich Nietzsche",
-      "genre": "Nonfiction",
-      "type": "nonfiction",
-      "total_average": 6.0167,
-      "wa": 5.6133,
-      "rank": 121
-    },
-    {
-      "title": "Heir to the Empire",
-      "author": "Timothy Zahn",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 5.9033,
-      "wa": 5.9618,
-      "rank": 122
-    },
-    {
-      "title": "Einstein's Dreams",
-      "author": "Albert Einstein",
-      "genre": "Speculative Literary Fiction",
-      "type": "fiction",
-      "total_average": 5.8667,
-      "wa": 5.9099,
-      "rank": 123
-    },
-    {
-      "title": "The Last Command",
-      "author": "Timothy Zahn",
-      "genre": "Science Fantasy",
-      "type": "fiction",
-      "total_average": 5.555,
-      "wa": 5.3671,
-      "rank": 124
-    },
-    {
-      "title": "Martin Eden",
-      "author": "Jack London",
-      "genre": "Literary Fiction",
-      "type": "fiction",
-      "total_average": 5.5146,
-      "wa": 5.5959,
-      "rank": 125
-    },
-    {
-      "title": "Station 11",
-      "author": "Emily St. John Mandel",
-      "genre": "Speculative Literary Fiction",
-      "type": "fiction",
-      "total_average": 5.485,
-      "wa": 5.1542,
-      "rank": 126
-    },
-    {
-      "title": "Shadows for Silence",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 5.3667,
-      "wa": 5.0699,
-      "rank": 127
-    },
-    {
-      "title": "Mistborn: Secret History",
-      "author": "Brandon Sanderson",
-      "genre": "Literary Fantasy",
-      "type": "fiction",
-      "total_average": 5.1233,
-      "wa": 4.3985,
-      "rank": 128
-    },
-    {
-      "title": "The Wise Man's Fear",
-      "author": "Patrick Rothfuss",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 5.0,
-      "wa": 5.0,
-      "rank": 129
-    },
-    {
-      "title": "The Stone of Farewell",
-      "author": "Tad Williams",
-      "genre": "Epic Fantasy",
-      "type": "fiction",
-      "total_average": 4.9817,
-      "wa": 4.5388,
-      "rank": 130
-    },
-    {
-      "title": "Ironweed",
-      "author": "William Kennedy",
-      "genre": "Literary Fiction",
-      "type": "fiction",
-      "total_average": 4.6083,
-      "wa": 4.7755,
-      "rank": 131
-    },
-    {
-      "title": "Ready Player One",
-      "author": "Ernest Cline",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 4.5533,
-      "wa": 4.5092,
-      "rank": 132
-    },
-    {
-      "title": "Ready Player Two",
-      "author": "Ernest Cline",
-      "genre": "Science Fiction (Soft)",
-      "type": "fiction",
-      "total_average": 4.365,
-      "wa": 4.2579,
-      "rank": 133
-    },
-    {
-      "title": "The Last Shadow",
-      "author": "Orson Scott Card",
-      "genre": "Science Fiction (Hard)",
-      "type": "fiction",
-      "total_average": 2.71,
-      "wa": 2.2993,
-      "rank": 134
-    }
-  ]
+  "totals": {
+    "avg_total_average": 7.59,
+    "fiction_books": 127,
+    "nonfiction_books": 6,
+    "total_books": 133,
+    "total_words": 25145553
+  }
 }

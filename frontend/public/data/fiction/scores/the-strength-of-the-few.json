@@ -1,23 +1,20 @@
 {
-  "title": "The Strength of the Few",
   "author": "James Islington",
-  "genre": "Epic Fantasy",
-  "wa": 8.4103,
   "components": {
-    "Story": {
-      "Plot": 8.3,
-      "Entertainment": 8.9,
-      "Action": 9.1,
-      "Ending": 9.5
+    "Aesthetics": {
+      "Narration": 8.3,
+      "Prose": 8.4
     },
     "Character": {
       "Depth": 8.5,
       "Emotional Impact": 8.2,
       "Motivations": 8.3
     },
-    "Aesthetics": {
-      "Prose": 8.4,
-      "Narration": 8.3
+    "Story": {
+      "Action": 9.1,
+      "Ending": 9.5,
+      "Entertainment": 8.9,
+      "Plot": 8.3
     },
     "Theme": {
       "Insights": 6.5,
@@ -28,5 +25,8 @@
       "Integration": 9.2,
       "Originality": 8.6
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Strength of the Few",
+  "wa": 8.4103
 }

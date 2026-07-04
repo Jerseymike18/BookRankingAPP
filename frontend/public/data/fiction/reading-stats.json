@@ -1,332 +1,337 @@
 {
-  "summary": {
-    "total_books": 128,
-    "avg_wa": 7.56,
-    "avg_total_average": 7.33,
-    "avg_words": 199536.0
-  },
-  "per_year": [
+  "by_author": [
     {
-      "year": 2025,
-      "books": 73,
-      "avg_wa": 7.51,
-      "avg_total_average": 7.24,
-      "avg_words": 205640.0
+      "author": "Brandon Sanderson",
+      "avg_wa": 7.03,
+      "books": 15
     },
     {
-      "year": 2026,
-      "books": 55,
-      "avg_wa": 7.63,
-      "avg_total_average": 7.45,
-      "avg_words": 191433.0
+      "author": "Robert Jordan",
+      "avg_wa": 8.12,
+      "books": 12
+    },
+    {
+      "author": "Steven Erikson",
+      "avg_wa": 9.03,
+      "books": 10
+    },
+    {
+      "author": "Matt Dinniman",
+      "avg_wa": 7.36,
+      "books": 8
+    },
+    {
+      "author": "Christopher Ruocchio",
+      "avg_wa": 7.79,
+      "books": 7
+    },
+    {
+      "author": "Orson Scott Card",
+      "avg_wa": 6.88,
+      "books": 7
+    },
+    {
+      "author": "Pierce Brown",
+      "avg_wa": 8.2,
+      "books": 6
+    },
+    {
+      "author": "Joe Abercrombie",
+      "avg_wa": 8.04,
+      "books": 6
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "avg_wa": 8.26,
+      "books": 4
+    },
+    {
+      "author": "Robert Jordan & Brandon Sanderson",
+      "avg_wa": 8.79,
+      "books": 3
+    },
+    {
+      "author": "Dan Simmons",
+      "avg_wa": 8.61,
+      "books": 3
+    },
+    {
+      "author": "Scott Lynch",
+      "avg_wa": 7.06,
+      "books": 3
+    },
+    {
+      "author": "Timothy Zahn",
+      "avg_wa": 5.95,
+      "books": 3
+    },
+    {
+      "author": "Tad Williams",
+      "avg_wa": 5.81,
+      "books": 3
+    },
+    {
+      "author": "Michael Ende",
+      "avg_wa": 8.67,
+      "books": 2
+    },
+    {
+      "author": "Guy Gavriel Kay",
+      "avg_wa": 8.27,
+      "books": 2
+    },
+    {
+      "author": "Fyodor Dostoevsky",
+      "avg_wa": 8.27,
+      "books": 2
+    },
+    {
+      "author": "James Islington",
+      "avg_wa": 8.11,
+      "books": 2
+    },
+    {
+      "author": "Evan Winter",
+      "avg_wa": 7.05,
+      "books": 2
+    },
+    {
+      "author": "Ernest Cline",
+      "avg_wa": 4.38,
+      "books": 2
+    },
+    {
+      "author": "Christopher Buehlman",
+      "avg_wa": 8.58,
+      "books": 1
+    },
+    {
+      "author": "Mary Shelley",
+      "avg_wa": 8.5,
+      "books": 1
+    },
+    {
+      "author": "Miguel de Cervantes",
+      "avg_wa": 8.35,
+      "books": 1
+    },
+    {
+      "author": "Leo Tolstoy",
+      "avg_wa": 8.15,
+      "books": 1
+    },
+    {
+      "author": "Homer",
+      "avg_wa": 8.09,
+      "books": 1
+    },
+    {
+      "author": "William Gibson",
+      "avg_wa": 7.94,
+      "books": 1
+    },
+    {
+      "author": "Oscar Wilde",
+      "avg_wa": 7.87,
+      "books": 1
+    },
+    {
+      "author": "Susanna Clarke",
+      "avg_wa": 7.81,
+      "books": 1
+    },
+    {
+      "author": "Peter Watts",
+      "avg_wa": 7.75,
+      "books": 1
+    },
+    {
+      "author": "Aeschylus",
+      "avg_wa": 7.48,
+      "books": 1
+    },
+    {
+      "author": "qntm",
+      "avg_wa": 7.47,
+      "books": 1
+    },
+    {
+      "author": "Andy Weir",
+      "avg_wa": 7.28,
+      "books": 1
+    },
+    {
+      "author": "Tom Stoppard",
+      "avg_wa": 7.25,
+      "books": 1
+    },
+    {
+      "author": "Ray Bradbury",
+      "avg_wa": 7.1,
+      "books": 1
+    },
+    {
+      "author": "Dante Aligheri",
+      "avg_wa": 7.1,
+      "books": 1
+    },
+    {
+      "author": "Shusaku Endo",
+      "avg_wa": 7.06,
+      "books": 1
+    },
+    {
+      "author": "Jules Verne",
+      "avg_wa": 7.0,
+      "books": 1
+    },
+    {
+      "author": "N.K. Jemisin",
+      "avg_wa": 6.9,
+      "books": 1
+    },
+    {
+      "author": "Arthur C. Clarke",
+      "avg_wa": 6.86,
+      "books": 1
+    },
+    {
+      "author": "Patrick Rothfuss",
+      "avg_wa": 6.69,
+      "books": 1
+    },
+    {
+      "author": "Theodore Dreiser",
+      "avg_wa": 6.55,
+      "books": 1
+    },
+    {
+      "author": "Albert Einstein",
+      "avg_wa": 5.91,
+      "books": 1
+    },
+    {
+      "author": "Jack London",
+      "avg_wa": 5.6,
+      "books": 1
+    },
+    {
+      "author": "Emily St. John Mandel",
+      "avg_wa": 5.15,
+      "books": 1
+    },
+    {
+      "author": "William Kennedy",
+      "avg_wa": 4.78,
+      "books": 1
     }
   ],
   "by_genre": [
     {
-      "genre": "Russian Literature",
-      "books": 3,
-      "avg_wa": 8.23,
       "avg_total_average": 6.49,
-      "avg_words": 106000.0
+      "avg_wa": 8.23,
+      "avg_words": 106000.0,
+      "books": 3,
+      "genre": "Russian Literature"
     },
     {
-      "genre": "Gothic Fiction",
-      "books": 2,
-      "avg_wa": 8.19,
       "avg_total_average": 6.51,
-      "avg_words": 63500.0
-    },
-    {
-      "genre": "Epic Fantasy",
-      "books": 55,
-      "avg_wa": 7.99,
-      "avg_total_average": 7.99,
-      "avg_words": 281143.0
-    },
-    {
-      "genre": "Cyberpunk",
-      "books": 1,
-      "avg_wa": 7.94,
-      "avg_total_average": 8.2,
-      "avg_words": 80000.0
-    },
-    {
-      "genre": "Classical Epic",
-      "books": 3,
-      "avg_wa": 7.85,
-      "avg_total_average": 6.46,
-      "avg_words": 166000.0
-    },
-    {
-      "genre": "Science Fiction (Soft)",
-      "books": 17,
-      "avg_wa": 7.47,
-      "avg_total_average": 7.43,
-      "avg_words": 209500.0
-    },
-    {
-      "genre": "Classical Drama",
+      "avg_wa": 8.19,
+      "avg_words": 63500.0,
       "books": 2,
-      "avg_wa": 7.37,
-      "avg_total_average": 5.98,
-      "avg_words": 40500.0
+      "genre": "Gothic Fiction"
     },
     {
-      "genre": "Science Fiction (Hard)",
-      "books": 14,
-      "avg_wa": 7.34,
-      "avg_total_average": 6.95,
-      "avg_words": 126071.0
+      "avg_total_average": 8.05,
+      "avg_wa": 8.05,
+      "avg_words": 279034.0,
+      "books": 54,
+      "genre": "Epic Fantasy"
     },
     {
-      "genre": "Literary Fantasy",
-      "books": 13,
-      "avg_wa": 7.1,
-      "avg_total_average": 7.13,
-      "avg_words": 99923.0
+      "avg_total_average": 8.2,
+      "avg_wa": 7.94,
+      "avg_words": 80000.0,
+      "books": 1,
+      "genre": "Cyberpunk"
     },
     {
-      "genre": "Science Fantasy",
-      "books": 11,
-      "avg_wa": 6.98,
-      "avg_total_average": 6.93,
-      "avg_words": 157727.0
-    },
-    {
-      "genre": "Speculative Literary Fiction",
+      "avg_total_average": 6.46,
+      "avg_wa": 7.85,
+      "avg_words": 166000.0,
       "books": 3,
-      "avg_wa": 6.06,
-      "avg_total_average": 5.27,
-      "avg_words": 67733.0
+      "genre": "Classical Epic"
     },
     {
-      "genre": "Literary Fiction",
-      "books": 4,
-      "avg_wa": 6.0,
+      "avg_total_average": 7.43,
+      "avg_wa": 7.47,
+      "avg_words": 209500.0,
+      "books": 17,
+      "genre": "Science Fiction (Soft)"
+    },
+    {
+      "avg_total_average": 5.98,
+      "avg_wa": 7.37,
+      "avg_words": 40500.0,
+      "books": 2,
+      "genre": "Classical Drama"
+    },
+    {
+      "avg_total_average": 6.95,
+      "avg_wa": 7.34,
+      "avg_words": 126071.0,
+      "books": 14,
+      "genre": "Science Fiction (Hard)"
+    },
+    {
+      "avg_total_average": 7.13,
+      "avg_wa": 7.1,
+      "avg_words": 99923.0,
+      "books": 13,
+      "genre": "Literary Fantasy"
+    },
+    {
+      "avg_total_average": 6.93,
+      "avg_wa": 6.98,
+      "avg_words": 157727.0,
+      "books": 11,
+      "genre": "Science Fantasy"
+    },
+    {
+      "avg_total_average": 5.27,
+      "avg_wa": 6.06,
+      "avg_words": 67733.0,
+      "books": 3,
+      "genre": "Speculative Literary Fiction"
+    },
+    {
       "avg_total_average": 4.64,
-      "avg_words": 102500.0
+      "avg_wa": 6.0,
+      "avg_words": 102500.0,
+      "books": 4,
+      "genre": "Literary Fiction"
     }
   ],
-  "by_author": [
+  "per_year": [
     {
-      "author": "Brandon Sanderson",
-      "books": 18,
-      "avg_wa": 7.32
+      "avg_total_average": 7.24,
+      "avg_wa": 7.51,
+      "avg_words": 205640.0,
+      "books": 73,
+      "year": 2025
     },
     {
-      "author": "Robert Jordan",
-      "books": 12,
-      "avg_wa": 8.12
-    },
-    {
-      "author": "Steven Erikson",
-      "books": 10,
-      "avg_wa": 9.03
-    },
-    {
-      "author": "Matt Dinniman",
-      "books": 8,
-      "avg_wa": 7.36
-    },
-    {
-      "author": "Christopher Ruocchio",
-      "books": 7,
-      "avg_wa": 7.79
-    },
-    {
-      "author": "Orson Scott Card",
-      "books": 7,
-      "avg_wa": 6.88
-    },
-    {
-      "author": "Pierce Brown",
-      "books": 6,
-      "avg_wa": 8.2
-    },
-    {
-      "author": "Joe Abercrombie",
-      "books": 6,
-      "avg_wa": 8.04
-    },
-    {
-      "author": "J.R.R. Tolkien",
-      "books": 4,
-      "avg_wa": 8.26
-    },
-    {
-      "author": "Dan Simmons",
-      "books": 3,
-      "avg_wa": 8.61
-    },
-    {
-      "author": "Scott Lynch",
-      "books": 3,
-      "avg_wa": 7.06
-    },
-    {
-      "author": "Timothy Zahn",
-      "books": 3,
-      "avg_wa": 5.95
-    },
-    {
-      "author": "Tad Williams",
-      "books": 3,
-      "avg_wa": 5.81
-    },
-    {
-      "author": "Michael Ende",
-      "books": 2,
-      "avg_wa": 8.67
-    },
-    {
-      "author": "Guy Gavriel Kay",
-      "books": 2,
-      "avg_wa": 8.27
-    },
-    {
-      "author": "Fyodor Dostoevsky",
-      "books": 2,
-      "avg_wa": 8.27
-    },
-    {
-      "author": "James Islington",
-      "books": 2,
-      "avg_wa": 8.11
-    },
-    {
-      "author": "Evan Winter",
-      "books": 2,
-      "avg_wa": 7.05
-    },
-    {
-      "author": "Patrick Rothfuss",
-      "books": 2,
-      "avg_wa": 5.84
-    },
-    {
-      "author": "Ernest Cline",
-      "books": 2,
-      "avg_wa": 4.38
-    },
-    {
-      "author": "Christopher Buehlman",
-      "books": 1,
-      "avg_wa": 8.58
-    },
-    {
-      "author": "Mary Shelley",
-      "books": 1,
-      "avg_wa": 8.5
-    },
-    {
-      "author": "Miguel de Cervantes",
-      "books": 1,
-      "avg_wa": 8.35
-    },
-    {
-      "author": "Leo Tolstoy",
-      "books": 1,
-      "avg_wa": 8.15
-    },
-    {
-      "author": "Homer",
-      "books": 1,
-      "avg_wa": 8.09
-    },
-    {
-      "author": "William Gibson",
-      "books": 1,
-      "avg_wa": 7.94
-    },
-    {
-      "author": "Oscar Wilde",
-      "books": 1,
-      "avg_wa": 7.87
-    },
-    {
-      "author": "Susanna Clarke",
-      "books": 1,
-      "avg_wa": 7.81
-    },
-    {
-      "author": "Peter Watts",
-      "books": 1,
-      "avg_wa": 7.75
-    },
-    {
-      "author": "Aeschylus",
-      "books": 1,
-      "avg_wa": 7.48
-    },
-    {
-      "author": "qntm",
-      "books": 1,
-      "avg_wa": 7.47
-    },
-    {
-      "author": "Andy Weir",
-      "books": 1,
-      "avg_wa": 7.28
-    },
-    {
-      "author": "Tom Stoppard",
-      "books": 1,
-      "avg_wa": 7.25
-    },
-    {
-      "author": "Ray Bradbury",
-      "books": 1,
-      "avg_wa": 7.1
-    },
-    {
-      "author": "Dante Aligheri",
-      "books": 1,
-      "avg_wa": 7.1
-    },
-    {
-      "author": "Shusaku Endo",
-      "books": 1,
-      "avg_wa": 7.06
-    },
-    {
-      "author": "Jules Verne",
-      "books": 1,
-      "avg_wa": 7.0
-    },
-    {
-      "author": "N.K. Jemisin",
-      "books": 1,
-      "avg_wa": 6.9
-    },
-    {
-      "author": "Arthur C. Clarke",
-      "books": 1,
-      "avg_wa": 6.86
-    },
-    {
-      "author": "Theodore Dreiser",
-      "books": 1,
-      "avg_wa": 6.55
-    },
-    {
-      "author": "Albert Einstein",
-      "books": 1,
-      "avg_wa": 5.91
-    },
-    {
-      "author": "Jack London",
-      "books": 1,
-      "avg_wa": 5.6
-    },
-    {
-      "author": "Emily St. John Mandel",
-      "books": 1,
-      "avg_wa": 5.15
-    },
-    {
-      "author": "William Kennedy",
-      "books": 1,
-      "avg_wa": 4.78
+      "avg_total_average": 7.5,
+      "avg_wa": 7.68,
+      "avg_words": 187663.0,
+      "books": 54,
+      "year": 2026
     }
-  ]
+  ],
+  "summary": {
+    "avg_total_average": 7.35,
+    "avg_wa": 7.58,
+    "avg_words": 197996.0,
+    "total_books": 127
+  }
 }

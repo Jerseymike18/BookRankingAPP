@@ -1,23 +1,20 @@
 {
-  "title": "Golden Son",
   "author": "Pierce Brown",
-  "genre": "Science Fiction (Soft)",
-  "wa": 8.5478,
   "components": {
-    "Story": {
-      "Plot": 8.99,
-      "Entertainment": 9.4,
-      "Action": 9.5,
-      "Ending": 9.4
+    "Aesthetics": {
+      "Narration": 8.1,
+      "Prose": 8.3
     },
     "Character": {
       "Depth": 8.4,
       "Emotional Impact": 9.1,
       "Motivations": 8.1
     },
-    "Aesthetics": {
-      "Prose": 8.3,
-      "Narration": 8.1
+    "Story": {
+      "Action": 9.5,
+      "Ending": 9.4,
+      "Entertainment": 9.4,
+      "Plot": 8.99
     },
     "Theme": {
       "Insights": 7.6,
@@ -28,5 +25,8 @@
       "Integration": 8.2,
       "Originality": 8.0
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Golden Son",
+  "wa": 8.5478
 }

@@ -1,23 +1,20 @@
 {
-  "title": "Ready Player Two",
   "author": "Ernest Cline",
-  "genre": "Science Fiction (Soft)",
-  "wa": 4.2579,
   "components": {
-    "Story": {
-      "Plot": 3.9,
-      "Entertainment": 5.0,
-      "Action": 3.8,
-      "Ending": 2.0
+    "Aesthetics": {
+      "Narration": 3.2,
+      "Prose": 3.9
     },
     "Character": {
       "Depth": 4.0,
       "Emotional Impact": 5.5,
       "Motivations": 4.3
     },
-    "Aesthetics": {
-      "Prose": 3.9,
-      "Narration": 3.2
+    "Story": {
+      "Action": 3.8,
+      "Ending": 2.0,
+      "Entertainment": 5.0,
+      "Plot": 3.9
     },
     "Theme": {
       "Insights": 4.5,
@@ -28,5 +25,8 @@
       "Integration": 6.4,
       "Originality": 4.0
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Ready Player Two",
+  "wa": 4.2579
 }

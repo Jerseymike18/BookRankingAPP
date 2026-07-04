@@ -1,23 +1,20 @@
 {
-  "title": "Speaker For The Dead",
   "author": "Orson Scott Card",
-  "genre": "Science Fiction (Hard)",
-  "wa": 9.348,
   "components": {
-    "Story": {
-      "Plot": 9.3,
-      "Entertainment": 9.4,
-      "Action": 6.4,
-      "Ending": 9.8
+    "Aesthetics": {
+      "Narration": 8.6,
+      "Prose": 8.7
     },
     "Character": {
       "Depth": 9.9,
       "Emotional Impact": 9.9,
       "Motivations": 10.0
     },
-    "Aesthetics": {
-      "Prose": 8.7,
-      "Narration": 8.6
+    "Story": {
+      "Action": 6.4,
+      "Ending": 9.8,
+      "Entertainment": 9.4,
+      "Plot": 9.3
     },
     "Theme": {
       "Insights": 9.6,
@@ -28,5 +25,8 @@
       "Integration": 9.3,
       "Originality": 8.7
     }
-  }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Speaker For The Dead",
+  "wa": 9.348
 }

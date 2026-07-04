@@ -1,5 +1,6 @@
 {
   "series": [],
+  "tier_counts": {},
   "tier_order": [
     "S+",
     "S",
@@ -8,6 +9,5 @@
     "C",
     "D",
     "F"
-  ],
-  "tier_counts": {}
+  ]
 }

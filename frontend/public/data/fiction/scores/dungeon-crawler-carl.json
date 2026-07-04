@@ -1,23 +1,20 @@
 {
-  "title": "Dungeon Crawler Carl",
   "author": "Matt Dinniman",
-  "genre": "Science Fantasy",
-  "wa": 6.6805,
   "components": {
-    "Story": {
-      "Plot": 6.8,
-      "Entertainment": 7.8,
-      "Action": 8.3,
-      "Ending": 6.4
+    "Aesthetics": {
+      "Narration": 6.6,
+      "Prose": 6.1
     },
     "Character": {
       "Depth": 6.7,
       "Emotional Impact": 6.8,
       "Motivations": 6.1
     },
-    "Aesthetics": {
-      "Prose": 6.1,
-      "Narration": 6.6
+    "Story": {
+      "Action": 8.3,
+      "Ending": 6.4,
+      "Entertainment": 7.8,
+      "Plot": 6.8
     },
     "Theme": {
       "Insights": 5.5,
@@ -28,5 +25,8 @@
       "Integration": 6.2,
       "Originality": 8.1
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "Dungeon Crawler Carl",
+  "wa": 6.6805
 }

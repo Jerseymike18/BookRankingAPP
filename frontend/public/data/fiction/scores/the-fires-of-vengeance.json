@@ -1,23 +1,20 @@
 {
-  "title": "The Fires of Vengeance",
   "author": "Evan Winter",
-  "genre": "Epic Fantasy",
-  "wa": 7.2282,
   "components": {
-    "Story": {
-      "Plot": 6.8,
-      "Entertainment": 8.6,
-      "Action": 9.2,
-      "Ending": 7.8
+    "Aesthetics": {
+      "Narration": 7.6,
+      "Prose": 7.3
     },
     "Character": {
       "Depth": 6.8,
       "Emotional Impact": 6.5,
       "Motivations": 5.6
     },
-    "Aesthetics": {
-      "Prose": 7.3,
-      "Narration": 7.6
+    "Story": {
+      "Action": 9.2,
+      "Ending": 7.8,
+      "Entertainment": 8.6,
+      "Plot": 6.8
     },
     "Theme": {
       "Insights": 6.9,
@@ -28,5 +25,8 @@
       "Integration": 7.3,
       "Originality": 7.1
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Fires of Vengeance",
+  "wa": 7.2282
 }

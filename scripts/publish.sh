@@ -1,85 +1,77 @@
 #!/usr/bin/env bash
 #
-# publish.sh — one-command publish loop for the read-only public site.
+# publish.sh — one command to publish book-data changes to the live site.
 #
-#   1. Regenerate the static snapshot (scripts/export_static_data.py, which
-#      itself hard-fails on slug-parity mismatch or score/book count drift).
-#   2. Guard against a catastrophic shrink (a broken/partial export or the wrong
-#      books.db) before anything is committed.
-#   3. Commit only the data snapshot and push — so Vercel auto-rebuilds.
+#   scripts/publish.sh "removed Dune"   # commit message → "data: removed Dune"
+#   scripts/publish.sh                  # message defaults to "data: refresh snapshot"
+#   scripts/publish.sh --no-push "…"    # commit locally, do not push
 #
-# The export is deterministic: if books.db hasn't changed there's nothing to
-# publish, and this exits cleanly without an empty commit.
-#
-# Usage:
-#   scripts/publish.sh            # export, commit, push
-#   scripts/publish.sh --no-push  # export + commit, but stop before pushing
+# Regenerates the static snapshot from books.db, commits books.db + the snapshot
+# together, and pushes. Plain `git commit` + `git push` do the same thing (the
+# pre-commit and pre-push hooks handle export + validation) — this is just the
+# convenient wrapper, and the one-command recovery when a snapshot went stale.
 #
 set -euo pipefail
 
 PUSH=1
+MSG=""
 for arg in "$@"; do
   case "$arg" in
     --no-push) PUSH=0 ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
-    *) echo "unknown option: $arg" >&2; exit 2 ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    -*) echo "unknown option: $arg" >&2; exit 2 ;;
+    *) if [ -z "$MSG" ]; then MSG="$arg"; else MSG="$MSG $arg"; fi ;;
   esac
 done
+MSG="data: ${MSG:-refresh snapshot}"
 
-ROOT="$(git rev-parse --show-toplevel)"
-DATA_DIR="$ROOT/frontend/public/data"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+DATA_DIR="frontend/public/data"
 
-# Baseline = number of snapshot files currently committed (last publish).
-prev_count="$(git -C "$ROOT" ls-files "$DATA_DIR" | wc -l | tr -d ' ')"
-
-echo "▶ Regenerating snapshot…"
-( cd "$ROOT/frontend" && npm run export-data )
-
-new_count="$(find "$DATA_DIR" -type f | wc -l | tr -d ' ')"
-
-# Safety net: refuse to publish an implausibly small snapshot. A real book
-# removal barely moves the count; losing >50% means a broken export or the
-# wrong database. (Skip the ratio check on the very first publish.)
-if [ "$new_count" -eq 0 ]; then
-  echo "✗ Export produced 0 files — refusing to publish." >&2
-  exit 1
-fi
-if [ "$prev_count" -gt 0 ] && [ "$((new_count * 2))" -lt "$prev_count" ]; then
-  echo "✗ Snapshot shrank from $prev_count to $new_count files (>50% drop) — refusing to publish." >&2
-  echo "  Re-run scripts/export_static_data.py and inspect the diff by hand if this is intentional." >&2
+# 1) Only book-data paths may be dirty — never ship half-finished feature code
+#    in a "publish". Combine unstaged + staged + untracked and flag anything
+#    that is not books.db or under the snapshot tree.
+dirty="$( { git -C "$REPO_ROOT" diff --name-only;
+            git -C "$REPO_ROOT" diff --cached --name-only;
+            git -C "$REPO_ROOT" ls-files --others --exclude-standard; } | sort -u )"
+extras="$(printf '%s\n' "$dirty" | grep -vE "^(books\.db|${DATA_DIR}/)" | grep -v '^$' || true)"
+if [ -n "$extras" ]; then
+  echo "✗ publish: non-data files are dirty — refusing to publish half-finished work:" >&2
+  printf '%s\n' "$extras" | sed 's/^/    /' >&2
+  echo "  Fix: commit or stash them separately, then re-run scripts/publish.sh." >&2
   exit 1
 fi
 
-git -C "$ROOT" add "$DATA_DIR"
+# 2) Regenerate the snapshot so it always matches books.db (this is also what
+#    recovers a snapshot that went stale via a --no-verify commit). Fails loudly
+#    with remediation if the Python environment can't produce it.
+echo "▶ Regenerating snapshot from books.db…"
+python3 "$REPO_ROOT/scripts/export_static_data.py"
 
-if git -C "$ROOT" diff --cached --quiet -- "$DATA_DIR"; then
-  echo "✓ Snapshot unchanged (books.db hasn't moved) — nothing to publish."
+# 3) Stage db + snapshot together (-A so removed books' score files are staged
+#    as deletions).
+git -C "$REPO_ROOT" add -A -- books.db "$DATA_DIR"
+
+# 4) Nothing to publish if the staged tree already matches HEAD.
+if git -C "$REPO_ROOT" diff --cached --quiet; then
+  echo "✓ Already up to date — snapshot matches books.db, nothing to publish."
   exit 0
 fi
 
-# Book counts for a descriptive commit message.
-read -r fic nonfic <<EOF
-$(python3 - "$DATA_DIR" <<'PY'
-import json, sys
-d = sys.argv[1]
-def n(p):
-    try:
-        return len(json.load(open(f"{d}/{p}"))["books"])
-    except Exception:
-        return "?"
-print(n("fiction/books.json"), n("nonfiction/books.json"))
-PY
-)
-EOF
+# 5) Commit. The pre-commit hook re-runs the export (deterministic → no-op) and
+#    re-stages, so the commit is guaranteed consistent even if hooks are active.
+git -C "$REPO_ROOT" commit -m "$MSG"
+echo "✓ Committed: $MSG"
 
-msg="data: refresh snapshot (${fic} fiction / ${nonfic} nonfiction)"
-git -C "$ROOT" commit -q -m "$msg"
-echo "✓ Committed: $msg"
-
+# 6) Push — the pre-push hook validates the snapshot before it leaves.
 if [ "$PUSH" -eq 1 ]; then
   echo "▶ Pushing…"
-  git -C "$ROOT" push
-  echo "✓ Pushed — Vercel will rebuild."
+  git -C "$REPO_ROOT" push
+  echo "✓ Pushed."
+  if [ -n "${LIVE_URL:-}" ]; then
+    echo "  Live: $LIVE_URL"
+  fi
+  echo "  Vercel will rebuild in ~1 min."
 else
   echo "• --no-push set; commit is local. Push with: git push"
 fi

@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+#
+# pre-push — the final gate. Blocks any push whose outgoing commits touch book
+# data (or the snapshot) unless the committed snapshot is up to date and valid.
+# This is the safety net for edits made with 'git commit --no-verify' (which
+# skips the pre-commit auto-export) or for a db edited after it was committed.
+#
+# git feeds ref lines on stdin: "<local-ref> <local-sha> <remote-ref> <remote-sha>".
+# Non-interactive: aborts with the exact fix command, never prompts.
+#
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/hooks/_common.sh
+. "$HERE/_common.sh"
+
+# 1–3) Decide whether any outgoing commit touches data-affecting files or the
+#      snapshot tree. If not, this push needs no Python/node (fast path).
+needs_check=0
+# Fields: <local-ref> <local-sha> <remote-ref> <remote-sha>. The refs are
+# unused here, so read them into throwaway `_`.
+while read -r _ local_sha _ remote_sha; do
+  # Skip branch deletions (local sha all zeros).
+  if [ -z "${local_sha:-}" ] || [ -z "${local_sha//0/}" ]; then
+    continue
+  fi
+  if [ -z "${remote_sha:-}" ] || [ -z "${remote_sha//0/}" ]; then
+    # New branch on the remote: no range to diff — check the tip commit's tree.
+    if changed="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r "$local_sha" 2>/dev/null)"; then
+      if printf '%s\n' "$changed" | paths_need_export; then needs_check=1; fi
+    else
+      needs_check=1   # couldn't determine — validate to be safe
+    fi
+  else
+    if changed="$(git -C "$REPO_ROOT" diff --name-only "$remote_sha..$local_sha" 2>/dev/null)"; then
+      if printf '%s\n' "$changed" | paths_need_export; then needs_check=1; fi
+    else
+      needs_check=1   # couldn't determine — validate to be safe
+    fi
+  fi
+done
+
+if [ "$needs_check" -eq 0 ]; then
+  exit 0
+fi
+
+# 4) This push carries data. The environment must be able to validate it.
+require_tools
+
+# The --check reads the on-disk books.db + snapshot, so those must equal the
+# committed tree or the check would validate the wrong state. Require both the
+# worktree and the index clean for those paths.
+if ! git -C "$REPO_ROOT" diff --quiet -- books.db "$SNAPSHOT_PREFIX" \
+   || ! git -C "$REPO_ROOT" diff --cached --quiet -- books.db "$SNAPSHOT_PREFIX"; then
+  echo "✗ pre-push: books.db or the snapshot has uncommitted changes — cannot honestly validate the committed state." >&2
+  echo "  Fix: commit them ('git commit -am \"data: …\"' regenerates the snapshot) or stash them ('git stash'), then push." >&2
+  exit 1
+fi
+
+# Non-blocking: warn if the Excel workbook is newer than books.db. The site
+# reads books.db only; workbook edits never reach it (see the brief). Never
+# blocks — this is purely a heads-up.
+XLSX="$REPO_ROOT/BookRankingsNew.xlsx"
+if [ -f "$XLSX" ] && [ "$XLSX" -nt "$REPO_ROOT/books.db" ]; then
+  echo "⚠ pre-push: BookRankingsNew.xlsx is newer than books.db." >&2
+  echo "  Note: the site reads books.db only — workbook edits do NOT reach it. (not blocking)" >&2
+fi
+
+# 5) The staleness gate. --check regenerates into a temp dir and byte-compares.
+if ! python3 "$EXPORT_SCRIPT" --check; then
+  echo "✗ pre-push: snapshot is STALE relative to books.db — push blocked." >&2
+  echo "  Fix: run 'scripts/publish.sh' — it regenerates the snapshot, commits, and pushes." >&2
+  echo "       (Manual: 'python3 scripts/export_static_data.py && git commit -am \"data: refresh snapshot\"', then push.)" >&2
+  exit 1
+fi
+
+# Remaining cheap validations (JSON parse-back is already covered by --check).
+# No dev URL must leak into the static data.
+if grep -rIl "localhost:8000" "$REPO_ROOT/$SNAPSHOT_PREFIX" >/dev/null 2>&1; then
+  echo "✗ pre-push: 'localhost:8000' found in the snapshot — push blocked." >&2
+  echo "  Fix: re-export ('scripts/publish.sh' or 'git commit') so the static data carries no dev URLs." >&2
+  exit 1
+fi
+
+# Score-file count must equal the fiction book count.
+if ! python3 - "$REPO_ROOT/frontend/public/data" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+try:
+    with open(os.path.join(d, "fiction/books.json"), encoding="utf-8") as f:
+        n_books = len(json.load(f)["books"])
+    scores = os.path.join(d, "fiction/scores")
+    n_scores = len([x for x in os.listdir(scores) if x.endswith(".json")])
+except Exception as exc:  # noqa: BLE001
+    print(f"pre-push: could not verify score-file count: {exc}", file=sys.stderr)
+    sys.exit(1)
+if n_books != n_scores:
+    print(f"pre-push: score-file count {n_scores} != fiction book count {n_books}", file=sys.stderr)
+    sys.exit(1)
+PY
+then
+  echo "  Fix: 'git commit -am \"data: refresh snapshot\"' to regenerate a consistent snapshot, then push." >&2
+  exit 1
+fi
+
+exit 0

@@ -1,23 +1,20 @@
 {
-  "title": "Red Country",
   "author": "Joe Abercrombie",
-  "genre": "Epic Fantasy",
-  "wa": 7.5829,
   "components": {
-    "Story": {
-      "Plot": 7.5,
-      "Entertainment": 7.1,
-      "Action": 8.0,
-      "Ending": 8.2
+    "Aesthetics": {
+      "Narration": 7.9,
+      "Prose": 8.1
     },
     "Character": {
       "Depth": 7.5,
       "Emotional Impact": 7.5,
       "Motivations": 7.1
     },
-    "Aesthetics": {
-      "Prose": 8.1,
-      "Narration": 7.9
+    "Story": {
+      "Action": 8.0,
+      "Ending": 8.2,
+      "Entertainment": 7.1,
+      "Plot": 7.5
     },
     "Theme": {
       "Insights": 7.4,
@@ -28,5 +25,8 @@
       "Integration": 7.9,
       "Originality": 7.2
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "Red Country",
+  "wa": 7.5829
 }

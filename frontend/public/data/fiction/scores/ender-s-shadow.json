@@ -1,23 +1,20 @@
 {
-  "title": "Ender's Shadow",
   "author": "Orson Scott Card",
-  "genre": "Science Fiction (Hard)",
-  "wa": 7.7845,
   "components": {
-    "Story": {
-      "Plot": 7.9,
-      "Entertainment": 7.2,
-      "Action": 6.4,
-      "Ending": 8.1
+    "Aesthetics": {
+      "Narration": 7.9,
+      "Prose": 7.8
     },
     "Character": {
       "Depth": 9.1,
       "Emotional Impact": 8.8,
       "Motivations": 9.6
     },
-    "Aesthetics": {
-      "Prose": 7.8,
-      "Narration": 7.9
+    "Story": {
+      "Action": 6.4,
+      "Ending": 8.1,
+      "Entertainment": 7.2,
+      "Plot": 7.9
     },
     "Theme": {
       "Insights": 8.1,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Ender's Shadow",
+  "wa": 7.7845
 }

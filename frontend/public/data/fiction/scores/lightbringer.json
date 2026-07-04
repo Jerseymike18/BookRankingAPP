@@ -1,23 +1,20 @@
 {
-  "title": "Lightbringer",
   "author": "Pierce Brown",
-  "genre": "Science Fiction (Soft)",
-  "wa": 8.5439,
   "components": {
-    "Story": {
-      "Plot": 8.8,
-      "Entertainment": 8.4,
-      "Action": 9.3,
-      "Ending": 9.2
+    "Aesthetics": {
+      "Narration": 8.9,
+      "Prose": 8.7
     },
     "Character": {
       "Depth": 8.1,
       "Emotional Impact": 9.7,
       "Motivations": 9.2
     },
-    "Aesthetics": {
-      "Prose": 8.7,
-      "Narration": 8.9
+    "Story": {
+      "Action": 9.3,
+      "Ending": 9.2,
+      "Entertainment": 8.4,
+      "Plot": 8.8
     },
     "Theme": {
       "Insights": 7.2,
@@ -28,5 +25,8 @@
       "Integration": 8.9,
       "Originality": 8.5
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Lightbringer",
+  "wa": 8.5439
 }

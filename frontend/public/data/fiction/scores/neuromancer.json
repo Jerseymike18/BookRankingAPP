@@ -1,23 +1,20 @@
 {
-  "title": "Neuromancer",
   "author": "William Gibson",
-  "genre": "Cyberpunk",
-  "wa": 7.9376,
   "components": {
-    "Story": {
-      "Plot": 7.8,
-      "Entertainment": 7.2,
-      "Action": 6.8,
-      "Ending": 8.4
+    "Aesthetics": {
+      "Narration": 7.5,
+      "Prose": 7.8
     },
     "Character": {
       "Depth": 7.4,
       "Emotional Impact": 7.8,
       "Motivations": 7.4
     },
-    "Aesthetics": {
-      "Prose": 7.8,
-      "Narration": 7.5
+    "Story": {
+      "Action": 6.8,
+      "Ending": 8.4,
+      "Entertainment": 7.2,
+      "Plot": 7.8
     },
     "Theme": {
       "Insights": 8.4,
@@ -28,5 +25,8 @@
       "Integration": 9.4,
       "Originality": 9.9
     }
-  }
+  },
+  "genre": "Cyberpunk",
+  "title": "Neuromancer",
+  "wa": 7.9376
 }

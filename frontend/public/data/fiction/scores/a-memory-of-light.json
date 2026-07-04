@@ -1,23 +1,20 @@
 {
-  "title": "A Memory of Light",
-  "author": "Brandon Sanderson",
-  "genre": "Epic Fantasy",
-  "wa": 9.1595,
+  "author": "Robert Jordan & Brandon Sanderson",
   "components": {
-    "Story": {
-      "Plot": 9.5,
-      "Entertainment": 9.8,
-      "Action": 9.9,
-      "Ending": 10.0
+    "Aesthetics": {
+      "Narration": 8.3,
+      "Prose": 7.8
     },
     "Character": {
       "Depth": 8.6,
       "Emotional Impact": 9.9,
       "Motivations": 8.5
     },
-    "Aesthetics": {
-      "Prose": 7.8,
-      "Narration": 8.3
+    "Story": {
+      "Action": 9.9,
+      "Ending": 10.0,
+      "Entertainment": 9.8,
+      "Plot": 9.5
     },
     "Theme": {
       "Insights": 8.5,
@@ -28,5 +25,8 @@
       "Integration": 9.3,
       "Originality": 9.2
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Memory of Light",
+  "wa": 9.1595
 }

@@ -1,23 +1,20 @@
 {
-  "title": "Endymion",
   "author": "Dan Simmons",
-  "genre": "Science Fiction (Soft)",
-  "wa": 7.5731,
   "components": {
-    "Story": {
-      "Plot": 8.2,
-      "Entertainment": 8.4,
-      "Action": 7.9,
-      "Ending": 7.5
+    "Aesthetics": {
+      "Narration": 6.3,
+      "Prose": 7.2
     },
     "Character": {
       "Depth": 7.2,
       "Emotional Impact": 6.5,
       "Motivations": 6.9
     },
-    "Aesthetics": {
-      "Prose": 7.2,
-      "Narration": 6.3
+    "Story": {
+      "Action": 7.9,
+      "Ending": 7.5,
+      "Entertainment": 8.4,
+      "Plot": 8.2
     },
     "Theme": {
       "Insights": 6.5,
@@ -28,5 +25,8 @@
       "Integration": 9.6,
       "Originality": 9.0
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Endymion",
+  "wa": 7.5731
 }

@@ -1,23 +1,20 @@
 {
-  "title": "Iron Gold",
   "author": "Pierce Brown",
-  "genre": "Science Fiction (Soft)",
-  "wa": 7.4474,
   "components": {
-    "Story": {
-      "Plot": 7.5,
-      "Entertainment": 7.2,
-      "Action": 7.9,
-      "Ending": 7.5
+    "Aesthetics": {
+      "Narration": 6.8,
+      "Prose": 7.6
     },
     "Character": {
       "Depth": 7.1,
       "Emotional Impact": 7.3,
       "Motivations": 8.0
     },
-    "Aesthetics": {
-      "Prose": 7.6,
-      "Narration": 6.8
+    "Story": {
+      "Action": 7.9,
+      "Ending": 7.5,
+      "Entertainment": 7.2,
+      "Plot": 7.5
     },
     "Theme": {
       "Insights": 6.4,
@@ -28,5 +25,8 @@
       "Integration": 8.3,
       "Originality": 7.9
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Iron Gold",
+  "wa": 7.4474
 }

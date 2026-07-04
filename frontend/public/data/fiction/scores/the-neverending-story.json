@@ -1,23 +1,20 @@
 {
-  "title": "The Neverending Story",
   "author": "Michael Ende",
-  "genre": "Literary Fantasy",
-  "wa": 9.2905,
   "components": {
-    "Story": {
-      "Plot": 9.5,
-      "Entertainment": 9.3,
-      "Action": 6.8,
-      "Ending": 9.5
+    "Aesthetics": {
+      "Narration": 9.4,
+      "Prose": 9.1
     },
     "Character": {
       "Depth": 9.7,
       "Emotional Impact": 9.6,
       "Motivations": 9.6
     },
-    "Aesthetics": {
-      "Prose": 9.1,
-      "Narration": 9.4
+    "Story": {
+      "Action": 6.8,
+      "Ending": 9.5,
+      "Entertainment": 9.3,
+      "Plot": 9.5
     },
     "Theme": {
       "Insights": 8.8,
@@ -28,5 +25,8 @@
       "Integration": 9.8,
       "Originality": 9.6
     }
-  }
+  },
+  "genre": "Literary Fantasy",
+  "title": "The Neverending Story",
+  "wa": 9.2905
 }

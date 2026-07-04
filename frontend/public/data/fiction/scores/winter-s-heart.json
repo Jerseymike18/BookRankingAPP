@@ -1,23 +1,20 @@
 {
-  "title": "Winter's Heart",
   "author": "Robert Jordan",
-  "genre": "Epic Fantasy",
-  "wa": 8.0017,
   "components": {
-    "Story": {
-      "Plot": 7.4,
-      "Entertainment": 7.2,
-      "Action": 8.0,
-      "Ending": 9.1
+    "Aesthetics": {
+      "Narration": 7.5,
+      "Prose": 7.7
     },
     "Character": {
       "Depth": 8.1,
       "Emotional Impact": 8.8,
       "Motivations": 8.3
     },
-    "Aesthetics": {
-      "Prose": 7.7,
-      "Narration": 7.5
+    "Story": {
+      "Action": 8.0,
+      "Ending": 9.1,
+      "Entertainment": 7.2,
+      "Plot": 7.4
     },
     "Theme": {
       "Insights": 7.3,
@@ -28,5 +25,8 @@
       "Integration": 8.7,
       "Originality": 8.1
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "Winter's Heart",
+  "wa": 8.0017
 }

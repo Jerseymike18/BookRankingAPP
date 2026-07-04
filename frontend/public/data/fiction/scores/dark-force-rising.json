@@ -1,23 +1,20 @@
 {
-  "title": "Dark Force Rising",
   "author": "Timothy Zahn",
-  "genre": "Science Fantasy",
-  "wa": 6.5342,
   "components": {
-    "Story": {
-      "Plot": 6.9,
-      "Entertainment": 6.6,
-      "Action": 8.1,
-      "Ending": 7.0
+    "Aesthetics": {
+      "Narration": 6.0,
+      "Prose": 6.2
     },
     "Character": {
       "Depth": 5.2,
       "Emotional Impact": 6.0,
       "Motivations": 5.5
     },
-    "Aesthetics": {
-      "Prose": 6.2,
-      "Narration": 6.0
+    "Story": {
+      "Action": 8.1,
+      "Ending": 7.0,
+      "Entertainment": 6.6,
+      "Plot": 6.9
     },
     "Theme": {
       "Insights": 7.0,
@@ -28,5 +25,8 @@
       "Integration": 6.9,
       "Originality": 5.0
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "Dark Force Rising",
+  "wa": 6.5342
 }

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# pre-commit — the automation. If a commit touches data-affecting files, the
+# static snapshot is regenerated from the (staged == worktree) books.db and
+# auto-staged into the SAME commit. Committing a data change IS publishing it.
+#
+# Non-interactive: on any problem it aborts with the exact fix command. It never
+# runs `git commit` itself, so no recursion is possible. `git commit --no-verify`
+# bypasses this hook — the pre-push hook is the backstop for that case.
+#
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/hooks/_common.sh
+. "$HERE/_common.sh"
+
+# 1) Fast path: nothing data-affecting is staged → no Python, no export.
+if ! git -C "$REPO_ROOT" diff --cached --name-only -- | paths_have_data_input; then
+  exit 0
+fi
+
+# 2) The environment must be able to produce a snapshot — fail loudly if not.
+require_tools
+
+# 3) The export reads the worktree books.db; it must match what is being
+#    committed, or the snapshot would encode uncommitted db state.
+if ! git -C "$REPO_ROOT" diff --quiet -- books.db; then
+  echo "✗ pre-commit: books.db has unstaged changes — the snapshot would not match the commit." >&2
+  echo "  Fix: 'git add books.db' (to include them) or 'git stash push -- books.db' (to set them aside), then retry." >&2
+  exit 1
+fi
+
+# 4) Regenerate the snapshot. The export runs all validations (non-200, slug
+#    collision, slug parity, count, JSON parse-back) and fails loudly.
+echo "▶ pre-commit: regenerating static snapshot from books.db…"
+if ! python3 "$EXPORT_SCRIPT"; then
+  echo "✗ pre-commit: export failed — commit blocked. Fix the error above, then commit again." >&2
+  exit 1
+fi
+
+# 5) Stage the fresh snapshot into this commit. -A so removed books' score files
+#    are staged as deletions, not left behind.
+git -C "$REPO_ROOT" add -A -- "$SNAPSHOT_PREFIX"
+
+# 6) One summary line.
+python3 - "$REPO_ROOT/frontend/public/data" <<'PY'
+import json, os, sys
+d = sys.argv[1]
+nfiles = sum(len(files) for _, _, files in os.walk(d))
+def n(rel):
+    try:
+        with open(os.path.join(d, rel), encoding="utf-8") as f:
+            return len(json.load(f)["books"])
+    except Exception:
+        return "?"
+print(f"snapshot: {nfiles} files, {n('fiction/books.json')} fiction / "
+      f"{n('nonfiction/books.json')} nonfiction books")
+PY

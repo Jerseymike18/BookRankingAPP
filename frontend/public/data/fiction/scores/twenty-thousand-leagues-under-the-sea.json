@@ -1,23 +1,20 @@
 {
-  "title": "Twenty Thousand Leagues Under the Sea",
   "author": "Jules Verne",
-  "genre": "Science Fiction (Hard)",
-  "wa": 6.9988,
   "components": {
-    "Story": {
-      "Plot": 7.7,
-      "Entertainment": 7.2,
-      "Action": 6.0,
-      "Ending": 8.7
+    "Aesthetics": {
+      "Narration": 7.3,
+      "Prose": 6.8
     },
     "Character": {
       "Depth": 7.3,
       "Emotional Impact": 7.8,
       "Motivations": 6.9
     },
-    "Aesthetics": {
-      "Prose": 6.8,
-      "Narration": 7.3
+    "Story": {
+      "Action": 6.0,
+      "Ending": 8.7,
+      "Entertainment": 7.2,
+      "Plot": 7.7
     },
     "Theme": {
       "Insights": 7.4,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Twenty Thousand Leagues Under the Sea",
+  "wa": 6.9988
 }

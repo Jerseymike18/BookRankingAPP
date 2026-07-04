@@ -1,23 +1,20 @@
 {
-  "title": "The Stone of Farewell",
   "author": "Tad Williams",
-  "genre": "Epic Fantasy",
-  "wa": 4.5388,
   "components": {
-    "Story": {
-      "Plot": 3.9,
-      "Entertainment": 4.2,
-      "Action": 2.6,
-      "Ending": 1.8
+    "Aesthetics": {
+      "Narration": 5.4,
+      "Prose": 6.9
     },
     "Character": {
       "Depth": 5.6,
       "Emotional Impact": 4.2,
       "Motivations": 4.3
     },
-    "Aesthetics": {
-      "Prose": 6.9,
-      "Narration": 5.4
+    "Story": {
+      "Action": 2.6,
+      "Ending": 1.8,
+      "Entertainment": 4.2,
+      "Plot": 3.9
     },
     "Theme": {
       "Insights": 5.6,
@@ -28,5 +25,8 @@
       "Integration": 5.1,
       "Originality": 4.8
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Stone of Farewell",
+  "wa": 4.5388
 }

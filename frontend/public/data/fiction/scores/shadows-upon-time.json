@@ -1,23 +1,20 @@
 {
-  "title": "Shadows Upon Time",
   "author": "Christopher Ruocchio",
-  "genre": "Science Fiction (Soft)",
-  "wa": 7.4365,
   "components": {
-    "Story": {
-      "Plot": 7.1,
-      "Entertainment": 8.2,
-      "Action": 8.8,
-      "Ending": 8.5
+    "Aesthetics": {
+      "Narration": 7.7,
+      "Prose": 7.4
     },
     "Character": {
       "Depth": 7.2,
       "Emotional Impact": 6.5,
       "Motivations": 6.4
     },
-    "Aesthetics": {
-      "Prose": 7.4,
-      "Narration": 7.7
+    "Story": {
+      "Action": 8.8,
+      "Ending": 8.5,
+      "Entertainment": 8.2,
+      "Plot": 7.1
     },
     "Theme": {
       "Insights": 7.1,
@@ -28,5 +25,8 @@
       "Integration": 7.8,
       "Originality": 8.2
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Shadows Upon Time",
+  "wa": 7.4365
 }

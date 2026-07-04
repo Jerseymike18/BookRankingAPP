@@ -1,23 +1,20 @@
 {
-  "title": "Rosencrantz and Guildenstern are Dead",
   "author": "Tom Stoppard",
-  "genre": "Classical Drama",
-  "wa": 7.2456,
   "components": {
-    "Story": {
-      "Plot": 5.3,
-      "Entertainment": 6.8,
-      "Action": 4.8,
-      "Ending": 6.5
+    "Aesthetics": {
+      "Narration": 8.5,
+      "Prose": 8.6
     },
     "Character": {
       "Depth": 7.0,
       "Emotional Impact": 6.7,
       "Motivations": 6.3
     },
-    "Aesthetics": {
-      "Prose": 8.6,
-      "Narration": 8.5
+    "Story": {
+      "Action": 4.8,
+      "Ending": 6.5,
+      "Entertainment": 6.8,
+      "Plot": 5.3
     },
     "Theme": {
       "Insights": 8.3,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Classical Drama",
+  "title": "Rosencrantz and Guildenstern are Dead",
+  "wa": 7.2456
 }

@@ -1,23 +1,20 @@
 {
-  "title": "The Dragon Reborn",
   "author": "Robert Jordan",
-  "genre": "Epic Fantasy",
-  "wa": 8.4222,
   "components": {
-    "Story": {
-      "Plot": 8.4,
-      "Entertainment": 8.8,
-      "Action": 8.9,
-      "Ending": 9.1
+    "Aesthetics": {
+      "Narration": 7.9,
+      "Prose": 8.1
     },
     "Character": {
       "Depth": 8.4,
       "Emotional Impact": 8.9,
       "Motivations": 8.2
     },
-    "Aesthetics": {
-      "Prose": 8.1,
-      "Narration": 7.9
+    "Story": {
+      "Action": 8.9,
+      "Ending": 9.1,
+      "Entertainment": 8.8,
+      "Plot": 8.4
     },
     "Theme": {
       "Insights": 7.5,
@@ -28,5 +25,8 @@
       "Integration": 9.1,
       "Originality": 8.5
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Dragon Reborn",
+  "wa": 8.4222
 }

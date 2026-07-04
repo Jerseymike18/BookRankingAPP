@@ -1,23 +1,20 @@
 {
-  "title": "The Last Command",
   "author": "Timothy Zahn",
-  "genre": "Science Fantasy",
-  "wa": 5.3671,
   "components": {
-    "Story": {
-      "Plot": 5.8,
-      "Entertainment": 6.1,
-      "Action": 7.4,
-      "Ending": 1.0
+    "Aesthetics": {
+      "Narration": 6.4,
+      "Prose": 5.8
     },
     "Character": {
       "Depth": 6.4,
       "Emotional Impact": 1.0,
       "Motivations": 5.2
     },
-    "Aesthetics": {
-      "Prose": 5.8,
-      "Narration": 6.4
+    "Story": {
+      "Action": 7.4,
+      "Ending": 1.0,
+      "Entertainment": 6.1,
+      "Plot": 5.8
     },
     "Theme": {
       "Insights": 5.8,
@@ -28,5 +25,8 @@
       "Integration": 7.0,
       "Originality": 5.0
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "The Last Command",
+  "wa": 5.3671
 }

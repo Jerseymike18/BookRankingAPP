@@ -1,23 +1,20 @@
 {
-  "title": "Red Rising",
   "author": "Pierce Brown",
-  "genre": "Science Fiction (Soft)",
-  "wa": 7.7291,
   "components": {
-    "Story": {
-      "Plot": 7.2,
-      "Entertainment": 8.2,
-      "Action": 8.5,
-      "Ending": 8.9
+    "Aesthetics": {
+      "Narration": 7.5,
+      "Prose": 7.9
     },
     "Character": {
       "Depth": 7.6,
       "Emotional Impact": 7.3,
       "Motivations": 8.3
     },
-    "Aesthetics": {
-      "Prose": 7.9,
-      "Narration": 7.5
+    "Story": {
+      "Action": 8.5,
+      "Ending": 8.9,
+      "Entertainment": 8.2,
+      "Plot": 7.2
     },
     "Theme": {
       "Insights": 7.1,
@@ -28,5 +25,8 @@
       "Integration": 7.1,
       "Originality": 7.0
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Red Rising",
+  "wa": 7.7291
 }

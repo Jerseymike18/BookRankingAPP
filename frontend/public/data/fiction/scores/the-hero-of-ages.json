@@ -1,23 +1,20 @@
 {
-  "title": "The Hero of Ages",
   "author": "Brandon Sanderson",
-  "genre": "Epic Fantasy",
-  "wa": 7.6332,
   "components": {
-    "Story": {
-      "Plot": 7.4,
-      "Entertainment": 6.7,
-      "Action": 7.7,
-      "Ending": 8.9
+    "Aesthetics": {
+      "Narration": 6.7,
+      "Prose": 6.8
     },
     "Character": {
       "Depth": 7.5,
       "Emotional Impact": 7.8,
       "Motivations": 7.3
     },
-    "Aesthetics": {
-      "Prose": 6.8,
-      "Narration": 6.7
+    "Story": {
+      "Action": 7.7,
+      "Ending": 8.9,
+      "Entertainment": 6.7,
+      "Plot": 7.4
     },
     "Theme": {
       "Insights": 7.5,
@@ -28,5 +25,8 @@
       "Integration": 8.6,
       "Originality": 8.5
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Hero of Ages",
+  "wa": 7.6332
 }

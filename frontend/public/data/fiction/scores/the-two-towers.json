@@ -1,23 +1,20 @@
 {
-  "title": "The Two Towers",
   "author": "J.R.R. Tolkien",
-  "genre": "Epic Fantasy",
-  "wa": 8.664,
   "components": {
-    "Story": {
-      "Plot": 8.5,
-      "Entertainment": 8.3,
-      "Action": 9.0,
-      "Ending": 8.5
+    "Aesthetics": {
+      "Narration": 9.2,
+      "Prose": 8.9
     },
     "Character": {
       "Depth": 8.3,
       "Emotional Impact": 8.5,
       "Motivations": 9.0
     },
-    "Aesthetics": {
-      "Prose": 8.9,
-      "Narration": 9.2
+    "Story": {
+      "Action": 9.0,
+      "Ending": 8.5,
+      "Entertainment": 8.3,
+      "Plot": 8.5
     },
     "Theme": {
       "Insights": 8.6,
@@ -28,5 +25,8 @@
       "Integration": 9.6,
       "Originality": 10.0
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Two Towers",
+  "wa": 8.664
 }

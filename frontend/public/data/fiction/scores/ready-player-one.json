@@ -1,23 +1,20 @@
 {
-  "title": "Ready Player One",
   "author": "Ernest Cline",
-  "genre": "Science Fiction (Soft)",
-  "wa": 4.5092,
   "components": {
-    "Story": {
-      "Plot": 4.7,
-      "Entertainment": 6.0,
-      "Action": 4.3,
-      "Ending": 3.0
+    "Aesthetics": {
+      "Narration": 4.3,
+      "Prose": 4.9
     },
     "Character": {
       "Depth": 4.2,
       "Emotional Impact": 3.0,
       "Motivations": 5.3
     },
-    "Aesthetics": {
-      "Prose": 4.9,
-      "Narration": 4.3
+    "Story": {
+      "Action": 4.3,
+      "Ending": 3.0,
+      "Entertainment": 6.0,
+      "Plot": 4.7
     },
     "Theme": {
       "Insights": 4.6,
@@ -28,5 +25,8 @@
       "Integration": 5.9,
       "Originality": 4.9
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Ready Player One",
+  "wa": 4.5092
 }

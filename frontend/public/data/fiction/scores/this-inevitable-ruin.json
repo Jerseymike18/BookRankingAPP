@@ -1,23 +1,20 @@
 {
-  "title": "This Inevitable Ruin",
   "author": "Matt Dinniman",
-  "genre": "Science Fantasy",
-  "wa": 7.886,
   "components": {
-    "Story": {
-      "Plot": 7.7,
-      "Entertainment": 9.1,
-      "Action": 9.3,
-      "Ending": 9.3
+    "Aesthetics": {
+      "Narration": 7.2,
+      "Prose": 6.9
     },
     "Character": {
       "Depth": 7.8,
       "Emotional Impact": 8.4,
       "Motivations": 7.4
     },
-    "Aesthetics": {
-      "Prose": 6.9,
-      "Narration": 7.2
+    "Story": {
+      "Action": 9.3,
+      "Ending": 9.3,
+      "Entertainment": 9.1,
+      "Plot": 7.7
     },
     "Theme": {
       "Insights": 7.0,
@@ -28,5 +25,8 @@
       "Integration": 7.9,
       "Originality": 8.1
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "This Inevitable Ruin",
+  "wa": 7.886
 }

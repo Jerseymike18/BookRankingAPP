@@ -1,23 +1,20 @@
 {
-  "title": "The Eye of the World",
   "author": "Robert Jordan",
-  "genre": "Epic Fantasy",
-  "wa": 7.3201,
   "components": {
-    "Story": {
-      "Plot": 7.31,
-      "Entertainment": 7.1,
-      "Action": 7.9,
-      "Ending": 7.5
+    "Aesthetics": {
+      "Narration": 7.7,
+      "Prose": 7.3
     },
     "Character": {
       "Depth": 7.2,
       "Emotional Impact": 6.8,
       "Motivations": 7.6
     },
-    "Aesthetics": {
-      "Prose": 7.3,
-      "Narration": 7.7
+    "Story": {
+      "Action": 7.9,
+      "Ending": 7.5,
+      "Entertainment": 7.1,
+      "Plot": 7.31
     },
     "Theme": {
       "Insights": 7.4,
@@ -28,5 +25,8 @@
       "Integration": 8.4,
       "Originality": 6.5
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Eye of the World",
+  "wa": 7.3201
 }

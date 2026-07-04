@@ -1,23 +1,20 @@
 {
-  "title": "New Spring",
   "author": "Robert Jordan",
-  "genre": "Epic Fantasy",
-  "wa": 7.4738,
   "components": {
-    "Story": {
-      "Plot": 7.9,
-      "Entertainment": 7.0,
-      "Action": 7.2,
-      "Ending": 7.7
+    "Aesthetics": {
+      "Narration": 7.5,
+      "Prose": 7.9
     },
     "Character": {
       "Depth": 7.0,
       "Emotional Impact": 7.6,
       "Motivations": 7.3
     },
-    "Aesthetics": {
-      "Prose": 7.9,
-      "Narration": 7.5
+    "Story": {
+      "Action": 7.2,
+      "Ending": 7.7,
+      "Entertainment": 7.0,
+      "Plot": 7.9
     },
     "Theme": {
       "Insights": 7.0,
@@ -28,5 +25,8 @@
       "Integration": 7.7,
       "Originality": 7.9
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "New Spring",
+  "wa": 7.4738
 }

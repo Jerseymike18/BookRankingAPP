@@ -1,23 +1,20 @@
 {
-  "title": "Notes From a Dead House",
   "author": "Fyodor Dostoevsky",
-  "genre": "Russian Literature",
-  "wa": 8.0167,
   "components": {
-    "Story": {
-      "Plot": 5.9,
-      "Entertainment": 8.2,
-      "Action": 5.0,
-      "Ending": 7.1
+    "Aesthetics": {
+      "Narration": 9.3,
+      "Prose": 8.2
     },
     "Character": {
       "Depth": 8.8,
       "Emotional Impact": 8.6,
       "Motivations": 8.2
     },
-    "Aesthetics": {
-      "Prose": 8.2,
-      "Narration": 9.3
+    "Story": {
+      "Action": 5.0,
+      "Ending": 7.1,
+      "Entertainment": 8.2,
+      "Plot": 5.9
     },
     "Theme": {
       "Insights": 9.1,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Russian Literature",
+  "title": "Notes From a Dead House",
+  "wa": 8.0167
 }

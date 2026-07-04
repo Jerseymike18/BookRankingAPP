@@ -1,23 +1,20 @@
 {
-  "title": "Picture of Dorian Gray",
   "author": "Oscar Wilde",
-  "genre": "Gothic Fiction",
-  "wa": 7.8718,
   "components": {
-    "Story": {
-      "Plot": 7.7,
-      "Entertainment": 7.4,
-      "Action": 4.3,
-      "Ending": 7.5
+    "Aesthetics": {
+      "Narration": 7.8,
+      "Prose": 7.4
     },
     "Character": {
       "Depth": 8.5,
       "Emotional Impact": 8.2,
       "Motivations": 8.6
     },
-    "Aesthetics": {
-      "Prose": 7.4,
-      "Narration": 7.8
+    "Story": {
+      "Action": 4.3,
+      "Ending": 7.5,
+      "Entertainment": 7.4,
+      "Plot": 7.7
     },
     "Theme": {
       "Insights": 8.1,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Gothic Fiction",
+  "title": "Picture of Dorian Gray",
+  "wa": 7.8718
 }

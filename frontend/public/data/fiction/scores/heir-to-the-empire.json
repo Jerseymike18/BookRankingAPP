@@ -1,23 +1,20 @@
 {
-  "title": "Heir to the Empire",
   "author": "Timothy Zahn",
-  "genre": "Science Fantasy",
-  "wa": 5.9618,
   "components": {
-    "Story": {
-      "Plot": 5.8,
-      "Entertainment": 6.1,
-      "Action": 6.5,
-      "Ending": 7.2
+    "Aesthetics": {
+      "Narration": 5.3,
+      "Prose": 5.9
     },
     "Character": {
       "Depth": 6.4,
       "Emotional Impact": 5.1,
       "Motivations": 6.2
     },
-    "Aesthetics": {
-      "Prose": 5.9,
-      "Narration": 5.3
+    "Story": {
+      "Action": 6.5,
+      "Ending": 7.2,
+      "Entertainment": 6.1,
+      "Plot": 5.8
     },
     "Theme": {
       "Insights": 4.8,
@@ -28,5 +25,8 @@
       "Integration": 7.3,
       "Originality": 5.0
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "Heir to the Empire",
+  "wa": 5.9618
 }

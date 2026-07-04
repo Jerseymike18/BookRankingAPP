@@ -1,25 +1,21 @@
 {
   "books": [
     {
-      "title": "Future of an Illusion",
       "author": "Sigmund Freud",
-      "genre": "Nonfiction",
-      "series": "",
-      "series_number": null,
-      "words": null,
-      "year": 2026,
-      "year_read": 2026,
-      "wa": 7.9983,
-      "total_average": 8.1111,
+      "category_avgs": {
+        "Aesthetics": 8.1,
+        "Quality": 6.9667,
+        "Theme": 9.2667
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 6.2,
-          "Argumentation": 8.8,
-          "Entertainment": 5.9
-        },
         "Aesthetics": {
-          "Prose": 7.9,
-          "Phraseology": 8.3
+          "Phraseology": 8.3,
+          "Prose": 7.9
+        },
+        "Quality": {
+          "Argumentation": 8.8,
+          "Entertainment": 5.9,
+          "Informativeness": 6.2
         },
         "Theme": {
           "Insights": 9.3,
@@ -27,34 +23,34 @@
           "Thought-Provokingness": 8.9
         }
       },
-      "category_avgs": {
-        "Quality": 6.9667,
-        "Aesthetics": 8.1,
-        "Theme": 9.2667
-      },
-      "rank": 1,
-      "tier": "S"
-    },
-    {
-      "title": "The Anxious Generation",
-      "author": "Jonathan Haidt",
       "genre": "Nonfiction",
+      "rank": 1,
       "series": "",
       "series_number": null,
+      "tier": "S",
+      "title": "Future of an Illusion",
+      "total_average": 8.1111,
+      "wa": 7.9983,
       "words": null,
-      "year": 2025,
-      "year_read": 2025,
-      "wa": 8.1567,
-      "total_average": 8.0833,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
+      "author": "Jonathan Haidt",
+      "category_avgs": {
+        "Aesthetics": 7.65,
+        "Quality": 8.1667,
+        "Theme": 8.4333
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 9.2,
-          "Argumentation": 9.5,
-          "Entertainment": 5.8
-        },
         "Aesthetics": {
-          "Prose": 7.4,
-          "Phraseology": 7.9
+          "Phraseology": 7.9,
+          "Prose": 7.4
+        },
+        "Quality": {
+          "Argumentation": 9.5,
+          "Entertainment": 5.8,
+          "Informativeness": 9.2
         },
         "Theme": {
           "Insights": 8.3,
@@ -62,34 +58,34 @@
           "Thought-Provokingness": 9.5
         }
       },
-      "category_avgs": {
-        "Quality": 8.1667,
-        "Aesthetics": 7.65,
-        "Theme": 8.4333
-      },
-      "rank": 2,
-      "tier": "B"
-    },
-    {
-      "title": "The Prince",
-      "author": "Nicolo Machiavelli",
       "genre": "Nonfiction",
+      "rank": 2,
       "series": "",
       "series_number": null,
+      "tier": "B",
+      "title": "The Anxious Generation",
+      "total_average": 8.0833,
+      "wa": 8.1567,
       "words": null,
-      "year": 2026,
-      "year_read": 2026,
-      "wa": 7.845,
-      "total_average": 7.8556,
+      "year": 2025,
+      "year_read": 2025
+    },
+    {
+      "author": "Nicolo Machiavelli",
+      "category_avgs": {
+        "Aesthetics": 7.4,
+        "Quality": 7.0667,
+        "Theme": 9.1
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 7.3,
-          "Argumentation": 8.5,
-          "Entertainment": 5.4
-        },
         "Aesthetics": {
-          "Prose": 7.9,
-          "Phraseology": 6.9
+          "Phraseology": 6.9,
+          "Prose": 7.9
+        },
+        "Quality": {
+          "Argumentation": 8.5,
+          "Entertainment": 5.4,
+          "Informativeness": 7.3
         },
         "Theme": {
           "Insights": 8.8,
@@ -97,34 +93,34 @@
           "Thought-Provokingness": 9.4
         }
       },
-      "category_avgs": {
-        "Quality": 7.0667,
-        "Aesthetics": 7.4,
-        "Theme": 9.1
-      },
-      "rank": 3,
-      "tier": "B"
-    },
-    {
-      "title": "Confessions",
-      "author": "Augustine",
       "genre": "Nonfiction",
+      "rank": 3,
       "series": "",
       "series_number": null,
+      "tier": "B",
+      "title": "The Prince",
+      "total_average": 7.8556,
+      "wa": 7.845,
       "words": null,
-      "year": 2025,
-      "year_read": 2025,
-      "wa": 7.4567,
-      "total_average": 7.5722,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
+      "author": "Augustine",
+      "category_avgs": {
+        "Aesthetics": 7.25,
+        "Quality": 5.9333,
+        "Theme": 9.5333
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 5.9,
-          "Argumentation": 7.1,
-          "Entertainment": 4.8
-        },
         "Aesthetics": {
-          "Prose": 8.1,
-          "Phraseology": 6.4
+          "Phraseology": 6.4,
+          "Prose": 8.1
+        },
+        "Quality": {
+          "Argumentation": 7.1,
+          "Entertainment": 4.8,
+          "Informativeness": 5.9
         },
         "Theme": {
           "Insights": 9.4,
@@ -132,34 +128,34 @@
           "Thought-Provokingness": 9.6
         }
       },
-      "category_avgs": {
-        "Quality": 5.9333,
-        "Aesthetics": 7.25,
-        "Theme": 9.5333
-      },
-      "rank": 4,
-      "tier": "C"
-    },
-    {
-      "title": "Bringing Down the House",
-      "author": "Ben Mezrich",
       "genre": "Nonfiction",
+      "rank": 4,
       "series": "",
       "series_number": null,
+      "tier": "C",
+      "title": "Confessions",
+      "total_average": 7.5722,
+      "wa": 7.4567,
       "words": null,
       "year": 2025,
-      "year_read": 2025,
-      "wa": 6.35,
-      "total_average": 6.3889,
+      "year_read": 2025
+    },
+    {
+      "author": "Ben Mezrich",
+      "category_avgs": {
+        "Aesthetics": 6.9,
+        "Quality": 6.7667,
+        "Theme": 5.5
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 6.2,
-          "Argumentation": 5.8,
-          "Entertainment": 8.3
-        },
         "Aesthetics": {
-          "Prose": 7.3,
-          "Phraseology": 6.5
+          "Phraseology": 6.5,
+          "Prose": 7.3
+        },
+        "Quality": {
+          "Argumentation": 5.8,
+          "Entertainment": 8.3,
+          "Informativeness": 6.2
         },
         "Theme": {
           "Insights": 5.9,
@@ -167,34 +163,34 @@
           "Thought-Provokingness": 6.4
         }
       },
-      "category_avgs": {
-        "Quality": 6.7667,
-        "Aesthetics": 6.9,
-        "Theme": 5.5
-      },
-      "rank": 5,
-      "tier": "D"
-    },
-    {
-      "title": "Twilight of the Idols",
-      "author": "Friedrich Nietzsche",
       "genre": "Nonfiction",
+      "rank": 5,
       "series": "",
       "series_number": null,
+      "tier": "D",
+      "title": "Bringing Down the House",
+      "total_average": 6.3889,
+      "wa": 6.35,
       "words": null,
-      "year": 2026,
-      "year_read": 2026,
-      "wa": 5.6133,
-      "total_average": 6.0167,
+      "year": 2025,
+      "year_read": 2025
+    },
+    {
+      "author": "Friedrich Nietzsche",
+      "category_avgs": {
+        "Aesthetics": 7.45,
+        "Quality": 4.1333,
+        "Theme": 6.4667
+      },
       "components": {
-        "Quality": {
-          "Informativeness": 3.7,
-          "Argumentation": 5.1,
-          "Entertainment": 3.6
-        },
         "Aesthetics": {
-          "Prose": 6.8,
-          "Phraseology": 8.1
+          "Phraseology": 8.1,
+          "Prose": 6.8
+        },
+        "Quality": {
+          "Argumentation": 5.1,
+          "Entertainment": 3.6,
+          "Informativeness": 3.7
         },
         "Theme": {
           "Insights": 4.3,
@@ -202,23 +198,32 @@
           "Thought-Provokingness": 9.5
         }
       },
-      "category_avgs": {
-        "Quality": 4.1333,
-        "Aesthetics": 7.45,
-        "Theme": 6.4667
-      },
+      "genre": "Nonfiction",
       "rank": 6,
-      "tier": "F"
+      "series": "",
+      "series_number": null,
+      "tier": "F",
+      "title": "Twilight of the Idols",
+      "total_average": 6.0167,
+      "wa": 5.6133,
+      "words": null,
+      "year": 2026,
+      "year_read": 2026
     }
   ],
+  "category_order": [
+    "Quality",
+    "Aesthetics",
+    "Theme"
+  ],
   "tier_counts": {
-    "S+": 0,
-    "S": 1,
     "A": 0,
     "B": 2,
     "C": 1,
     "D": 1,
-    "F": 1
+    "F": 1,
+    "S": 1,
+    "S+": 0
   },
   "tier_order": [
     "S+",
@@ -228,10 +233,5 @@
     "C",
     "D",
     "F"
-  ],
-  "category_order": [
-    "Quality",
-    "Aesthetics",
-    "Theme"
   ]
 }

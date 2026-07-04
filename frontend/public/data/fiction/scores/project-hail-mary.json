@@ -1,23 +1,20 @@
 {
-  "title": "Project Hail Mary",
   "author": "Andy Weir",
-  "genre": "Science Fiction (Hard)",
-  "wa": 7.2773,
   "components": {
-    "Story": {
-      "Plot": 8.2,
-      "Entertainment": 8.1,
-      "Action": 5.4,
-      "Ending": 8.7
+    "Aesthetics": {
+      "Narration": 7.7,
+      "Prose": 7.2
     },
     "Character": {
       "Depth": 8.2,
       "Emotional Impact": 9.5,
       "Motivations": 7.4
     },
-    "Aesthetics": {
-      "Prose": 7.2,
-      "Narration": 7.7
+    "Story": {
+      "Action": 5.4,
+      "Ending": 8.7,
+      "Entertainment": 8.1,
+      "Plot": 8.2
     },
     "Theme": {
       "Insights": 7.5,
@@ -28,5 +25,8 @@
       "Integration": 0.0,
       "Originality": 0.0
     }
-  }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Project Hail Mary",
+  "wa": 7.2773
 }

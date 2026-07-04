@@ -1,23 +1,20 @@
 {
-  "title": "To Green Angel Tower",
   "author": "Tad Williams",
-  "genre": "Epic Fantasy",
-  "wa": 6.2101,
   "components": {
-    "Story": {
-      "Plot": 6.6,
-      "Entertainment": 7.2,
-      "Action": 7.1,
-      "Ending": 4.3
+    "Aesthetics": {
+      "Narration": 7.1,
+      "Prose": 7.3
     },
     "Character": {
       "Depth": 5.5,
       "Emotional Impact": 4.3,
       "Motivations": 5.7
     },
-    "Aesthetics": {
-      "Prose": 7.3,
-      "Narration": 7.1
+    "Story": {
+      "Action": 7.1,
+      "Ending": 4.3,
+      "Entertainment": 7.2,
+      "Plot": 6.6
     },
     "Theme": {
       "Insights": 6.8,
@@ -28,5 +25,8 @@
       "Integration": 8.2,
       "Originality": 6.8
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "To Green Angel Tower",
+  "wa": 6.2101
 }

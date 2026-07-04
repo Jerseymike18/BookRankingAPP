@@ -1,23 +1,20 @@
 {
-  "title": "Sailing to Sarantium",
   "author": "Guy Gavriel Kay",
-  "genre": "Literary Fantasy",
-  "wa": 7.7048,
   "components": {
-    "Story": {
-      "Plot": 7.8,
-      "Entertainment": 8.2,
-      "Action": 6.7,
-      "Ending": 7.9
+    "Aesthetics": {
+      "Narration": 8.7,
+      "Prose": 8.4
     },
     "Character": {
       "Depth": 8.0,
       "Emotional Impact": 7.6,
       "Motivations": 8.1
     },
-    "Aesthetics": {
-      "Prose": 8.4,
-      "Narration": 8.7
+    "Story": {
+      "Action": 6.7,
+      "Ending": 7.9,
+      "Entertainment": 8.2,
+      "Plot": 7.8
     },
     "Theme": {
       "Insights": 7.4,
@@ -28,5 +25,8 @@
       "Integration": 7.6,
       "Originality": 6.8
     }
-  }
+  },
+  "genre": "Literary Fantasy",
+  "title": "Sailing to Sarantium",
+  "wa": 7.7048
 }

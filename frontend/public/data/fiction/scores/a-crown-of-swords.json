@@ -1,23 +1,20 @@
 {
-  "title": "A Crown of Swords",
   "author": "Robert Jordan",
-  "genre": "Epic Fantasy",
-  "wa": 7.6291,
   "components": {
-    "Story": {
-      "Plot": 6.99,
-      "Entertainment": 8.1,
-      "Action": 8.3,
-      "Ending": 8.6
+    "Aesthetics": {
+      "Narration": 9.2,
+      "Prose": 8.5
     },
     "Character": {
       "Depth": 7.4,
       "Emotional Impact": 6.2,
       "Motivations": 7.7
     },
-    "Aesthetics": {
-      "Prose": 8.5,
-      "Narration": 9.2
+    "Story": {
+      "Action": 8.3,
+      "Ending": 8.6,
+      "Entertainment": 8.1,
+      "Plot": 6.99
     },
     "Theme": {
       "Insights": 6.2,
@@ -28,5 +25,8 @@
       "Integration": 8.0,
       "Originality": 8.3
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Crown of Swords",
+  "wa": 7.6291
 }

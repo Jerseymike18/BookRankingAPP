@@ -1,23 +1,20 @@
 {
-  "title": "The Dungeon Anarchist's Cookbook",
   "author": "Matt Dinniman",
-  "genre": "Science Fantasy",
-  "wa": 7.2217,
   "components": {
-    "Story": {
-      "Plot": 6.7,
-      "Entertainment": 8.6,
-      "Action": 8.5,
-      "Ending": 7.3
+    "Aesthetics": {
+      "Narration": 7.0,
+      "Prose": 6.4
     },
     "Character": {
       "Depth": 7.2,
       "Emotional Impact": 7.6,
       "Motivations": 7.3
     },
-    "Aesthetics": {
-      "Prose": 6.4,
-      "Narration": 7.0
+    "Story": {
+      "Action": 8.5,
+      "Ending": 7.3,
+      "Entertainment": 8.6,
+      "Plot": 6.7
     },
     "Theme": {
       "Insights": 6.7,
@@ -28,5 +25,8 @@
       "Integration": 7.1,
       "Originality": 7.0
     }
-  }
+  },
+  "genre": "Science Fantasy",
+  "title": "The Dungeon Anarchist's Cookbook",
+  "wa": 7.2217
 }

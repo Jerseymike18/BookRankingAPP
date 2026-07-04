@@ -1,23 +1,20 @@
 {
-  "title": "The Well of Ascension",
   "author": "Brandon Sanderson",
-  "genre": "Epic Fantasy",
-  "wa": 7.1314,
   "components": {
-    "Story": {
-      "Plot": 7.1,
-      "Entertainment": 7.2,
-      "Action": 7.4,
-      "Ending": 7.2
+    "Aesthetics": {
+      "Narration": 6.5,
+      "Prose": 6.3
     },
     "Character": {
       "Depth": 7.4,
       "Emotional Impact": 6.9,
       "Motivations": 7.0
     },
-    "Aesthetics": {
-      "Prose": 6.3,
-      "Narration": 6.5
+    "Story": {
+      "Action": 7.4,
+      "Ending": 7.2,
+      "Entertainment": 7.2,
+      "Plot": 7.1
     },
     "Theme": {
       "Insights": 6.4,
@@ -28,5 +25,8 @@
       "Integration": 8.8,
       "Originality": 8.1
     }
-  }
+  },
+  "genre": "Epic Fantasy",
+  "title": "The Well of Ascension",
+  "wa": 7.1314
 }

@@ -1,23 +1,20 @@
 {
-  "title": "Disquiet Gods",
   "author": "Christopher Ruocchio",
-  "genre": "Science Fiction (Soft)",
-  "wa": 8.1787,
   "components": {
-    "Story": {
-      "Plot": 8.5,
-      "Entertainment": 8.7,
-      "Action": 8.8,
-      "Ending": 8.4
+    "Aesthetics": {
+      "Narration": 8.1,
+      "Prose": 8.3
     },
     "Character": {
       "Depth": 8.2,
       "Emotional Impact": 6.8,
       "Motivations": 7.1
     },
-    "Aesthetics": {
-      "Prose": 8.3,
-      "Narration": 8.1
+    "Story": {
+      "Action": 8.8,
+      "Ending": 8.4,
+      "Entertainment": 8.7,
+      "Plot": 8.5
     },
     "Theme": {
       "Insights": 7.9,
@@ -28,5 +25,8 @@
       "Integration": 8.4,
       "Originality": 8.7
     }
-  }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Disquiet Gods",
+  "wa": 8.1787
 }

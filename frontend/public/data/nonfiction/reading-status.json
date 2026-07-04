@@ -1,21 +1,21 @@
 {
+  "currently_reading": null,
   "last_read": {
-    "title": "Twilight of the Idols",
     "author": "Friedrich Nietzsche",
+    "category_avgs": {
+      "Aesthetics": 7.45,
+      "Quality": 4.13,
+      "Theme": 6.47
+    },
     "genre": "Nonfiction",
+    "has_prediction": false,
+    "rank": 6,
     "series": "",
     "series_number": null,
-    "has_prediction": false,
-    "wa": 5.61,
-    "total_average": 6.02,
-    "rank": 6,
+    "title": "Twilight of the Idols",
     "total": 6,
-    "category_avgs": {
-      "Quality": 4.13,
-      "Aesthetics": 7.45,
-      "Theme": 6.47
-    }
+    "total_average": 6.02,
+    "wa": 5.61
   },
-  "currently_reading": null,
   "reading_next": null
 }
