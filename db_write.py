@@ -182,8 +182,105 @@ def _connect():
     return sqlite3.connect(DB)
 
 
+# ---------------------------------------------------------------------------
+# Component-correction table (DB-owned "DeltaTracker" layer)
+# ---------------------------------------------------------------------------
+# Per-component constant corrections + a global blend weight, versioned, with
+# provenance — the app-side home for the correction layer that used to live in
+# the workbook (RatingGuidelines §6C). Exactly one version is `active`. The coded
+# predict path does NOT read this yet: the Opus engine's corrections are retired
+# (all zero), so there is nothing to apply. It is the authoritative record and
+# the surface a future recalibration writes to (a new version is inserted and the
+# previous one deactivated — history is never rewritten).
+def _ensure_component_corrections():
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS component_corrections (
+            id           INTEGER PRIMARY KEY,
+            version      TEXT NOT NULL,
+            component    TEXT NOT NULL,
+            constant     REAL NOT NULL,
+            blend_weight REAL NOT NULL,
+            active       INTEGER NOT NULL DEFAULT 1,
+            source_tag   TEXT,
+            engine_hash  TEXT,
+            n_books      INTEGER,
+            decision     TEXT,
+            note         TEXT,
+            created_at   TEXT
+        )""")
+    con.commit()
+    con.close()
+
+
+def set_component_corrections(version, constants, blend_weight, *, active=True,
+                              source_tag=None, engine_hash=None, n_books=None,
+                              decision=None, note=None):
+    """Record a per-component constant-correction set (the DB-owned DeltaTracker
+    layer). `constants` maps each of the canonical 14 FICTION_COMPONENTS to an
+    additive constant (act−pred convention); `blend_weight` in [0,1]. When
+    active=True, any previously-active version is deactivated so exactly one is
+    current. A version name is write-once. Nothing commits on failure. Returns
+    True on success, False otherwise."""
+    con = _connect()
+    try:
+        missing = [c for c in FICTION_COMPONENTS if c not in constants]
+        if missing:
+            raise ValidationError(f"constants missing components: {missing}")
+        extra = [c for c in constants if c not in FICTION_COMPONENTS]
+        if extra:
+            raise ValidationError(f"unknown components: {extra}")
+        vals = {c: float(constants[c]) for c in FICTION_COMPONENTS}
+        w = float(blend_weight)
+        if not (0.0 <= w <= 1.0):
+            raise ValidationError(f"blend_weight {w} out of [0,1]")
+        if con.execute("SELECT 1 FROM component_corrections WHERE version=?",
+                       (version,)).fetchone():
+            raise ValidationError(f"correction version '{version}' already recorded")
+        _backup_once()
+        if active:
+            con.execute("UPDATE component_corrections SET active=0 WHERE active=1")
+        created = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        con.executemany(
+            "INSERT INTO component_corrections (version,component,constant,"
+            "blend_weight,active,source_tag,engine_hash,n_books,decision,note,"
+            "created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            [(version, c, vals[c], w, 1 if active else 0, source_tag, engine_hash,
+              n_books, decision, note, created) for c in FICTION_COMPONENTS])
+        con.commit()
+        print(f"  ✓ Recorded correction set '{version}' "
+              f"(14 components, blend={w}, active={active}).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Corrections not recorded — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def get_active_corrections():
+    """Return (constants {component: constant}, blend_weight, meta) for the
+    currently-active correction set, or ({}, 0.0, None) if none is active."""
+    con = _connect()
+    try:
+        rows = con.execute(
+            "SELECT component, constant, blend_weight, version, source_tag, "
+            "decision, n_books, created_at FROM component_corrections "
+            "WHERE active=1").fetchall()
+    finally:
+        con.close()
+    if not rows:
+        return {}, 0.0, None
+    constants = {r[0]: r[1] for r in rows}
+    meta = {"version": rows[0][3], "source_tag": rows[0][4],
+            "decision": rows[0][5], "n_books": rows[0][6], "created_at": rows[0][7]}
+    return constants, float(rows[0][2]), meta
+
+
 _ensure_series_number()
 _ensure_delta_log()
+_ensure_component_corrections()
 
 
 def _valid_genres(con):
