@@ -2,20 +2,20 @@
   "currently_reading": {
     "author": "Dan Simmons",
     "category_avgs": {
-      "Aesthetics": 7.87,
-      "Character": 7.07,
-      "Story": 7.78,
-      "Theme": 8.5,
-      "Worldbuilding": 8.87
+      "Aesthetics": 7.31,
+      "Character": 7.43,
+      "Story": 7.47,
+      "Theme": 7.7,
+      "Worldbuilding": 7.1
     },
     "genre": "Science Fiction (Hard)",
     "has_prediction": true,
-    "rank": 48,
+    "rank": 76,
     "series": "Hyperion Cantos",
     "series_number": 4,
     "title": "The Rise of Endymion",
     "total": 127,
-    "wa": 8.02
+    "wa": 7.52
   },
   "last_read": {
     "author": "Scott Lynch",
@@ -38,19 +38,19 @@
   "reading_next": {
     "author": "Guy Gavriel Kay",
     "category_avgs": {
-      "Aesthetics": 8.57,
-      "Character": 8.49,
-      "Story": 8.19,
-      "Theme": 7.7,
-      "Worldbuilding": 7.41
+      "Aesthetics": 8.49,
+      "Character": 8.4,
+      "Story": 7.87,
+      "Theme": 7.61,
+      "Worldbuilding": 7.23
     },
     "genre": "Literary Fantasy",
     "has_prediction": true,
-    "rank": 43,
+    "rank": 50,
     "series": "The Sarantine Mosaic",
     "series_number": 2,
     "title": "Lord of Emperors",
     "total": 127,
-    "wa": 8.16
+    "wa": 7.99
   }
 }

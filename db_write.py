@@ -334,6 +334,38 @@ def set_recommendation_meta(title, blurb=None, keywords=None):
 
 
 # ---------------------------------------------------------------------------
+# WRITE: replace a recommendation's component scores in place (reprediction)
+# ---------------------------------------------------------------------------
+def update_recommendation_scores(title, new_scores):
+    """Replace the 14 component scores on an existing recommendation IN PLACE, by
+    title — the reprediction write path. Same validation discipline as
+    add_recommendation's scores (range + completeness via _validate_scores) and
+    the same _backup_once guard; touches no other column (genre/author/series/
+    done/blurb/words/keywords are preserved) and no schema. Returns True on
+    success, False otherwise (nothing commits on failure)."""
+    con = _connect()
+    try:
+        row = con.execute("SELECT id FROM recommendations WHERE title=?",
+                          (title,)).fetchone()
+        if not row:
+            raise ValidationError(f"No recommendation titled '{title}' found.")
+        _validate_scores(new_scores, require_all=True)
+        _backup_once()
+        sets = ",".join(f'"{c}"=?' for c in FICTION_COMPONENTS)
+        vals = [new_scores.get(c) for c in FICTION_COMPONENTS]
+        con.execute(f"UPDATE recommendations SET {sets} WHERE title=?",
+                    vals + [title])
+        con.commit()
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ '{title}' not repredicted — {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
 # WRITE: change rating(s)
 # ---------------------------------------------------------------------------
 def change_rating(title, new_scores):
