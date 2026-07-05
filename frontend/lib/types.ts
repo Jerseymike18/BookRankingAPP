@@ -183,6 +183,12 @@ export interface Recommendation {
   wa: number;
   predicted_rank: number;
   category_avgs: Record<string, number>;
+  // Honest 80% prediction interval around the (shrunk) point estimate, keyed by
+  // same-author analog density. Optional: absent when no residual table is loaded.
+  wa_low?: number;
+  wa_high?: number;
+  interval_label?: string;
+  interval_stale?: boolean;
 }
 
 export interface ReadQueueResponse {

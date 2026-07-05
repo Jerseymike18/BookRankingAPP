@@ -893,6 +893,9 @@ def get_read_queue():
     """Return all not-done recommendations with flat component scores and predicted rank."""
     books, gw, gcw = _get_engine()[:3]
     rated_wa = books["WA"].values
+    # Same-author analog counts drive the conformal interval bucket (author is the
+    # engine's innermost density tier). Precompute once so the per-rec lookup is O(1).
+    author_counts = books["Author"].value_counts()
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -923,7 +926,7 @@ def get_read_queue():
 
         predicted_rank = int((rated_wa > wa).sum() + 1)
 
-        result.append({
+        rec = {
             "title": (title or "").strip(),
             "author": (author or "").strip(),
             "genre": genre_str,
@@ -936,7 +939,21 @@ def get_read_queue():
             "wa": round(wa, 4),
             "predicted_rank": predicted_rank,
             "category_avgs": category_avgs,
-        })
+        }
+        # Honest 80% prediction interval — the SAME density-bucketed LOO residual
+        # table served on the Predict page, keyed by how many same-author books the
+        # library holds. The point estimate is a shrunk expected value; this is the
+        # calibrated spread around it (bounded to the 0–10 WA scale). Omitted when
+        # no residual table is loaded, so a width is never invented.
+        n_author = int(author_counts.get((author or "").strip(), 0))
+        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+        if iv is not None:
+            hw = iv["half_width"]
+            rec["wa_low"] = round(max(0.0, wa - hw), 4)
+            rec["wa_high"] = round(min(10.0, wa + hw), 4)
+            rec["interval_label"] = iv["bucket_label"]
+            rec["interval_stale"] = iv["stale"]
+        result.append(rec)
 
     genres = sorted(set(r["genre"] for r in result if r["genre"]))
     return {"recommendations": result, "genres": genres}

@@ -26,6 +26,13 @@ function formatWords(words: number | null): string | null {
   return `${words}`;
 }
 
+/** The 80% prediction range "7.9–9.6", or null when no interval is present. The
+ *  point WA is a shrunk expected value; this shows the calibrated spread. */
+function formatInterval(rec: Recommendation): string | null {
+  if (rec.wa_low == null || rec.wa_high == null) return null;
+  return `${rec.wa_low.toFixed(1)}–${rec.wa_high.toFixed(1)}`;
+}
+
 function moodScoreFor(rec: Recommendation, active: Record<string, number>): number | null {
   let num = 0;
   let den = 0;
@@ -192,6 +199,12 @@ function RecExpandedPanel({
         )}
         <span>
           Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong>
+          {rec.wa_low != null && rec.wa_high != null && (
+            <span style={{ color: "var(--color-faint)" }}>
+              {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
+              {rec.interval_label ? ` (${rec.interval_label})` : ""}
+            </span>
+          )}
         </span>
         <span className="genre-chip">{rec.genre}</span>
         {rec.words && (
@@ -425,6 +438,12 @@ function QueueExpandedPanel({ rec, rank }: { rec: Recommendation; rank: number }
       <div className="flex flex-wrap gap-4 text-sm" style={{ color: "var(--color-muted)" }}>
         <span>
           Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong>
+          {rec.wa_low != null && rec.wa_high != null && (
+            <span style={{ color: "var(--color-faint)" }}>
+              {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
+              {rec.interval_label ? ` (${rec.interval_label})` : ""}
+            </span>
+          )}
         </span>
         <span>
           Predicted rank: <strong style={{ color: "var(--color-ink)" }}>#{rec.predicted_rank}</strong>
@@ -1275,7 +1294,12 @@ export default function ReadQueueClient({
                                 fontVariantNumeric: "tabular-nums",
                               }}
                             >
-                              {rec.wa.toFixed(2)}
+                              <div>{rec.wa.toFixed(2)}</div>
+                              {formatInterval(rec) && (
+                                <div className="text-xs" style={{ color: "var(--color-faint)" }}>
+                                  {formatInterval(rec)}
+                                </div>
+                              )}
                             </td>
                             {CAT_COLS.map((cat) => {
                               const val = avgs[cat] ?? 0;
