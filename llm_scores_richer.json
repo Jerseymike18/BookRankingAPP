@@ -3396,5 +3396,28 @@
     "keywords": "literary fantasy, fairy-tale, lyrical prose, faerie, allegorical, dreamlike, understated, classic, mercantile town",
     "genre": "Literary Fantasy",
     "words": 68000
+  },
+  "Endymion": {
+    "scores": {
+      "Plot": 7.4,
+      "Entertainment": 7.8,
+      "Action": 7.6,
+      "Ending": 6.5,
+      "Depth": 6.8,
+      "Emotional Impact": 6.9,
+      "Motivations": 6.7,
+      "Prose": 7.7,
+      "Narration": 7.3,
+      "Insights": 6.9,
+      "Thought-Provokingness": 6.8,
+      "Depth2": 8.0,
+      "Integration": 7.2,
+      "Originality": 7.3
+    },
+    "conf": "high",
+    "blurb": "A chase-thriller pivot for the Hyperion saga, trading the original's mosaic structure for a linear pursuit across the worlds of a Church-dominated future as Raul Endymion protects the messianic girl Aenea. Suits readers who loved the universe and want propulsive adventure over the first duology's literary density.",
+    "keywords": "space opera, far future, chase narrative, religious dystopia, adventure, ai intrigue, coming-of-age, soft sci-fi",
+    "genre": "Science Fiction (Soft)",
+    "words": 175000
   }
 }

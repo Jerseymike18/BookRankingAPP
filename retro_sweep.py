@@ -123,7 +123,7 @@ def _predict_one_book(row, books, gw, gcw, cache, web):
     """Full production-faithful, LOO-pure prediction for one read book.
     Returns (res, meta, analog_wa) where res is correct_and_predict's dict."""
     i = row.name
-    title, author, genre = row["Book"], row["Genre"], row["Author"]
+    title, author, genre = row["Book"], row["Author"], row["Genre"]
     books_loo = books.drop(i)                      # target removed from ALL pools
 
     # 1. HYBRID research (memory + 6 grounded overrides), exactly as production.
