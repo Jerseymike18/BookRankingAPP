@@ -109,6 +109,29 @@ def _fail(msg: str) -> None:
     sys.exit(1)
 
 
+def _lint_gate() -> None:
+    """Run the deterministic data lint (scripts/lint_data.py) against books.db
+    before any export work, so invalid data can never be published. ERROR-level
+    findings abort loudly with fix guidance — inherited by BOTH the pre-commit
+    snapshot regeneration (run_export) and the pre-push staleness gate
+    (check_snapshot), which each run this exporter. WARN-level findings print but
+    never block. Rules + the convention-dependent-duplicate allowlist live in
+    lint_data.py / lint_allowlist.json."""
+    import lint_data  # scripts/ sibling; read-only sqlite over books.db, no LLM
+    result = lint_data.lint(ROOT / "books.db", lint_data.DEFAULT_ALLOWLIST)
+    lint_data.print_report(result, stream=sys.stderr)
+    if result["errors"]:
+        print(
+            "\n✗ data lint FAILED — refusing to export invalid data.\n"
+            "  Fix each ERROR above via the sanctioned db_write functions\n"
+            "  (set_series_number / set_done / update_book_metadata), then retry.\n"
+            "  A genuinely convention-dependent duplicate can be excused in\n"
+            "  scripts/lint_allowlist.json (see that file's comment).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 # ── Environment ───────────────────────────────────────────────────────────────
 _ENV_REMEDIATION = (
     "  Fix: run from the project root with the Python environment that has the\n"
@@ -367,6 +390,7 @@ def _compare_trees(fresh_dir: Path, live_dir: Path) -> list[str]:
 def check_snapshot(client) -> int:
     """Regenerate into a temp dir and compare to public/data/. Never touches
     public/data/. Exit 0 if byte-identical, 1 (listing diffs) otherwise."""
+    _lint_gate()  # block the pre-push staleness gate on invalid data
     files, _ = build_snapshot(client)
     tmp_root = Path(tempfile.mkdtemp(prefix="rl-export-check-"))
     try:
@@ -389,6 +413,7 @@ def check_snapshot(client) -> int:
 # ── Full export ────────────────────────────────────────────────────────────────
 def run_export(client) -> None:
     print("Exporting static data →", OUT)
+    _lint_gate()  # block the pre-commit snapshot regeneration on invalid data
     files, stats = build_snapshot(client)
     write_snapshot(files, OUT)
     print("\nSummary")
