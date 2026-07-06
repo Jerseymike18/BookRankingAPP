@@ -463,3 +463,55 @@ export interface AddSeriesResult {
   message: string;
   errors?: string[];
 }
+
+// --- Auto re-predict on add -------------------------------------------------
+// A finished book re-predicts the unread books whose baseline it moved (same
+// author always; same genre past the gate). The pass runs in the background, so
+// the add-book response carries a `running` handle the client polls for.
+export interface RepredictHandle {
+  status: "running";
+  token: string;
+  trigger: string;
+}
+
+export interface RepredictMover {
+  title: string;
+  reason: "author" | "genre";
+  source: string;
+  old_wa: number | null;
+  new_wa: number;
+  d_wa: number | null;
+  old_rank: number | null;
+  new_rank: number;
+  d_rank: number | null;
+  drivers: { component: string; delta: number }[];
+}
+
+export interface RepredictReport {
+  trigger: {
+    title: string;
+    author?: string;
+    genre?: string;
+    author_is_new?: boolean;
+    n_author_before?: number;
+    n_author_after?: number;
+    trigger_cached?: boolean;
+    researched_now?: boolean;
+  };
+  genre_gate?: {
+    shift: number;
+    gate: number;
+    fired: boolean;
+    wa_pre: number | null;
+    wa_post: number | null;
+  };
+  affected: RepredictMover[];
+  suppressed_genre_peers: string[];
+  capped_genre_peers: string[];
+  cohort_mean_d_wa: number | null;
+  note?: string;
+}
+
+export type RepredictPoll =
+  | { status: "pending" }
+  | { status: "done"; report: RepredictReport | null };

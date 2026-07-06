@@ -1,8 +1,74 @@
 "use client";
 
-import { useState } from "react";
-import { lookupBook, addBook, addNonfictionBook } from "@/lib/api";
-import type { LookupResult, BookKind } from "@/lib/types";
+import { useState, useRef } from "react";
+import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
+import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
+
+function fmtDelta(d: number): string {
+  return `${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
+}
+
+function deltaColor(d: number | null): string {
+  if (d == null || Math.abs(d) < 0.005) return "var(--color-muted)";
+  return d > 0 ? "var(--color-sage)" : "var(--color-spine-c)";
+}
+
+// Summary of the background cohort re-prediction a just-added book triggered:
+// which unread books moved (same author, or same genre past the gate) and which
+// were intentionally left alone. Reuses existing design tokens only.
+function RepredictPanel({ report }: { report: RepredictReport }) {
+  const t = report.trigger;
+  const affected = report.affected ?? [];
+  const suppressed = report.suppressed_genre_peers?.length ?? 0;
+  const capped = report.capped_genre_peers?.length ?? 0;
+  const nothing = affected.length === 0;
+  return (
+    <div
+      className="rounded-lg px-4 py-3 mb-4"
+      style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
+    >
+      <div className="text-sm font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
+        Baseline re-prediction
+      </div>
+      <div className="text-xs mb-2" style={{ color: "var(--color-muted)" }}>
+        {t.author_is_new ? `Establishing ${t.author} (first data point) ` : `${t.author ?? "This author"} `}
+        {nothing
+          ? "moved no unread books."
+          : `re-predicted ${affected.length} unread book${affected.length === 1 ? "" : "s"}`}
+        {!nothing && report.cohort_mean_d_wa != null ? ` · mean ΔWA ${fmtDelta(report.cohort_mean_d_wa)}` : ""}
+      </div>
+      {!nothing && (
+        <ul className="space-y-1">
+          {affected.map((m) => (
+            <li key={m.title} className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 min-w-0">
+                <span
+                  className="shrink-0 rounded px-1.5 py-0.5"
+                  style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", fontSize: "10px" }}
+                >
+                  {m.reason}
+                </span>
+                <span className="truncate" style={{ color: "var(--color-ink)" }}>
+                  {m.title}
+                </span>
+              </span>
+              <span className="shrink-0 tabular-nums" style={{ color: "var(--color-muted)" }}>
+                {m.old_wa != null ? m.old_wa.toFixed(2) : "—"} → {m.new_wa.toFixed(2)}{" "}
+                <span style={{ color: deltaColor(m.d_wa) }}>{m.d_wa != null ? fmtDelta(m.d_wa) : ""}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {(suppressed > 0 || capped > 0) && (
+        <div className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
+          {suppressed > 0 && `${suppressed} genre-peer${suppressed === 1 ? "" : "s"} left unchanged (gate). `}
+          {capped > 0 && `${capped} deferred (cap).`}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Shared input / label styles ────────────────────────────────────────── */
 
@@ -219,6 +285,36 @@ export default function AddBookClient({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
+  // Background cohort re-prediction (fiction only): the add returns instantly and
+  // we poll for the report. pollIdRef supersedes an in-flight poll if the user
+  // adds another book before the previous cohort pass reports back.
+  const [repredictStatus, setRepredictStatus] = useState<"idle" | "running" | "done">("idle");
+  const [repredictReport, setRepredictReport] = useState<RepredictReport | null>(null);
+  const pollIdRef = useRef(0);
+
+  async function pollRepredict(token: string) {
+    const myId = ++pollIdRef.current; // supersede any earlier poll
+    setRepredictReport(null);
+    setRepredictStatus("running");
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 60; i++) {
+      if (pollIdRef.current !== myId) return; // a newer add took over
+      try {
+        const poll = await fetchRepredictRecent(token);
+        if (poll.status === "done") {
+          if (pollIdRef.current !== myId) return;
+          setRepredictReport(poll.report);
+          setRepredictStatus(poll.report ? "done" : "idle");
+          return;
+        }
+      } catch {
+        // transient network hiccup — keep polling
+      }
+      await sleep(1500);
+    }
+    if (pollIdRef.current === myId) setRepredictStatus("idle"); // timed out; hide
+  }
+
   function handleScoreChange(comp: string, val: string) {
     setScores((prev) => ({ ...prev, [comp]: val }));
   }
@@ -288,11 +384,26 @@ export default function AddBookClient({
         words: words > 0 ? words : undefined,
         year_read: yearRead,
       };
-      const result =
-        kind === "nonfiction"
-          ? await addNonfictionBook(common)
-          : await addBook({ ...common, genre });
-      setSaveSuccess(result.message || `Added "${title}" to the ledger.`);
+      const submittedTitle = title;
+      let handle: RepredictHandle | null = null;
+      if (kind === "nonfiction") {
+        const result = await addNonfictionBook(common);
+        setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+      } else {
+        const result = await addBook({ ...common, genre });
+        setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+        handle = result.repredict ?? null;
+      }
+
+      // Fiction adds fire a background cohort re-prediction; poll for its report.
+      if (handle && handle.status === "running") {
+        void pollRepredict(handle.token);
+      } else {
+        pollIdRef.current += 1; // cancel any in-flight poll
+        setRepredictStatus("idle");
+        setRepredictReport(null);
+      }
+
       // Reset form
       setTitle("");
       setAuthor("");
@@ -509,6 +620,15 @@ export default function AddBookClient({
           style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}>
           {saveSuccess}
         </div>
+      )}
+      {repredictStatus === "running" && (
+        <div className="rounded-lg px-4 py-3 text-sm mb-4"
+          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)", color: "var(--color-muted)" }}>
+          Re-predicting related unread books…
+        </div>
+      )}
+      {repredictStatus === "done" && repredictReport && (
+        <RepredictPanel report={repredictReport} />
       )}
 
       <button

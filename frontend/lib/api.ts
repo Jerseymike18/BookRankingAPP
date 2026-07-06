@@ -19,6 +19,8 @@ import type {
   AddSeriesResult,
   BookKind,
   CombinedStatsResponse,
+  RepredictHandle,
+  RepredictPoll,
 } from "./types";
 import { slugify } from "./slug";
 
@@ -124,7 +126,14 @@ export interface AddBookPayload {
   year_read?: number;
 }
 
-export async function addBook(payload: AddBookPayload): Promise<{ ok: boolean; message: string }> {
+export interface AddBookResult {
+  ok: boolean;
+  message: string;
+  // Present for fiction adds: a handle for the background cohort re-prediction.
+  repredict?: RepredictHandle | null;
+}
+
+export async function addBook(payload: AddBookPayload): Promise<AddBookResult> {
   assertWritable();
   const res = await fetch(`${API}/api/books`, {
     method: "POST",
@@ -134,6 +143,17 @@ export async function addBook(payload: AddBookPayload): Promise<{ ok: boolean; m
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
+}
+
+/** Poll for a background cohort re-prediction's report by its token. Resolves to
+ *  {status:"pending"} until the background pass finishes, then {status:"done"}. */
+export async function fetchRepredictRecent(token: string): Promise<RepredictPoll> {
+  const res = await fetch(
+    `${API}/api/repredict/recent?token=${encodeURIComponent(token)}`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
 }
 
 export interface AddNonfictionBookPayload {

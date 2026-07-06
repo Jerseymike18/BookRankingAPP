@@ -32,6 +32,8 @@ import contextlib
 import json
 import re
 import sqlite3
+import uuid
+import threading
 from contextlib import asynccontextmanager
 
 # Make the project root importable regardless of where uvicorn is launched from
@@ -40,7 +42,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -63,6 +65,18 @@ except ImportError:
     _rp = None  # server starts fine; LLM endpoints return 503
     _rl = None
     _nr = None
+
+# repredict_on_add pulls in the LLM research path (rp + hybrid); guarded the same
+# way so the server still starts when those deps are absent (feature just no-ops).
+try:
+    import repredict_on_add as _repred
+except Exception:
+    _repred = None
+
+# Serializes background cohort re-predictions so overlapping adds never contend on
+# the SQLite writer (localhost single-user, so contention is rare, but cheap to be
+# safe). The work runs off the request thread; the add-book response returns first.
+_repred_lock = threading.Lock()
 
 # Hybrid per-component sourcing (data-driven policy). Separately guarded so a
 # failure here never disables the core research path; predict falls back to
@@ -338,7 +352,7 @@ class AddBookRequest(BaseModel):
 
 
 @app.post("/api/books")
-def add_book(req: AddBookRequest):
+def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
     """Add a newly-rated book via db_write.add_book, then dequeue it."""
     buf = io.StringIO()
     try:
@@ -382,7 +396,56 @@ def add_book(req: AddBookRequest):
     except Exception:
         pass
 
-    return {"ok": True, "message": out.replace("✓", "").strip()}
+    # Auto re-predict the unread books whose baseline this book just moved (same
+    # author always; same genre only if the genre-tier baseline shifted past the
+    # gate). Runs in the BACKGROUND (after this response is sent) so the add
+    # returns instantly even when a thin genre or an uncached trigger makes the
+    # pass slow; the client polls GET /api/repredict/recent?token=... for the
+    # report. Fires AFTER the commit + _invalidate_engine() above, so the engine
+    # and correction pool already reflect n=1.
+    repredict = None
+    if _repred is not None and _rp is not None:
+        token = uuid.uuid4().hex
+        background_tasks.add_task(
+            _run_repredict, token, req.title, req.author, req.genre, req.scores)
+        repredict = {"status": "running", "token": token, "trigger": req.title}
+
+    return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict}
+
+
+def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict) -> None:
+    """Background worker: run the scoped baseline re-prediction and stash the
+    report under `token` for the client to poll. Serialized against other adds so
+    the SQLite writer never contends. Always records a terminal report (even on
+    failure) so the poller never hangs."""
+    report = None
+    try:
+        with _repred_lock:
+            report = _repred.on_book_added(
+                title, author, genre, scores, get_engine=_get_engine)
+    except Exception as exc:
+        report = None
+        print(f"  (background repredict failed for '{title}': {exc})")
+    if report is None:
+        report = {"trigger": {"title": title, "author": author, "genre": genre},
+                  "affected": [], "suppressed_genre_peers": [],
+                  "capped_genre_peers": [], "cohort_mean_d_wa": None,
+                  "note": "no changes"}
+    _repred.record_report(token, report)
+
+
+@app.get("/api/repredict/recent")
+def repredict_recent(token: str):
+    """Poll for a background cohort re-prediction's report by its token. Returns
+    {status:"pending"} until the background pass finishes, then {status:"done",
+    report:{...}}. Never 404s — a token that never existed just stays pending
+    (the client stops polling on its own timeout)."""
+    if _repred is None:
+        return {"status": "done", "report": None}
+    report = _repred.get_report(token)
+    if report is None:
+        return {"status": "pending"}
+    return {"status": "done", "report": report}
 
 
 def _maybe_log_delta(title: str, act_scores: dict) -> None:

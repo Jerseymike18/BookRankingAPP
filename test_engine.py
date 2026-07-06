@@ -368,6 +368,198 @@ def test_conformal_intervals():
               ov is not None and 0.72 <= ov <= 0.88, f"overall={ov}")
 
 
+# ---------------------------------------------------------------------------
+# 8. Auto re-predict on add (baseline_repredict) — ADDITIVE
+# ---------------------------------------------------------------------------
+# Proves the on-add re-prediction (repredict_on_add.on_book_added): a finished
+# book re-predicts exactly the unread cohort whose baseline it moved (same author
+# always; same genre only past the gate), overwrites via db_write, and logs a
+# tagged delta per row. HERMETIC: runs against a throwaway COPY of books.db with
+# a synthetic in-memory research cache and no web researcher, so it never touches
+# the real DB, the real cache, or the network.
+def test_repredict_on_add():
+    print("\n8. AUTO RE-PREDICT ON ADD")
+    import tempfile, shutil, sqlite3, io, contextlib
+    import os as _os
+    import db_write
+    import db_loader
+    import research_predict as rp
+    import repredict_on_add as rpa
+
+    if not _os.path.exists("books.db"):
+        check("repredict-on-add", True, "no books.db (skipped)")
+        return
+
+    FC = db_write.FICTION_COMPONENTS
+    GENRE = "Epic Fantasy"  # a real genre → weights already exist in the copy
+    # Per-component offsets break within-book collinearity so fit_regression is
+    # well-posed (each category average differs).
+    OFF = {}
+    for c in ["Plot", "Entertainment", "Action", "Ending"]:      OFF[c] = 0.0
+    for c in ["Depth", "Emotional Impact", "Motivations"]:       OFF[c] = 0.5
+    for c in ["Prose", "Narration"]:                             OFF[c] = -0.5
+    for c in ["Insights", "Thought-Provokingness"]:              OFF[c] = 0.2
+    for c in ["Depth2", "Integration", "Originality"]:           OFF[c] = -0.2
+
+    def vec(base, **ov):
+        d = {c: float(base) + OFF[c] for c in FC}
+        d.update({k: float(v) for k, v in ov.items()})
+        return {c: min(10.0, max(0.0, v)) for c, v in d.items()}
+
+    tmpd = tempfile.mkdtemp(prefix="repredict_test_")
+    tmpdb = _os.path.join(tmpd, "books.db")
+    shutil.copy2("books.db", tmpdb)
+
+    def temp_engine():
+        """Mirror pe.build(source='db') but read the throwaway DB explicitly."""
+        books, gw, gcw = db_loader.load_from_db(tmpdb)
+        coeffs, r2, resid_sd = pe.fit_regression(books)
+        ginfo = pe.genre_bias_and_trust(books, coeffs)
+        upstream = pe.fit_upstream(books)
+        return books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream
+
+    orig_db, orig_backed = db_write.DB, db_write._backed_up_this_session
+    cache = {}
+    try:
+        db_write.DB = tmpdb
+        db_write._backed_up_this_session = True  # no backup churn on the temp DB
+        db_write._ensure_delta_log()             # guarantee delta_log + tag column
+
+        con = sqlite3.connect(tmpdb)
+        con.execute("DELETE FROM books")
+        con.execute("DELETE FROM recommendations")
+        con.execute("DELETE FROM delta_log")
+        con.commit()
+        con.close()
+
+        # --- populate a controlled library (all writes via db_write) ----------
+        with contextlib.redirect_stdout(io.StringIO()):
+            # 8 background authors + 5 by Estab — all zero-deviation (llm == you),
+            # so the genre baseline is stable and a zero-dev add can't move it.
+            for i in range(8):
+                t = f"BG{i}"
+                db_write.add_book(t, GENRE, f"BGAuthor{i}", vec(6 + i % 3), words=100000)
+                cache[t] = {"scores": vec(6 + i % 3), "conf": "test"}
+            for i in range(5):
+                t = f"EstabBook{i}"
+                db_write.add_book(t, GENRE, "Estab", vec(6 + i % 3), words=100000)
+                cache[t] = {"scores": vec(6 + i % 3), "conf": "test"}
+            # unread recommendations: 2 Estab, 2 Newbie, 1 background peer
+            for t, a in [("EstabRec0", "Estab"), ("EstabRec1", "Estab"),
+                         ("NewbieRec0", "Newbie"), ("NewbieRec1", "Newbie"),
+                         ("BGRec0", "BGAuthor0")]:
+                db_write.add_recommendation(t, GENRE, a, vec(7.0), words=100000)
+                cache[t] = {"scores": vec(7.0), "conf": "test"}
+            # The finished book: Newbie's first data point, with a distinctive
+            # author bias (you_Plot 8, llm_Plot 6 → author deviation +2 on Plot).
+            db_write.add_book("NewbieTrig", GENRE, "Newbie", vec(8.0), words=100000)
+        cache["NewbieTrig"] = {"scores": vec(8.0, Plot=6.0), "conf": "test"}
+
+        eng = temp_engine()
+        books, gw, gcw, resid_sd = eng[0], eng[1], eng[2], eng[5]
+
+        # --- (1) brand-new author: n=0→1 shift is non-zero (unit, at engine) --
+        peer_raw = {c: cache["NewbieRec0"]["scores"][c] for c in rp.LIVE}
+        books_pre = books[books["Book"] != "NewbieTrig"]           # Newbie unseen
+        r0 = rp.correct_and_predict("NewbieRec0", "Newbie", GENRE, peer_raw, "c",
+                                    resid_sd, books_pre, gw, gcw, cache, corr_models=None)
+        r1 = rp.correct_and_predict("NewbieRec0", "Newbie", GENRE, peer_raw, "c",
+                                    resid_sd, books, gw, gcw, cache, corr_models=None)
+        check("brand-new author (n=0→1) moves the cohort prediction",
+              r0["n_author"] == 0 and r1["n_author"] == 1 and abs(r1["wa"] - r0["wa"]) > 1e-6,
+              f"n {r0['n_author']}→{r1['n_author']}, ΔWA={r1['wa']-r0['wa']:+.3f}")
+
+        # --- (5) ordering: only a COMMITTED trigger makes the pool read n=1 ----
+        n_with = rpa._author_pool_n(books, cache, "Newbie")
+        n_without = rpa._author_pool_n(books_pre, cache, "Newbie")
+        check("ordering: committed trigger → pool sees n=1 (pre-commit sees n=0)",
+              n_with == 1 and n_without == 0, f"committed n={n_with}, pre-commit n={n_without}")
+
+        # --- (1 e2e / 3 write / 4 delta) run the real on-add path, dry_run=False
+        before = _os.path.exists(tmpdb)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rep = rpa.on_book_added("NewbieTrig", "Newbie", GENRE, vec(8.0),
+                                    get_engine=temp_engine, cache=cache, web=None,
+                                    corr_models=None, research_trigger=False,
+                                    dry_run=False, verbose=False)
+        aff = {r["title"]: r for r in (rep or {}).get("affected", [])}
+        check("on-add re-predicts the new author's unread cohort",
+              rep is not None and rep["trigger"]["author_is_new"]
+              and "NewbieRec0" in aff and "NewbieRec1" in aff
+              and all(aff[t]["reason"] == "author" for t in ("NewbieRec0", "NewbieRec1"))
+              and abs(aff["NewbieRec0"]["d_wa"]) > 1e-6,
+              f"author_is_new={rep['trigger']['author_is_new']}, "
+              f"ΔWA(NewbieRec0)={aff.get('NewbieRec0', {}).get('d_wa')}")
+
+        # (3) overwrite went through db_write.update_recommendation_scores: the
+        # component scores changed in place while author/genre are preserved, and
+        # the derived rank re-computes to a sensible value on the next read.
+        con = sqlite3.connect(tmpdb)
+        row = con.execute(
+            'SELECT author, genre, "Plot" FROM recommendations WHERE title=?',
+            ("NewbieRec0",)).fetchone()
+        con.close()
+        new_rank = aff.get("NewbieRec0", {}).get("new_rank")
+        check("overwrite via db_write: scores changed in place, meta preserved, rank re-derives",
+              row is not None and row[0] == "Newbie" and row[1] == GENRE
+              and abs(row[2] - vec(7.0)["Plot"]) > 1e-6
+              and isinstance(new_rank, int) and 1 <= new_rank <= len(books) + 1,
+              f"stored Plot={row[2] if row else None:.2f} (was {vec(7.0)['Plot']:.2f}), new_rank={new_rank}")
+
+        # (4) a baseline_repredict-tagged delta row per overwritten cohort book
+        con = sqlite3.connect(tmpdb)
+        tagged = con.execute(
+            "SELECT title, tag FROM delta_log WHERE tag LIKE 'baseline_repredict:%'").fetchall()
+        con.close()
+        tagged_titles = {t for t, _ in tagged}
+        check("delta_log: a 'baseline_repredict:<trigger>' row per overwritten book",
+              {"NewbieRec0", "NewbieRec1"}.issubset(tagged_titles)
+              and all(tag == "baseline_repredict:NewbieTrig" for _, tag in tagged),
+              f"{len(tagged)} tagged rows: {sorted(tagged_titles)}")
+
+        # --- (2) established author/genre: small affected set, gate suppresses --
+        with contextlib.redirect_stdout(io.StringIO()):
+            db_write.add_book("EstabTrig", GENRE, "Estab", vec(8.0), words=100000)
+        cache["EstabTrig"] = {"scores": vec(8.0), "conf": "test"}   # zero deviation
+        with contextlib.redirect_stdout(io.StringIO()):
+            rep2 = rpa.on_book_added("EstabTrig", "Estab", GENRE, vec(8.0),
+                                     get_engine=temp_engine, cache=cache, web=None,
+                                     corr_models=None, research_trigger=False,
+                                     dry_run=True, verbose=False)
+        aff2 = {r["title"] for r in rep2["affected"]}
+        supp2 = set(rep2["suppressed_genre_peers"])
+        check("established add: affected set stays small (author-peers only, no sweep)",
+              aff2 == {"EstabRec0", "EstabRec1"} and not rep2["genre_gate"]["fired"],
+              f"affected={sorted(aff2)}, gate_fired={rep2['genre_gate']['fired']}")
+        check("established add: genre gate suppresses same-genre peers below threshold",
+              not rep2["genre_gate"]["fired"] and len(supp2) >= 3
+              and "NewbieRec0" in supp2 and "NewbieRec1" in supp2,
+              f"suppressed {len(supp2)} genre-peers, gate shift={rep2['genre_gate']['shift']} "
+              f"<= {rep2['genre_gate']['gate']}")
+
+        # --- (cap) genre-peer cohort is bounded; the overflow is REPORTED ------
+        orig_cap, orig_gate = rpa.MAX_GENRE_PEERS_PER_ADD, rpa.GENRE_REPREDICT_GATE_CAP
+        try:
+            rpa.GENRE_REPREDICT_GATE_CAP = -1.0    # force the genre gate to fire
+            rpa.MAX_GENRE_PEERS_PER_ADD = 1
+            with contextlib.redirect_stdout(io.StringIO()):
+                rep3 = rpa.on_book_added("NewbieTrig", "Newbie", GENRE, vec(8.0),
+                                         get_engine=temp_engine, cache=cache, web=None,
+                                         corr_models=None, research_trigger=False,
+                                         dry_run=True, verbose=False)
+            gkept = [r for r in rep3["affected"] if r["reason"] == "genre"]
+            check("genre cohort cap bounds churn and reports the overflow (no silent cap)",
+                  rep3["genre_gate"]["fired"] and len(gkept) == 1
+                  and len(rep3["capped_genre_peers"]) >= 1,
+                  f"gate fired, kept {len(gkept)} genre-peer(s), "
+                  f"deferred {len(rep3['capped_genre_peers'])}")
+        finally:
+            rpa.MAX_GENRE_PEERS_PER_ADD, rpa.GENRE_REPREDICT_GATE_CAP = orig_cap, orig_gate
+    finally:
+        db_write.DB, db_write._backed_up_this_session = orig_db, orig_backed
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+
 def main():
     print("=" * 60)
     print("ENGINE TEST SUITE")
@@ -380,6 +572,7 @@ def main():
     test_schema_integrity()
     test_analog_shrinkage()
     test_conformal_intervals()
+    test_repredict_on_add()
 
     passed = sum(1 for _, ok, _ in _results if ok)
     total = len(_results)
