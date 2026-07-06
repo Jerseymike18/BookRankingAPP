@@ -97,6 +97,16 @@ if _RESIDUALS is not None and _RESIDUALS.get("engine_hash") != _ENGINE_HASH:
         "Regenerate with `python3 validate_engine.py --write-residuals`.",
         _RESIDUALS.get("engine_hash"), _ENGINE_HASH)
 
+# Fraction of the 80% interval half-width added to the point estimate for the
+# read-queue "Upside" rank. 0.15 ≈ the P63 outcome — a small, believable bump
+# (good-but-not-best), the midpoint between the median (P50 ≈ the point: the
+# median signed residual is −0.06) and a strong P76 result (factor 0.45). Higher
+# is more optimistic (1.0 ≈ the ~P90 ceiling — beaten only ~1 in 10, over-
+# optimistic across a whole TBR). Still scaled per author-density bucket, so
+# thin-author / frontier picks keep proportionally more upside. Calibrated on the
+# researched LOO residuals (P63 upside offset / P80 half-width = 0.15).
+UPSIDE_FRAC = 0.15
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENGINE CACHE
@@ -953,6 +963,14 @@ def get_read_queue():
             rec["wa_high"] = round(min(10.0, wa + hw), 4)
             rec["interval_label"] = iv["bucket_label"]
             rec["interval_stale"] = iv["stale"]
+            # "Upside" for ranking: a REALISTIC good outcome, not the interval
+            # ceiling. wa_high is the ~P90 outcome (beaten ~1 in 10) — too
+            # optimistic to expect across a whole TBR. UPSIDE_FRAC scales the
+            # headroom to the ~P75 outcome (beaten ~1 in 4): on the researched LOO
+            # residuals the one-sided P75 upside is 43% of the P80 half-width. Still
+            # density-scaled, so thin-author/frontier books keep proportionally more
+            # upside — just not the best case.
+            rec["upside"] = round(min(10.0, wa + UPSIDE_FRAC * hw), 4)
         result.append(rec)
 
     genres = sorted(set(r["genre"] for r in result if r["genre"]))

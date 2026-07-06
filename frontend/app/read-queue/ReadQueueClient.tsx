@@ -111,7 +111,7 @@ function MoodInput({
 
 /* ── Sort types ───────────────────────────────────────────────────────── */
 
-type RecSortField = "mood" | "wa" | "Story" | "Character" | "Aesthetics" | "Theme" | "Worldbuilding";
+type RecSortField = "mood" | "wa" | "upside" | "Story" | "Character" | "Aesthetics" | "Theme" | "Worldbuilding";
 type RecSortDir = "desc" | "asc";
 
 const CAT_COLS = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] as const;
@@ -119,6 +119,12 @@ const CAT_COLS = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] 
 function getRecSortValue(rec: Recommendation, moodScore: number | null, field: RecSortField): number {
   if (field === "mood") return moodScore ?? -Infinity;
   if (field === "wa") return rec.wa;
+  // Upside = a modest, believable good outcome (~63rd percentile), not the
+  // interval ceiling. The point estimate under-rates the top (regression to the
+  // mean), so ranking by upside gently surfaces under-predicted candidates — at a
+  // result a shade better than the median, not the ~1-in-10 best case. Falls back
+  // to the point.
+  if (field === "upside") return rec.upside ?? rec.wa;
   return (rec.category_avgs ?? {})[field] ?? 0;
 }
 
@@ -1180,7 +1186,7 @@ export default function ReadQueueClient({
                 </div>
               </div>
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                click a column header to sort · click a row to expand
+                click a column header to sort · click a row to expand · <span title="A modest, believable upside — the ~63rd-percentile outcome, a shade above the median (not the interval ceiling, which you'd hit only ~1 in 10). The point estimate under-rates the top, so sorting by Upside gently surfaces under-rated / frontier picks without assuming best-case.">Upside ≈ 63rd-percentile outcome</span>
               </span>
             </div>
 
@@ -1222,6 +1228,13 @@ export default function ReadQueueClient({
                         dir={sortDir}
                         onClick={() => handleSortClick("wa")}
                       />
+                      <RecSortHeader
+                        field="upside"
+                        label="Upside"
+                        active={sortField === "upside"}
+                        dir={sortDir}
+                        onClick={() => handleSortClick("upside")}
+                      />
                       {CAT_COLS.map((cat) => (
                         <RecSortHeader
                           key={cat}
@@ -1244,7 +1257,7 @@ export default function ReadQueueClient({
                     {sortedResults.map(({ rec, moodScore }, i) => {
                       const isExpanded = expandedTitle === rec.title;
                       const avgs = rec.category_avgs ?? {};
-                      const colCount = 4 + CAT_COLS.length + (hasMoods ? 1 : 0);
+                      const colCount = 5 + CAT_COLS.length + (hasMoods ? 1 : 0);
                       return (
                         <React.Fragment key={rec.title}>
                           <tr
@@ -1300,6 +1313,16 @@ export default function ReadQueueClient({
                                   {formatInterval(rec)}
                                 </div>
                               )}
+                            </td>
+                            <td
+                              className="px-3 py-3 text-right"
+                              style={{
+                                color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"),
+                                background: sortField === "upside" ? "var(--color-sage-light)" : "transparent",
+                                fontVariantNumeric: "tabular-nums",
+                              }}
+                            >
+                              {rec.upside != null ? rec.upside.toFixed(1) : "—"}
                             </td>
                             {CAT_COLS.map((cat) => {
                               const val = avgs[cat] ?? 0;

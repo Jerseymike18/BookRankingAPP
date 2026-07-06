@@ -189,6 +189,10 @@ export interface Recommendation {
   wa_high?: number;
   interval_label?: string;
   interval_stale?: boolean;
+  // Realistic upside for ranking — the ~63rd-percentile outcome (≈ point + 0.15×
+  // half-width), a modest bump, not the interval ceiling. Surfaces under-rated
+  // picks with a gentle tilt.
+  upside?: number;
 }
 
 export interface ReadQueueResponse {
