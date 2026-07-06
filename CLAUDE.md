@@ -7,13 +7,17 @@ Standing instructions for working in this repository. Read before making any cha
 A personal book-tracking and prediction web app. The owner rates every book they read
 across 14 fine-grained components, and the app predicts how much they'll enjoy any future
 book before reading it. It is a precision instrument calibrated to one person's taste — not
-a discovery service, not multi-user, not deployed (runs on localhost).
+a discovery service, not multi-user. The full read/write app runs on localhost; a
+**read-only static snapshot** of it is published to the public web (Vercel, built with
+`NEXT_PUBLIC_STATIC_DATA=1` + `NEXT_PUBLIC_READONLY=1`) via a deterministic export + git-hook
+pipeline — see **Publishing** below and `README.md`.
 
 ## Stack
 
 - **Backend API:** FastAPI (Python), uvicorn, SQLite via `books.db`
 - **Frontend:** Next.js (App Router), Tailwind CSS v4
-- **LLM:** Anthropic Claude via `apikey.txt` (untracked — see Secrets)
+- **LLM:** Anthropic Claude; the API key loads from `apikey.txt` (the canonical source, via
+  `research_layer.load_key`), with `apikey.py` as an alternate key file. Both untracked — see Secrets.
 - **Data engine:** pure Python (`db_loader.py`, `predict_engine.py`, `views.py`, `db_write.py`)
 - **Launch:** `bash start.sh` from project root (starts both servers)
 - **URLs:** Frontend http://localhost:3000 · API http://localhost:8000
@@ -26,20 +30,21 @@ a discovery service, not multi-user, not deployed (runs on localhost).
    Adjusted WA all live here and stay here.
 
 2. **All writes go through `db_write.py`.** Never write direct SQL to the database from the
-   backend or anywhere else. Use the existing validated functions only:
+   backend or anywhere else. Use the existing validated functions only (e.g.
    `add_book`, `change_rating`, `delete_book`, `set_year_read`, `set_status`,
-   `update_queue`, `add_recommendation`, `set_recommendation_meta`.
-   Do not add new write functions unless explicitly asked.
+   `update_queue`, `add_recommendation`, `set_recommendation_meta`,
+   `update_recommendation_scores`, `update_book_metadata`, `set_series_number`, `set_done`,
+   plus the nonfiction equivalents). Do not add new write functions unless explicitly asked.
 
-3. **DB schema is fixed.** The `books` table has `title, genre, author, series, words,
-   year_read, status` plus the 14 component columns. `recommendations` has the same
-   components plus `done, blurb, keywords`. Do **not** add columns without an explicit
-   schema-change task that goes through `db_write`.
+3. **DB schema is fixed.** The `books` table has `title, genre, author, series,
+   series_number, words, year_read, status` plus the 14 component columns. `recommendations`
+   has the same components plus `series_number, done, blurb, keywords`. Do **not** add columns
+   without an explicit schema-change task that goes through `db_write`.
 
-4. **`test_engine.py` must stay at a clean pass (9/9, no `[FAIL]` lines).** The DB is the
-   source of truth; the Excel workbook is import-only, so Excel/DB drift is expected and is
-   printed as informational (not pass/fail). Any `[FAIL]` line means something broke —
-   investigate before proceeding.
+4. **`test_engine.py` must stay at a clean pass (every check PASSES, no `[FAIL]` lines —
+   currently 29/29).** The DB is the source of truth; the Excel workbook is import-only, so
+   Excel/DB drift is expected and is printed as informational (not pass/fail). Any `[FAIL]`
+   line means something broke — investigate before proceeding.
 
 5. **No new visual styles.** All UI extends the existing design tokens in
    `frontend/app/globals.css` (the "Fable" system) and reuses existing primitives
@@ -83,6 +88,17 @@ used for tier bands and series aggregation.
   cached corpus is ever bulk re-researched on a new model, the DeltaTracker corrections should be
   recomputed against the new model's biases — otherwise old-model corrections get misapplied.
 
+## Auto re-prediction
+
+`repredict_on_add.py` is the sanctioned automatic-reprediction path. When a book is
+added/finished (backend `POST /api/books`, run in the background; the client polls
+`GET /api/repredict/recent`), it re-predicts the unread recommendations whose baseline moved:
+**the same author always**, and **same-genre peers only when the genre baseline shifts past a
+noise-floor gate** — bounded by a per-add cap, with any deferred peers reported (never silently
+capped). It writes through `db_write.update_recommendation_scores` + `log_delta` (rows tagged
+`baseline_repredict:*`) and supports a dry-run. It calls the read-only engine; it never
+reimplements or mutates prediction math.
+
 ## Security posture
 
 This app is **localhost single-user only — no auth of any kind.**
@@ -96,6 +112,23 @@ This app is **localhost single-user only — no auth of any kind.**
 If you ever need to expose this on a network, the minimum steps are: add an auth layer
 (e.g. HTTP Basic + TLS, or a token middleware), set `ALLOWED_ORIGIN` to the real frontend
 URL, and audit every unprotected endpoint in `backend/main.py`.
+
+## Publishing
+
+The public site is a **read-only static snapshot**, not a running backend — so **a data commit
+IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
+`scripts/setup-hooks.sh`; `git config core.hooksPath` must read `scripts/hooks`) drive it:
+
+- **pre-commit** regenerates the snapshot from the staged `books.db`
+  (`scripts/export_static_data.py`) and auto-stages it into the same commit.
+- **pre-push** re-runs the export in `--check` mode and blocks the push if the snapshot is
+  stale or invalid.
+- Both paths run the data lint (see **Working rhythm**), so an ERROR-level data problem blocks
+  the publish — nothing ships broken.
+
+`bash start.sh` also launches a watcher (`scripts/autopublish.sh`) that silently commits + pushes
+`books.db` edits (debounced; `books.db` + snapshot only). Don't bypass the hooks with
+`--no-verify`. Full details live in `README.md` — don't duplicate them here.
 
 ## Secrets — critical
 
@@ -116,18 +149,28 @@ URL, and audit every unprotected endpoint in `backend/main.py`.
 
 ## Pages (frontend/app/)
 
-`rankings` · `tier-list` · `series` · `reading` · `timeline` · `predict` · `read-queue` ·
-`add-book` · `edit-ratings`. Nav lives in `components/Nav.tsx`. API calls in `lib/api.ts`,
-types in `lib/types.ts`.
+Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) · `stats` ·
+`analytics` · `calibration` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
+split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
+`nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
+components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
+calls in `lib/api.ts` (static-mode via `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`;
+read-only gating in `lib/readonly.ts`.
 
 ## Working rhythm
 
 - One feature per commit. After a change, verify the app still runs and the affected page
-  works, confirm `test_engine.py` still passes cleanly (9/9, no `[FAIL]` lines), then commit
-  with a descriptive message.
+  works, confirm `test_engine.py` still passes cleanly (all checks PASS, no `[FAIL]` lines),
+  then commit with a descriptive message.
 - When in doubt about whether something is a derived-math change or a presentation change:
   if it changes a number, it's probably math (read-only); if it changes how an existing
   number is displayed or sorted, it's presentation (fair game).
+- **Data lint:** `scripts/lint_data.py` runs inside `scripts/export_static_data.py` (both the
+  full export and `--check`), so it gates every commit and push. ERROR findings — duplicate
+  `(series, series_number)`, a read book left `done=0` in `recommendations`, a null/invalid
+  genre — block the publish; WARN findings don't. Convention-dependent duplicates awaiting an
+  owner decision are excused in `scripts/lint_allowlist.json` (remove an entry to restore the
+  block).
 - Pre-deploy: if `predict_engine.py` or `validate_engine.py` changed, regenerate the
   prediction-interval residual table (`python3 validate_engine.py --write-residuals`) so
   `calibration/residuals.json` matches the live engine (else served intervals show "stale").
