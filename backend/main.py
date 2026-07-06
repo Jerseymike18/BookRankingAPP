@@ -98,14 +98,13 @@ if _RESIDUALS is not None and _RESIDUALS.get("engine_hash") != _ENGINE_HASH:
         _RESIDUALS.get("engine_hash"), _ENGINE_HASH)
 
 # Fraction of the 80% interval half-width added to the point estimate for the
-# read-queue "Upside" rank. 0.15 ≈ the P63 outcome — a small, believable bump
-# (good-but-not-best), the midpoint between the median (P50 ≈ the point: the
-# median signed residual is −0.06) and a strong P76 result (factor 0.45). Higher
-# is more optimistic (1.0 ≈ the ~P90 ceiling — beaten only ~1 in 10, over-
-# optimistic across a whole TBR). Still scaled per author-density bucket, so
-# thin-author / frontier picks keep proportionally more upside. Calibrated on the
-# researched LOO residuals (P63 upside offset / P80 half-width = 0.15).
-UPSIDE_FRAC = 0.15
+# read-queue "Upside" rank. 0.45 ≈ the P76 outcome — a good result you'd beat
+# ~1 in 4 (above the median P50, which is ~the point). Higher is more optimistic
+# (1.0 ≈ the ~P90 ceiling — beaten only ~1 in 10, over-optimistic across a whole
+# TBR). Still scaled per author-density bucket, so thin-author / frontier picks
+# keep proportionally more upside. Calibrated on the researched LOO residuals
+# (P76 upside offset / P80 half-width = 0.45).
+UPSIDE_FRAC = 0.45
 
 
 # ─────────────────────────────────────────────────────────────────────────────

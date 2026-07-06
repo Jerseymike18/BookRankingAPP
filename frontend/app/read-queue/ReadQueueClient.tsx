@@ -119,11 +119,10 @@ const CAT_COLS = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"] 
 function getRecSortValue(rec: Recommendation, moodScore: number | null, field: RecSortField): number {
   if (field === "mood") return moodScore ?? -Infinity;
   if (field === "wa") return rec.wa;
-  // Upside = a modest, believable good outcome (~63rd percentile), not the
-  // interval ceiling. The point estimate under-rates the top (regression to the
-  // mean), so ranking by upside gently surfaces under-predicted candidates — at a
-  // result a shade better than the median, not the ~1-in-10 best case. Falls back
-  // to the point.
+  // Upside = a good outcome (~76th percentile), not the interval ceiling. The
+  // point estimate under-rates the top (regression to the mean), so ranking by
+  // upside surfaces under-predicted candidates — at a result you'd beat ~1 in 4,
+  // not the ~1-in-10 best case. Falls back to the point.
   if (field === "upside") return rec.upside ?? rec.wa;
   return (rec.category_avgs ?? {})[field] ?? 0;
 }
@@ -1186,7 +1185,7 @@ export default function ReadQueueClient({
                 </div>
               </div>
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                click a column header to sort · click a row to expand · <span title="A modest, believable upside — the ~63rd-percentile outcome, a shade above the median (not the interval ceiling, which you'd hit only ~1 in 10). The point estimate under-rates the top, so sorting by Upside gently surfaces under-rated / frontier picks without assuming best-case.">Upside ≈ 63rd-percentile outcome</span>
+                click a column header to sort · click a row to expand · <span title="A good outcome — the ~76th percentile, one you'd beat about 1 in 4 reads (not the interval ceiling, which is ~1 in 10). The point estimate under-rates the top, so sorting by Upside surfaces under-rated / frontier picks without assuming best-case for all of them.">Upside ≈ 76th-percentile outcome</span>
               </span>
             </div>
 
