@@ -176,8 +176,50 @@ function NavLink({ href, label, currentPath }: NavItem & { currentPath: string }
   );
 }
 
+// Single link inside the mobile menu panel. `standalone` items (e.g. Stats)
+// align with the section headers; grouped items are indented under them.
+function MobileNavLink({
+  href,
+  label,
+  currentPath,
+  onNavigate,
+  standalone,
+}: NavItem & {
+  currentPath: string;
+  onNavigate: () => void;
+  standalone?: boolean;
+}) {
+  const isActive = currentPath === href || currentPath.startsWith(href + "/");
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={`block rounded-md py-3 text-sm font-medium no-underline transition-colors ${
+        standalone ? "px-2" : "px-4"
+      }`}
+      style={{
+        color: isActive ? "var(--color-sage)" : "var(--color-ink)",
+        background: isActive ? "var(--color-sage-light)" : "transparent",
+      }}
+    >
+      {label}
+    </Link>
+  );
+}
+
 export default function Nav() {
   const path = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile menu on Escape.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function handler(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileOpen(false);
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [mobileOpen]);
 
   return (
     <header
@@ -189,7 +231,11 @@ export default function Nav() {
     >
       <div className="max-w-5xl mx-auto px-4 flex items-center gap-8 h-14">
         {/* Wordmark */}
-        <Link href="/" className="flex-shrink-0 no-underline">
+        <Link
+          href="/"
+          onClick={() => setMobileOpen(false)}
+          className="flex-shrink-0 no-underline"
+        >
           <span
             className="font-display text-xl font-semibold leading-none"
             style={{ color: "var(--color-ink)" }}
@@ -198,8 +244,8 @@ export default function Nav() {
           </span>
         </Link>
 
-        {/* Nav sections */}
-        <nav className="flex items-center gap-1 flex-wrap">
+        {/* Desktop nav sections — collapse to a menu on small screens */}
+        <nav className="hidden md:flex items-center gap-1 flex-wrap">
           {sections.map((section) =>
             isDropdown(section) ? (
               <NavSection key={section.label} section={section} currentPath={path} />
@@ -213,7 +259,70 @@ export default function Nav() {
             )
           )}
         </nav>
+
+        {/* Mobile menu toggle */}
+        <button
+          onClick={() => setMobileOpen((o) => !o)}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          className="md:hidden ml-auto -mr-2 flex items-center justify-center rounded-md p-2"
+          style={{ color: "var(--color-ink)" }}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d={mobileOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"}
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile menu panel */}
+      {mobileOpen && (
+        <nav
+          className="md:hidden border-t max-h-[calc(100vh-3.5rem)] overflow-y-auto"
+          style={{
+            background: "var(--color-surface)",
+            borderColor: "var(--color-rule)",
+          }}
+        >
+          <div className="max-w-5xl mx-auto px-4 py-2 flex flex-col">
+            {sections.map((section) =>
+              isDropdown(section) ? (
+                <div key={section.label} className="py-1">
+                  <div
+                    className="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: "var(--color-faint)" }}
+                  >
+                    {section.label}
+                  </div>
+                  {section.items.map((item) => (
+                    <MobileNavLink
+                      key={item.href}
+                      href={item.href}
+                      label={item.label}
+                      currentPath={path}
+                      onNavigate={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <MobileNavLink
+                  key={section.label}
+                  href={section.href}
+                  label={section.label}
+                  currentPath={path}
+                  onNavigate={() => setMobileOpen(false)}
+                  standalone
+                />
+              )
+            )}
+          </div>
+        </nav>
+      )}
     </header>
   );
 }
