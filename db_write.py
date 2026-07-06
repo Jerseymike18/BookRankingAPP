@@ -1433,30 +1433,45 @@ def update_nonfiction_queue(titles):
 # recompute in the engine on the next read, so a genre change re-weights WA
 # automatically (intended).
 
-# Metadata columns shared by both `books` and `nonfiction_books`.
+# Metadata columns editable per table. `books` and `nonfiction_books` carry the
+# full set. `recommendations` (the TBR / prediction record) shares the identity
+# and series columns but has NO year_read column, and its title is managed via
+# its books row's rename cascade (below) rather than renamed in place — so the
+# recommendations set is author/genre/series/series_number/words only. A field
+# not listed for a table is rejected up front (never reaches the UPDATE).
 _METADATA_FIELDS = ("title", "author", "genre", "series", "series_number",
                     "words", "year_read")
+_TABLE_METADATA_FIELDS = {
+    "books": _METADATA_FIELDS,
+    "nonfiction_books": _METADATA_FIELDS,
+    "recommendations": ("author", "genre", "series", "series_number", "words"),
+}
 
 # Title is the join key used elsewhere, so a rename must cascade. These are the
 # tables (besides the row's own) that reference a book BY TITLE and are updated
 # in the same transaction as the rename. Fiction: the prediction record in
 # recommendations, the ordered read_queue, and the historical delta_log.
-# Nonfiction: its TBR twins. The Excel year sheets are NOT here — they live only
-# in the import-only workbook, never in books.db, so they're outside the DB
-# cascade (and the DB is the source of truth).
+# Nonfiction: its TBR twins. A recommendations row is editable for metadata but
+# is NOT renamed in place here (its title tracks the books row via the cascade
+# above), so it has no cascade targets of its own. The Excel year sheets are NOT
+# here — they live only in the import-only workbook, never in books.db, so
+# they're outside the DB cascade (and the DB is the source of truth).
 _TITLE_REF_TABLES = {
     "books": ["recommendations", "read_queue", "delta_log"],
     "nonfiction_books": ["nonfiction_recommendations", "nonfiction_read_queue"],
+    "recommendations": [],
 }
 
 
 def update_book_metadata(current_title, table, fields, allow_new_genre=False):
     """
     Edit the METADATA (not scores) of an already-ranked book, with the same
-    validation discipline as add_book. `table` is 'books' or 'nonfiction_books'.
+    validation discipline as add_book. `table` is 'books', 'nonfiction_books',
+    or 'recommendations' (the TBR / prediction record — no year_read column and
+    no in-place rename there; see _TABLE_METADATA_FIELDS).
     `fields` is a dict; only the keys PRESENT are updated (partial update —
     omitted keys are left unchanged). Recognised keys: title, author, genre,
-    series, series_number, words, year_read.
+    series, series_number, words, year_read (subject to the per-table set).
 
     Validation (mirrors add_book):
       * genre (if given) must be in the matching genre_weights table unless
@@ -1483,15 +1498,17 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
     """
     if table not in _TITLE_REF_TABLES:
         return {"ok": False, "updated": {}, "renamed_to": None, "cascade": {},
-                "error": f"Unknown table '{table}'. Use 'books' or 'nonfiction_books'."}
+                "error": f"Unknown table '{table}'. Use 'books', "
+                         f"'nonfiction_books', or 'recommendations'."}
 
     con = _connect()
     try:
-        unknown = [k for k in fields if k not in _METADATA_FIELDS]
+        allowed = _TABLE_METADATA_FIELDS[table]
+        unknown = [k for k in fields if k not in allowed]
         if unknown:
             raise ValidationError(
-                f"Unknown metadata field(s): {unknown}. "
-                f"Valid: {list(_METADATA_FIELDS)}")
+                f"Field(s) not editable on {table}: {unknown}. "
+                f"Valid for {table}: {list(allowed)}")
 
         row = con.execute(f"SELECT 1 FROM {table} WHERE title=?",
                           (current_title,)).fetchone()
@@ -1505,14 +1522,15 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
             genre = fields["genre"]
             genre = None if genre is None else str(genre).strip() or None
             if genre is not None:
-                if table == "books":
+                if table in ("books", "recommendations"):
                     valid = _valid_genres(con)
                     enforce = valid  # fiction always has a populated table
                 else:
                     valid = _valid_nonfiction_genres(con)
                     enforce = valid if valid else None  # empty → skip check
                 if enforce is not None and genre not in enforce and not allow_new_genre:
-                    weights_tbl = ("genre_weights" if table == "books"
+                    weights_tbl = ("genre_weights"
+                                   if table in ("books", "recommendations")
                                    else "nonfiction_genre_weights")
                     raise ValidationError(
                         f"Genre '{genre}' is not in {weights_tbl}. Fix the "
