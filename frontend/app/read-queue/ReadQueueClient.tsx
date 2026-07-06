@@ -1321,7 +1321,7 @@ export default function ReadQueueClient({
                                 fontVariantNumeric: "tabular-nums",
                               }}
                             >
-                              {rec.upside != null ? rec.upside.toFixed(1) : "—"}
+                              {rec.upside != null ? rec.upside.toFixed(2) : "—"}
                             </td>
                             {CAT_COLS.map((cat) => {
                               const val = avgs[cat] ?? 0;
