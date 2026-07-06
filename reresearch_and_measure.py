@@ -39,18 +39,29 @@ LIVE = ["Plot", "Entertainment", "Action", "Ending", "Depth",
         "Insights", "Thought-Provokingness", "Depth2", "Integration", "Originality"]
 
 K_GENRE = 6.0
-# K_AUTHOR was recalibrated 4.0 -> 2.0 (2026-07-05) after a leave-one-out gate on
-# the 127 rated books (faithful hybrid pipeline: grounded raw -> corr-smooth ->
-# author_genre correction -> WA rollup). At 4.0 the author-deviation term was
-# over-shrunk toward the genre mean, which (a) left accuracy on the table and
-# (b) compressed the top: the engine under-predicted the top-decile favourites by
-# ~0.75 WA. Loosening to 2.0 IMPROVED overall LOO WA MAE (0.609 -> 0.600) and
-# thin-author MAE (0.729 -> 0.688) at a negligible rich-author cost (+0.012),
-# while cutting the top-decile under-prediction (bias -0.75 -> -0.67) and lifting
-# the ceiling (max LOO pred 9.36 -> 9.50). Genre stayed at 6.0 (K_GENRE=3 hurt).
-# Single innermost-tier constant, fully reversible. See the gate in the 2026-07-05
-# shrinkage recalibration.
-K_AUTHOR = 2.0
+# De-compression recalibration (2026-07-05), LOO-gated on the 127 rated books
+# (faithful hybrid pipeline: grounded raw -> corr-smooth -> author_genre -> WA).
+# The author_genre correction was over-shrunk, producing regression-to-the-mean:
+# LOO bias (actual-predicted) was +0.65 WA in the top tier (favourites predicted
+# too LOW), -0.84 in the bottom tier (weak books too HIGH), with the middle spot
+# on. De-compressing (K_AUTHOR 4->2->0.5, plus SLOPE_LIFT below) shrinks the bias
+# at BOTH tails together and lowers overall LOO WA MAE 0.600 -> 0.581 (top-tier
+# MAE 0.70 -> 0.64, bottom 1.07 -> 0.99, middle flat, ceiling 9.50 -> 9.65).
+# K_AUTHOR=0.5 trusts a single same-author book at ~0.67 weight -- aggressive, but
+# LOO-validated for this taste-consistent reader (chosen 2026-07-05 over the safer
+# K_AUTHOR=1). The residual top bias (+0.53) is irreducible: a new book can't be
+# known to exceed its author baseline before it's read (the interval carries it).
+# Two constants, fully reversible. K_GENRE stays 6.0 (lowering it hurt).
+K_AUTHOR = 0.5
+
+# SLOPE_LIFT blends the fitted per-genre regression (you ~ a + b*llm, whose slope
+# b<1 makes it compressive) toward the slope-1 deviation model (llm + genre_dev),
+# by this fraction, BEFORE the genre/author shrinkage. 0.0 = the original fitted
+# line (full regression-to-the-mean); 1.0 = pure deviation (no slope compression).
+# 0.5 was chosen with K_AUTHOR above in the 2026-07-05 LOO gate: it de-compresses
+# the genre tail (bottom over-prediction -0.84 -> -0.65) at no accuracy cost.
+# Applied identically in the genre_reg and author_genre correction ladders.
+SLOPE_LIFT = 0.5
 
 # Worldbuilding components: realist-genre books store WB actuals as the 0.0
 # "no worldbuilding" sentinel (CLAUDE.md), not NULL, while the LLM still scores
@@ -206,8 +217,11 @@ def correct_book(df, i, method):
             g = pool[pool["Genre"] == b["Genre"]]
             n_g = len(g)
             line = fit_line(g["llm_" + c].values, g["you_" + c].values) if n_g >= 3 else None
-            gpred = (line[0] + line[1] * llm) if line else (llm + (
-                (g["you_" + c] - g["llm_" + c]).mean() if n_g else global_dev))
+            gdev = (g["you_" + c] - g["llm_" + c]).mean() if n_g else global_dev
+            # SLOPE_LIFT de-compresses the fitted genre line (slope<1) toward the
+            # slope-1 deviation model (llm + gdev), cutting regression-to-the-mean.
+            gpred = ((1 - SLOPE_LIFT) * (line[0] + line[1] * llm)
+                     + SLOPE_LIFT * (llm + gdev)) if line else llm + gdev
             global_pred = llm + global_dev
             w = n_g / (n_g + K_GENRE)
             out[c] = w * gpred + (1 - w) * global_pred
@@ -215,8 +229,11 @@ def correct_book(df, i, method):
             g = pool[pool["Genre"] == b["Genre"]]
             n_g = len(g)
             line = fit_line(g["llm_" + c].values, g["you_" + c].values) if n_g >= 3 else None
-            gpred = (line[0] + line[1] * llm) if line else (llm + (
-                (g["you_" + c] - g["llm_" + c]).mean() if n_g else global_dev))
+            gdev = (g["you_" + c] - g["llm_" + c]).mean() if n_g else global_dev
+            # SLOPE_LIFT de-compresses the fitted genre line (slope<1) toward the
+            # slope-1 deviation model (llm + gdev), cutting regression-to-the-mean.
+            gpred = ((1 - SLOPE_LIFT) * (line[0] + line[1] * llm)
+                     + SLOPE_LIFT * (llm + gdev)) if line else llm + gdev
             global_pred = llm + global_dev
             wg = n_g / (n_g + K_GENRE)
             genre_pred = wg * gpred + (1 - wg) * global_pred

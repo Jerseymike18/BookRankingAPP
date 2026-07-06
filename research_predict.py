@@ -14,7 +14,8 @@ The validated method (leave-one-out vs your real component scores, component MAE
   2. An AUTHOR+GENRE hierarchical correction mapping the LLM's scores onto your
      scale (reresearch_and_measure.correct_book, method "author_genre"): genre
      regression where the data supports it with a deviation fallback when thin,
-     blended with an author-level deviation, K_GENRE=6 / K_AUTHOR=2 shrinkage.
+     blended with an author-level deviation, K_GENRE=6 / K_AUTHOR=0.5 shrinkage
+     (+ a 0.5 genre slope-lift that de-compresses the fitted regression).
 
 The CORRECTED components are what get displayed and stored. The WA is rolled up
 from the corrected components via the SAME category-average math db_loader uses
