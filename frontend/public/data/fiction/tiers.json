@@ -2957,7 +2957,7 @@
       "genre": "Science Fantasy",
       "rank": 78,
       "series": "Dungeon Crawler Carl",
-      "series_number": 7,
+      "series_number": 8,
       "tier": "C",
       "title": "A Parade of Horribles",
       "wa": 7.4715,
@@ -3109,7 +3109,7 @@
       "genre": "Science Fiction (Soft)",
       "rank": 82,
       "series": "Sun Eater",
-      "series_number": 6,
+      "series_number": 7,
       "tier": "C",
       "title": "Shadows Upon Time",
       "wa": 7.4365,
@@ -3573,7 +3573,7 @@
       "year_read": 2026
     },
     {
-      "author": "Dante Aligheri",
+      "author": "Dante Alighieri",
       "components": {
         "Aesthetics": {
           "Narration": 8.6,
@@ -4371,7 +4371,7 @@
       "year_read": 2025
     },
     {
-      "author": "Albert Einstein",
+      "author": "Alan Lightman",
       "components": {
         "Aesthetics": {
           "Narration": 3.6,
