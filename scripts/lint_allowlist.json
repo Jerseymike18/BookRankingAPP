@@ -1,17 +1,4 @@
 {
-  "_comment": "Duplicate (series, series_number) groups that lint_data.py should NOT treat as blocking ERRORs, because the correct numbering is genuinely convention-dependent and awaits an owner decision (Task 1b). Each excused group still surfaces as a non-blocking WARN with its reason. Remove an entry once the convention is decided and the data fixed — it then reverts to a blocking ERROR.",
-  "duplicate_series_position": [
-    {
-      "table": "recommendations",
-      "series": "Foundation",
-      "series_number": 2,
-      "reason": "Foundation and Empire (publication order #2 of the original trilogy) vs Forward the Foundation (late prequel, #2 in internal chronology). Depends on whether this library numbers Foundation by publication or internal chronology."
-    },
-    {
-      "table": "recommendations",
-      "series": "The Chronicles of the Black Company",
-      "series_number": 8,
-      "reason": "She Is the Darkness vs Water Sleeps. Numbering depends on whether The Silver Spike counts in the main sequence; resolving it renumbers the whole series in one pass."
-    }
-  ]
+  "_comment": "Duplicate (series, series_number) groups that lint_data.py should NOT treat as blocking ERRORs, because the correct numbering is genuinely convention-dependent and awaits an owner decision. Each excused group still surfaces as a non-blocking WARN with its reason. Add an entry as {table, series, series_number, reason}; remove it once the convention is decided and the data fixed, so the position reverts to a blocking ERROR. Currently empty: the Foundation (internal chronology) and Black Company (The Silver Spike counted at #4) numberings were decided and applied on 2026-07-06.",
+  "duplicate_series_position": []
 }
