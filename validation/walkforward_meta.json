@@ -1,0 +1,55 @@
+{
+  "burn_in": 15,
+  "caveats": [
+    "research-cache vectors embed post-publication reception (hindsight) -- accepted",
+    "leaky variant's correction saw future books -- labeled leaky, not a knowable-then number",
+    "3 rated books absent from Timeline are placed last by (year_read, title) per owner decision"
+  ],
+  "components": [
+    "Plot",
+    "Entertainment",
+    "Action",
+    "Ending",
+    "Depth",
+    "Emotional Impact",
+    "Motivations",
+    "Prose",
+    "Narration",
+    "Insights",
+    "Thought-Provokingness",
+    "Depth2",
+    "Integration",
+    "Originality"
+  ],
+  "correction_version_active": {
+    "applied_in_engine": false,
+    "decision": "retire",
+    "version": "v2_opus_retired_2026-07-05"
+  },
+  "engine_hash": "sha256:72a3d8cdfd15dba9",
+  "generated_at": "2026-07-07T09:22:57-04:00",
+  "git_head": "2c40c9295c97e4a8fd15ed0818a320f851417f63",
+  "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
+  "leakage_inventory": {
+    "author_genre_correction_pairs": "neutralised in honest (pool), LEAKY in leaky (full library)",
+    "component_corrections_deltatracker": "retired to zero AND unwired -- enters no variant",
+    "correlation_smoothing_models": "neutralised in honest (pool), LEAKY in leaky (full library)",
+    "genre_and_component_weights": "config, not learned from the book set -- no leakage",
+    "rank_over_library": "neutralised in honest (pool); leaky ranks over full library",
+    "research_cache_vector": "ACCEPTED hindsight caveat -- embeds post-publication reception",
+    "resid_sd_for_interval": "neutralised in honest (pool), LEAKY in leaky (full library)"
+  },
+  "n_books_total": 128,
+  "n_folds_evaluated": 113,
+  "n_in_cache": 128,
+  "n_skipped": 15,
+  "nominal_interval_coverage": 0.9,
+  "skip_reasons": {
+    "BURN_IN": 15
+  },
+  "variants": {
+    "honest": "smooth + author_genre correction fit on PAST-ONLY pool (the walk-forward baseline)",
+    "leaky": "smooth + author_genre correction fit on FULL library (today's config; leaky)",
+    "raw": "research vector -> WA (no smoothing, no correction); pool-independent"
+  }
+}
