@@ -174,3 +174,32 @@ read-only gating in `lib/readonly.ts`.
 - Pre-deploy: if `predict_engine.py` or `validate_engine.py` changed, regenerate the
   prediction-interval residual table (`python3 validate_engine.py --write-residuals`) so
   `calibration/residuals.json` matches the live engine (else served intervals show "stale").
+
+## Walk-forward validation (backtest)
+
+`walkforward.py` is a **chronological backtest**: for each rated fiction book it predicts what
+the engine *would* have said on the day it was started, training on **only the books read
+before it** (Timeline read order). Unlike `validate_engine.py`'s leave-one-out (which trains on
+future books too), this is the honest *"what was knowable then"* accuracy baseline that future
+engine features must beat, and the raw dataset for a future public track-record page. It
+**calls the read-only engine unchanged** and never touches prediction math or `books.db`.
+
+- **Run:** `python3 walkforward.py` (writes `validation/`), `--report-only` (rebuild the report
+  from the folds artifact), `--check-determinism` (assert two runs are byte-identical),
+  `--burn-in N` (min pool size before a fold is evaluated, default 15).
+- **Zero API spend, structurally.** It reads the richer-prompt cache (`llm_scores_richer.json`)
+  as a plain dict and blocks `anthropic.Anthropic`; a book with no usable cache entry is logged
+  `SKIPPED_NO_CACHE`, never researched. There is no override flag.
+- **Three variants per fold** (all from cache): **raw** (grounded research → WA, no
+  correction), **honest** (author+genre correction fit on the *past-only* pool — the
+  walk-forward baseline), **leaky** (correction fit on the *full library* = today's config).
+  The **leaky** variant is labeled leaky everywhere because its correction saw future books —
+  it answers "how good is today's config," not "what was knowable then." The retired,
+  never-applied `component_corrections` (DeltaTracker) layer enters **no** variant. Refitting
+  the correction per-fold on the pool (a fully-honest "variant 3") is future work.
+- **Caveats:** research-cache vectors embed post-publication reception (accepted hindsight);
+  the per-fold interval recorded is the engine's overconfident `±1.645·resid_sd` band, *not*
+  the calibrated served conformal interval (the report scores that separately). See
+  `validation/README.md`.
+- **`validation/` artifacts are NOT static-snapshot inputs** — the export/hooks only read
+  `books.db`, so these files never churn the public snapshot.
