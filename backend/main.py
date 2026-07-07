@@ -387,6 +387,25 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
     except Exception:
         pass  # dequeue failure is non-fatal; book was still added
 
+    # Mark the matching TBR recommendation done. A finished book that stays done=0
+    # in recommendations is a data-lint ERROR (see scripts/lint_data.py), which
+    # blocks the publish — so a finish must always flip its prediction row. The
+    # case-insensitive lookup mirrors _maybe_log_delta so it finds the same row;
+    # set_done is then called with that row's exact title. Non-fatal: a failure
+    # here never rolls back the successful add.
+    try:
+        con = sqlite3.connect(db_write.DB)
+        rec = con.execute(
+            "SELECT title FROM recommendations "
+            "WHERE LOWER(title)=LOWER(?) AND done=0 ORDER BY id DESC LIMIT 1",
+            (req.title,)).fetchone()
+        con.close()
+        if rec:
+            with contextlib.redirect_stdout(io.StringIO()):
+                db_write.set_done(rec[0], True)
+    except Exception:
+        pass  # marking done is best-effort; the book was still added
+
     _invalidate_engine()
 
     # If this title had a stored prediction, record the delta automatically.
