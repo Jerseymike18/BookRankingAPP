@@ -355,7 +355,8 @@ def smooth_components(scores, models, blend=BLEND):
 
 def correct_and_predict(title, author, genre, scores, conf, resid_sd,
                         books, gw, gcw, cache, blurb="", keywords="",
-                        corr_models=None):
+                        corr_models=None, series=None, series_number=None,
+                        series_mode=None, snum_map=None):
     """
     Apply the validated AUTHOR+GENRE hierarchical correction (reference:
     reresearch_and_measure.correct_book, method "author_genre") to the researched
@@ -372,6 +373,16 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     Pipeline: research -> correlation-smooth (when corr_models given) -> author+
     genre correct. The smoothing is a validated preprocessing step that runs on
     the raw LLM scores BEFORE the unchanged correction below.
+
+    SERIES SIGNAL (optional, default OFF): when `series_mode` is one of
+    series_signal.MODES ("level"/"trajectory"/"both"), the WA point estimate is
+    nudged by within-series evidence drawn from `books` (see series_signal.py) —
+    the same past-only pool the correction already uses, so it inherits the
+    walk-forward leakage discipline. `series`/`series_number` describe the target
+    book; `snum_map` maps title->ordinal for the pool rows (built read-only from
+    books.db if omitted). With series_mode=None the WA, CI, and rank are
+    byte-identical to before, so standalone books and every existing caller are
+    unaffected.
     """
     # NEW (preprocessing): correlation-smooth the raw LLM scores before correction.
     if corr_models is not None:
@@ -398,6 +409,17 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     corrected = {c: float(v) for c, v in corrected.items()}
 
     wa = _wa_from_components(corrected, genre, gw, gcw)
+
+    # Optional within-series nudge to the point estimate (default OFF -> no-op).
+    # Runs AFTER the corrected WA roll-up and only shifts the scalar WA; the
+    # corrected components, CI half-width, and every other field are unchanged.
+    series_adjust = None
+    if series_mode not in (None, "off"):
+        import series_signal
+        smap = snum_map if snum_map is not None else series_signal.build_snum_map()
+        wa, series_adjust = series_signal.adjust_wa(
+            wa, title, series, series_number, books, smap, series_mode)
+
     half = 1.645 * resid_sd
     ci = (wa - half, wa + half)
     rank = int((books["WA"] > wa).sum() + 1)
@@ -406,6 +428,7 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
         "scores": corrected, "wa": wa, "ci": ci, "rank": rank,
         "total": len(books), "n_genre": n_genre, "n_author": n_author,
         "conf": conf, "blurb": blurb, "keywords": keywords,
+        "series_adjust": series_adjust,
     }
 
 
