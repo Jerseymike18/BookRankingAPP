@@ -72,7 +72,6 @@ export interface InstantPrediction {
   author: string;
   genre: string;
   wa_final: number;
-  ci: [number, number];
   rank: number;
   rank_range: [number, number];
   total: number;
@@ -94,7 +93,6 @@ export interface ResearchResult {
   author: string;
   genre: string;
   wa: number;
-  ci: [number, number];
   rank: number;
   total: number;
   n_genre: number;

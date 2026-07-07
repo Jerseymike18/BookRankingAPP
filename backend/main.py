@@ -1080,7 +1080,6 @@ def predict_instant(title: str, author: str, genre: str):
     resp = {
         "title": title, "author": author, "genre": genre,
         "wa_final": round(p["wa_final"], 4),
-        "ci": [round(p["ci"][0], 4), round(p["ci"][1], 4)],
         "rank": p["rank"], "rank_range": list(p["rank_range"]),
         "total": p["total"],
         "src": p["src"], "n_src": p["n_src"],
@@ -1208,7 +1207,6 @@ def predict_research(req: ResearchRequest):
     resp = {
         "title": res["title"], "author": res["author"], "genre": res["genre"],
         "wa": round(res["wa"], 4),
-        "ci": [round(res["ci"][0], 4), round(res["ci"][1], 4)],
         "rank": res["rank"], "total": res["total"],
         "n_genre": res["n_genre"], "n_author": res["n_author"],
         "conf": res["conf"],
@@ -2296,16 +2294,20 @@ def _enrich_recommendation(req: "SaveRecommendationRequest"):
     # engine for WA/CI, grounding counts, and the analog source.
     if req.scores:
         try:
-            books_e, gw_e, gcw_e, _coeffs, _r2, resid_sd, _ginfo, _up = _get_engine()
+            books_e, gw_e, gcw_e, _coeffs, _r2, _resid_sd, _ginfo, _up = _get_engine()
             genre = req.genre
             wa = 0.0
             for cat in db_loader.CATEGORY_OF_INTEREST:
                 wcat = db_loader._weighted_cat_avg(req.scores, genre, cat, gcw_e)
                 wa += wcat * ((gw_e.get(genre, {}) or {}).get(cat, 0) or 0)
-            half = 1.645 * resid_sd
-            ci = (wa - half, wa + half)
             n_genre = int((books_e["Genre"] == genre).sum())
             n_author = int((books_e["Author"] == req.author).sum())
+            # Confidence frame for the blurb = the SAME served conformal 80% band
+            # (density-bucketed by same-author analogs), never the overconfident
+            # ±1.645·resid_sd band. Soft default only if no residual table loaded.
+            _iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+            half = _iv["half_width"] if _iv else 0.5
+            ci = (wa - half, wa + half)
             read_books = [
                 (str(r["Book"]), str(r["Author"]), str(r["Genre"]))
                 for _, r in books_e.iterrows()

@@ -97,20 +97,20 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
 
       {/* ── Regression health ── */}
       <SectionHeader>Regression health</SectionHeader>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Stat label="R²" value={health.r2.toFixed(4)} note="fit quality (1 = perfect)" />
         <Stat
           label="Residual SD"
           value={health.resid_sd.toFixed(4)}
-          note="±1.645× = 90% CI half-width"
+          note="WA-vs-category fit residual — not a prediction interval"
         />
         <Stat label="Books" value={String(health.n_books)} />
-        <Stat
-          label="90% CI half-width"
-          value={`±${(1.645 * health.resid_sd).toFixed(3)}`}
-          note="WA points"
-        />
       </div>
+      <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
+        Prediction intervals aren&apos;t derived from this residual — the Predict and
+        Read-queue pages serve a density-bucketed conformal 80% interval calibrated on
+        held-out residuals.
+      </p>
 
       {/* ── Regression coefficients ── */}
       <SectionHeader>Regression coefficients</SectionHeader>

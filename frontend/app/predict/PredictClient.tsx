@@ -309,7 +309,7 @@ function DiscoverMode({
       } catch (e: unknown) {
         results.push({
           title: c.title, author: c.author, genre: c.genre ?? "",
-          wa: 0, ci: [0, 0], rank: 0, total: 0,
+          wa: 0, rank: 0, total: 0,
           n_genre: 0, n_author: 0, conf: "?",
           from_cache: false, words: null, series: "", series_number: null,
           blurb: "", keywords: "",
@@ -664,14 +664,6 @@ function ScoredCard({
           }}
         >
           <div className="flex gap-3 text-sm flex-wrap">
-            {/* Regression 90% CI is shown only as a fallback: when the empirical
-                80% interval is available (below) it supersedes this narrower,
-                overconfident band, so we don't show both. */}
-            {result.wa_low == null && (
-              <span style={{ color: "var(--color-ink)" }}>
-                <strong>90% CI:</strong> {result.ci[0].toFixed(2)} – {result.ci[1].toFixed(2)}
-              </span>
-            )}
             {result.words && (
               <span style={{ color: "var(--color-muted)" }}>
                 ~{result.words.toLocaleString()} words

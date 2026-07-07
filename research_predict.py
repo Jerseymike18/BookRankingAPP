@@ -267,7 +267,7 @@ BOOK: "{title}" by {author} (genre: {genre})
 PREDICTED COMPONENT SCORES (0-10, this reader's calibrated taste model):
 {score_lines}
 
-Predicted Weighted Average: {wa:.2f}  (≈95% interval ±{half:.2f})
+Predicted Weighted Average: {wa:.2f}  (≈80% interval ±{half:.2f})
 Grounding: {n_author} book(s) by this author and {n_genre} in this genre are
 already in the reader's library, so confidence is {"high" if (n_author + n_genre) >= 4 else "modest"}.
 
