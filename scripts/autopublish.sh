@@ -5,8 +5,9 @@
 # Every book change the local web app writes to books.db is committed (the
 # snapshot regenerates) and pushed, so the live site updates with no git
 # commands. It debounces rapid edits into one publish and only ever touches
-# books.db + the snapshot — if other files are dirty it SKIPS the cycle rather
-# than sweep unrelated work into a data commit.
+# books.db, the snapshot, and the research caches the app rewrites when it
+# scores a book — if any OTHER file is dirty it SKIPS the cycle rather than
+# sweep unrelated work into a data commit.
 #
 #   scripts/autopublish.sh                       # watch forever (Ctrl-C to stop)
 #   scripts/autopublish.sh --once                # publish one pending change, exit
@@ -17,6 +18,11 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 EXPORT="$REPO_ROOT/scripts/export_static_data.py"
 DATA_DIR="frontend/public/data"
+# Research caches the app rewrites as a side effect of scoring a book (see the
+# research_cache note in CLAUDE.md). They are versioned data, so autopublish
+# commits them alongside books.db + the snapshot instead of skipping the cycle
+# when they are the only other dirty files.
+CACHES=(llm_scores_richer.json web_grounded_cache.json llm_scores_cache.json)
 POLL="${AUTOPUBLISH_POLL:-3}"      # seconds between polls
 QUIET="${AUTOPUBLISH_QUIET:-5}"    # seconds the db must be still before publishing
 
@@ -26,11 +32,14 @@ db_hash() { shasum "$REPO_ROOT/books.db" 2>/dev/null | awk '{print $1}'; }
 
 # 0 iff the only dirty paths are books.db / the snapshot (safe to auto-commit).
 only_data_dirty() {
-  local dirty extras
+  local dirty extras allow c
   dirty="$( { git -C "$REPO_ROOT" diff --name-only;
               git -C "$REPO_ROOT" diff --cached --name-only;
               git -C "$REPO_ROOT" ls-files --others --exclude-standard; } | sort -u )"
-  extras="$(printf '%s\n' "$dirty" | grep -vE "^(books\.db|${DATA_DIR}/)" | grep -v '^$' || true)"
+  # Allowed to auto-commit: books.db, the snapshot tree, and each research cache.
+  allow="books\.db|${DATA_DIR}/"
+  for c in "${CACHES[@]}"; do allow="${allow}|${c//./\\.}"; done
+  extras="$(printf '%s\n' "$dirty" | grep -vE "^(${allow})" | grep -v '^$' || true)"
   [ -z "$extras" ]
 }
 
@@ -52,7 +61,7 @@ publish_once() {
     log "export failed — not committing. Run 'python3 scripts/export_static_data.py' to see why. Will retry on next change."
     return 0
   fi
-  if ! git -C "$REPO_ROOT" add -A -- books.db "$DATA_DIR"; then
+  if ! git -C "$REPO_ROOT" add -A -- books.db "$DATA_DIR" "${CACHES[@]}"; then
     log "git add failed — will retry on next change."
     return 0
   fi
