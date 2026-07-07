@@ -22714,5 +22714,43 @@
       "https://www.goodreads.com/review/show/6777929609",
       "https://www.goodreads.com/shelf/show/r-f-kuang"
     ]
+  },
+  "Pillars of the Earth": {
+    "scores": {
+      "Plot": 8.2,
+      "Entertainment": 8.7,
+      "Action": 7.8,
+      "Ending": 7.6,
+      "Depth": 5.6,
+      "Emotional Impact": 7.4,
+      "Motivations": 6.3,
+      "Prose": 5.2,
+      "Narration": 6.4,
+      "Insights": 6.0,
+      "Thought-Provokingness": 6.1,
+      "Depth2": 8.0,
+      "Integration": 8.1,
+      "Originality": 7.0
+    },
+    "conf": "high",
+    "sources": [
+      "https://www.goodreads.com/book/show/5043.The_Pillars_of_the_Earth",
+      "https://www.goodreads.com/notes/50881608-the-pillars-of-the-earth/16260060-ken-follett/04b75d61-060f-4f11-ba24-098286c460b6",
+      "https://www.goodreads.com/author/list/3447.Ken_Follett",
+      "https://www.goodreads.com/shelf/show/pillars-of-the-earth",
+      "https://www.goodreads.com/work/editions/3359698-the-pillars-of-the-earth",
+      "https://www.goodreads.com/en/book/show/43457395",
+      "https://www.goodreads.com/Review/1595678753/comments?subject=1595678753",
+      "https://www.goodreads.com/book/show/5045.Pillars_of_the_Earth",
+      "https://www.goodreads.com/shelf/show/the-pillars-of-the-earth",
+      "https://www.goodreads.com/book/show/29849382",
+      "https://www.goodreads.com/review/show/175642697",
+      "https://www.goodreads.com/review/show/28519814",
+      "https://www.goodreads.com/review/show/119031699",
+      "https://www.goodreads.com/review/show/9274736",
+      "https://www.goodreads.com/book/show/7012228-the-pillars-of-the-earth",
+      "https://www.goodreads.com/review/show/902941308",
+      "https://www.goodreads.com/review/show/30702791"
+    ]
   }
 }

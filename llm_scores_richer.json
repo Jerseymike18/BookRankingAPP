@@ -13723,5 +13723,28 @@
     "keywords": "science fantasy, dark fantasy, antihero, morally-grey, faustian pact, unlikely alliance, planetary romance, trilogy finale, atmospheric",
     "genre": "Science Fantasy",
     "words": 210000
+  },
+  "Pillars of the Earth": {
+    "scores": {
+      "Plot": 8.6,
+      "Entertainment": 8.8,
+      "Action": 7.5,
+      "Ending": 8.0,
+      "Depth": 7.2,
+      "Emotional Impact": 7.8,
+      "Motivations": 7.3,
+      "Prose": 6.5,
+      "Narration": 7.0,
+      "Insights": 6.8,
+      "Thought-Provokingness": 6.5,
+      "Depth2": 8.4,
+      "Integration": 8.2,
+      "Originality": 7.0
+    },
+    "conf": "high",
+    "blurb": "An immersive medieval epic built around the decades-long construction of a cathedral, weaving ambition, faith, and vengeance across generations \u2014 a sweeping page-turner for readers who want dense historical texture without literary density.",
+    "keywords": "historical fiction, medieval, epic, cathedral-building, multi-pov, ambition, sprawling, page-turner, generational, twelfth-century",
+    "genre": "Historical Fiction",
+    "words": 400000
   }
 }

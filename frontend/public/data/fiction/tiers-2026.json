@@ -115,44 +115,6 @@
       "year_read": 2026
     },
     {
-      "author": "Steven Erikson",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.5,
-          "Prose": 8.7
-        },
-        "Character": {
-          "Depth": 9.4,
-          "Emotional Impact": 9.3,
-          "Motivations": 9.2
-        },
-        "Story": {
-          "Action": 9.7,
-          "Ending": 9.4,
-          "Entertainment": 9.0,
-          "Plot": 9.1
-        },
-        "Theme": {
-          "Insights": 9.1,
-          "Thought-Provokingness": 9.5
-        },
-        "Worldbuilding": {
-          "Depth2": 9.9,
-          "Integration": 9.7,
-          "Originality": 9.7
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 4,
-      "series": "Malazan: Book of the Fallen",
-      "series_number": 3,
-      "tier": "S",
-      "title": "Memories of Ice",
-      "wa": 9.2741,
-      "words": 355000,
-      "year_read": 2026
-    },
-    {
       "author": "Dan Simmons",
       "components": {
         "Aesthetics": {
@@ -181,13 +143,51 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 5,
+      "rank": 4,
       "series": "Hyperion Cantos",
       "series_number": 1,
       "tier": "S",
       "title": "Hyperion",
       "wa": 9.2409,
       "words": 235000,
+      "year_read": 2026
+    },
+    {
+      "author": "Steven Erikson",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.5,
+          "Prose": 8.7
+        },
+        "Character": {
+          "Depth": 9.4,
+          "Emotional Impact": 9.3,
+          "Motivations": 8.5
+        },
+        "Story": {
+          "Action": 9.7,
+          "Ending": 9.4,
+          "Entertainment": 8.8,
+          "Plot": 9.1
+        },
+        "Theme": {
+          "Insights": 9.1,
+          "Thought-Provokingness": 9.5
+        },
+        "Worldbuilding": {
+          "Depth2": 9.9,
+          "Integration": 9.1,
+          "Originality": 9.7
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 5,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 3,
+      "tier": "S",
+      "title": "Memories of Ice",
+      "wa": 9.2099,
+      "words": 355000,
       "year_read": 2026
     },
     {
@@ -564,7 +564,7 @@
       "rank": 15,
       "series": "Standalone",
       "series_number": null,
-      "tier": "B",
+      "tier": "A",
       "title": "Frankenstein",
       "wa": 8.5048,
       "words": 72000,
@@ -685,6 +685,44 @@
       "year_read": 2026
     },
     {
+      "author": "Michael Ende",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.5,
+          "Prose": 8.8
+        },
+        "Character": {
+          "Depth": 8.7,
+          "Emotional Impact": 8.7,
+          "Motivations": 8.5
+        },
+        "Story": {
+          "Action": 6.5,
+          "Ending": 8.7,
+          "Entertainment": 8.2,
+          "Plot": 8.6
+        },
+        "Theme": {
+          "Insights": 8.8,
+          "Thought-Provokingness": 8.5
+        },
+        "Worldbuilding": {
+          "Depth2": 0.0,
+          "Integration": 0.0,
+          "Originality": 0.0
+        }
+      },
+      "genre": "Literary Fantasy",
+      "rank": 19,
+      "series": "Standalone",
+      "series_number": null,
+      "tier": "B",
+      "title": "Momo",
+      "wa": 8.1028,
+      "words": 100000,
+      "year_read": 2026
+    },
+    {
       "author": "Joe Abercrombie",
       "components": {
         "Aesthetics": {
@@ -713,51 +751,13 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 19,
+      "rank": 20,
       "series": "The First Law",
       "series_number": 3,
       "tier": "B",
       "title": "The Last Argument of Kings",
       "wa": 8.055,
       "words": 234100,
-      "year_read": 2026
-    },
-    {
-      "author": "Michael Ende",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.5,
-          "Prose": 8.8
-        },
-        "Character": {
-          "Depth": 8.4,
-          "Emotional Impact": 8.7,
-          "Motivations": 8.5
-        },
-        "Story": {
-          "Action": 6.5,
-          "Ending": 8.7,
-          "Entertainment": 8.2,
-          "Plot": 8.2
-        },
-        "Theme": {
-          "Insights": 8.6,
-          "Thought-Provokingness": 9.0
-        },
-        "Worldbuilding": {
-          "Depth2": 0.0,
-          "Integration": 0.0,
-          "Originality": 0.0
-        }
-      },
-      "genre": "Literary Fantasy",
-      "rank": 20,
-      "series": "Standalone",
-      "series_number": null,
-      "tier": "B",
-      "title": "Momo",
-      "wa": 8.0473,
-      "words": 100000,
       "year_read": 2026
     },
     {
@@ -1058,7 +1058,7 @@
       "rank": 28,
       "series": "Standalone",
       "series_number": null,
-      "tier": "C",
+      "tier": "B",
       "title": "The Hobbit",
       "wa": 7.8073,
       "words": 95000,
@@ -1179,6 +1179,44 @@
       "year_read": 2026
     },
     {
+      "author": "Dan Simmons",
+      "components": {
+        "Aesthetics": {
+          "Narration": 6.5,
+          "Prose": 7.5
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 7.4,
+          "Motivations": 6.8
+        },
+        "Story": {
+          "Action": 7.2,
+          "Ending": 8.5,
+          "Entertainment": 7.4,
+          "Plot": 7.8
+        },
+        "Theme": {
+          "Insights": 8.9,
+          "Thought-Provokingness": 8.7
+        },
+        "Worldbuilding": {
+          "Depth2": 8.5,
+          "Integration": 7.3,
+          "Originality": 7.7
+        }
+      },
+      "genre": "Science Fiction (Soft)",
+      "rank": 32,
+      "series": "Hyperion Cantos",
+      "series_number": 4,
+      "tier": "C",
+      "title": "The Rise of Endymion",
+      "wa": 7.7344,
+      "words": 250000,
+      "year_read": 2026
+    },
+    {
       "author": "Scott Lynch",
       "components": {
         "Aesthetics": {
@@ -1207,7 +1245,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 32,
+      "rank": 33,
       "series": "Gentleman Bastards",
       "series_number": 1,
       "tier": "C",
@@ -1245,7 +1283,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 33,
+      "rank": 34,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1283,7 +1321,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 34,
+      "rank": 35,
       "series": "Hyperion Cantos",
       "series_number": 3,
       "tier": "C",
@@ -1321,7 +1359,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 35,
+      "rank": 36,
       "series": "Dungeon Crawler Carl",
       "series_number": 8,
       "tier": "C",
@@ -1359,7 +1397,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 36,
+      "rank": 37,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1397,7 +1435,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 37,
+      "rank": 38,
       "series": "Dungeon Crawler Carl",
       "series_number": 6,
       "tier": "C",
@@ -1435,7 +1473,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 38,
+      "rank": 39,
       "series": "Dungeon Crawler Carl",
       "series_number": 4,
       "tier": "C",
@@ -1473,7 +1511,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 39,
+      "rank": 40,
       "series": "The Burning",
       "series_number": 2,
       "tier": "C",
@@ -1511,7 +1549,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 40,
+      "rank": 41,
       "series": "Dungeon Crawler Carl",
       "series_number": 3,
       "tier": "C",
@@ -1549,7 +1587,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 41,
+      "rank": 42,
       "series": "Dungeon Crawler Carl",
       "series_number": 2,
       "tier": "D",
@@ -1587,7 +1625,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 42,
+      "rank": 43,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -1625,7 +1663,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 43,
+      "rank": 44,
       "series": "Broken Earth",
       "series_number": 1,
       "tier": "D",
@@ -1663,7 +1701,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 44,
+      "rank": 45,
       "series": "The Burning",
       "series_number": 1,
       "tier": "D",
@@ -1701,7 +1739,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 45,
+      "rank": 46,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -1739,7 +1777,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 46,
+      "rank": 47,
       "series": "Gentleman Bastards",
       "series_number": 3,
       "tier": "D",
@@ -1777,7 +1815,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 47,
+      "rank": 48,
       "series": "Gentleman Bastards",
       "series_number": 2,
       "tier": "D",
@@ -1815,7 +1853,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 48,
+      "rank": 49,
       "series": "The Kingkiller Chronicles",
       "series_number": 1,
       "tier": "D",
@@ -1853,7 +1891,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 49,
+      "rank": 50,
       "series": "Dungeon Crawler Carl",
       "series_number": 1,
       "tier": "F",
@@ -1891,7 +1929,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 50,
+      "rank": 51,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 3,
       "tier": "F",
@@ -1929,7 +1967,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 51,
+      "rank": 52,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -1967,7 +2005,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 52,
+      "rank": 53,
       "series": "Ready Player One",
       "series_number": 1,
       "tier": "F",
@@ -2005,7 +2043,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 53,
+      "rank": 54,
       "series": "Ready Player One",
       "series_number": 2,
       "tier": "F",
@@ -2043,7 +2081,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 54,
+      "rank": 55,
       "series": "Ender's Shadow",
       "series_number": 6,
       "tier": "F",
@@ -2061,7 +2099,7 @@
     "Worldbuilding"
   ],
   "tier_counts": {
-    "A": 7,
+    "A": 8,
     "B": 13,
     "C": 13,
     "D": 8,

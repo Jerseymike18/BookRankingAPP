@@ -1,56 +1,56 @@
 {
   "currently_reading": {
+    "author": "N.K. Jemisin",
+    "category_avgs": {
+      "Aesthetics": 6.81,
+      "Character": 6.35,
+      "Story": 6.11,
+      "Theme": 7.42,
+      "Worldbuilding": 7.67
+    },
+    "genre": "Science Fiction (Soft)",
+    "has_prediction": true,
+    "rank": 110,
+    "series": "Broken Earth",
+    "series_number": 2,
+    "title": "The Obelisk Gate",
+    "total": 128,
+    "wa": 6.64
+  },
+  "last_read": {
     "author": "Dan Simmons",
     "category_avgs": {
-      "Aesthetics": 7.6,
-      "Character": 7.68,
-      "Story": 7.98,
-      "Theme": 8.01,
-      "Worldbuilding": 7.96
+      "Aesthetics": 7.12,
+      "Character": 7.1,
+      "Story": 7.74,
+      "Theme": 8.78,
+      "Worldbuilding": 8.08
     },
-    "genre": "Science Fiction (Hard)",
-    "has_prediction": true,
-    "rank": 54,
+    "genre": "Science Fiction (Soft)",
+    "has_prediction": false,
+    "rank": 65,
     "series": "Hyperion Cantos",
     "series_number": 4,
     "title": "The Rise of Endymion",
-    "total": 127,
-    "wa": 7.91
-  },
-  "last_read": {
-    "author": "Scott Lynch",
-    "category_avgs": {
-      "Aesthetics": 8.19,
-      "Character": 6.91,
-      "Story": 6.71,
-      "Theme": 6.33,
-      "Worldbuilding": 6.24
-    },
-    "genre": "Epic Fantasy",
-    "has_prediction": false,
-    "rank": 104,
-    "series": "Gentleman Bastards",
-    "series_number": 3,
-    "title": "The Republic of Thieves",
-    "total": 127,
-    "wa": 6.82
+    "total": 128,
+    "wa": 7.73
   },
   "reading_next": {
-    "author": "Guy Gavriel Kay",
+    "author": "N.K. Jemisin",
     "category_avgs": {
-      "Aesthetics": 8.54,
-      "Character": 8.52,
-      "Story": 8.39,
-      "Theme": 7.64,
-      "Worldbuilding": 6.79
+      "Aesthetics": 7.21,
+      "Character": 6.87,
+      "Story": 6.93,
+      "Theme": 7.72,
+      "Worldbuilding": 7.69
     },
-    "genre": "Literary Fantasy",
+    "genre": "Science Fiction (Soft)",
     "has_prediction": true,
-    "rank": 43,
-    "series": "The Sarantine Mosaic",
-    "series_number": 2,
-    "title": "Lord of Emperors",
-    "total": 127,
-    "wa": 8.17
+    "rank": 91,
+    "series": "Broken Earth",
+    "series_number": 3,
+    "title": "The Stone Sky",
+    "total": 128,
+    "wa": 7.16
   }
 }

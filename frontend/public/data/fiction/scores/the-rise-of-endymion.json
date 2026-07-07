@@ -1,0 +1,32 @@
+{
+  "author": "Dan Simmons",
+  "components": {
+    "Aesthetics": {
+      "Narration": 6.5,
+      "Prose": 7.5
+    },
+    "Character": {
+      "Depth": 7.2,
+      "Emotional Impact": 7.4,
+      "Motivations": 6.8
+    },
+    "Story": {
+      "Action": 7.2,
+      "Ending": 8.5,
+      "Entertainment": 7.4,
+      "Plot": 7.8
+    },
+    "Theme": {
+      "Insights": 8.9,
+      "Thought-Provokingness": 8.7
+    },
+    "Worldbuilding": {
+      "Depth2": 8.5,
+      "Integration": 7.3,
+      "Originality": 7.7
+    }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "The Rise of Endymion",
+  "wa": 7.7344
+}

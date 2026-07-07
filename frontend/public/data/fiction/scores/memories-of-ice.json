@@ -8,12 +8,12 @@
     "Character": {
       "Depth": 9.4,
       "Emotional Impact": 9.3,
-      "Motivations": 9.2
+      "Motivations": 8.5
     },
     "Story": {
       "Action": 9.7,
       "Ending": 9.4,
-      "Entertainment": 9.0,
+      "Entertainment": 8.8,
       "Plot": 9.1
     },
     "Theme": {
@@ -22,11 +22,11 @@
     },
     "Worldbuilding": {
       "Depth2": 9.9,
-      "Integration": 9.7,
+      "Integration": 9.1,
       "Originality": 9.7
     }
   },
   "genre": "Epic Fantasy",
   "title": "Memories of Ice",
-  "wa": 9.2741
+  "wa": 9.2099
 }

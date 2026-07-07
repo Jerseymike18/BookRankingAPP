@@ -1,10 +1,10 @@
 {
   "series": [
     {
-      "adjusted_wa": 9.228,
+      "adjusted_wa": 9.222,
       "author": "Steven Erikson",
-      "avg_total_average": 9.09,
-      "avg_wa": 9.03,
+      "avg_total_average": 9.08,
+      "avg_wa": 9.02,
       "books": 10,
       "genre": "Epic Fantasy",
       "series": "Malazan: Book of the Fallen",
@@ -21,16 +21,6 @@
       "tier": "S"
     },
     {
-      "adjusted_wa": 8.633,
-      "author": "Dan Simmons",
-      "avg_total_average": 8.65,
-      "avg_wa": 8.61,
-      "books": 3,
-      "genre": "Science Fiction (Hard)",
-      "series": "Hyperion Cantos",
-      "tier": "S"
-    },
-    {
       "adjusted_wa": 8.433,
       "author": "J.R.R. Tolkien",
       "avg_total_average": 8.67,
@@ -38,6 +28,16 @@
       "books": 3,
       "genre": "Epic Fantasy",
       "series": "Lord of the Rings",
+      "tier": "S"
+    },
+    {
+      "adjusted_wa": 8.428,
+      "author": "Dan Simmons",
+      "avg_total_average": 8.41,
+      "avg_wa": 8.39,
+      "books": 4,
+      "genre": "Science Fiction (Hard)",
+      "series": "Hyperion Cantos",
       "tier": "A"
     },
     {
