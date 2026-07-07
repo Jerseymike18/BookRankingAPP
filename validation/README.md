@@ -32,6 +32,7 @@ filters of the books DataFrame). Same DB + caches ⇒ byte-identical `…_folds.
 | `walkforward_report.md` | Human-readable summary (see below). Timestamp-free ⇒ byte-identical on re-run at the same commit. |
 | `walkforward_rolling_mae.json` | Per-fold WA abs-errors + trailing-window rolling MAE for each variant — the track-record-page series. |
 | `interval_coverage.md` | Served-interval coverage vs the honest folds: the removed `±1.645·resid_sd` band (31%, claimed 90%) vs the served conformal 80% band (81.4%). Includes a one-line repro. |
+| `series_features_eval.md` | Walk-forward evaluation of the **within-series** prediction signal (`series_signal.py`) — honest baseline vs +level / +trajectory / +both, on the active subset (≥1/≥2/≥3 prior in-series reads), per-genre, per-series, with calibration re-check. **Negative result: nothing shipped.** Regenerate with `python3 series_features_eval.py`. |
 
 ### Fold record (`…_folds.jsonl`)
 

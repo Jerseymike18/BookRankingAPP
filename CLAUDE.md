@@ -120,6 +120,26 @@ capped). It writes through `db_write.update_recommendation_scores` + `log_delta`
 `baseline_repredict:*`) and supports a dry-run. It calls the read-only engine; it never
 reimplements or mutates prediction math.
 
+## Series-trend signal (experiment — walk-forward-tested, NOT served)
+
+A within-series predictor was built and honestly evaluated: your scores for earlier volumes
+of a series predicting where the next lands. `series_signal.py` (a pure helper the served glue
+calls) implements three modes — **level** (series mean), **trajectory** (last volume + slope),
+**both** (OLS line at the target ordinal) — blended into the WA point estimate by a shrinkage
+weight that grows with the number of prior in-series reads. It is wired into
+`research_predict.correct_and_predict` behind **default-off, keyword-only params**
+(`series_mode=None`), draws only from the pool it's handed (leakage-safe), and reuses
+`views._NON_SERIES` so the `Standalone` sentinel is never treated as a series.
+
+**Result: no variant beat the walk-forward honest baseline (0.63 WA MAE) on the active subset,
+so nothing ships** — `series_mode` stays `None` everywhere and the served WA/CI/rank are
+byte-identical to before. The series *level* is already captured by the author pool (most
+series here are single-author; median series-vs-author gap 0.00 WA), and the *trajectory* adds
+noise at this library size. Full evaluation: `series_features_eval.py` →
+`validation/series_features_eval.md`. **Don't re-attempt blindly** — the only live lead
+(level concentrates on Epic Fantasy / multi-series authors) needs more data + a proper *nested*
+CV tune of `K_SERIES`, not a re-slice of the same walk-forward set (that's fit-to-test).
+
 ## Security posture
 
 This app is **localhost single-user only — no auth of any kind.**
