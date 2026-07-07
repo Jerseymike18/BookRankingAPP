@@ -18934,6 +18934,46 @@
       "wa_high": 7.0302,
       "wa_low": 4.3424,
       "words": 68000
+    },
+    {
+      "author": "Ken Follett",
+      "blurb": "A doorstop of a historical epic and the book that made Follett a household name, Pillars of the Earth chronicles the decades-long struggle to build a cathedral in twelfth-century England, braiding together masons, monks, nobles, and outlaws across a tapestry of ambition, faith, and violence. Closest analog: Sailing to Sarantium for its loving obsession with the craft and politics of raising a great sacred edifice amid empire and intrigue, and The Lions of Al-Rassan for its sweeping medieval canvas where personal loyalties collide with clashing powers. A meditation on how ordinary hands—chisels, ledgers, prayers, and knives—shape monuments that outlast the ambitions and cruelties that birthed them. Confidence caveat: Prose (predicted 6.3) is highest-risk—Follett writes brisk, functional, almost commercial sentences that may grate against your Kay/Dostoevsky palate, so real experience could land anywhere from 5.4 to 6.8.",
+      "category_avgs": {
+        "Aesthetics": 6.4075,
+        "Character": 7.1033,
+        "Story": 7.9695,
+        "Theme": 6.5771,
+        "Worldbuilding": 0.0
+      },
+      "components": {
+        "Action": 7.51,
+        "Depth": 6.89,
+        "Depth2": 7.7,
+        "Emotional Impact": 7.58,
+        "Ending": 7.88,
+        "Entertainment": 8.33,
+        "Insights": 6.48,
+        "Integration": 8.23,
+        "Motivations": 6.84,
+        "Narration": 6.57,
+        "Originality": 6.93,
+        "Plot": 8.09,
+        "Prose": 6.31,
+        "Thought-Provokingness": 6.65
+      },
+      "genre": "Historical Fiction",
+      "interval_label": "genre only",
+      "interval_stale": false,
+      "keywords": "historical fiction, medieval, epic, cathedral-building, multi-pov, ambition, sprawling, page-turner, generational, twelfth-century",
+      "predicted_rank": 85,
+      "series": "Kingsbridge",
+      "series_number": 1,
+      "title": "Pillars of the Earth",
+      "upside": 7.923,
+      "wa": 7.3183,
+      "wa_high": 8.6622,
+      "wa_low": 5.9744,
+      "words": 400000
     }
   ]
 }
