@@ -72,6 +72,27 @@ averages, using weights in the `genre_weights` and `component_weights` tables. W
 everything sorts by. **Total Average** is the unweighted mean of the five category averages —
 used for tier bands and series aggregation.
 
+## Prediction intervals (served) — the conformal 80% band, not `resid_sd`
+
+The interval shown on the Predict and Read-queue pages (and exported to the public
+snapshot) is the **density-bucketed conformal 80% band**: `intervals.py` maps a book's
+same-author analog count to an empirical half-width from `calibration/residuals.json`
+(built by `validate_engine.py --write-residuals`). It is walk-forward-validated at
+**81.4%** coverage on the honest error set (`validation/interval_coverage.md`), widens
+as the analog pool thins, and is omitted entirely — never invented — when no residual
+table is loaded.
+
+It is **not** `±1.645·resid_sd`. `resid_sd` is the residual of the near-deterministic
+WA-from-category-averages regression (R²≈0.99) — a fit diagnostic, not an unread-book
+prediction interval; that band covered only ~31% of honest errors while claiming 90%.
+`resid_sd` is retained **only** as that regression diagnostic (calibration page; the
+`repredict_on_add` noise-floor gate), never as a served interval.
+
+- **Coverage is 80% by choice** (owner decision, 2026-07-07): keep the honest,
+  well-calibrated 80% band rather than re-inflate to a nominal 90%.
+- **Regression guard:** never reintroduce a `resid_sd`-derived "90%/95% CI" into any
+  served response, page, or LLM prompt — the conformal band is the only served interval.
+
 ## LLM model usage
 
 - **Grounded research** (14-component rubric scoring, the calibrated path): **`claude-opus-4-8`**.

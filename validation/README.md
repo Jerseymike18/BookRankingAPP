@@ -31,6 +31,7 @@ filters of the books DataFrame). Same DB + caches ⇒ byte-identical `…_folds.
 | `walkforward_meta.json` | Run provenance: git head, engine hash, burn-in, counts, the **leakage inventory**, caveats, active correction version. Carries a wall-clock timestamp (the only volatile field). |
 | `walkforward_report.md` | Human-readable summary (see below). Timestamp-free ⇒ byte-identical on re-run at the same commit. |
 | `walkforward_rolling_mae.json` | Per-fold WA abs-errors + trailing-window rolling MAE for each variant — the track-record-page series. |
+| `interval_coverage.md` | Served-interval coverage vs the honest folds: the removed `±1.645·resid_sd` band (31%, claimed 90%) vs the served conformal 80% band (81.4%). Includes a one-line repro. |
 
 ### Fold record (`…_folds.jsonl`)
 
@@ -103,7 +104,8 @@ isolates how much the taste-correction adds.
    near-perfect WA-from-category-averages regression, **not** a real prediction interval — so
    its coverage is far under nominal. The report separately scores the **calibrated served
    conformal interval** (`calibration/residuals.json`, density-bucketed by author analogs),
-   which covers the honest walk-forward errors at ≈80% — the real calibration story.
+   which covers the honest walk-forward errors at ≈80% (81.4%; see `interval_coverage.md`) —
+   the real calibration story, and now the *only* interval any served surface shows.
 5. **Ordering source = the Timeline sheet.** Read order comes from `BookRankingsNew.xlsx`
    Timeline (fiction rows only, renumbered after dropping interleaved nonfiction). Rated books
    **absent** from the Timeline (recent additions with no recorded order) are **placed last**
