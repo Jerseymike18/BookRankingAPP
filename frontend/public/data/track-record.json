@@ -1,0 +1,2484 @@
+{
+  "available": true,
+  "caveats": [
+    "Chronological walk-forward: every book is predicted using only the books read before it (Timeline order), so no future information leaks into a prediction. This is the honest “what was knowable then” accuracy, not a leave-one-out fit that trains on future books.",
+    "The 'honest' variant is shown. A 'leaky' variant that fits its correction on the full library (today's config) scores marginally better but saw future books, so it is excluded here.",
+    "The grounded-research vectors embed post-publication reception (reviews, reputation) — an accepted hindsight caveat: the harness measures the engine's math, holding the researched inputs fixed."
+  ],
+  "folds": [
+    {
+      "abs_error": 1.0046,
+      "actual_wa": 7.7291,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 15,
+      "position": 16,
+      "predicted_wa": 6.7245,
+      "series": "Red Rising",
+      "series_number": 1,
+      "signed_error": -1.0046,
+      "title": "Red Rising",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.6703,
+      "actual_wa": 8.5478,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 16,
+      "position": 17,
+      "predicted_wa": 7.8774,
+      "series": "Red Rising",
+      "series_number": 2,
+      "signed_error": -0.6703,
+      "title": "Golden Son",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1576,
+      "actual_wa": 8.0326,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 17,
+      "position": 18,
+      "predicted_wa": 7.875,
+      "series": "Red Rising",
+      "series_number": 3,
+      "signed_error": -0.1576,
+      "title": "Morning Star",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2322,
+      "actual_wa": 7.8057,
+      "author": "James Islington",
+      "genre": "Epic Fantasy",
+      "pool_size": 18,
+      "position": 19,
+      "predicted_wa": 8.0379,
+      "series": "The Hierarchy",
+      "series_number": 1,
+      "signed_error": 0.2322,
+      "title": "The Will of the Many",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3418,
+      "actual_wa": 7.4474,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 19,
+      "position": 20,
+      "predicted_wa": 7.1056,
+      "series": "Red Rising",
+      "series_number": 4,
+      "signed_error": -0.3418,
+      "title": "Iron Gold",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3716,
+      "actual_wa": 8.8803,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 20,
+      "position": 21,
+      "predicted_wa": 8.5087,
+      "series": "Red Rising",
+      "series_number": 5,
+      "signed_error": -0.3716,
+      "title": "Dark Age",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.053,
+      "actual_wa": 8.5439,
+      "author": "Pierce Brown",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 21,
+      "position": 22,
+      "predicted_wa": 8.491,
+      "series": "Red Rising",
+      "series_number": 6,
+      "signed_error": -0.053,
+      "title": "Lightbringer",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3847,
+      "actual_wa": 7.6441,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 22,
+      "position": 23,
+      "predicted_wa": 8.0288,
+      "series": "Mistborn Era 1",
+      "series_number": 1,
+      "signed_error": 0.3847,
+      "title": "The Final Empire",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1579,
+      "actual_wa": 7.1314,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 23,
+      "position": 24,
+      "predicted_wa": 6.9735,
+      "series": "Mistborn Era 1",
+      "series_number": 2,
+      "signed_error": -0.1579,
+      "title": "The Well of Ascension",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.9765,
+      "actual_wa": 7.6332,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 24,
+      "position": 25,
+      "predicted_wa": 8.6097,
+      "series": "Mistborn Era 1",
+      "series_number": 3,
+      "signed_error": 0.9765,
+      "title": "The Hero of Ages",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0147,
+      "actual_wa": 8.2609,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 25,
+      "position": 26,
+      "predicted_wa": 8.2462,
+      "series": "The Stormlight Archive",
+      "series_number": 1,
+      "signed_error": -0.0147,
+      "title": "The Way of Kings",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.4251,
+      "actual_wa": 8.7536,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 26,
+      "position": 27,
+      "predicted_wa": 8.3285,
+      "series": "The Stormlight Archive",
+      "series_number": 2,
+      "signed_error": -0.4251,
+      "title": "Words of Radiance",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2537,
+      "actual_wa": 7.2108,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 27,
+      "position": 28,
+      "predicted_wa": 7.4645,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.2537,
+      "title": "Warbreaker",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.1489,
+      "actual_wa": 6.0888,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 28,
+      "position": 29,
+      "predicted_wa": 7.2377,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 1.1489,
+      "title": "Edgedancer",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.5541,
+      "actual_wa": 7.1259,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 29,
+      "position": 30,
+      "predicted_wa": 7.68,
+      "series": "Sun Eater",
+      "series_number": 1,
+      "signed_error": 0.5541,
+      "title": "Empire of Silence",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3094,
+      "actual_wa": 8.5504,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 30,
+      "position": 31,
+      "predicted_wa": 8.241,
+      "series": "The Stormlight Archive",
+      "series_number": 3,
+      "signed_error": -0.3094,
+      "title": "Oathbringer",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 3.2252,
+      "actual_wa": 4.3985,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 31,
+      "position": 32,
+      "predicted_wa": 7.6237,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 3.2252,
+      "title": "Mistborn: Secret History",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.913,
+      "actual_wa": 7.1322,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 32,
+      "position": 33,
+      "predicted_wa": 6.2192,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.913,
+      "title": "Elantris",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.1153,
+      "actual_wa": 6.1984,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 33,
+      "position": 34,
+      "predicted_wa": 7.3137,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 1.1153,
+      "title": "The Emperor's Soul",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.8279,
+      "actual_wa": 5.0699,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 34,
+      "position": 35,
+      "predicted_wa": 6.8978,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 1.8279,
+      "title": "Shadows for Silence",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.4628,
+      "actual_wa": 8.4732,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 35,
+      "position": 36,
+      "predicted_wa": 7.0104,
+      "series": "The Stormlight Archive",
+      "series_number": 4,
+      "signed_error": -1.4628,
+      "title": "Rhythm of War",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.0687,
+      "actual_wa": 5.8954,
+      "author": "Brandon Sanderson",
+      "genre": "Literary Fantasy",
+      "pool_size": 36,
+      "position": 37,
+      "predicted_wa": 6.9641,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 1.0687,
+      "title": "Dawnshard",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.0469,
+      "actual_wa": 7.4738,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 37,
+      "position": 38,
+      "predicted_wa": 6.4269,
+      "series": "The Wheel of Time",
+      "series_number": null,
+      "signed_error": -1.0469,
+      "title": "New Spring",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1718,
+      "actual_wa": 7.3201,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 38,
+      "position": 39,
+      "predicted_wa": 7.4919,
+      "series": "The Wheel of Time",
+      "series_number": 1,
+      "signed_error": 0.1718,
+      "title": "The Eye of the World",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.1858,
+      "actual_wa": 8.9208,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 39,
+      "position": 40,
+      "predicted_wa": 7.735,
+      "series": "The Wheel of Time",
+      "series_number": 2,
+      "signed_error": -1.1858,
+      "title": "The Great Hunt",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.811,
+      "actual_wa": 8.4222,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 40,
+      "position": 41,
+      "predicted_wa": 7.6112,
+      "series": "The Wheel of Time",
+      "series_number": 3,
+      "signed_error": -0.811,
+      "title": "The Dragon Reborn",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3706,
+      "actual_wa": 6.6949,
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "pool_size": 41,
+      "position": 42,
+      "predicted_wa": 7.0655,
+      "series": "Memory, Sorrow, Thorn",
+      "series_number": 1,
+      "signed_error": 0.3706,
+      "title": "The Dragonbone Chair",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.8322,
+      "actual_wa": 6.9363,
+      "author": "Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 42,
+      "position": 43,
+      "predicted_wa": 7.7685,
+      "series": "The Stormlight Archive",
+      "series_number": 5,
+      "signed_error": 0.8322,
+      "title": "Wind and Truth",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.7786,
+      "actual_wa": 8.5723,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 43,
+      "position": 44,
+      "predicted_wa": 9.3509,
+      "series": "The Wheel of Time",
+      "series_number": 4,
+      "signed_error": 0.7786,
+      "title": "The Shadow Rising",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0814,
+      "actual_wa": 8.3037,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 44,
+      "position": 45,
+      "predicted_wa": 8.2224,
+      "series": "The Wheel of Time",
+      "series_number": 5,
+      "signed_error": -0.0814,
+      "title": "The Fires of Heaven",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3698,
+      "actual_wa": 8.8556,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 45,
+      "position": 46,
+      "predicted_wa": 8.4857,
+      "series": "The Wheel of Time",
+      "series_number": 6,
+      "signed_error": -0.3698,
+      "title": "Lord of Chaos",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0532,
+      "actual_wa": 8.4537,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 46,
+      "position": 47,
+      "predicted_wa": 8.4005,
+      "series": "Ender's Game",
+      "series_number": 1,
+      "signed_error": -0.0532,
+      "title": "Ender's Game",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.8273,
+      "actual_wa": 9.348,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 47,
+      "position": 48,
+      "predicted_wa": 8.5207,
+      "series": "Ender's Game",
+      "series_number": 2,
+      "signed_error": -0.8273,
+      "title": "Speaker For The Dead",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.2176,
+      "actual_wa": 6.9811,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 48,
+      "position": 49,
+      "predicted_wa": 8.1987,
+      "series": "Ender's Game",
+      "series_number": 3,
+      "signed_error": 1.2176,
+      "title": "Xenocide",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.482,
+      "actual_wa": 6.982,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 49,
+      "position": 50,
+      "predicted_wa": 7.464,
+      "series": "Ender's Game",
+      "series_number": 4,
+      "signed_error": 0.482,
+      "title": "Children of the Mind",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2224,
+      "actual_wa": 7.6291,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 50,
+      "position": 51,
+      "predicted_wa": 7.8515,
+      "series": "The Wheel of Time",
+      "series_number": 7,
+      "signed_error": 0.2224,
+      "title": "A Crown of Swords",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3428,
+      "actual_wa": 7.6406,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 51,
+      "position": 52,
+      "predicted_wa": 7.2978,
+      "series": "The Wheel of Time",
+      "series_number": 8,
+      "signed_error": -0.3428,
+      "title": "The Path of Daggers",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2599,
+      "actual_wa": 8.0017,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 52,
+      "position": 53,
+      "predicted_wa": 7.7418,
+      "series": "The Wheel of Time",
+      "series_number": 9,
+      "signed_error": -0.2599,
+      "title": "Winter's Heart",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.9957,
+      "actual_wa": 7.5442,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 53,
+      "position": 54,
+      "predicted_wa": 6.5486,
+      "series": "The Wheel of Time",
+      "series_number": 10,
+      "signed_error": -0.9957,
+      "title": "Crossroads of Twilight",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.9321,
+      "actual_wa": 9.329,
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "pool_size": 54,
+      "position": 55,
+      "predicted_wa": 7.397,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -1.9321,
+      "title": "The Neverending Story",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2225,
+      "actual_wa": 8.8054,
+      "author": "Robert Jordan",
+      "genre": "Epic Fantasy",
+      "pool_size": 55,
+      "position": 56,
+      "predicted_wa": 8.5829,
+      "series": "The Wheel of Time",
+      "series_number": 11,
+      "signed_error": -0.2225,
+      "title": "Knife of Dreams",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.0108,
+      "actual_wa": 9.0211,
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 56,
+      "position": 57,
+      "predicted_wa": 8.0104,
+      "series": "The Wheel of Time",
+      "series_number": 12,
+      "signed_error": -1.0108,
+      "title": "The Gathering Storm",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.6012,
+      "actual_wa": 8.1969,
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 57,
+      "position": 58,
+      "predicted_wa": 8.7981,
+      "series": "The Wheel of Time",
+      "series_number": 13,
+      "signed_error": 0.6012,
+      "title": "Towers of Midnight",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.2326,
+      "actual_wa": 8.8434,
+      "author": "Guy Gavriel Kay",
+      "genre": "Literary Fantasy",
+      "pool_size": 58,
+      "position": 59,
+      "predicted_wa": 7.6109,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -1.2326,
+      "title": "The Lions of Al-Rassan",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 1.5352,
+      "actual_wa": 5.9618,
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "pool_size": 59,
+      "position": 60,
+      "predicted_wa": 7.497,
+      "series": "Thrawn Trilogy",
+      "series_number": 1,
+      "signed_error": 1.5352,
+      "title": "Heir to the Empire",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0934,
+      "actual_wa": 6.5342,
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "pool_size": 60,
+      "position": 61,
+      "predicted_wa": 6.4407,
+      "series": "Thrawn Trilogy",
+      "series_number": 2,
+      "signed_error": -0.0934,
+      "title": "Dark Force Rising",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.9691,
+      "actual_wa": 5.3671,
+      "author": "Timothy Zahn",
+      "genre": "Science Fantasy",
+      "pool_size": 61,
+      "position": 62,
+      "predicted_wa": 6.3361,
+      "series": "Thrawn Trilogy",
+      "series_number": 3,
+      "signed_error": 0.9691,
+      "title": "The Last Command",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.5135,
+      "actual_wa": 9.1595,
+      "author": "Robert Jordan & Brandon Sanderson",
+      "genre": "Epic Fantasy",
+      "pool_size": 62,
+      "position": 63,
+      "predicted_wa": 8.646,
+      "series": "The Wheel of Time",
+      "series_number": 14,
+      "signed_error": -0.5135,
+      "title": "A Memory of Light",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 2.8643,
+      "actual_wa": 4.5388,
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "pool_size": 63,
+      "position": 64,
+      "predicted_wa": 7.403,
+      "series": "Memory, Sorrow, Thorn",
+      "series_number": 2,
+      "signed_error": 2.8643,
+      "title": "The Stone of Farewell",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.778,
+      "actual_wa": 7.2456,
+      "author": "Tom Stoppard",
+      "genre": "Classical Drama",
+      "pool_size": 64,
+      "position": 65,
+      "predicted_wa": 8.0236,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.778,
+      "title": "Rosencrantz and Guildenstern are Dead",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2545,
+      "actual_wa": 7.7845,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 65,
+      "position": 66,
+      "predicted_wa": 8.0391,
+      "series": "Ender's Shadow",
+      "series_number": 1,
+      "signed_error": 0.2545,
+      "title": "Ender's Shadow",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0445,
+      "actual_wa": 6.3431,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 66,
+      "position": 67,
+      "predicted_wa": 6.3876,
+      "series": "Ender's Shadow",
+      "series_number": 5,
+      "signed_error": 0.0445,
+      "title": "Shadows in Flight",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 2.6775,
+      "actual_wa": 5.1542,
+      "author": "Emily St. John Mandel",
+      "genre": "Speculative Literary Fiction",
+      "pool_size": 67,
+      "position": 68,
+      "predicted_wa": 7.8317,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 2.6775,
+      "title": "Station 11",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.3458,
+      "actual_wa": 7.0636,
+      "author": "Shusaku Endo",
+      "genre": "Literary Fiction",
+      "pool_size": 68,
+      "position": 69,
+      "predicted_wa": 7.4095,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.3458,
+      "title": "Silence",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.5494,
+      "actual_wa": 8.0872,
+      "author": "Homer",
+      "genre": "Classical Epic",
+      "pool_size": 69,
+      "position": 70,
+      "predicted_wa": 8.6367,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.5494,
+      "title": "The Odyssey",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.8308,
+      "actual_wa": 7.4847,
+      "author": "Aeschylus",
+      "genre": "Classical Drama",
+      "pool_size": 70,
+      "position": 71,
+      "predicted_wa": 8.3155,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.8308,
+      "title": "The Oresteia",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1565,
+      "actual_wa": 7.7048,
+      "author": "Guy Gavriel Kay",
+      "genre": "Literary Fantasy",
+      "pool_size": 71,
+      "position": 72,
+      "predicted_wa": 7.8613,
+      "series": "Sarantine Mosaic",
+      "series_number": 1,
+      "signed_error": 0.1565,
+      "title": "Sailing to Sarantium",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1649,
+      "actual_wa": 8.4103,
+      "author": "James Islington",
+      "genre": "Epic Fantasy",
+      "pool_size": 72,
+      "position": 73,
+      "predicted_wa": 8.2454,
+      "series": "The Hierarchy",
+      "series_number": 2,
+      "signed_error": -0.1649,
+      "title": "The Strength of the Few",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1438,
+      "actual_wa": 7.6313,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 73,
+      "position": 74,
+      "predicted_wa": 7.4874,
+      "series": "Sun Eater",
+      "series_number": 2,
+      "signed_error": -0.1438,
+      "title": "Howling Dark",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.9583,
+      "actual_wa": 7.0987,
+      "author": "Dante Alighieri",
+      "genre": "Classical Epic",
+      "pool_size": 74,
+      "position": 75,
+      "predicted_wa": 8.0571,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.9583,
+      "title": "Inferno",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.7658,
+      "actual_wa": 8.3697,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 75,
+      "position": 76,
+      "predicted_wa": 7.6039,
+      "series": "Sun Eater",
+      "series_number": 3,
+      "signed_error": -0.7658,
+      "title": "Demon in White",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.177,
+      "actual_wa": 7.8902,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 76,
+      "position": 77,
+      "predicted_wa": 8.0672,
+      "series": "Sun Eater",
+      "series_number": 4,
+      "signed_error": 0.177,
+      "title": "Kingdoms of Death",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0415,
+      "actual_wa": 7.9303,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 77,
+      "position": 78,
+      "predicted_wa": 7.9718,
+      "series": "Sun Eater",
+      "series_number": 5,
+      "signed_error": 0.0415,
+      "title": "Ashes of Man",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.2813,
+      "actual_wa": 8.1787,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 78,
+      "position": 79,
+      "predicted_wa": 7.8973,
+      "series": "Sun Eater",
+      "series_number": 6,
+      "signed_error": -0.2813,
+      "title": "Disquiet Gods",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.1908,
+      "actual_wa": 7.4365,
+      "author": "Christopher Ruocchio",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 79,
+      "position": 80,
+      "predicted_wa": 7.6273,
+      "series": "Sun Eater",
+      "series_number": 7,
+      "signed_error": 0.1908,
+      "title": "Shadows Upon Time",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 0.0336,
+      "actual_wa": 7.2773,
+      "author": "Andy Weir",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 80,
+      "position": 81,
+      "predicted_wa": 7.3109,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.0336,
+      "title": "Project Hail Mary",
+      "year_read": 2025
+    },
+    {
+      "abs_error": 3.914,
+      "actual_wa": 2.2993,
+      "author": "Orson Scott Card",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 81,
+      "position": 82,
+      "predicted_wa": 6.2134,
+      "series": "Ender's Shadow",
+      "series_number": 6,
+      "signed_error": 3.914,
+      "title": "The Last Shadow",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.3997,
+      "actual_wa": 6.2101,
+      "author": "Tad Williams",
+      "genre": "Epic Fantasy",
+      "pool_size": 82,
+      "position": 83,
+      "predicted_wa": 6.6098,
+      "series": "Memory, Sorrow, Thorn",
+      "series_number": 3,
+      "signed_error": 0.3997,
+      "title": "To Green Angel Tower",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.0072,
+      "actual_wa": 5.9099,
+      "author": "Alan Lightman",
+      "genre": "Speculative Literary Fiction",
+      "pool_size": 83,
+      "position": 84,
+      "predicted_wa": 6.917,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 1.0072,
+      "title": "Einstein's Dreams",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.3624,
+      "actual_wa": 8.2108,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 84,
+      "position": 85,
+      "predicted_wa": 7.8484,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 1,
+      "signed_error": -0.3624,
+      "title": "Gardens of the Moon",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.061,
+      "actual_wa": 9.3233,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 85,
+      "position": 86,
+      "predicted_wa": 9.3843,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 2,
+      "signed_error": 0.061,
+      "title": "Deadhouse Gates",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.257,
+      "actual_wa": 9.2099,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 86,
+      "position": 87,
+      "predicted_wa": 9.4669,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 3,
+      "signed_error": 0.257,
+      "title": "Memories of Ice",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1067,
+      "actual_wa": 6.863,
+      "author": "Arthur C. Clarke",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 87,
+      "position": 88,
+      "predicted_wa": 6.9697,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.1067,
+      "title": "Rendezvous with Rama",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.4296,
+      "actual_wa": 8.3097,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 88,
+      "position": 89,
+      "predicted_wa": 8.7393,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 4,
+      "signed_error": 0.4296,
+      "title": "House of Chains",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0437,
+      "actual_wa": 8.9341,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 89,
+      "position": 90,
+      "predicted_wa": 8.8904,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 5,
+      "signed_error": -0.0437,
+      "title": "Midnight Tides",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.3732,
+      "actual_wa": 4.5092,
+      "author": "Ernest Cline",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 90,
+      "position": 91,
+      "predicted_wa": 5.8824,
+      "series": "Ready Player One",
+      "series_number": 1,
+      "signed_error": 1.3732,
+      "title": "Ready Player One",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.7907,
+      "actual_wa": 8.5048,
+      "author": "Mary Shelley",
+      "genre": "Gothic Fiction",
+      "pool_size": 91,
+      "position": 92,
+      "predicted_wa": 7.7141,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.7907,
+      "title": "Frankenstein",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.3223,
+      "actual_wa": 7.8072,
+      "author": "Susanna Clarke",
+      "genre": "Literary Fantasy",
+      "pool_size": 92,
+      "position": 93,
+      "predicted_wa": 7.4849,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.3223,
+      "title": "Piranesi",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1678,
+      "actual_wa": 9.1751,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 93,
+      "position": 94,
+      "predicted_wa": 9.3428,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 6,
+      "signed_error": 0.1678,
+      "title": "The Bonehunters",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1006,
+      "actual_wa": 7.8718,
+      "author": "Oscar Wilde",
+      "genre": "Gothic Fiction",
+      "pool_size": 94,
+      "position": 95,
+      "predicted_wa": 7.9724,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.1006,
+      "title": "Picture of Dorian Gray",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0302,
+      "actual_wa": 8.7443,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 95,
+      "position": 96,
+      "predicted_wa": 8.7141,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 7,
+      "signed_error": -0.0302,
+      "title": "Reaper's Gale",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1052,
+      "actual_wa": 7.9686,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 96,
+      "position": 97,
+      "predicted_wa": 7.8635,
+      "series": "The First Law",
+      "series_number": 1,
+      "signed_error": -0.1052,
+      "title": "The Blade Itself",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0576,
+      "actual_wa": 8.1512,
+      "author": "Leo Tolstoy",
+      "genre": "Russian Literature",
+      "pool_size": 97,
+      "position": 98,
+      "predicted_wa": 8.0936,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.0576,
+      "title": "The Death of Ivan Ilyich",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.2216,
+      "actual_wa": 9.7877,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 98,
+      "position": 99,
+      "predicted_wa": 8.5661,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 8,
+      "signed_error": -1.2216,
+      "title": "Toll the Hounds",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0472,
+      "actual_wa": 7.8266,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 99,
+      "position": 100,
+      "predicted_wa": 7.8737,
+      "series": "The First Law",
+      "series_number": 2,
+      "signed_error": 0.0472,
+      "title": "Before They Are Hanged",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.3756,
+      "actual_wa": 8.1028,
+      "author": "Michael Ende",
+      "genre": "Literary Fantasy",
+      "pool_size": 100,
+      "position": 101,
+      "predicted_wa": 8.4784,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.3756,
+      "title": "Momo",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.5694,
+      "actual_wa": 6.8666,
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "pool_size": 101,
+      "position": 102,
+      "predicted_wa": 7.436,
+      "series": "The Burning",
+      "series_number": 1,
+      "signed_error": 0.5694,
+      "title": "The Rage of Dragons",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0034,
+      "actual_wa": 7.2282,
+      "author": "Evan Winter",
+      "genre": "Epic Fantasy",
+      "pool_size": 102,
+      "position": 103,
+      "predicted_wa": 7.2248,
+      "series": "The Burning",
+      "series_number": 2,
+      "signed_error": -0.0034,
+      "title": "The Fires of Vengeance",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.7511,
+      "actual_wa": 7.7503,
+      "author": "Peter Watts",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 103,
+      "position": 104,
+      "predicted_wa": 8.5014,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.7511,
+      "title": "Blindsight",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.1612,
+      "actual_wa": 8.5822,
+      "author": "Christopher Buehlman",
+      "genre": "Literary Fantasy",
+      "pool_size": 104,
+      "position": 105,
+      "predicted_wa": 7.421,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -1.1612,
+      "title": "Between Two Fires",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.6534,
+      "actual_wa": 8.055,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 105,
+      "position": 106,
+      "predicted_wa": 8.7085,
+      "series": "The First Law",
+      "series_number": 3,
+      "signed_error": 0.6534,
+      "title": "The Last Argument of Kings",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.008,
+      "actual_wa": 7.8299,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 106,
+      "position": 107,
+      "predicted_wa": 7.8219,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.008,
+      "title": "Best Served Cold",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.1482,
+      "actual_wa": 9.0002,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 107,
+      "position": 108,
+      "predicted_wa": 7.852,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -1.1482,
+      "title": "The Heroes",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.7,
+      "actual_wa": 6.6805,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 108,
+      "position": 109,
+      "predicted_wa": 7.3805,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 1,
+      "signed_error": 0.7,
+      "title": "Dungeon Crawler Carl",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.4413,
+      "actual_wa": 7.5829,
+      "author": "Joe Abercrombie",
+      "genre": "Epic Fantasy",
+      "pool_size": 109,
+      "position": 110,
+      "predicted_wa": 8.0242,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.4413,
+      "title": "Red Country",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.8926,
+      "actual_wa": 6.6864,
+      "author": "Patrick Rothfuss",
+      "genre": "Epic Fantasy",
+      "pool_size": 110,
+      "position": 111,
+      "predicted_wa": 7.579,
+      "series": "The Kingkiller Chronicles",
+      "series_number": 1,
+      "signed_error": 0.8926,
+      "title": "The Name of the Wind",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.7678,
+      "actual_wa": 7.4714,
+      "author": "qntm",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 111,
+      "position": 112,
+      "predicted_wa": 8.2391,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": 0.7678,
+      "title": "There Is No Antimemetics Division",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1726,
+      "actual_wa": 7.1209,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 112,
+      "position": 113,
+      "predicted_wa": 6.9483,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 2,
+      "signed_error": -0.1726,
+      "title": "Carl's Doomsday Scenario",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.6905,
+      "actual_wa": 7.2217,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 113,
+      "position": 114,
+      "predicted_wa": 6.5311,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 3,
+      "signed_error": -0.6905,
+      "title": "The Dungeon Anarchist's Cookbook",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 1.8015,
+      "actual_wa": 6.9027,
+      "author": "N.K. Jemisin",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 114,
+      "position": 115,
+      "predicted_wa": 8.7043,
+      "series": "Broken Earth",
+      "series_number": 1,
+      "signed_error": 1.8015,
+      "title": "The Fifth Season",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.2279,
+      "actual_wa": 7.3239,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 115,
+      "position": 116,
+      "predicted_wa": 7.0959,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 4,
+      "signed_error": -0.2279,
+      "title": "The Gate of the Feral Gods",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.6289,
+      "actual_wa": 7.7646,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 116,
+      "position": 117,
+      "predicted_wa": 7.1357,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 5,
+      "signed_error": -0.6289,
+      "title": "The Butcher's Masquerade",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.2451,
+      "actual_wa": 7.4396,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 117,
+      "position": 118,
+      "predicted_wa": 7.1944,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 6,
+      "signed_error": -0.2451,
+      "title": "The Eye of the Bedlam Bride",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.9999,
+      "actual_wa": 7.886,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 118,
+      "position": 119,
+      "predicted_wa": 6.8861,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 7,
+      "signed_error": -0.9999,
+      "title": "This Inevitable Ruin",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.913,
+      "actual_wa": 8.9677,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 119,
+      "position": 120,
+      "predicted_wa": 8.0547,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 9,
+      "signed_error": -0.913,
+      "title": "Dust of Dreams",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0409,
+      "actual_wa": 9.5582,
+      "author": "Steven Erikson",
+      "genre": "Epic Fantasy",
+      "pool_size": 120,
+      "position": 121,
+      "predicted_wa": 9.5174,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 10,
+      "signed_error": -0.0409,
+      "title": "The Crippled God",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.2532,
+      "actual_wa": 7.4715,
+      "author": "Matt Dinniman",
+      "genre": "Science Fantasy",
+      "pool_size": 121,
+      "position": 122,
+      "predicted_wa": 7.2183,
+      "series": "Dungeon Crawler Carl",
+      "series_number": 8,
+      "signed_error": -0.2532,
+      "title": "A Parade of Horribles",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0363,
+      "actual_wa": 7.8073,
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "pool_size": 122,
+      "position": 123,
+      "predicted_wa": 7.771,
+      "series": "Standalone",
+      "series_number": null,
+      "signed_error": -0.0363,
+      "title": "The Hobbit",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1214,
+      "actual_wa": 7.9128,
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "pool_size": 123,
+      "position": 124,
+      "predicted_wa": 7.7914,
+      "series": "Lord of the Rings",
+      "series_number": 1,
+      "signed_error": -0.1214,
+      "title": "The Fellowship of the Ring",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.5226,
+      "actual_wa": 8.664,
+      "author": "J.R.R. Tolkien",
+      "genre": "Epic Fantasy",
+      "pool_size": 124,
+      "position": 125,
+      "predicted_wa": 8.1414,
+      "series": "Lord of the Rings",
+      "series_number": 2,
+      "signed_error": -0.5226,
+      "title": "The Two Towers",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1588,
+      "actual_wa": 7.5731,
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 125,
+      "position": 126,
+      "predicted_wa": 7.7319,
+      "series": "Hyperion Cantos",
+      "series_number": 3,
+      "signed_error": 0.1588,
+      "title": "Endymion",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.1164,
+      "actual_wa": 6.8177,
+      "author": "Scott Lynch",
+      "genre": "Epic Fantasy",
+      "pool_size": 126,
+      "position": 127,
+      "predicted_wa": 6.9341,
+      "series": "Gentleman Bastards",
+      "series_number": 3,
+      "signed_error": 0.1164,
+      "title": "The Republic of Thieves",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.0741,
+      "actual_wa": 7.7344,
+      "author": "Dan Simmons",
+      "genre": "Science Fiction (Soft)",
+      "pool_size": 127,
+      "position": 128,
+      "predicted_wa": 7.8084,
+      "series": "Hyperion Cantos",
+      "series_number": 4,
+      "signed_error": 0.0741,
+      "title": "The Rise of Endymion",
+      "year_read": 2026
+    }
+  ],
+  "headline": {
+    "burn_in": 15,
+    "honest_wa_mae": 0.6315,
+    "n_books_total": 128,
+    "n_burn_in": 15,
+    "n_folds": 113,
+    "naive_wa_mae": 0.8577,
+    "raw_wa_mae": 0.8221
+  },
+  "interval_coverage": {
+    "legacy_resid_sd": {
+      "label": "±1.645·resid_sd band (removed — was overconfident)",
+      "measured": 0.3097,
+      "n": 113,
+      "nominal": 0.9
+    },
+    "served_conformal": {
+      "label": "density-bucketed conformal band (served on Predict / Read-queue)",
+      "measured": 0.8142,
+      "n": 113,
+      "nominal": 0.8
+    }
+  },
+  "mae_by_genre": [
+    {
+      "genre": "Speculative Literary Fiction",
+      "honest_mae": 1.8423,
+      "n": 2,
+      "raw_mae": 2.2068
+    },
+    {
+      "genre": "Literary Fantasy",
+      "honest_mae": 1.1333,
+      "n": 13,
+      "raw_mae": 1.1204
+    },
+    {
+      "genre": "Classical Drama",
+      "honest_mae": 0.8044,
+      "n": 2,
+      "raw_mae": 1.0881
+    },
+    {
+      "genre": "Science Fiction (Hard)",
+      "honest_mae": 0.7684,
+      "n": 11,
+      "raw_mae": 0.7736
+    },
+    {
+      "genre": "Classical Epic",
+      "honest_mae": 0.7539,
+      "n": 2,
+      "raw_mae": 0.899
+    },
+    {
+      "genre": "Science Fantasy",
+      "honest_mae": 0.5923,
+      "n": 11,
+      "raw_mae": 0.869
+    },
+    {
+      "genre": "Epic Fantasy",
+      "honest_mae": 0.4981,
+      "n": 51,
+      "raw_mae": 0.7501
+    },
+    {
+      "genre": "Science Fiction (Soft)",
+      "honest_mae": 0.48,
+      "n": 17,
+      "raw_mae": 0.6289
+    },
+    {
+      "genre": "Gothic Fiction",
+      "honest_mae": 0.4456,
+      "n": 2,
+      "raw_mae": 0.4761
+    },
+    {
+      "genre": "Literary Fiction",
+      "honest_mae": 0.3458,
+      "n": 1,
+      "raw_mae": 1.4734
+    },
+    {
+      "genre": "Russian Literature",
+      "honest_mae": 0.0576,
+      "n": 1,
+      "raw_mae": 0.5009
+    }
+  ],
+  "provenance": {
+    "backtest_generated_at": "2026-07-07T09:30:34-04:00",
+    "engine_hash": "sha256:72a3d8cdfd15dba9",
+    "git_head": "5701046da784"
+  },
+  "rolling": {
+    "series": [
+      {
+        "honest_rolling_mae": 1.0046,
+        "pool_size": 15,
+        "position": 16,
+        "title": "Red Rising",
+        "window_n": 1
+      },
+      {
+        "honest_rolling_mae": 0.8375,
+        "pool_size": 16,
+        "position": 17,
+        "title": "Golden Son",
+        "window_n": 2
+      },
+      {
+        "honest_rolling_mae": 0.6108,
+        "pool_size": 17,
+        "position": 18,
+        "title": "Morning Star",
+        "window_n": 3
+      },
+      {
+        "honest_rolling_mae": 0.5162,
+        "pool_size": 18,
+        "position": 19,
+        "title": "The Will of the Many",
+        "window_n": 4
+      },
+      {
+        "honest_rolling_mae": 0.4813,
+        "pool_size": 19,
+        "position": 20,
+        "title": "Iron Gold",
+        "window_n": 5
+      },
+      {
+        "honest_rolling_mae": 0.463,
+        "pool_size": 20,
+        "position": 21,
+        "title": "Dark Age",
+        "window_n": 6
+      },
+      {
+        "honest_rolling_mae": 0.4044,
+        "pool_size": 21,
+        "position": 22,
+        "title": "Lightbringer",
+        "window_n": 7
+      },
+      {
+        "honest_rolling_mae": 0.402,
+        "pool_size": 22,
+        "position": 23,
+        "title": "The Final Empire",
+        "window_n": 8
+      },
+      {
+        "honest_rolling_mae": 0.3748,
+        "pool_size": 23,
+        "position": 24,
+        "title": "The Well of Ascension",
+        "window_n": 9
+      },
+      {
+        "honest_rolling_mae": 0.435,
+        "pool_size": 24,
+        "position": 25,
+        "title": "The Hero of Ages",
+        "window_n": 10
+      },
+      {
+        "honest_rolling_mae": 0.3968,
+        "pool_size": 25,
+        "position": 26,
+        "title": "The Way of Kings",
+        "window_n": 11
+      },
+      {
+        "honest_rolling_mae": 0.3992,
+        "pool_size": 26,
+        "position": 27,
+        "title": "Words of Radiance",
+        "window_n": 12
+      },
+      {
+        "honest_rolling_mae": 0.388,
+        "pool_size": 27,
+        "position": 28,
+        "title": "Warbreaker",
+        "window_n": 13
+      },
+      {
+        "honest_rolling_mae": 0.4423,
+        "pool_size": 28,
+        "position": 29,
+        "title": "Edgedancer",
+        "window_n": 14
+      },
+      {
+        "honest_rolling_mae": 0.4498,
+        "pool_size": 29,
+        "position": 30,
+        "title": "Empire of Silence",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4034,
+        "pool_size": 30,
+        "position": 31,
+        "title": "Oathbringer",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5738,
+        "pool_size": 31,
+        "position": 32,
+        "title": "Mistborn: Secret History",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6241,
+        "pool_size": 32,
+        "position": 33,
+        "title": "Elantris",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.683,
+        "pool_size": 33,
+        "position": 34,
+        "title": "The Emperor's Soul",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7821,
+        "pool_size": 34,
+        "position": 35,
+        "title": "Shadows for Silence",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8548,
+        "pool_size": 35,
+        "position": 36,
+        "title": "Rhythm of War",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9225,
+        "pool_size": 36,
+        "position": 37,
+        "title": "Dawnshard",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9667,
+        "pool_size": 37,
+        "position": 38,
+        "title": "New Spring",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9676,
+        "pool_size": 38,
+        "position": 39,
+        "title": "The Eye of the World",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9816,
+        "pool_size": 39,
+        "position": 40,
+        "title": "The Great Hunt",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0346,
+        "pool_size": 40,
+        "position": 41,
+        "title": "The Dragon Reborn",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.031,
+        "pool_size": 41,
+        "position": 42,
+        "title": "The Dragonbone Chair",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0696,
+        "pool_size": 42,
+        "position": 43,
+        "title": "Wind and Truth",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0449,
+        "pool_size": 43,
+        "position": 44,
+        "title": "The Shadow Rising",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0134,
+        "pool_size": 44,
+        "position": 45,
+        "title": "The Fires of Heaven",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0174,
+        "pool_size": 45,
+        "position": 46,
+        "title": "Lord of Chaos",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8059,
+        "pool_size": 46,
+        "position": 47,
+        "title": "Ender's Game",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8002,
+        "pool_size": 47,
+        "position": 48,
+        "title": "Speaker For The Dead",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8071,
+        "pool_size": 48,
+        "position": 49,
+        "title": "Xenocide",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7173,
+        "pool_size": 49,
+        "position": 50,
+        "title": "Children of the Mind",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6346,
+        "pool_size": 50,
+        "position": 51,
+        "title": "A Crown of Swords",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5862,
+        "pool_size": 51,
+        "position": 52,
+        "title": "The Path of Daggers",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5338,
+        "pool_size": 52,
+        "position": 53,
+        "title": "Winter's Heart",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5887,
+        "pool_size": 53,
+        "position": 54,
+        "title": "Crossroads of Twilight",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6384,
+        "pool_size": 54,
+        "position": 55,
+        "title": "The Neverending Story",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5992,
+        "pool_size": 55,
+        "position": 56,
+        "title": "Knife of Dreams",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6419,
+        "pool_size": 56,
+        "position": 57,
+        "title": "The Gathering Storm",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6265,
+        "pool_size": 57,
+        "position": 58,
+        "title": "Towers of Midnight",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6567,
+        "pool_size": 58,
+        "position": 59,
+        "title": "The Lions of Al-Rassan",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7537,
+        "pool_size": 59,
+        "position": 60,
+        "title": "Heir to the Empire",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7352,
+        "pool_size": 60,
+        "position": 61,
+        "title": "Dark Force Rising",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7963,
+        "pool_size": 61,
+        "position": 62,
+        "title": "The Last Command",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7754,
+        "pool_size": 62,
+        "position": 63,
+        "title": "A Memory of Light",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8852,
+        "pool_size": 63,
+        "position": 64,
+        "title": "The Stone of Farewell",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9049,
+        "pool_size": 64,
+        "position": 65,
+        "title": "Rosencrantz and Guildenstern are Dead",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.907,
+        "pool_size": 65,
+        "position": 66,
+        "title": "Ender's Shadow",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8871,
+        "pool_size": 66,
+        "position": 67,
+        "title": "Shadows in Flight",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.0483,
+        "pool_size": 67,
+        "position": 68,
+        "title": "Station 11",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 1.005,
+        "pool_size": 68,
+        "position": 69,
+        "title": "Silence",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9128,
+        "pool_size": 69,
+        "position": 70,
+        "title": "The Odyssey",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.9534,
+        "pool_size": 70,
+        "position": 71,
+        "title": "The Oresteia",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8964,
+        "pool_size": 71,
+        "position": 72,
+        "title": "Sailing to Sarantium",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8673,
+        "pool_size": 72,
+        "position": 73,
+        "title": "The Strength of the Few",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7947,
+        "pool_size": 73,
+        "position": 74,
+        "title": "Howling Dark",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7563,
+        "pool_size": 74,
+        "position": 75,
+        "title": "Inferno",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.8011,
+        "pool_size": 75,
+        "position": 76,
+        "title": "Demon in White",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7483,
+        "pool_size": 76,
+        "position": 77,
+        "title": "Kingdoms of Death",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7168,
+        "pool_size": 77,
+        "position": 78,
+        "title": "Ashes of Man",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5447,
+        "pool_size": 78,
+        "position": 79,
+        "title": "Disquiet Gods",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5055,
+        "pool_size": 79,
+        "position": 80,
+        "title": "Shadows Upon Time",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4908,
+        "pool_size": 80,
+        "position": 81,
+        "title": "Project Hail Mary",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7488,
+        "pool_size": 81,
+        "position": 82,
+        "title": "The Last Shadow",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5969,
+        "pool_size": 82,
+        "position": 83,
+        "title": "To Green Angel Tower",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.641,
+        "pool_size": 83,
+        "position": 84,
+        "title": "Einstein's Dreams",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6285,
+        "pool_size": 84,
+        "position": 85,
+        "title": "Gardens of the Moon",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5772,
+        "pool_size": 85,
+        "position": 86,
+        "title": "Deadhouse Gates",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5839,
+        "pool_size": 86,
+        "position": 87,
+        "title": "Memories of Ice",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.58,
+        "pool_size": 87,
+        "position": 88,
+        "title": "Rendezvous with Rama",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5991,
+        "pool_size": 88,
+        "position": 89,
+        "title": "House of Chains",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5381,
+        "pool_size": 89,
+        "position": 90,
+        "title": "Midnight Tides",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5786,
+        "pool_size": 90,
+        "position": 91,
+        "title": "Ready Player One",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6195,
+        "pool_size": 91,
+        "position": 92,
+        "title": "Frankenstein",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6382,
+        "pool_size": 92,
+        "position": 93,
+        "title": "Piranesi",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6306,
+        "pool_size": 93,
+        "position": 94,
+        "title": "The Bonehunters",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6246,
+        "pool_size": 94,
+        "position": 95,
+        "title": "Picture of Dorian Gray",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6244,
+        "pool_size": 95,
+        "position": 96,
+        "title": "Reaper's Gale",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3705,
+        "pool_size": 96,
+        "position": 97,
+        "title": "The Blade Itself",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3477,
+        "pool_size": 97,
+        "position": 98,
+        "title": "The Death of Ivan Ilyich",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.362,
+        "pool_size": 98,
+        "position": 99,
+        "title": "Toll the Hounds",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3409,
+        "pool_size": 99,
+        "position": 100,
+        "title": "Before They Are Hanged",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3619,
+        "pool_size": 100,
+        "position": 101,
+        "title": "Momo",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3828,
+        "pool_size": 101,
+        "position": 102,
+        "title": "The Rage of Dragons",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3759,
+        "pool_size": 102,
+        "position": 103,
+        "title": "The Fires of Vengeance",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3973,
+        "pool_size": 103,
+        "position": 104,
+        "title": "Blindsight",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4718,
+        "pool_size": 104,
+        "position": 105,
+        "title": "Between Two Fires",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4238,
+        "pool_size": 105,
+        "position": 106,
+        "title": "The Last Argument of Kings",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.3716,
+        "pool_size": 106,
+        "position": 107,
+        "title": "Best Served Cold",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4267,
+        "pool_size": 107,
+        "position": 108,
+        "title": "The Heroes",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4622,
+        "pool_size": 108,
+        "position": 109,
+        "title": "Dungeon Crawler Carl",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4849,
+        "pool_size": 109,
+        "position": 110,
+        "title": "Red Country",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5424,
+        "pool_size": 110,
+        "position": 111,
+        "title": "The Name of the Wind",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5866,
+        "pool_size": 111,
+        "position": 112,
+        "title": "There Is No Antimemetics Division",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5942,
+        "pool_size": 112,
+        "position": 113,
+        "title": "Carl's Doomsday Scenario",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5588,
+        "pool_size": 113,
+        "position": 114,
+        "title": "The Dungeon Anarchist's Cookbook",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6758,
+        "pool_size": 114,
+        "position": 115,
+        "title": "The Fifth Season",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6659,
+        "pool_size": 115,
+        "position": 116,
+        "title": "The Gate of the Feral Gods",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6699,
+        "pool_size": 116,
+        "position": 117,
+        "title": "The Butcher's Masquerade",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.686,
+        "pool_size": 117,
+        "position": 118,
+        "title": "The Eye of the Bedlam Bride",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.7026,
+        "pool_size": 118,
+        "position": 119,
+        "title": "This Inevitable Ruin",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6861,
+        "pool_size": 119,
+        "position": 120,
+        "title": "Dust of Dreams",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6452,
+        "pool_size": 120,
+        "position": 121,
+        "title": "The Crippled God",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.6616,
+        "pool_size": 121,
+        "position": 122,
+        "title": "A Parade of Horribles",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5874,
+        "pool_size": 122,
+        "position": 123,
+        "title": "The Hobbit",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5489,
+        "pool_size": 123,
+        "position": 124,
+        "title": "The Fellowship of the Ring",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5543,
+        "pool_size": 124,
+        "position": 125,
+        "title": "The Two Towers",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.5054,
+        "pool_size": 125,
+        "position": 126,
+        "title": "Endymion",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4619,
+        "pool_size": 126,
+        "position": 127,
+        "title": "The Republic of Thieves",
+        "window_n": 15
+      },
+      {
+        "honest_rolling_mae": 0.4554,
+        "pool_size": 127,
+        "position": 128,
+        "title": "The Rise of Endymion",
+        "window_n": 15
+      }
+    ],
+    "window": 15
+  }
+}

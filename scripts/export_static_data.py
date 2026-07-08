@@ -101,6 +101,10 @@ SIMPLE_ENDPOINTS: list[tuple[str, str, bool]] = [
     ("/api/delta-log", "delta-log.json", False),
     ("/api/calibration/health", "calibration-health.json", False),
     ("/api/calibration/researcher-comparison", "calibration-researcher-comparison.json", True),
+    # Public walk-forward track record. allow_404: absent until walkforward.py
+    # has produced validation/*; the endpoint reads only committed files (never
+    # runs the harness) and its payload is deterministic per commit.
+    ("/api/track-record", "track-record.json", True),
 ]
 
 

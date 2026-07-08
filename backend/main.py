@@ -53,6 +53,7 @@ import predict_engine as pe
 import views as views_mod
 import validate_engine as ve
 import nonfiction_engine as nfe
+import track_record as tr
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -2416,6 +2417,26 @@ def get_researcher_comparison():
             return json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         raise HTTPException(status_code=500, detail=f"Could not read comparison: {e}")
+
+
+@app.get("/api/track-record")
+def get_track_record():
+    """Public walk-forward track record: predicted-vs-actual accuracy, the
+    rolling-MAE "getting smarter" curve, MAE by genre, and served-interval
+    coverage — assembled from the committed validation/ artifacts.
+
+    READ-ONLY: reads the committed walk-forward files (never runs the harness,
+    no API spend, no books.db dependency) and computes served-interval coverage
+    through the canonical `intervals` module. Returns 404 when the artifacts are
+    absent (allow_404 in the export → JSON null → the page shows a graceful
+    "not yet available" state). See track_record.py for the honest/leaky policy."""
+    payload = tr.build_track_record()
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Walk-forward artifacts not available (run walkforward.py).",
+        )
+    return payload
 
 
 @app.get("/api/delta-log")
