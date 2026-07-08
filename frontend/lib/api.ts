@@ -22,6 +22,7 @@ import type {
   RepredictHandle,
   RepredictPoll,
   TrackRecord,
+  EngineParameters,
 } from "./types";
 import { slugify } from "./slug";
 
@@ -544,6 +545,15 @@ export async function fetchTrackRecord(): Promise<TrackRecord | null> {
   if (STATIC) return getJSON<TrackRecord | null>("track-record.json");
   const res = await fetch(`${API}/api/track-record`, { cache: "no-store" });
   if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Live engine parameters for the public "How the Engine Works" page — schema,
+ * weights, shrinkage/interval/model constants, all read from committed data. */
+export async function fetchEngineParameters(): Promise<EngineParameters> {
+  if (STATIC) return getJSON<EngineParameters>("engine-parameters.json");
+  const res = await fetch(`${API}/api/engine-parameters`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }

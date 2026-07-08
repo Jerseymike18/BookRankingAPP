@@ -472,6 +472,79 @@ export interface TrackRecord {
   caveats: string[];
 }
 
+/* ── Engine parameters (the public "How the Engine Works" page) ───────────────
+   Live engine facts, read from committed data by /api/engine-parameters, so the
+   Methodology page interpolates them instead of hardcoding drift-prone numbers.
+   Concepts live in the page prose; only these numbers come from the endpoint. */
+export interface EngineSchemaCategory {
+  category: string;
+  components: string[];
+}
+
+export interface EngineIntervalBucket {
+  key: string;
+  label: string;
+  half_width?: number; // WA points; present only when the residual table loaded
+  n_residuals?: number;
+  pooled?: boolean;
+}
+
+export interface EngineParameters {
+  schema: {
+    n_components: number;
+    n_categories: number;
+    n_genres: number;
+    categories: EngineSchemaCategory[];
+    component_order: string[];
+  };
+  // genre → { category → category weight }
+  genre_category_weights: Record<string, Record<string, number | null>>;
+  // genre → { category → { component → within-category weight } }
+  genre_component_weights: Record<string, Record<string, Record<string, number | null>>>;
+  shrinkage: {
+    corr_blend: number; // correlation-smoothing weight (BLEND)
+    k_author: number; // author-deviation shrink strength
+    k_genre: number; // genre-estimate shrink strength
+    slope_lift: number; // fitted-line → deviation de-compression
+    estimator: string; // "n / (n + k)"
+  };
+  interval: {
+    nominal: number; // conformal coverage target (0–1)
+    min_bucket_n: number;
+    analog_metric: string;
+    buckets: EngineIntervalBucket[];
+    residuals_available: boolean;
+    calibration?: {
+      analog_mode: string | null;
+      k_author: number | null;
+      k_genre: number | null;
+      n_residuals: number | null;
+    };
+  };
+  regression: {
+    r2: number | null;
+    resid_sd: number | null;
+    inputs: string[];
+  };
+  correction: {
+    present: boolean;
+    applied_in_engine: boolean;
+    all_zero?: boolean;
+    version?: string | string[];
+    decision?: string | string[];
+    n_rows?: number;
+    n_active?: number;
+    max_blend_weight?: number;
+  };
+  models: {
+    research: string;
+    discover: string;
+  };
+  library: {
+    n_rated_books: number;
+  };
+}
+
 export interface TypeSummary {
   books: number;
   avg_wa: number | null;
