@@ -105,6 +105,11 @@ SIMPLE_ENDPOINTS: list[tuple[str, str, bool]] = [
     # has produced validation/*; the endpoint reads only committed files (never
     # runs the harness) and its payload is deterministic per commit.
     ("/api/track-record", "track-record.json", True),
+    # Live engine parameters for the public "How the Engine Works" page: schema +
+    # weights (books.db) and served shrinkage/interval/model constants (read off
+    # the engine modules). Always builds from the DB, so it never legitimately
+    # 404s. Deterministic (no timestamps/HEAD).
+    ("/api/engine-parameters", "engine-parameters.json", False),
 ]
 
 

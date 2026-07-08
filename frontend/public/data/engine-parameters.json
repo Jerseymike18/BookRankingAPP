@@ -1,0 +1,636 @@
+{
+  "correction": {
+    "all_zero": true,
+    "applied_in_engine": false,
+    "decision": "retire",
+    "max_blend_weight": 0.0,
+    "n_active": 14,
+    "n_rows": 14,
+    "present": true,
+    "version": "v2_opus_retired_2026-07-05"
+  },
+  "genre_category_weights": {
+    "Classical Drama": {
+      "Aesthetics": 0.25,
+      "Character": 0.2,
+      "Story": 0.35,
+      "Theme": 0.2,
+      "Worldbuilding": 0.0
+    },
+    "Classical Epic": {
+      "Aesthetics": 0.1,
+      "Character": 0.3,
+      "Story": 0.45,
+      "Theme": 0.15,
+      "Worldbuilding": 0.0
+    },
+    "Cyberpunk": {
+      "Aesthetics": 0.2,
+      "Character": 0.2,
+      "Story": 0.35,
+      "Theme": 0.2,
+      "Worldbuilding": 0.05
+    },
+    "Epic Fantasy": {
+      "Aesthetics": 0.1,
+      "Character": 0.275,
+      "Story": 0.4,
+      "Theme": 0.125,
+      "Worldbuilding": 0.1
+    },
+    "Existentialist Fiction": {
+      "Aesthetics": 0.15,
+      "Character": 0.3,
+      "Story": 0.2,
+      "Theme": 0.35,
+      "Worldbuilding": 0.0
+    },
+    "Gothic Fiction": {
+      "Aesthetics": 0.25,
+      "Character": 0.25,
+      "Story": 0.3,
+      "Theme": 0.2,
+      "Worldbuilding": 0.0
+    },
+    "Historical Fiction": {
+      "Aesthetics": 0.1,
+      "Character": 0.25,
+      "Story": 0.45,
+      "Theme": 0.2,
+      "Worldbuilding": 0.0
+    },
+    "Literary Fantasy": {
+      "Aesthetics": 0.1,
+      "Character": 0.3,
+      "Story": 0.3,
+      "Theme": 0.25,
+      "Worldbuilding": 0.05
+    },
+    "Literary Fiction": {
+      "Aesthetics": 0.15,
+      "Character": 0.3,
+      "Story": 0.3,
+      "Theme": 0.25,
+      "Worldbuilding": 0.0
+    },
+    "Magical Realism": {
+      "Aesthetics": 0.3,
+      "Character": 0.25,
+      "Story": 0.2,
+      "Theme": 0.25,
+      "Worldbuilding": 0.0
+    },
+    "Russian Literature": {
+      "Aesthetics": 0.15,
+      "Character": 0.35,
+      "Story": 0.3,
+      "Theme": 0.2,
+      "Worldbuilding": 0.0
+    },
+    "Science Fantasy": {
+      "Aesthetics": 0.15,
+      "Character": 0.175,
+      "Story": 0.375,
+      "Theme": 0.15,
+      "Worldbuilding": 0.15
+    },
+    "Science Fiction (Hard)": {
+      "Aesthetics": 0.1,
+      "Character": 0.15,
+      "Story": 0.3,
+      "Theme": 0.4,
+      "Worldbuilding": 0.05
+    },
+    "Science Fiction (Soft)": {
+      "Aesthetics": 0.125,
+      "Character": 0.225,
+      "Story": 0.375,
+      "Theme": 0.175,
+      "Worldbuilding": 0.1
+    },
+    "Speculative Literary Fiction": {
+      "Aesthetics": 0.2,
+      "Character": 0.3,
+      "Story": 0.25,
+      "Theme": 0.25,
+      "Worldbuilding": 0.0
+    },
+    "Urban Fantasy": {
+      "Aesthetics": 0.1,
+      "Character": 0.275,
+      "Story": 0.35,
+      "Theme": 0.125,
+      "Worldbuilding": 0.15
+    }
+  },
+  "genre_component_weights": {
+    "Classical Drama": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.375,
+        "Motivations": 0.125
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.25,
+        "Entertainment": 0.25,
+        "Plot": 0.35
+      },
+      "Theme": {
+        "Insights": 0.666666666666667,
+        "Thought-Provokingness": 0.333333333333333
+      },
+      "Worldbuilding": {}
+    },
+    "Classical Epic": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.375,
+        "Motivations": 0.125
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.25,
+        "Entertainment": 0.25,
+        "Plot": 0.35
+      },
+      "Theme": {
+        "Insights": 0.666666666666667,
+        "Thought-Provokingness": 0.333333333333333
+      },
+      "Worldbuilding": {}
+    },
+    "Cyberpunk": {
+      "Aesthetics": {
+        "Narration": 0.4375,
+        "Prose": 0.5625
+      },
+      "Character": {
+        "Depth": 0.333333333333333,
+        "Emotional Impact": 0.266666666666667,
+        "Motivations": 0.4
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.1,
+        "Entertainment": 0.25,
+        "Plot": 0.5
+      },
+      "Theme": {
+        "Insights": 0.466666666666667,
+        "Thought-Provokingness": 0.533333333333333
+      },
+      "Worldbuilding": {
+        "Depth2": 0.421052631578947,
+        "Integration": 0.421052631578947,
+        "Originality": 0.157894736842105
+      }
+    },
+    "Epic Fantasy": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.357142857142857,
+        "Motivations": 0.142857142857143
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.25,
+        "Entertainment": 0.25,
+        "Plot": 0.35
+      },
+      "Theme": {
+        "Insights": 0.428571428571429,
+        "Thought-Provokingness": 0.571428571428572
+      },
+      "Worldbuilding": {
+        "Depth2": 0.611111111111111,
+        "Integration": 0.277777777777778,
+        "Originality": 0.111111111111111
+      }
+    },
+    "Existentialist Fiction": {
+      "Aesthetics": {
+        "Narration": 0.4,
+        "Prose": 0.6
+      },
+      "Character": {
+        "Depth": 0.4375,
+        "Emotional Impact": 0.3125,
+        "Motivations": 0.25
+      },
+      "Story": {
+        "Action": 0.05,
+        "Ending": 0.4,
+        "Entertainment": 0.1,
+        "Plot": 0.45
+      },
+      "Theme": {
+        "Insights": 0.416666666666667,
+        "Thought-Provokingness": 0.583333333333333
+      },
+      "Worldbuilding": {}
+    },
+    "Gothic Fiction": {
+      "Aesthetics": {
+        "Narration": 0.3125,
+        "Prose": 0.6875
+      },
+      "Character": {
+        "Depth": 0.470588235294118,
+        "Emotional Impact": 0.411764705882353,
+        "Motivations": 0.117647058823529
+      },
+      "Story": {
+        "Action": 0.1,
+        "Ending": 0.35,
+        "Entertainment": 0.15,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.285714285714286,
+        "Thought-Provokingness": 0.714285714285714
+      },
+      "Worldbuilding": {}
+    },
+    "Historical Fiction": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.333333333333333,
+        "Emotional Impact": 0.333333333333333,
+        "Motivations": 0.333333333333333
+      },
+      "Story": {
+        "Action": 0.2,
+        "Ending": 0.25,
+        "Entertainment": 0.2,
+        "Plot": 0.35
+      },
+      "Theme": {
+        "Insights": 0.428571428571429,
+        "Thought-Provokingness": 0.571428571428572
+      },
+      "Worldbuilding": {}
+    },
+    "Literary Fantasy": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.375,
+        "Motivations": 0.125
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.25,
+        "Entertainment": 0.2,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.5,
+        "Thought-Provokingness": 0.5
+      },
+      "Worldbuilding": {
+        "Depth2": 0.611111111111111,
+        "Integration": 0.277777777777778,
+        "Originality": 0.111111111111111
+      }
+    },
+    "Literary Fiction": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.375,
+        "Motivations": 0.125
+      },
+      "Story": {
+        "Action": 0.05,
+        "Ending": 0.2,
+        "Entertainment": 0.15,
+        "Plot": 0.6
+      },
+      "Theme": {
+        "Insights": 0.5,
+        "Thought-Provokingness": 0.5
+      },
+      "Worldbuilding": {}
+    },
+    "Magical Realism": {
+      "Aesthetics": {
+        "Narration": 0.285714285714286,
+        "Prose": 0.714285714285714
+      },
+      "Character": {
+        "Depth": 0.4,
+        "Emotional Impact": 0.4,
+        "Motivations": 0.2
+      },
+      "Story": {
+        "Action": 0.05,
+        "Ending": 0.4,
+        "Entertainment": 0.15,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.461538461538462,
+        "Thought-Provokingness": 0.538461538461539
+      },
+      "Worldbuilding": {}
+    },
+    "Russian Literature": {
+      "Aesthetics": {
+        "Narration": 0.428571428571429,
+        "Prose": 0.571428571428572
+      },
+      "Character": {
+        "Depth": 0.466666666666667,
+        "Emotional Impact": 0.2,
+        "Motivations": 0.333333333333333
+      },
+      "Story": {
+        "Action": 0.05,
+        "Ending": 0.25,
+        "Entertainment": 0.15,
+        "Plot": 0.55
+      },
+      "Theme": {
+        "Insights": 0.50000000225,
+        "Thought-Provokingness": 0.49999999775
+      },
+      "Worldbuilding": {}
+    },
+    "Science Fantasy": {
+      "Aesthetics": {
+        "Narration": 0.25,
+        "Prose": 0.75
+      },
+      "Character": {
+        "Depth": 0.375,
+        "Emotional Impact": 0.375,
+        "Motivations": 0.25
+      },
+      "Story": {
+        "Action": 0.15,
+        "Ending": 0.2,
+        "Entertainment": 0.25,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.5,
+        "Thought-Provokingness": 0.5
+      },
+      "Worldbuilding": {
+        "Depth2": 0.666666666666667,
+        "Integration": 0.111111111111111,
+        "Originality": 0.222222222222222
+      }
+    },
+    "Science Fiction (Hard)": {
+      "Aesthetics": {
+        "Narration": 0.666666666666667,
+        "Prose": 0.333333333333333
+      },
+      "Character": {
+        "Depth": 0.428571428571429,
+        "Emotional Impact": 0.142857142857143,
+        "Motivations": 0.428571428571429
+      },
+      "Story": {
+        "Action": 0.2,
+        "Ending": 0.2,
+        "Entertainment": 0.15,
+        "Plot": 0.45
+      },
+      "Theme": {
+        "Insights": 0.333333333333333,
+        "Thought-Provokingness": 0.666666666666667
+      },
+      "Worldbuilding": {
+        "Depth2": 0.611111111111111,
+        "Integration": 0.277777777777778,
+        "Originality": 0.111111111111111
+      }
+    },
+    "Science Fiction (Soft)": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.375,
+        "Emotional Impact": 0.25,
+        "Motivations": 0.375
+      },
+      "Story": {
+        "Action": 0.2,
+        "Ending": 0.2,
+        "Entertainment": 0.2,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.384615384615385,
+        "Thought-Provokingness": 0.615384615384615
+      },
+      "Worldbuilding": {
+        "Depth2": 0.611111111111111,
+        "Integration": 0.277777777777778,
+        "Originality": 0.111111111111111
+      }
+    },
+    "Speculative Literary Fiction": {
+      "Aesthetics": {
+        "Narration": 0.375,
+        "Prose": 0.625
+      },
+      "Character": {
+        "Depth": 0.470588235294118,
+        "Emotional Impact": 0.411764705882353,
+        "Motivations": 0.117647058823529
+      },
+      "Story": {
+        "Action": 0.05,
+        "Ending": 0.4,
+        "Entertainment": 0.15,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.5,
+        "Thought-Provokingness": 0.5
+      },
+      "Worldbuilding": {}
+    },
+    "Urban Fantasy": {
+      "Aesthetics": {
+        "Narration": 0.3,
+        "Prose": 0.7
+      },
+      "Character": {
+        "Depth": 0.5,
+        "Emotional Impact": 0.3,
+        "Motivations": 0.2
+      },
+      "Story": {
+        "Action": 0.1,
+        "Ending": 0.2,
+        "Entertainment": 0.3,
+        "Plot": 0.4
+      },
+      "Theme": {
+        "Insights": 0.4,
+        "Thought-Provokingness": 0.6
+      },
+      "Worldbuilding": {
+        "Depth2": 0.4,
+        "Integration": 0.4,
+        "Originality": 0.2
+      }
+    }
+  },
+  "interval": {
+    "analog_metric": "same-author analog count",
+    "buckets": [
+      {
+        "half_width": 0.9209,
+        "key": "cluster n>=6",
+        "label": "author-rich",
+        "n_residuals": 59,
+        "pooled": false
+      },
+      {
+        "half_width": 0.8471,
+        "key": "cluster 2<=n<6",
+        "label": "some author data",
+        "n_residuals": 31,
+        "pooled": false
+      },
+      {
+        "half_width": 0.9501,
+        "key": "author-only n=1",
+        "label": "single author book",
+        "n_residuals": 12,
+        "pooled": true
+      },
+      {
+        "half_width": 1.3439,
+        "key": "genre-only n=0",
+        "label": "genre only",
+        "n_residuals": 25,
+        "pooled": false
+      }
+    ],
+    "calibration": {
+      "analog_mode": "shrunk",
+      "k_author": 0.5,
+      "k_genre": 0.5,
+      "n_residuals": 127
+    },
+    "min_bucket_n": 20,
+    "nominal": 0.8,
+    "residuals_available": true
+  },
+  "library": {
+    "n_rated_books": 128
+  },
+  "models": {
+    "discover": "claude-sonnet-4-6",
+    "research": "claude-opus-4-8"
+  },
+  "regression": {
+    "inputs": [
+      "Story",
+      "Character",
+      "Aesthetics",
+      "Theme"
+    ],
+    "r2": 0.9881,
+    "resid_sd": 0.1363
+  },
+  "schema": {
+    "categories": [
+      {
+        "category": "Story",
+        "components": [
+          "Plot",
+          "Entertainment",
+          "Action",
+          "Ending"
+        ]
+      },
+      {
+        "category": "Character",
+        "components": [
+          "Depth",
+          "Emotional Impact",
+          "Motivations"
+        ]
+      },
+      {
+        "category": "Aesthetics",
+        "components": [
+          "Prose",
+          "Narration"
+        ]
+      },
+      {
+        "category": "Theme",
+        "components": [
+          "Insights",
+          "Thought-Provokingness"
+        ]
+      },
+      {
+        "category": "Worldbuilding",
+        "components": [
+          "Depth2",
+          "Integration",
+          "Originality"
+        ]
+      }
+    ],
+    "component_order": [
+      "Plot",
+      "Entertainment",
+      "Action",
+      "Ending",
+      "Depth",
+      "Emotional Impact",
+      "Motivations",
+      "Prose",
+      "Narration",
+      "Insights",
+      "Thought-Provokingness",
+      "Depth2",
+      "Integration",
+      "Originality"
+    ],
+    "n_categories": 5,
+    "n_components": 14,
+    "n_genres": 16
+  },
+  "shrinkage": {
+    "corr_blend": 0.2,
+    "estimator": "n / (n + k)",
+    "k_author": 0.5,
+    "k_genre": 6.0,
+    "slope_lift": 0.5
+  }
+}

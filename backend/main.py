@@ -54,6 +54,7 @@ import views as views_mod
 import validate_engine as ve
 import nonfiction_engine as nfe
 import track_record as tr
+import engine_parameters as ep
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -2437,6 +2438,31 @@ def get_track_record():
             detail="Walk-forward artifacts not available (run walkforward.py).",
         )
     return payload
+
+
+@app.get("/api/engine-parameters")
+def get_engine_parameters():
+    """Live engine parameters for the public "How the Engine Works" page: the
+    14-component schema + per-genre weights, the served empirical-Bayes shrinkage
+    constants, the conformal-interval config + per-bucket half-widths, the retired
+    correction-layer status, the research/discover model ids, and the
+    WA-from-categories regression diagnostic.
+
+    READ-ONLY: reads the schema/weights from the warm engine cache (books.db) and
+    every drift-prone constant straight off the modules that implement it
+    (reresearch_and_measure / research_predict / intervals) — nothing is
+    hardcoded here, so the page can never silently disagree with the engine. No
+    prediction is run, nothing is written, no tokens are spent. Deterministic (no
+    timestamps/HEAD), so it snapshots byte-identically. Validation baselines
+    (walk-forward MAE, measured coverage) live on /api/track-record — this page
+    reuses that so the two can't drift apart."""
+    try:
+        books, gw, gcw, _coeffs, r2, resid_sd, _ginfo, _upstream = _get_engine()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
+    return ep.build_engine_parameters(
+        books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS, db_path=db_write.DB
+    )
 
 
 @app.get("/api/delta-log")
