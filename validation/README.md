@@ -4,10 +4,13 @@ This directory holds the outputs of `walkforward.py` — a **chronological backt
 researched-prediction engine. For each rated fiction book it asks: *what would the engine have
 predicted on the day I started this book, using only the books read before it?* That is the
 honest **"what was knowable then"** accuracy baseline future engine features must beat, and the
-raw dataset a future public track-record page will consume.
+raw dataset the public **track-record page** consumes (`/track-record`, served read-only by
+`GET /api/track-record` → `track_record.py`; see `CLAUDE.md` → Pages).
 
-These files are **not** static-snapshot inputs — the publish export/hooks read only `books.db`,
-so nothing here churns the public site.
+Editing ratings never churns these files — every *book-data* snapshot is derived from `books.db`.
+The lone snapshot file derived from **this** directory is `track-record.json` (assembled by the
+endpoint from the committed artifacts, deterministic per commit); it changes only when the
+harness output here is regenerated and committed, never on a data edit.
 
 ## Regenerating
 

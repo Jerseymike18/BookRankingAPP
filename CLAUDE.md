@@ -171,7 +171,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 ## Pages (frontend/app/)
 
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) · `stats` ·
-`analytics` · `calibration` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
+`analytics` · `calibration` · `track-record` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
 split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
 `nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
 components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
@@ -222,5 +222,15 @@ engine features must beat, and the raw dataset for a future public track-record 
   the per-fold interval recorded is the engine's overconfident `±1.645·resid_sd` band, *not*
   the calibrated served conformal interval (the report scores that separately). See
   `validation/README.md`.
-- **`validation/` artifacts are NOT static-snapshot inputs** — the export/hooks only read
-  `books.db`, so these files never churn the public snapshot.
+- **`validation/` artifacts don't churn on data edits** — every *book-data* snapshot file is
+  derived from `books.db`, so editing ratings never restains these files. The one exception is
+  the track-record page below, whose snapshot derives from these artifacts (not `books.db`).
+- **Public track record.** `frontend/app/track-record/` (page + `TrackRecordClient.tsx`) is fed
+  by the read-only `GET /api/track-record` endpoint, which assembles a payload from the
+  committed `validation/` artifacts via `track_record.py` — predicted-vs-actual, the rolling-MAE
+  "getting smarter" curve, MAE by genre, and served-interval coverage. It reads only committed
+  files (**never runs the harness**, no `books.db`, no API spend) and computes served coverage
+  through the canonical `intervals` module, so nothing drifts. It shows the **honest** variant
+  (leaky excluded). Snapshotted deterministically to `track-record.json` (registered in
+  `SIMPLE_ENDPOINTS`, `allow_404`); it only changes when the harness output is regenerated and
+  committed. Fetch via `fetchTrackRecord()`; Nav link lives under "More".
