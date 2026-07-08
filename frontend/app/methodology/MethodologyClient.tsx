@@ -9,7 +9,12 @@ import type { EngineParameters, TrackRecord } from "@/lib/types";
 /* ── formatting ─────────────────────────────────────────────────────────── */
 const f2 = (v: number) => v.toFixed(2);
 const f3 = (v: number) => v.toFixed(3);
-const pct1 = (v: number) => `${(v * 100).toFixed(1)}%`;
+// Percent with one decimal, but drop a trailing ".0" so a round nominal level
+// reads "80%" while a measured coverage still reads "81.4%".
+const pct1 = (v: number) => {
+  const p = v * 100;
+  return `${Number.isInteger(p) ? p.toFixed(0) : p.toFixed(1)}%`;
+};
 // Trim a stored weight to ≤3 decimals without trailing zeros: 0.4, 0.625, 0.143.
 const wt = (v: number | null | undefined) =>
   v == null ? "—" : Number(v.toFixed(3)).toString();
@@ -227,11 +232,11 @@ function GenreWeights({ params }: { params: EngineParameters }) {
       </div>
 
       <p className="text-xs mt-3 mb-1" style={{ color: "var(--color-muted)" }}>
-        With those weights, a <strong>{genre}</strong> book&rsquo;s Weighted Average is:
+        With those weights, a <strong>{genre}</strong>{" "}book&rsquo;s Weighted Average is:
       </p>
       <TeXBlock>{waTeX}</TeXBlock>
       <p className="text-xs" style={{ color: "var(--color-faint)" }}>
-        where <TeX>{`\\bar c_{\\text{cat}}`}</TeX> is that category&rsquo;s within-category weighted mean of its
+        where <TeX>{`\\bar c_{\\text{cat}}`}</TeX>{" "}is that category&rsquo;s within-category weighted mean of its
         component scores. Within a category the component weights sum to 1; the category weights are the genre&rsquo;s
         emphasis. Change a weight in the database and this formula changes with it.
       </p>
@@ -307,7 +312,7 @@ export default function MethodologyClient({
         A precise account of how the Ledger predicts a book&rsquo;s score before it&rsquo;s read — the{" "}
         {schema.n_components}-component weighted schema, the empirical-Bayes shrinkage that keeps thin samples honest,
         the conformal prediction interval, and the walk-forward validation that grades it all. The concepts here are
-        stable; every <em>number</em> is read live from the engine, so this page can&rsquo;t drift out of sync with the
+        stable; every <em>number</em>{" "}is read live from the engine, so this page can&rsquo;t drift out of sync with the
         code that runs.
       </p>
 
@@ -374,7 +379,7 @@ export default function MethodologyClient({
         />
       </div>
       <Callout>
-        <strong>Not in the pipeline:</strong> a per-component &ldquo;DeltaTracker&rdquo; correction layer once sat between
+        <strong>Not in the pipeline:</strong>{" "}a per-component &ldquo;DeltaTracker&rdquo; correction layer once sat between
         stages 3 and 4. It is <strong>retired</strong> — all {correction.n_rows ?? 14} of its constants are{" "}
         <span className="font-mono">0.0</span> (version <span className="font-mono">{asText(correction.version)}</span>,
         decision <span className="font-mono">{asText(correction.decision)}</span>) and{" "}
@@ -384,7 +389,7 @@ export default function MethodologyClient({
       {/* ── 2. Schema ── */}
       <SectionHeader id="schema">The {schema.n_components}-component weighted schema</SectionHeader>
       <Lede>
-        Every book is scored on {schema.n_components} components grouped into {schema.n_categories} categories, each
+        Every book is scored on {schema.n_components} components grouped into {schema.n_categories}{" "}categories, each
         0&ndash;10. The Weighted Average is a genre-weighted sum of category means — two layers of weights, both
         per-genre, both stored in the database.
       </Lede>
@@ -413,13 +418,13 @@ export default function MethodologyClient({
         estimate toward the broader pool it sits in, in proportion to how little data supports it.
       </Lede>
       <Body>
-        For each component the correction works on the deviation <TeX>{`d = s^{\\text{you}} - s^{\\text{llm}}`}</TeX> —
+        For each component the correction works on the deviation <TeX>{`d = s^{\\text{you}} - s^{\\text{llm}}`}</TeX>{" "}—
         how your score differs from the model&rsquo;s. It estimates that deviation at the author, genre, and global
         levels, then blends level toward parent with the classic shrink step:
       </Body>
       <TeXBlock>{`\\hat\\theta \\;=\\; \\underbrace{\\frac{n}{n+K}}_{\\text{trust the level}}\\,\\bar\\theta_{\\text{level}} \\;+\\; \\underbrace{\\frac{K}{n+K}}_{\\text{shrink to parent}}\\,\\hat\\theta_{\\text{parent}}`}</TeXBlock>
       <Body>
-        <TeX>{`n`}</TeX> is the number of books supporting that level and <TeX>{`K`}</TeX> is the level&rsquo;s shrink
+        <TeX>{`n`}</TeX> is the number of books supporting that level and <TeX>{`K`}</TeX>{" "}is the level&rsquo;s shrink
         strength — &ldquo;how many books before the level is trusted on its own.&rdquo; The nesting is global →
         genre → author, with two live constants:
       </Body>
@@ -443,15 +448,15 @@ export default function MethodologyClient({
       </div>
       <Body>
         Two refinements sit alongside the shrinkage. A <strong>slope lift</strong> of{" "}
-        <span className="font-mono">{wt(shrinkage.slope_lift)}</span> blends the fitted per-genre regression (whose
+        <span className="font-mono">{wt(shrinkage.slope_lift)}</span>{" "}blends the fitted per-genre regression (whose
         slope &lt; 1 pulls everything toward the mean) toward a slope-1 deviation model, undoing that
         regression-to-the-mean compression; and the correlation smoothing from stage 2 (<TeX>{`\\text{blend} = ${wt(shrinkage.corr_blend)}`}</TeX>)
         runs first. All of it is fit only on your rated books, out-of-sample for the book being predicted.
       </Body>
       <Callout>
-        <strong>Why not just use the author mean when you have one?</strong> Because a single book is one draw from a
+        <strong>Why not just use the author mean when you have one?</strong>{" "}Because a single book is one draw from a
         noisy process. Shrinkage doesn&rsquo;t discard it — at <TeX>{`n_a = 1`}</TeX> it still carries{" "}
-        <span className="font-mono">{f2(wAuthor1)}</span> of the weight — it just refuses to let it fully overwrite the
+        <span className="font-mono">{f2(wAuthor1)}</span>{" "}of the weight — it just refuses to let it fully overwrite the
         genre picture it&rsquo;s nested in. As the author pool grows, <TeX>{`w_a \\to 1`}</TeX> and the parent fades.
       </Callout>
 
@@ -459,7 +464,7 @@ export default function MethodologyClient({
       <SectionHeader id="intervals">Prediction intervals, done honestly (conformal)</SectionHeader>
       <Lede>
         A point estimate without an error bar is a guess wearing a lab coat. The Ledger serves a{" "}
-        <strong>{pct1(interval.nominal)} conformal band</strong> — a distribution-free interval built from the
+        <strong>{pct1(interval.nominal)} conformal band</strong>{" "}— a distribution-free interval built from the
         engine&rsquo;s own held-out errors, not from an assumed bell curve.
       </Lede>
       <Body>
@@ -471,7 +476,7 @@ export default function MethodologyClient({
       <TeXBlock>{`\\hat q \\;=\\; \\operatorname{Quantile}_{\\,${wt(interval.nominal)}}\\big(\\{\\,|r_i| : i \\in \\text{held-out}\\,\\}\\big), \\qquad \\widehat{\\mathrm{WA}} \\pm \\hat q`}</TeXBlock>
       <Body>
         Under exchangeability this guarantees ~{pct1(interval.nominal)} marginal coverage with no distributional
-        assumptions. The one refinement: residuals are <strong>bucketed by data density</strong> — how many same-author
+        assumptions. The one refinement: residuals are <strong>bucketed by data density</strong>{" "}— how many same-author
         analogs the library holds — so a book on the frontier of your taste gets a wider, honest band instead of a
         falsely tight one. Thin buckets (&lt; {interval.min_bucket_n} residuals) borrow their nearest richer neighbour.
       </Body>
@@ -546,7 +551,7 @@ export default function MethodologyClient({
       <ul className="flex flex-col gap-3">
         {[
           <>
-            <strong>Hindsight in the research inputs.</strong> The grounded-research vectors embed post-publication
+            <strong>Hindsight in the research inputs.</strong>{" "}The grounded-research vectors embed post-publication
             reception — reviews, reputation. The backtest holds those fixed and measures the engine&rsquo;s{" "}
             <em>math</em>, not a true blind read. An accepted caveat, not a hidden one.
           </>,
@@ -556,12 +561,12 @@ export default function MethodologyClient({
             and the serving path contains no reader for them. It is documented here only so its absence is unambiguous.
           </>,
           <>
-            <strong>One person, not a crowd.</strong> Every weight, correction, and interval is fit on a single
+            <strong>One person, not a crowd.</strong>{" "}Every weight, correction, and interval is fit on a single
             reader&rsquo;s {library.n_rated_books} rated books. This is a precision instrument for one taste, not a
             general recommender — it says nothing about whether <em>you</em> will like a book.
           </>,
           <>
-            <strong>The band is borrowed, slightly conservative.</strong> The conformal residuals are calibrated on the
+            <strong>The band is borrowed, slightly conservative.</strong>{" "}The conformal residuals are calibrated on the
             autonomous analog engine&rsquo;s errors, then centred on the (usually tighter) research prediction — so the
             served interval leans mildly wide rather than narrow.
           </>,
