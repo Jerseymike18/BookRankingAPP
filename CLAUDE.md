@@ -171,7 +171,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 ## Pages (frontend/app/)
 
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) · `stats` ·
-`analytics` · `calibration` · `track-record` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
+`analytics` · `calibration` · `track-record` · `methodology` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
 split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
 `nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
 components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
@@ -234,3 +234,23 @@ engine features must beat, and the raw dataset for a future public track-record 
   (leaky excluded). Snapshotted deterministically to `track-record.json` (registered in
   `SIMPLE_ENDPOINTS`, `allow_404`); it only changes when the harness output is regenerated and
   committed. Fetch via `fetchTrackRecord()`; Nav link lives under "More".
+- **Public methodology page ("How the Engine Works").** `frontend/app/methodology/` (page +
+  `MethodologyClient.tsx`) documents the engine *as it runs* — the 14-component weighted schema,
+  empirical-Bayes shrinkage, the conformal 80% band, and walk-forward validation. It is fed by the
+  read-only `GET /api/engine-parameters` endpoint, which assembles a payload via `engine_parameters.py`
+  from the **live** engine: schema + per-genre weights from `books.db`, and the served shrinkage /
+  interval / model constants read straight off the modules that implement them
+  (`reresearch_and_measure`, `research_predict`, `intervals`) — nothing is hardcoded. Math renders via
+  **KaTeX** (the only frontend dep this added; client-side, static-safe). Snapshotted deterministically
+  to `engine-parameters.json` (registered in `SIMPLE_ENDPOINTS`; no timestamps/HEAD in the payload).
+  Fetch via `fetchEngineParameters()`; validation baselines are **reused** from `track-record.json`
+  (cross-linked, not duplicated) so the two public pages can't disagree; Nav link under "More".
+  - **This is the anti-drift design, and the main maintenance risk.** The page's *numbers* are read
+    live, so a future engine change (a weight, a `K` constant, the served model, the interval level) is
+    reflected automatically — but only if it stays reachable through this endpoint. The page's
+    *concepts* are hand-written prose. So: when you change engine math, verify the new value surfaces in
+    `/api/engine-parameters` (add it if it's a genuinely new parameter), and re-read only the prose for
+    a **conceptual** change (e.g. if conformal intervals or the retired-correction status ever changed,
+    the prose — not just a number — would need updating). Same regression guard as everywhere: this page
+    must describe conformal intervals (never a `resid_sd` CI) and state the `component_corrections` layer
+    as **retired**, matching what the payload proves.
