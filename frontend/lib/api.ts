@@ -21,6 +21,7 @@ import type {
   CombinedStatsResponse,
   RepredictHandle,
   RepredictPoll,
+  TrackRecord,
 } from "./types";
 import { slugify } from "./slug";
 
@@ -532,6 +533,16 @@ export async function fetchResearcherComparison(): Promise<ResearcherComparison 
   // The snapshot holds either the comparison object or JSON null (no run yet).
   if (STATIC) return getJSON<ResearcherComparison | null>("calibration-researcher-comparison.json");
   const res = await fetch(`${API}/api/calibration/researcher-comparison`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Public walk-forward track record, or null if the artifacts haven't been
+ * produced yet (the snapshot stores JSON null; the endpoint 404s locally). */
+export async function fetchTrackRecord(): Promise<TrackRecord | null> {
+  if (STATIC) return getJSON<TrackRecord | null>("track-record.json");
+  const res = await fetch(`${API}/api/track-record`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();

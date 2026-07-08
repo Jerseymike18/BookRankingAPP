@@ -52,6 +52,7 @@ const sections: NavGroup[] = [
     label: "More",
     items: [
       { href: "/analytics", label: "Taste Lab" },
+      { href: "/track-record", label: "Track Record" },
       { href: "/calibration", label: "Calibration" },
       { href: "/delta-log", label: "Delta Log" },
     ],

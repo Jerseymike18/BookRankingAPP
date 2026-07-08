@@ -406,6 +406,72 @@ export interface ResearcherComparison {
   neutral: string[];
 }
 
+// ── Public track record (walk-forward backtest) — see track_record.py ──
+export interface TrackRecordHeadline {
+  honest_wa_mae: number; // the non-leaky, "what was knowable then" number
+  raw_wa_mae: number; // grounded research → WA, no correction
+  naive_wa_mae: number; // predict every book at the mean WA
+  n_folds: number; // books actually scored (burn-in excluded)
+  n_books_total: number;
+  n_burn_in: number;
+  burn_in: number; // min training-pool size before a fold is evaluated
+}
+
+export interface TrackRecordFold {
+  position: number; // chronological read order
+  title: string;
+  author: string;
+  genre: string;
+  series: string | null;
+  series_number: number | null;
+  actual_wa: number;
+  predicted_wa: number; // honest variant
+  signed_error: number; // predicted − actual
+  abs_error: number;
+  pool_size: number; // books read before this one
+  year_read: number | null;
+}
+
+export interface TrackRecordRollingPoint {
+  position: number;
+  title: string;
+  pool_size: number;
+  window_n: number; // folds in the trailing window (< window during ramp-up)
+  honest_rolling_mae: number;
+}
+
+export interface TrackRecordGenreRow {
+  genre: string;
+  n: number;
+  honest_mae: number;
+  raw_mae: number;
+}
+
+export interface TrackRecordIntervalRow {
+  label: string;
+  nominal: number; // claimed coverage level (0–1)
+  measured: number | null; // observed coverage on the honest folds
+  n: number | null;
+}
+
+export interface TrackRecord {
+  available: boolean;
+  provenance: {
+    git_head: string;
+    engine_hash: string;
+    backtest_generated_at: string;
+  };
+  headline: TrackRecordHeadline;
+  folds: TrackRecordFold[];
+  rolling: { window: number; series: TrackRecordRollingPoint[] };
+  mae_by_genre: TrackRecordGenreRow[];
+  interval_coverage: {
+    served_conformal: TrackRecordIntervalRow;
+    legacy_resid_sd: TrackRecordIntervalRow;
+  };
+  caveats: string[];
+}
+
 export interface TypeSummary {
   books: number;
   avg_wa: number | null;
