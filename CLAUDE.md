@@ -222,6 +222,21 @@ engine features must beat, and the raw dataset for a future public track-record 
   the per-fold interval recorded is the engine's overconfident `±1.645·resid_sd` band, *not*
   the calibrated served conformal interval (the report scores that separately). See
   `validation/README.md`.
+- **Engine ablation — does the machinery earn its complexity?** `ablation.py` scores four
+  leakage-safe, zero-API, metadata-only baselines — `global-mean`, `genre-mean`, **`author-mean`**
+  (the primary comparator), `author+genre` — on the **same folds / read order / past-only pool**
+  as the `honest` variant, reusing the harness's own per-fold scorer + MAE aggregator and reading
+  the engine's honest errors straight from the committed folds (so the engine column can't drift).
+  Against a **pre-committed** rule (fixed before any number: the engine must beat author-mean by
+  ≥ 0.05 WA MAE on the ≥ 3-prior-author subset **and** not be worse overall), the mechanical
+  verdict is **THE ENGINE EARNS ITS COMPLEXITY** — honest WA MAE **0.617 vs author-mean 0.789**
+  on the ≥ 3 subset (−0.172), **0.631 vs 0.810** overall, winning every genre with n ≥ 10 (the
+  literary/Russian "weak spots" are all n < 10 except Literary Fantasy, also won). Report:
+  `validation/ablation.md`; regenerate with `python3 ablation.py` (`--check-determinism` proves it
+  byte-identical). **Analysis-only — nothing ships.** Don't re-run it blindly; had the verdict
+  gone the other way it would be a standing reason to distrust new engine complexity, not a
+  license to simplify the engine (a separate decision). Same regression guard: no `resid_sd` CI,
+  no workbook/LOO/DeltaTracker framing.
 - **`validation/` artifacts don't churn on data edits** — every *book-data* snapshot file is
   derived from `books.db`, so editing ratings never restains these files. The one exception is
   the track-record page below, whose snapshot derives from these artifacts (not `books.db`).

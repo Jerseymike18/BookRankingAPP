@@ -12,6 +12,12 @@ The lone snapshot file derived from **this** directory is `track-record.json` (a
 endpoint from the committed artifacts, deterministic per commit); it changes only when the
 harness output here is regenerated and committed, never on a data edit.
 
+**Sibling analysis — engine ablation.** `ablation.py` reuses these same folds to ask whether the
+engine's machinery beats dead-simple metadata baselines (`author-mean` &c.) → `ablation.md`;
+mechanical verdict against a pre-committed rule was *the engine earns its complexity* (honest
+0.63 vs author-mean 0.81 overall). Regenerate with `python3 ablation.py`; see `CLAUDE.md` →
+Walk-forward validation.
+
 ## Regenerating
 
 ```
