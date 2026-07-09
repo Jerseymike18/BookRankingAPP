@@ -7,6 +7,8 @@ set -e
 export NVM_DIR="$HOME/.nvm"
 # shellcheck source=/dev/null
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
+# Activate the project virtualenv so the backend uses isolated dependencies
+[ -s ".venv/bin/activate" ] && source .venv/bin/activate
 
 BACKEND_PORT=8000
 FRONTEND_PORT=3000

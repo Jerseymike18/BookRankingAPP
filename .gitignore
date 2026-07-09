@@ -17,3 +17,10 @@ BookRankingsNew.xlsx.backup-*
 # Stray SQLite files if a tool opens a db from the frontend dir (the real DB is
 # books.db at the project root). frontend/ never legitimately holds one.
 frontend/*.db
+
+# Secrets / local env — Supabase DATABASE_URL lives here. NEVER commit.
+.env
+# Timestamped DB backups from the Postgres migration (bak.<ts>; distinct from backup-*)
+books.db.bak.*
+# TabPFN bake-off venv (analysis-only, ~500MB; belongs to the analysis branch)
+.venv-tabpfn/
