@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# TabPFN bake-off venv (analysis-only, ~500MB torch/tabpfn deps — never track)
+.venv-tabpfn/
 node_modules/
 .next/
 out/
