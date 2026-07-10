@@ -61,9 +61,12 @@ def _weighted_cat_avg(comp_vals, genre, cat, gcw):
     return total if used > 0 else 0.0
 
 
-def load_from_db(path=DB):
-    """Return (books_df, gw, gcw) identical in shape to load_everything()."""
+def load_from_db(path=DB, user_id=None):
+    """Return (books_df, gw, gcw) identical in shape to load_everything(), scoped
+    to one tenant's books (user_id; defaults to DEFAULT_USER_ID). Genre/component
+    weights are GLOBAL (the shared cold-start prior), so they are not scoped."""
     con = db_backend.connect(path)
+    uid = user_id or db_backend.DEFAULT_USER_ID
     category_components, gcw = _discover_schema_from_db(con)
     all_components = [c for comps in category_components.values() for c in comps]
 
@@ -81,7 +84,7 @@ def load_from_db(path=DB):
     comp_cols = ",".join(f'"{c}"' for c in all_components)
     rows = con.execute(
         f'SELECT title,genre,author,series,words,year_read,status,{comp_cols} '
-        f'FROM books').fetchall()
+        f'FROM books WHERE user_id=?', (uid,)).fetchall()
     con.close()
 
     recs = []

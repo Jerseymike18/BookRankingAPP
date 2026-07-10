@@ -19,8 +19,8 @@ Design goals
   so **existing SQL strings stay unchanged**. Rewiring a call site is then just:
       sqlite3.connect(db_write.DB)   ->   db_backend.connect()
 
-This module is NOT wired into anything yet (Phase 1 scaffold). Importing it has
-no effect until call sites are switched over in the rewiring step.
+Wired in as of Phase 1: the whole DB layer connects through connect(). Phase 2
+adds DEFAULT_USER_ID for per-tenant scoping (see below).
 
 ----------------------------------------------------------------------------
 REWIRING CHECKLIST (the bounded set of SQLite-isms found in the live code; each
@@ -48,6 +48,14 @@ import sqlite3
 # Default sqlite path — mirrors the existing `DB = "books.db"` constant, resolved
 # relative to cwd (backend/main.py chdirs to project root before any connect).
 SQLITE_PATH = os.environ.get("SQLITE_PATH", "books.db")
+
+# Tenancy (Phase 2). Every per-user table carries a user_id; callers that don't
+# supply one fall back to DEFAULT_USER_ID. In Phase 2 this is Michael's placeholder
+# (his existing rows are backfilled with it, approach-a: nullable, no FK yet).
+# Phase 3 overrides it per-request from the verified Supabase JWT and swaps the
+# placeholder for his real auth.users.id (then adds NOT NULL + FK).
+DEFAULT_USER_ID = os.environ.get(
+    "DEFAULT_USER_ID", "00000000-0000-0000-0000-000000000001")
 
 
 def backend():

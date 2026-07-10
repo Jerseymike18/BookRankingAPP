@@ -107,7 +107,7 @@ def _wa(cat_avgs, cat_weights):
     return (num / den) if den > 0 else float("nan")
 
 
-def load_nonfiction_from_db(path=DB):
+def load_nonfiction_from_db(path=DB, user_id=None):
     """Return (books_df, gw, gcw) for nonfiction, shaped like db_loader's output:
       books_df : one row per nonfiction book with raw components, the three
                  category averages (WQuality/WAesthetics/WTheme), WA, and identity.
@@ -115,6 +115,7 @@ def load_nonfiction_from_db(path=DB):
       gcw      : {genre: {category: {component: weight}}} within-category weights.
     books_df.attrs['category_components'] / ['all_components'] carry the schema."""
     con = db_backend.connect(path)
+    uid = user_id or db_backend.DEFAULT_USER_ID
     category_components, gcw = _discover_schema_from_db(con)
     all_components = [c for comps in category_components.values() for c in comps]
 
@@ -126,7 +127,7 @@ def load_nonfiction_from_db(path=DB):
     comp_cols = ",".join(f'"{c}"' for c in all_components)
     rows = con.execute(
         f'SELECT title,genre,author,series,words,year_read,status,{comp_cols} '
-        f'FROM nonfiction_books').fetchall()
+        f'FROM nonfiction_books WHERE user_id=?', (uid,)).fetchall()
     con.close()
 
     recs = []

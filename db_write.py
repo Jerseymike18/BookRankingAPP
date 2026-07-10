@@ -315,12 +315,13 @@ def _validate_scores(scores, require_all=True):
 # WRITE: add a book
 # ---------------------------------------------------------------------------
 def add_book(title, genre, author, scores, series=None, series_number=None,
-             words=None, year_read=None, allow_new_genre=False):
+             words=None, year_read=None, allow_new_genre=False, user_id=None):
     """
     Add a newly-rated fiction book. `scores` is a dict of component->value.
     Refuses to commit anything if validation fails.
     """
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         # genre check
         valid = _valid_genres(con)
@@ -329,16 +330,17 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
                 f"Genre '{genre}' is not in genre_weights. Either fix the "
                 f"spelling (valid genres: {sorted(valid)}) or pass "
                 f"allow_new_genre=True and add weights for it.")
-        # duplicate check
-        dup = con.execute("SELECT 1 FROM books WHERE title=?", (title,)).fetchone()
+        # duplicate check (scoped to this tenant — two users may share a title)
+        dup = con.execute("SELECT 1 FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if dup:
             raise ValidationError(f"A book titled '{title}' already exists. "
                                   f"Use change_rating() to edit it.")
         _validate_scores(scores, require_all=True)
 
         _backup_once()
-        cols = ["title", "genre", "author", "series", "series_number", "words", "year_read"] + FICTION_COMPONENTS
-        vals = [title, genre, author, series, int(series_number) if series_number else None, words, year_read] + \
+        cols = ["title", "genre", "author", "series", "series_number", "words", "year_read", "user_id"] + FICTION_COMPONENTS
+        vals = [title, genre, author, series, int(series_number) if series_number else None, words, year_read, uid] + \
                [scores.get(c) for c in FICTION_COMPONENTS]
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO books ({",".join(chr(34)+c+chr(34) for c in cols)}) '
@@ -358,7 +360,7 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
 # ---------------------------------------------------------------------------
 def add_recommendation(title, genre, author, scores, series=None, series_number=None,
                        words=None, blurb=None, keywords=None, done=0,
-                       allow_new_genre=False, require_scores=True):
+                       allow_new_genre=False, require_scores=True, user_id=None):
     """
     Add a researched (not-yet-read) book to the recommendations table. Same
     validation discipline as add_book: genre must be known, the 14 component
@@ -368,6 +370,7 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
     Returns True on success, False otherwise.
     """
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         valid = _valid_genres(con)
         if genre not in valid and not allow_new_genre:
@@ -375,8 +378,8 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
                 f"Genre '{genre}' is not in genre_weights. Either fix the "
                 f"spelling (valid genres: {sorted(valid)}) or pass "
                 f"allow_new_genre=True and add weights for it.")
-        dup = con.execute("SELECT 1 FROM recommendations WHERE title=?",
-                          (title,)).fetchone()
+        dup = con.execute("SELECT 1 FROM recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if dup:
             raise ValidationError(
                 f"A recommendation titled '{title}' already exists.")
@@ -384,11 +387,11 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
 
         _backup_once()
         cols = (["title", "genre", "author", "series", "series_number", "words",
-                 "done", "blurb", "keywords"] + FICTION_COMPONENTS)
+                 "done", "blurb", "keywords", "user_id"] + FICTION_COMPONENTS)
         vals = ([title, genre, author, series,
                  int(series_number) if series_number else None,
                  words, 1 if done else 0,
-                 blurb, keywords] + [scores.get(c) for c in FICTION_COMPONENTS])
+                 blurb, keywords, uid] + [scores.get(c) for c in FICTION_COMPONENTS])
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO recommendations '
                     f'({",".join(chr(34)+c+chr(34) for c in cols)}) '
@@ -407,19 +410,20 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
 # ---------------------------------------------------------------------------
 # WRITE: set a recommendation's blurb / keywords (no score change)
 # ---------------------------------------------------------------------------
-def set_recommendation_meta(title, blurb=None, keywords=None):
+def set_recommendation_meta(title, blurb=None, keywords=None, user_id=None):
     """Update only the blurb/keywords on an existing recommendation — used to
     backfill books that were added without going through research. Touches no
     component scores and no schema. Returns True on success, False otherwise."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No recommendation titled '{title}'.")
         _backup_once()
-        con.execute("UPDATE recommendations SET blurb=?, keywords=? WHERE title=?",
-                    (blurb, keywords, title))
+        con.execute("UPDATE recommendations SET blurb=?, keywords=? WHERE user_id=? AND title=?",
+                    (blurb, keywords, uid, title))
         con.commit()
         print(f"  ✓ Updated blurb/keywords for '{title}'.")
         return True
@@ -434,7 +438,7 @@ def set_recommendation_meta(title, blurb=None, keywords=None):
 # ---------------------------------------------------------------------------
 # WRITE: replace a recommendation's component scores in place (reprediction)
 # ---------------------------------------------------------------------------
-def update_recommendation_scores(title, new_scores):
+def update_recommendation_scores(title, new_scores, user_id=None):
     """Replace the 14 component scores on an existing recommendation IN PLACE, by
     title — the reprediction write path. Same validation discipline as
     add_recommendation's scores (range + completeness via _validate_scores) and
@@ -442,17 +446,18 @@ def update_recommendation_scores(title, new_scores):
     done/blurb/words/keywords are preserved) and no schema. Returns True on
     success, False otherwise (nothing commits on failure)."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT id FROM recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT id FROM recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No recommendation titled '{title}' found.")
         _validate_scores(new_scores, require_all=True)
         _backup_once()
         sets = ",".join(f'"{c}"=?' for c in FICTION_COMPONENTS)
         vals = [new_scores.get(c) for c in FICTION_COMPONENTS]
-        con.execute(f"UPDATE recommendations SET {sets} WHERE title=?",
-                    vals + [title])
+        con.execute(f"UPDATE recommendations SET {sets} WHERE user_id=? AND title=?",
+                    vals + [uid, title])
         con.commit()
         return True
     except ValidationError as e:
@@ -466,19 +471,21 @@ def update_recommendation_scores(title, new_scores):
 # ---------------------------------------------------------------------------
 # WRITE: change rating(s)
 # ---------------------------------------------------------------------------
-def change_rating(title, new_scores):
+def change_rating(title, new_scores, user_id=None):
     """Update one or more component scores on an existing book."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT id FROM books WHERE title=?", (title,)).fetchone()
+        row = con.execute("SELECT id FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No book titled '{title}' found.")
         _validate_scores(new_scores, require_all=False)
 
         _backup_once()
         sets = ",".join(f'"{c}"=?' for c in new_scores)
-        con.execute(f"UPDATE books SET {sets} WHERE title=?",
-                    list(new_scores.values()) + [title])
+        con.execute(f"UPDATE books SET {sets} WHERE user_id=? AND title=?",
+                    list(new_scores.values()) + [uid, title])
         con.commit()
         changed = ", ".join(f"{c}={v}" for c, v in new_scores.items())
         print(f"  ✓ Updated '{title}': {changed}")
@@ -490,15 +497,17 @@ def change_rating(title, new_scores):
         con.close()
 
 
-def delete_book(title):
+def delete_book(title, user_id=None):
     """Permanently delete a rated book by title. Backs up before writing."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT id FROM books WHERE title=?", (title,)).fetchone()
+        row = con.execute("SELECT id FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No book titled '{title}' found.")
         _backup_once()
-        con.execute("DELETE FROM books WHERE title=?", (title,))
+        con.execute("DELETE FROM books WHERE user_id=? AND title=?", (uid, title))
         con.commit()
         print(f"  ✓ Deleted '{title}'.")
     except ValidationError as e:
@@ -511,15 +520,17 @@ def delete_book(title):
 # ---------------------------------------------------------------------------
 # WRITE: reading-log status + year_read (the BookTracker port)
 # ---------------------------------------------------------------------------
-def delete_recommendation(title):
+def delete_recommendation(title, user_id=None):
     """Permanently delete a TBR recommendation by title. Backs up before writing."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT id FROM recommendations WHERE title=?", (title,)).fetchone()
+        row = con.execute("SELECT id FROM recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No recommendation titled '{title}' found.")
         _backup_once()
-        con.execute("DELETE FROM recommendations WHERE title=?", (title,))
+        con.execute("DELETE FROM recommendations WHERE user_id=? AND title=?", (uid, title))
         con.commit()
         print(f"  ✓ Deleted recommendation '{title}'.")
         return True
@@ -531,20 +542,22 @@ def delete_recommendation(title):
         con.close()
 
 
-def set_status(title, status):
+def set_status(title, status, user_id=None):
     """Set a rated book's reading status (finished / currently-reading /
     reading-next). Validated against VALID_STATUSES; nothing commits on failure.
     Returns True on success, False otherwise."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         if status not in VALID_STATUSES:
             raise ValidationError(
                 f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
-        row = con.execute("SELECT 1 FROM books WHERE title=?", (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No book titled '{title}' found.")
         _backup_once()
-        con.execute("UPDATE books SET status=? WHERE title=?", (status, title))
+        con.execute("UPDATE books SET status=? WHERE user_id=? AND title=?", (status, uid, title))
         con.commit()
         print(f"  ✓ '{title}' status set to {status}.")
         return True
@@ -556,20 +569,22 @@ def set_status(title, status):
         con.close()
 
 
-def set_series_number(table: str, title: str, number):
+def set_series_number(table: str, title: str, number, user_id=None):
     """Set series_number on a row in 'books' or 'recommendations'.
     Accepts int or float (e.g. 0.5 for prologues, 3.5 for interstitials).
     Backs up once per session before writing. Returns True on success."""
     if table not in ("books", "recommendations"):
         raise ValidationError(f"Unknown table '{table}'. Use 'books' or 'recommendations'.")
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute(f"SELECT 1 FROM {table} WHERE title=?", (title,)).fetchone()
+        row = con.execute(f"SELECT 1 FROM {table} WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No entry titled '{title}' in {table}.")
         _backup_once()
         val = float(number) if number != int(number) else int(number)
-        con.execute(f"UPDATE {table} SET series_number=? WHERE title=?", (val, title))
+        con.execute(f"UPDATE {table} SET series_number=? WHERE user_id=? AND title=?", (val, uid, title))
         con.commit()
         print(f"  ✓ {table}.series_number = {val} for '{title}'.")
         return True
@@ -581,19 +596,21 @@ def set_series_number(table: str, title: str, number):
         con.close()
 
 
-def set_year_read(title, year):
+def set_year_read(title, year, user_id=None):
     """Set/edit the year a rated book was read. Range-checked; nothing commits on
     failure. Returns True on success, False otherwise."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         if year is not None and not (1900 <= int(year) <= 2100):
             raise ValidationError(f"Year {year} is out of range (1900-2100).")
-        row = con.execute("SELECT 1 FROM books WHERE title=?", (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No book titled '{title}' found.")
         _backup_once()
-        con.execute("UPDATE books SET year_read=? WHERE title=?",
-                    (int(year) if year is not None else None, title))
+        con.execute("UPDATE books SET year_read=? WHERE user_id=? AND title=?",
+                    (int(year) if year is not None else None, uid, title))
         con.commit()
         print(f"  ✓ '{title}' year_read set to {year}.")
         return True
@@ -608,16 +625,17 @@ def set_year_read(title, year):
 # ---------------------------------------------------------------------------
 # WRITE: mark a recommendation done
 # ---------------------------------------------------------------------------
-def set_done(title, done=True):
+def set_done(title, done=True, user_id=None):
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No recommendation titled '{title}'.")
         _backup_once()
-        con.execute("UPDATE recommendations SET done=? WHERE title=?",
-                    (1 if done else 0, title))
+        con.execute("UPDATE recommendations SET done=? WHERE user_id=? AND title=?",
+                    (1 if done else 0, uid, title))
         con.commit()
         print(f"  ✓ Marked '{title}' done={done}.")
     except ValidationError as e:
@@ -630,15 +648,16 @@ def set_done(title, done=True):
 # ---------------------------------------------------------------------------
 # WRITE: update the read queue (replace order)
 # ---------------------------------------------------------------------------
-def update_queue(titles):
-    """Replace the read queue with this ordered list of titles."""
+def update_queue(titles, user_id=None):
+    """Replace the read queue with this ordered list of titles (per tenant)."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         _backup_once()
-        con.execute("DELETE FROM read_queue")
+        con.execute("DELETE FROM read_queue WHERE user_id=?", (uid,))
         for pos, t in enumerate(titles, 1):
-            con.execute("INSERT INTO read_queue (position,title) VALUES (?,?)",
-                        (pos, t))
+            con.execute("INSERT INTO read_queue (position,title,user_id) VALUES (?,?,?)",
+                        (pos, t, uid))
         con.commit()
         print(f"  ✓ Queue updated ({len(titles)} books).")
     finally:
@@ -650,7 +669,8 @@ def update_queue(titles):
 # ---------------------------------------------------------------------------
 def log_delta(title: str, pred_scores: dict, pred_wa: float,
               act_scores: dict, act_wa: float,
-              pred_model: str = None, meta: dict = None) -> None:
+              pred_model: str = None, meta: dict = None,
+              user_id: str = None) -> None:
     """
     Record predicted vs actual component scores and WA delta for a book that
     previously had a stored prediction. pred_scores / act_scores are both
@@ -672,11 +692,12 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
     """
     try:
         logged_at = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        uid = user_id or db_backend.DEFAULT_USER_ID
         pred_cols = [f'"pred_{_col(c)}"' for c in FICTION_COMPONENTS]
         act_cols  = [f'"act_{_col(c)}"'  for c in FICTION_COMPONENTS]
         d_cols    = [f'"d_{_col(c)}"'    for c in FICTION_COMPONENTS]
         all_cols  = (["title", "logged_at", "pred_wa", "act_wa", "d_wa"]
-                     + pred_cols + act_cols + d_cols + ["pred_model"])
+                     + pred_cols + act_cols + d_cols + ["pred_model", "user_id"])
         pred_vals = [pred_scores.get(c) for c in FICTION_COMPONENTS]
         act_vals  = [act_scores.get(c)  for c in FICTION_COMPONENTS]
         d_vals    = [
@@ -688,7 +709,7 @@ def log_delta(title: str, pred_scores: dict, pred_wa: float,
         model_tag = pred_model if pred_model is not None else RESEARCH_MODEL
         all_vals = (
             [title, logged_at, pred_wa, act_wa, (act_wa - pred_wa)]
-            + pred_vals + act_vals + d_vals + [model_tag]
+            + pred_vals + act_vals + d_vals + [model_tag, uid]
         )
         # Append recognised mechanism-metadata fields (whitelisted against
         # DELTA_META_COLUMNS so a stray key can never inject a column name).
@@ -1066,7 +1087,7 @@ def _nonfiction_averages(scores):
 def add_nonfiction_book(title, author=None, genre=None, scores=None,
                         series=None, series_number=None, words=None,
                         year_read=None, status="finished",
-                        allow_new_genre=False, require_scores=True):
+                        allow_new_genre=False, require_scores=True, user_id=None):
     """Add a nonfiction book to nonfiction_books, mirroring add_book's
     discipline: duplicate title refused, scores range/completeness checked,
     nothing commits on failure. The three category averages + Total Average are
@@ -1075,12 +1096,13 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
     populated. Returns True on success, False otherwise."""
     scores = scores or {}
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         if status not in VALID_STATUSES:
             raise ValidationError(
                 f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
-        dup = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
-                          (title,)).fetchone()
+        dup = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if dup:
             raise ValidationError(
                 f"A nonfiction book titled '{title}' already exists. "
@@ -1095,13 +1117,13 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
         _backup_once()
         avgs = _nonfiction_averages(scores)
         cols = (["title", "genre", "author", "series", "series_number",
-                 "words", "year_read", "status"]
+                 "words", "year_read", "status", "user_id"]
                 + NONFICTION_COMPONENTS
                 + ["Quality Average", "Aesthetics Average",
                    "Theme Average", "Total Average"])
         vals = ([title, genre, author, series,
                  int(series_number) if series_number else None,
-                 words, year_read, status]
+                 words, year_read, status, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS]
                 + [avgs["Quality Average"], avgs["Aesthetics Average"],
                    avgs["Theme Average"], avgs["Total Average"]])
@@ -1122,33 +1144,34 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
         con.close()
 
 
-def change_nonfiction_rating(title, new_scores):
+def change_nonfiction_rating(title, new_scores, user_id=None):
     """Update one or more component scores on a nonfiction book, then recompute
     and store the category averages + Total Average so they stay consistent.
     WA is not touched (stays NULL until the nonfiction engine owns it)."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction book titled '{title}' found.")
         _validate_nonfiction_scores(new_scores, require_all=False)
 
         _backup_once()
         sets = ",".join(f'"{c}"=?' for c in new_scores)
-        con.execute(f"UPDATE nonfiction_books SET {sets} WHERE title=?",
-                    list(new_scores.values()) + [title])
+        con.execute(f"UPDATE nonfiction_books SET {sets} WHERE user_id=? AND title=?",
+                    list(new_scores.values()) + [uid, title])
         # recompute averages from the full, now-updated component row
         cur = con.execute(
             f'SELECT {",".join(chr(34)+c+chr(34) for c in NONFICTION_COMPONENTS)} '
-            f'FROM nonfiction_books WHERE title=?', (title,))
+            f'FROM nonfiction_books WHERE user_id=? AND title=?', (uid, title))
         full = dict(zip(NONFICTION_COMPONENTS, cur.fetchone()))
         avgs = _nonfiction_averages(full)
         con.execute('UPDATE nonfiction_books SET "Quality Average"=?, '
                     '"Aesthetics Average"=?, "Theme Average"=?, '
-                    '"Total Average"=? WHERE title=?',
+                    '"Total Average"=? WHERE user_id=? AND title=?',
                     [avgs["Quality Average"], avgs["Aesthetics Average"],
-                     avgs["Theme Average"], avgs["Total Average"], title])
+                     avgs["Theme Average"], avgs["Total Average"], uid, title])
         con.commit()
         changed = ", ".join(f"{c}={v}" for c, v in new_scores.items())
         print(f"  ✓ Updated nonfiction '{title}': {changed}")
@@ -1161,16 +1184,17 @@ def change_nonfiction_rating(title, new_scores):
         con.close()
 
 
-def delete_nonfiction_book(title):
+def delete_nonfiction_book(title, user_id=None):
     """Permanently delete a nonfiction book by title. Backs up before writing."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction book titled '{title}' found.")
         _backup_once()
-        con.execute("DELETE FROM nonfiction_books WHERE title=?", (title,))
+        con.execute("DELETE FROM nonfiction_books WHERE user_id=? AND title=?", (uid, title))
         con.commit()
         print(f"  ✓ Deleted nonfiction '{title}'.")
         return True
@@ -1182,21 +1206,22 @@ def delete_nonfiction_book(title):
         con.close()
 
 
-def set_nonfiction_status(title, status):
+def set_nonfiction_status(title, status, user_id=None):
     """Set a nonfiction book's reading status (finished / currently-reading /
     reading-next). Validated against VALID_STATUSES. Returns True on success."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         if status not in VALID_STATUSES:
             raise ValidationError(
                 f"Status '{status}' is invalid. Valid: {list(VALID_STATUSES)}.")
-        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction book titled '{title}' found.")
         _backup_once()
-        con.execute("UPDATE nonfiction_books SET status=? WHERE title=?",
-                    (status, title))
+        con.execute("UPDATE nonfiction_books SET status=? WHERE user_id=? AND title=?",
+                    (status, uid, title))
         con.commit()
         print(f"  ✓ Nonfiction '{title}' status set to {status}.")
         return True
@@ -1208,20 +1233,21 @@ def set_nonfiction_status(title, status):
         con.close()
 
 
-def set_nonfiction_year_read(title, year):
+def set_nonfiction_year_read(title, year, user_id=None):
     """Set/edit the year a nonfiction book was read. Range-checked 1900-2100.
     Returns True on success, False otherwise."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         if year is not None and not (1900 <= int(year) <= 2100):
             raise ValidationError(f"Year {year} is out of range (1900-2100).")
-        row = con.execute("SELECT 1 FROM nonfiction_books WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction book titled '{title}' found.")
         _backup_once()
-        con.execute("UPDATE nonfiction_books SET year_read=? WHERE title=?",
-                    (int(year) if year is not None else None, title))
+        con.execute("UPDATE nonfiction_books SET year_read=? WHERE user_id=? AND title=?",
+                    (int(year) if year is not None else None, uid, title))
         con.commit()
         print(f"  ✓ Nonfiction '{title}' year_read set to {year}.")
         return True
@@ -1302,16 +1328,18 @@ def seed_nonfiction_weights(quality=0.45, aesthetics=0.20, theme=0.35,
 def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
                                   series=None, series_number=None, words=None,
                                   blurb=None, keywords=None, done=0,
-                                  allow_new_genre=False, require_scores=True):
+                                  allow_new_genre=False, require_scores=True,
+                                  user_id=None):
     """Add a researched (not-yet-read) nonfiction book to
     nonfiction_recommendations. Stores RAW components only — Total Average / WA
     are computed on read by the nonfiction engine. Refuses duplicate titles;
     nothing commits on failure. Returns True on success, False otherwise."""
     scores = scores or {}
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        dup = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
-                          (title,)).fetchone()
+        dup = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if dup:
             raise ValidationError(
                 f"A nonfiction recommendation titled '{title}' already exists.")
@@ -1324,10 +1352,10 @@ def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
 
         _backup_once()
         cols = (["title", "genre", "author", "series", "series_number", "words",
-                 "done", "blurb", "keywords"] + NONFICTION_COMPONENTS)
+                 "done", "blurb", "keywords", "user_id"] + NONFICTION_COMPONENTS)
         vals = ([title, genre, author, series,
                  int(series_number) if series_number else None, words,
-                 1 if done else 0, blurb, keywords]
+                 1 if done else 0, blurb, keywords, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS])
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO nonfiction_recommendations '
@@ -1344,17 +1372,18 @@ def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
         con.close()
 
 
-def set_nonfiction_recommendation_meta(title, blurb=None, keywords=None):
+def set_nonfiction_recommendation_meta(title, blurb=None, keywords=None, user_id=None):
     """Update only the blurb/keywords on a nonfiction recommendation."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
         _backup_once()
         con.execute("UPDATE nonfiction_recommendations SET blurb=?, keywords=? "
-                    "WHERE title=?", (blurb, keywords, title))
+                    "WHERE user_id=? AND title=?", (blurb, keywords, uid, title))
         con.commit()
         print(f"  ✓ Updated blurb/keywords for '{title}'.")
         return True
@@ -1366,16 +1395,17 @@ def set_nonfiction_recommendation_meta(title, blurb=None, keywords=None):
         con.close()
 
 
-def delete_nonfiction_recommendation(title):
+def delete_nonfiction_recommendation(title, user_id=None):
     """Permanently delete a nonfiction TBR recommendation by title."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
         _backup_once()
-        con.execute("DELETE FROM nonfiction_recommendations WHERE title=?", (title,))
+        con.execute("DELETE FROM nonfiction_recommendations WHERE user_id=? AND title=?", (uid, title))
         con.commit()
         print(f"  ✓ Deleted nonfiction recommendation '{title}'.")
         return True
@@ -1387,17 +1417,18 @@ def delete_nonfiction_recommendation(title):
         con.close()
 
 
-def set_nonfiction_done(title, done=True):
+def set_nonfiction_done(title, done=True, user_id=None):
     """Mark a nonfiction recommendation done / not-done."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE title=?",
-                          (title,)).fetchone()
+        row = con.execute("SELECT 1 FROM nonfiction_recommendations WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
         if not row:
             raise ValidationError(f"No nonfiction recommendation titled '{title}'.")
         _backup_once()
-        con.execute("UPDATE nonfiction_recommendations SET done=? WHERE title=?",
-                    (1 if done else 0, title))
+        con.execute("UPDATE nonfiction_recommendations SET done=? WHERE user_id=? AND title=?",
+                    (1 if done else 0, uid, title))
         con.commit()
         print(f"  ✓ Marked nonfiction '{title}' done={done}.")
         return True
@@ -1409,15 +1440,16 @@ def set_nonfiction_done(title, done=True):
         con.close()
 
 
-def update_nonfiction_queue(titles):
-    """Replace the nonfiction read queue with this ordered list of titles."""
+def update_nonfiction_queue(titles, user_id=None):
+    """Replace the nonfiction read queue with this ordered list of titles (per tenant)."""
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         _backup_once()
-        con.execute("DELETE FROM nonfiction_read_queue")
+        con.execute("DELETE FROM nonfiction_read_queue WHERE user_id=?", (uid,))
         for pos, t in enumerate(titles, 1):
-            con.execute("INSERT INTO nonfiction_read_queue (position,title) "
-                        "VALUES (?,?)", (pos, t))
+            con.execute("INSERT INTO nonfiction_read_queue (position,title,user_id) "
+                        "VALUES (?,?,?)", (pos, t, uid))
         con.commit()
         print(f"  ✓ Nonfiction queue updated ({len(titles)} books).")
     finally:
@@ -1464,7 +1496,7 @@ _TITLE_REF_TABLES = {
 }
 
 
-def update_book_metadata(current_title, table, fields, allow_new_genre=False):
+def update_book_metadata(current_title, table, fields, allow_new_genre=False, user_id=None):
     """
     Edit the METADATA (not scores) of an already-ranked book, with the same
     validation discipline as add_book. `table` is 'books', 'nonfiction_books',
@@ -1503,6 +1535,7 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
                          f"'nonfiction_books', or 'recommendations'."}
 
     con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         allowed = _TABLE_METADATA_FIELDS[table]
         unknown = [k for k in fields if k not in allowed]
@@ -1511,8 +1544,8 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
                 f"Field(s) not editable on {table}: {unknown}. "
                 f"Valid for {table}: {list(allowed)}")
 
-        row = con.execute(f"SELECT 1 FROM {table} WHERE title=?",
-                          (current_title,)).fetchone()
+        row = con.execute(f"SELECT 1 FROM {table} WHERE user_id=? AND title=?",
+                          (uid, current_title)).fetchone()
         if not row:
             raise ValidationError(f"No book titled '{current_title}' in {table}.")
 
@@ -1582,8 +1615,8 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
             if not nt:
                 raise ValidationError("New title cannot be empty.")
             if nt != current_title:
-                dup = con.execute(f"SELECT 1 FROM {table} WHERE title=?",
-                                  (nt,)).fetchone()
+                dup = con.execute(f"SELECT 1 FROM {table} WHERE user_id=? AND title=?",
+                                  (uid, nt)).fetchone()
                 if dup:
                     raise ValidationError(
                         f"A book titled '{nt}' already exists in {table} — "
@@ -1596,15 +1629,15 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False):
 
         _backup_once()
         set_clause = ",".join(f'"{c}"=?' for c in updates)
-        con.execute(f"UPDATE {table} SET {set_clause} WHERE title=?",
-                    list(updates.values()) + [current_title])
+        con.execute(f"UPDATE {table} SET {set_clause} WHERE user_id=? AND title=?",
+                    list(updates.values()) + [uid, current_title])
 
         # Cascade the rename to every table that references this book by title.
         cascade = {}
         if new_title is not None:
             for ref in _TITLE_REF_TABLES[table]:
-                cur = con.execute(f"UPDATE {ref} SET title=? WHERE title=?",
-                                  (new_title, current_title))
+                cur = con.execute(f"UPDATE {ref} SET title=? WHERE user_id=? AND title=?",
+                                  (new_title, uid, current_title))
                 if cur.rowcount:
                     cascade[ref] = cur.rowcount
 

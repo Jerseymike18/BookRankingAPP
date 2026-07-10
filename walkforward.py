@@ -279,7 +279,8 @@ def _series_number(title, books):
         try:
             uri = "file:" + os.path.abspath(db_loader.DB) + "?mode=ro"
             con = db_backend.connect(uri, uri=True)
-            for t, n in con.execute("SELECT title, series_number FROM books"):
+            for t, n in con.execute("SELECT title, series_number FROM books WHERE user_id=?",
+                                    (db_backend.DEFAULT_USER_ID,)):
                 cache[str(t).strip()] = n
             con.close()
         except Exception:
