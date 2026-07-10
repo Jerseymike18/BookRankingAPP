@@ -43,7 +43,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -54,6 +54,7 @@ import predict_engine as pe
 import views as views_mod
 import validate_engine as ve
 import nonfiction_engine as nfe
+import auth
 import track_record as tr
 import engine_parameters as ep
 
@@ -133,36 +134,57 @@ UPSIDE_FRAC = 0.45
 # Write endpoints call _invalidate_engine() after a successful db_write so the
 # next read reflects the change.
 
-_engine_cache: Optional[tuple] = None
+# Per-TENANT engine caches, keyed by user_id. Each user's engine is built from
+# THEIR scoped books (db_loader / nonfiction_engine filter by user_id), so one
+# tenant's data can never leak into another's ranking/prediction. Local single-
+# user dev (AUTH_ENABLED off) uses the one DEFAULT_USER_ID key, so its behavior
+# is unchanged. Endpoints pass the token-derived user_id; a missing one falls
+# back to the default so not-yet-threaded call sites stay correct locally.
+_engine_cache: dict = {}
+_nf_engine_cache: dict = {}
 
 
-def _get_engine() -> tuple:
-    global _engine_cache
-    if _engine_cache is None:
-        _engine_cache = pe.build(source="db")
-    return _engine_cache
+def _uid(user_id):
+    return user_id or db_backend.DEFAULT_USER_ID
 
 
-def _invalidate_engine() -> None:
-    global _engine_cache
-    _engine_cache = pe.build(source="db")
+def _build_engine_for(uid) -> tuple:
+    """pe.build(source='db') for ONE tenant: a user-scoped load fed to the
+    read-only engine fit functions. No prediction math is reimplemented here —
+    predict_engine stays tenant-agnostic and simply receives scoped data."""
+    books, gw, gcw = db_loader.load_from_db(user_id=uid)
+    coeffs, r2, resid_sd = pe.fit_regression(books)
+    ginfo = pe.genre_bias_and_trust(books, coeffs)
+    upstream = pe.fit_upstream(books)
+    return books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream
+
+
+def _get_engine(user_id=None) -> tuple:
+    uid = _uid(user_id)
+    cached = _engine_cache.get(uid)
+    if cached is None:
+        cached = _engine_cache[uid] = _build_engine_for(uid)
+    return cached
+
+
+def _invalidate_engine(user_id=None) -> None:
+    uid = _uid(user_id)
+    _engine_cache[uid] = _build_engine_for(uid)
 
 
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
-# nonfiction engine. Built lazily; rebuilt after any nonfiction write.
-_nf_engine_cache: Optional[tuple] = None
+# nonfiction engine, per tenant. Built lazily; rebuilt after any nonfiction write.
+def _get_nf_engine(user_id=None) -> tuple:
+    uid = _uid(user_id)
+    cached = _nf_engine_cache.get(uid)
+    if cached is None:
+        cached = _nf_engine_cache[uid] = nfe.load_nonfiction_from_db(user_id=uid)
+    return cached
 
 
-def _get_nf_engine() -> tuple:
-    global _nf_engine_cache
-    if _nf_engine_cache is None:
-        _nf_engine_cache = nfe.load_nonfiction_from_db()
-    return _nf_engine_cache
-
-
-def _invalidate_nf_engine() -> None:
-    global _nf_engine_cache
-    _nf_engine_cache = nfe.load_nonfiction_from_db()
+def _invalidate_nf_engine(user_id=None) -> None:
+    uid = _uid(user_id)
+    _nf_engine_cache[uid] = nfe.load_nonfiction_from_db(user_id=uid)
 
 
 @asynccontextmanager

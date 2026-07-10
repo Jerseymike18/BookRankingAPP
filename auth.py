@@ -25,8 +25,10 @@ db_write's tenancy logic — it only produces the user_id those layers already t
 """
 import os
 
-import jwt
 from fastapi import Header, HTTPException
+# `jwt` (PyJWT) + cryptography are imported lazily inside _verify() so that merely
+# importing this module (and thus backend/main.py) never requires them — the
+# snapshot export runs on a Python that only has the engine deps, not the auth deps.
 
 import db_backend
 
@@ -48,6 +50,7 @@ def _get_jwks_client():
 
 def _verify(token):
     """Decode+verify a Supabase access token; return its claims or raise."""
+    import jwt
     if _JWT_SECRET:
         return jwt.decode(token, _JWT_SECRET, algorithms=["HS256"],
                           audience=_AUDIENCE)
