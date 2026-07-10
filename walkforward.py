@@ -71,6 +71,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import db_backend
 import subprocess
 
 import numpy as np
@@ -177,7 +178,7 @@ def _active_correction_version(db_path):
     (it is retired + unwired) -- recording it documents that fact per run."""
     try:
         uri = "file:" + os.path.abspath(db_path) + "?mode=ro"
-        con = sqlite3.connect(uri, uri=True)
+        con = db_backend.connect(uri, uri=True)
         row = con.execute(
             "SELECT version, decision FROM component_corrections "
             "WHERE active=1 LIMIT 1").fetchone()
@@ -277,7 +278,7 @@ def _series_number(title, books):
         cache = {}
         try:
             uri = "file:" + os.path.abspath(db_loader.DB) + "?mode=ro"
-            con = sqlite3.connect(uri, uri=True)
+            con = db_backend.connect(uri, uri=True)
             for t, n in con.execute("SELECT title, series_number FROM books"):
                 cache[str(t).strip()] = n
             con.close()

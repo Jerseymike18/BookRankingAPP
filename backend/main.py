@@ -32,6 +32,7 @@ import contextlib
 import json
 import re
 import sqlite3
+import db_backend
 import uuid
 import threading
 from contextlib import asynccontextmanager
@@ -209,7 +210,7 @@ def _series_number_map(table: str) -> dict:
     """Return {lowercased-title: series_number} for a table. Used to attach
     ordinals to engine-backed responses (db_loader is read-only and doesn't
     carry series_number). series_number may be int or float (0.5 prequels)."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     try:
         rows = con.execute(
             f"SELECT title, series_number FROM {table} "
@@ -312,7 +313,7 @@ def get_genres():
 @app.get("/api/valid-genres")
 def get_valid_genres():
     """All genres defined in genre_weights (valid for adding new books)."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
     return genres
@@ -377,7 +378,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
 
     # Remove the finished book from the queue so slots advance automatically.
     try:
-        con = sqlite3.connect(db_write.DB)
+        con = db_backend.connect(db_write.DB)
         current_queue = [t for (t,) in con.execute(
             "SELECT title FROM read_queue ORDER BY position")]
         con.close()
@@ -396,7 +397,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
     # set_done is then called with that row's exact title. Non-fatal: a failure
     # here never rolls back the successful add.
     try:
-        con = sqlite3.connect(db_write.DB)
+        con = db_backend.connect(db_write.DB)
         rec = con.execute(
             "SELECT title FROM recommendations "
             "WHERE LOWER(title)=LOWER(?) AND done=0 ORDER BY id DESC LIMIT 1",
@@ -471,7 +472,7 @@ def repredict_recent(token: str):
 
 def _maybe_log_delta(title: str, act_scores: dict) -> None:
     """Check recommendations for a stored prediction and log delta if found."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     row = con.execute(
         "SELECT genre, author, words, "
         + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
@@ -623,7 +624,7 @@ def lookup_book(req: LookupRequest):
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Could not initialise LLM client: {e}")
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
@@ -771,7 +772,7 @@ def health():
 @app.get("/api/queue")
 def get_queue():
     """Return the ordered read-queue titles."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     titles = [r[0] for r in con.execute(
         "SELECT title FROM read_queue ORDER BY position")]
     con.close()
@@ -818,7 +819,7 @@ def add_series_to_queue(req: AddSeriesRequest):
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
 
     # Fetch existing data for de-dupe checks
@@ -992,7 +993,7 @@ def get_read_queue():
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
         f'FROM recommendations WHERE done=0'
@@ -1150,7 +1151,7 @@ def predict_research(req: ResearchRequest):
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
@@ -1273,7 +1274,7 @@ def discover_candidates(req: DiscoverRequest):
     books = _get_engine()[0]
     cache = _rp.load_cache()
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     tbr_books = [(t or "", a or "") for t, a in con.execute(
         "SELECT title, author FROM recommendations")]
@@ -1414,7 +1415,7 @@ def get_reading_status():
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
 
     # Queue positions 1 and 2
     queue_titles = [r[0].strip() for r in con.execute(
@@ -1476,7 +1477,7 @@ def get_reading_status():
 
     # Last read: most recently inserted row in books (by rowid)
     last_row = con.execute(
-        "SELECT title FROM books ORDER BY rowid DESC LIMIT 1"
+        "SELECT title FROM books ORDER BY id DESC LIMIT 1"
     ).fetchone()
     con.close()
 
@@ -1834,14 +1835,14 @@ def get_nf_reading_status():
                               for cat in NF_CAT_ORDER},
         }
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     try:
         cur = con.execute("SELECT title FROM nonfiction_books "
                           "WHERE status='currently-reading' LIMIT 1").fetchone()
         nxt = con.execute("SELECT title FROM nonfiction_books "
                           "WHERE status='reading-next' LIMIT 1").fetchone()
         last = con.execute("SELECT title FROM nonfiction_books "
-                           "ORDER BY rowid DESC LIMIT 1").fetchone()
+                           "ORDER BY id DESC LIMIT 1").fetchone()
     finally:
         con.close()
     return {
@@ -1923,7 +1924,7 @@ def edit_nf_book_metadata(title: str, req: BookMetadataRequest):
 def get_nf_valid_genres():
     """Genres defined in nonfiction_genre_weights (valid for the metadata genre
     dropdown). Normally just ['Nonfiction'] until a finer taxonomy exists."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     genres = sorted(r[0] for r in con.execute(
         "SELECT genre FROM nonfiction_genre_weights"))
     con.close()
@@ -2028,7 +2029,7 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest):
         cands = _nr.discover_nonfiction_candidates(request, n=req.n or 8, client=client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     have = {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_books") if r[0]}
     have |= {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_recommendations") if r[0]}
     con.close()
@@ -2049,7 +2050,7 @@ def get_nf_read_queue():
 
     COMPONENTS = db_write.NONFICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
         f'FROM nonfiction_recommendations WHERE done=0'
@@ -2154,7 +2155,7 @@ def set_nf_done(title: str, req: NfDoneRequest):
 @app.get("/api/nonfiction/queue")
 def get_nf_queue():
     """Ordered nonfiction read-queue titles."""
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     titles = [r[0] for r in con.execute(
         "SELECT title FROM nonfiction_read_queue ORDER BY position")]
     con.close()
@@ -2480,7 +2481,7 @@ def get_delta_log():
         ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
         + pred_cols + act_cols + d_cols
     )
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f"SELECT {sel} FROM delta_log ORDER BY id DESC"
     ).fetchall()

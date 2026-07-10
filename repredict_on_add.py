@@ -58,6 +58,7 @@ RUN (manual dry-run preview)
 import argparse
 import os
 import sqlite3
+import db_backend
 import threading
 from collections import OrderedDict
 
@@ -333,7 +334,7 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
         gate_fires = shift > gate
 
         # --- 3) Affected set (author ∪ gated genre) --------------------------
-        con = sqlite3.connect(db_write.DB)
+        con = db_backend.connect(db_write.DB)
         con.row_factory = sqlite3.Row
         try:
             author_peers = _recs_by(con, "author", trigger_author, trigger_title)
@@ -493,7 +494,7 @@ def _main():
     ap.add_argument("--no-research", action="store_true", help="do not auto-research an uncached trigger")
     args = ap.parse_args()
 
-    con = sqlite3.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB)
     row = con.execute("SELECT author, genre FROM books WHERE LOWER(title)=LOWER(?)",
                       (args.title,)).fetchone()
     con.close()

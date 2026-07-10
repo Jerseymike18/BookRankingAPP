@@ -37,6 +37,7 @@ db_write.seed_nonfiction_weights. All reads only — writes go through db_write.
 """
 
 import sqlite3
+import db_backend
 import numpy as np
 import pandas as pd
 
@@ -113,7 +114,7 @@ def load_nonfiction_from_db(path=DB):
       gw       : {genre: {"quality","aesthetics","theme"}} category weights.
       gcw      : {genre: {category: {component: weight}}} within-category weights.
     books_df.attrs['category_components'] / ['all_components'] carry the schema."""
-    con = sqlite3.connect(path)
+    con = db_backend.connect(path)
     category_components, gcw = _discover_schema_from_db(con)
     all_components = [c for comps in category_components.values() for c in comps]
 

@@ -66,15 +66,21 @@ def _database_url():
     return url
 
 
-def connect():
+def connect(path=None, uri=False):
     """Return a DB connection for the configured backend.
 
-    sqlite   -> a genuine sqlite3.Connection (unchanged behavior).
+    sqlite   -> a genuine sqlite3.Connection (unchanged behavior). `path` overrides
+                the default db file (callers pass db_write.DB / a test-db path so the
+                test_engine monkeypatch keeps working); `uri` passes through to
+                sqlite3.connect(..., uri=True) for read-only "file:...?mode=ro" opens.
     postgres -> a PgConnection proxy that speaks the sqlite3 surface the app uses.
+                `path`/`uri` are sqlite-only and ignored (the DSN is DATABASE_URL).
     """
     b = backend()
     if b == "sqlite":
-        return sqlite3.connect(SQLITE_PATH)
+        if uri:
+            return sqlite3.connect(path, uri=True)
+        return sqlite3.connect(path or SQLITE_PATH)
     if b == "postgres":
         try:
             import psycopg2  # noqa: F401  (lazy: only needed in postgres mode)

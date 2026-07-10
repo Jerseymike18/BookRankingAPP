@@ -21,6 +21,7 @@ SAFE: reads only. Writes nothing to either the DB or the spreadsheet.
 """
 
 import sqlite3
+import db_backend
 import numpy as np
 import pandas as pd
 
@@ -62,7 +63,7 @@ def _weighted_cat_avg(comp_vals, genre, cat, gcw):
 
 def load_from_db(path=DB):
     """Return (books_df, gw, gcw) identical in shape to load_everything()."""
-    con = sqlite3.connect(path)
+    con = db_backend.connect(path)
     category_components, gcw = _discover_schema_from_db(con)
     all_components = [c for comps in category_components.values() for c in comps]
 

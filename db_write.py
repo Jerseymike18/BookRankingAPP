@@ -36,6 +36,7 @@ functions from other scripts / the future website.
 import os
 import shutil
 import sqlite3
+import db_backend
 import datetime as dt
 
 import predict_engine as pe
@@ -70,7 +71,7 @@ def _ensure_series_number():
     """Add series_number INTEGER column to books and recommendations if absent."""
     con = _connect()
     for tbl in ("books", "recommendations"):
-        cols = {r[1] for r in con.execute(f"PRAGMA table_info({tbl})")}
+        cols = set(db_backend.table_columns(con, tbl))
         if "series_number" not in cols:
             con.execute(f"ALTER TABLE {tbl} ADD COLUMN series_number INTEGER")
     con.commit()
@@ -154,7 +155,7 @@ def _ensure_delta_log():
     # Back-compat: add each newer column to DBs created before it existed. Rows
     # that predate a column keep it NULL (never retroactively relabeled) — the
     # same discipline pred_model shipped with, now extended to the metadata block.
-    have = [r[1] for r in con.execute("PRAGMA table_info(delta_log)").fetchall()]
+    have = db_backend.table_columns(con, "delta_log")
     for name, typ in [("pred_model", "TEXT")] + DELTA_META_COLUMNS:
         if name not in have:
             con.execute(f"ALTER TABLE delta_log ADD COLUMN {name} {typ}")
@@ -179,7 +180,7 @@ def _backup_once():
 
 
 def _connect():
-    return sqlite3.connect(DB)
+    return db_backend.connect(DB)
 
 
 # ---------------------------------------------------------------------------
