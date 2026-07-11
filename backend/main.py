@@ -55,6 +55,7 @@ import views as views_mod
 import validate_engine as ve
 import nonfiction_engine as nfe
 import auth
+import signup as signup_mod
 import track_record as tr
 import engine_parameters as ep
 
@@ -847,6 +848,32 @@ def delete_recommendation(title: str,
 
 @app.get("/health")
 def health():
+    return {"ok": True}
+
+
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+    invite_code: str
+
+
+@app.post("/api/signup")
+def signup(req: SignupRequest):
+    """Invite-code-gated account creation (hosted multi-user). PUBLIC/global —
+    the caller isn't authenticated yet, so no Depends(get_current_user_id); the
+    invite code is the gate and it (plus the service-role key) lives only on the
+    server (see signup.py). 404 when sign-up isn't configured (local/static)."""
+    if not signup_mod.SIGNUP_ENABLED:
+        raise HTTPException(status_code=404, detail="Sign-up is not enabled here.")
+    if not signup_mod.check_invite_code(req.invite_code):
+        raise HTTPException(status_code=403, detail="Invalid invite code.")
+    email = (req.email or "").strip().lower()
+    if not email or not req.password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+    try:
+        signup_mod.create_user(email, req.password)
+    except signup_mod.SignupError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {"ok": True}
 
 

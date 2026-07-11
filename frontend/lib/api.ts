@@ -79,6 +79,26 @@ async function apiFetch(
   return res;
 }
 
+/** Invite-gated account creation. Posts to the backend, which validates the one
+ * shared invite code and mints a PRE-CONFIRMED Supabase user via the admin API
+ * (see signup.py). The invite code + service key never reach the client bundle —
+ * they're checked server-side, so the gate can't be bypassed. Plain fetch: the
+ * caller isn't signed in yet, and a failure must show inline (no /login bounce). */
+export async function signUp(
+  email: string,
+  password: string,
+  inviteCode: string,
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`${API}/api/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, invite_code: inviteCode }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ?? `Sign-up failed (${res.status})`);
+  return data;
+}
+
 /** API path prefix for a library: fiction → /api, nonfiction → /api/nonfiction. */
 function base(kind: BookKind = "fiction"): string {
   return `${API}${kind === "nonfiction" ? "/api/nonfiction" : "/api"}`;
