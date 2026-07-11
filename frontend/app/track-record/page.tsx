@@ -1,4 +1,5 @@
 import { fetchTrackRecord } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/supabase/server";
 import TrackRecordClient from "./TrackRecordClient";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const metadata = {
 };
 
 export default async function TrackRecordPage() {
-  const data = await fetchTrackRecord();
+  const token = await getServerAccessToken();
+  const data = await fetchTrackRecord(token);
   return <TrackRecordClient data={data} />;
 }

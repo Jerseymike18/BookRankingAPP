@@ -1,4 +1,5 @@
 import { fetchEngineParameters, fetchTrackRecord } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/supabase/server";
 import MethodologyClient from "./MethodologyClient";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +11,13 @@ export const metadata = {
 };
 
 export default async function MethodologyPage() {
+  const token = await getServerAccessToken();
   // Engine parameters are always served (never 404). The track record is reused
   // for the validation baselines so this page and /track-record can't disagree;
   // it may be null until the walk-forward artifacts exist, handled in the client.
   const [params, track] = await Promise.all([
-    fetchEngineParameters(),
-    fetchTrackRecord().catch(() => null),
+    fetchEngineParameters(token),
+    fetchTrackRecord(token).catch(() => null),
   ]);
   return <MethodologyClient params={params} track={track} />;
 }

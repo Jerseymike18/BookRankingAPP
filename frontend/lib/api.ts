@@ -25,6 +25,11 @@ import type {
   EngineParameters,
 } from "./types";
 import { slugify } from "./slug";
+import {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  createSupabaseBrowserClient,
+} from "./supabase/client";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -32,6 +37,47 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
  * of hitting the FastAPI server. Set at build time on Vercel. See
  * scripts/export_static_data.py for how the snapshots are produced. */
 const STATIC = process.env.NEXT_PUBLIC_STATIC_DATA === "1";
+
+/** Auth is ON only on the hosted multi-tenant build: a live backend (not the
+ * static snapshot) AND a configured Supabase project. Local dev and the public
+ * static build leave the Supabase env unset → auth off → every request behaves
+ * exactly as before (no token attached, no login gate). */
+const AUTH_ON = !STATIC && !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
+
+/** A Supabase access token to forward to the backend. On the SERVER it is
+ * supplied by the caller — a page reads it from the request cookie via the
+ * server-only `lib/supabase/server` and passes it in — so api.ts itself never
+ * imports next/headers and stays safe in the client bundle. In the BROWSER it is
+ * read here from the cookie-backed client. `undefined` means no token (auth off,
+ * a signed-out call, or a global/unauthenticated endpoint). */
+export type ServerToken = string | undefined;
+
+/** fetch() for every LIVE-backend call. Attaches the Supabase bearer token —
+ * `serverToken` when rendering on the server, otherwise the browser session —
+ * and, in the browser, bounces to /login on a 401. In static mode it is never
+ * reached (getJSON / assertWritable win first); with auth off it degrades to a
+ * plain fetch. */
+async function apiFetch(
+  input: string,
+  init: RequestInit = {},
+  serverToken?: ServerToken,
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (AUTH_ON) {
+    let token = serverToken;
+    if (token === undefined && typeof window !== "undefined") {
+      const { data } = await createSupabaseBrowserClient().auth.getSession();
+      token = data.session?.access_token;
+    }
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
+  const res = await fetch(input, { ...init, headers });
+  if (res.status === 401 && typeof window !== "undefined") {
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/login?next=${next}`);
+  }
+  return res;
+}
 
 /** API path prefix for a library: fiction → /api, nonfiction → /api/nonfiction. */
 function base(kind: BookKind = "fiction"): string {
@@ -62,16 +108,16 @@ function assertWritable(): void {
   if (STATIC) throw new Error("Read-only deployment");
 }
 
-export async function fetchBooks(kind: BookKind = "fiction"): Promise<BooksResponse> {
+export async function fetchBooks(kind: BookKind = "fiction", token?: ServerToken): Promise<BooksResponse> {
   if (STATIC) return getJSON<BooksResponse>(`${kind}/books.json`);
-  const res = await fetch(`${base(kind)}/books`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/books`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchValidGenres(kind: BookKind = "fiction"): Promise<string[]> {
+export async function fetchValidGenres(kind: BookKind = "fiction", token?: ServerToken): Promise<string[]> {
   if (STATIC) return getJSON<string[]>(`${kind}/valid-genres.json`);
-  const res = await fetch(`${base(kind)}/valid-genres`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/valid-genres`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -94,7 +140,7 @@ export async function updateBookMetadata(
   kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string; renamed_to: string | null; cascade: Record<string, number> }> {
   assertWritable();
-  const res = await fetch(
+  const res = await apiFetch(
     `${base(kind)}/books/${encodeURIComponent(currentTitle)}/metadata`,
     {
       method: "POST",
@@ -109,7 +155,7 @@ export async function updateBookMetadata(
 
 export async function fetchBookScores(title: string): Promise<BookScoresResponse> {
   if (STATIC) return getJSON<BookScoresResponse>(`fiction/scores/${slugify(title)}.json`);
-  const res = await fetch(
+  const res = await apiFetch(
     `${API}/api/books/${encodeURIComponent(title)}/scores`,
     { cache: "no-store" }
   );
@@ -137,7 +183,7 @@ export interface AddBookResult {
 
 export async function addBook(payload: AddBookPayload): Promise<AddBookResult> {
   assertWritable();
-  const res = await fetch(`${API}/api/books`, {
+  const res = await apiFetch(`${API}/api/books`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -150,7 +196,7 @@ export async function addBook(payload: AddBookPayload): Promise<AddBookResult> {
 /** Poll for a background cohort re-prediction's report by its token. Resolves to
  *  {status:"pending"} until the background pass finishes, then {status:"done"}. */
 export async function fetchRepredictRecent(token: string): Promise<RepredictPoll> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${API}/api/repredict/recent?token=${encodeURIComponent(token)}`,
     { cache: "no-store" },
   );
@@ -173,7 +219,7 @@ export async function addNonfictionBook(
   payload: AddNonfictionBookPayload
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/books`, {
+  const res = await apiFetch(`${base("nonfiction")}/books`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -189,7 +235,7 @@ export async function editRating(
   kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base(kind)}/books/${encodeURIComponent(title)}/scores`, {
+  const res = await apiFetch(`${base(kind)}/books/${encodeURIComponent(title)}/scores`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ scores }),
@@ -204,7 +250,7 @@ export async function deleteBook(
   kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base(kind)}/books/${encodeURIComponent(title)}`, {
+  const res = await apiFetch(`${base(kind)}/books/${encodeURIComponent(title)}`, {
     method: "DELETE",
   });
   const data = await res.json();
@@ -214,7 +260,7 @@ export async function deleteBook(
 
 export async function lookupBook(title: string, authorHint?: string): Promise<LookupResult> {
   assertWritable();
-  const res = await fetch(`${API}/api/lookup`, {
+  const res = await apiFetch(`${API}/api/lookup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author_hint: authorHint ?? "" }),
@@ -231,7 +277,7 @@ export async function predictInstant(
 ): Promise<InstantPrediction> {
   assertWritable();
   const params = new URLSearchParams({ title, author, genre });
-  const res = await fetch(`${API}/api/predict/instant?${params}`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/predict/instant?${params}`, { cache: "no-store" });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
@@ -244,7 +290,7 @@ export async function predictResearch(
   grounded = false
 ): Promise<ResearchResult> {
   assertWritable();
-  const res = await fetch(`${API}/api/predict/research`, {
+  const res = await apiFetch(`${API}/api/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre: genre ?? null, grounded }),
@@ -260,7 +306,7 @@ export async function predictNonfiction(
   genre?: string
 ): Promise<import("./types").NonfictionPrediction> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/predict/research`, {
+  const res = await apiFetch(`${base("nonfiction")}/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre: genre ?? null }),
@@ -275,7 +321,7 @@ export async function discoverNonfictionCandidates(
   n?: number
 ): Promise<import("./types").NonfictionDiscoverResponse> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/discover/candidates`, {
+  const res = await apiFetch(`${base("nonfiction")}/discover/candidates`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request, n: n ?? null }),
@@ -290,7 +336,7 @@ export async function discoverCandidates(
   maxCandidates?: number
 ): Promise<DiscoverCandidatesResponse> {
   assertWritable();
-  const res = await fetch(`${API}/api/discover/candidates`, {
+  const res = await apiFetch(`${API}/api/discover/candidates`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -303,9 +349,9 @@ export async function discoverCandidates(
   return data;
 }
 
-export async function fetchQueue(): Promise<string[]> {
+export async function fetchQueue(token?: ServerToken): Promise<string[]> {
   if (STATIC) return (await getJSON<{ titles: string[] }>("fiction/queue.json")).titles;
-  const res = await fetch(`${API}/api/queue`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/queue`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const data = await res.json();
   return data.titles;
@@ -313,7 +359,7 @@ export async function fetchQueue(): Promise<string[]> {
 
 export async function saveQueue(titles: string[]): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${API}/api/queue`, {
+  const res = await apiFetch(`${API}/api/queue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ titles }),
@@ -323,7 +369,7 @@ export async function saveQueue(titles: string[]): Promise<{ ok: boolean; messag
   return data;
 }
 
-export async function fetchTiers(year?: number, kind: BookKind = "fiction"): Promise<TiersResponse> {
+export async function fetchTiers(year?: number, kind: BookKind = "fiction", token?: ServerToken): Promise<TiersResponse> {
   if (STATIC) {
     // Nonfiction has no year_read (endpoint ignores the param), so it always
     // maps to the single file; fiction has a snapshot per year read.
@@ -331,22 +377,22 @@ export async function fetchTiers(year?: number, kind: BookKind = "fiction"): Pro
     return getJSON<TiersResponse>(`${kind}/tiers.json`);
   }
   const params = kind === "fiction" && year != null ? `?year=${year}` : "";
-  const res = await fetch(`${base(kind)}/tiers${params}`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/tiers${params}`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchReadQueue(): Promise<ReadQueueResponse> {
+export async function fetchReadQueue(token?: ServerToken): Promise<ReadQueueResponse> {
   if (STATIC) return getJSON<ReadQueueResponse>("fiction/read-queue.json");
-  const res = await fetch(`${API}/api/read-queue`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/read-queue`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
 // ── Nonfiction TBR (recommendations + read queue) ──
-export async function fetchNonfictionReadQueue(): Promise<import("./types").NonfictionReadQueueResponse> {
+export async function fetchNonfictionReadQueue(token?: ServerToken): Promise<import("./types").NonfictionReadQueueResponse> {
   if (STATIC) return getJSON<import("./types").NonfictionReadQueueResponse>("nonfiction/read-queue.json");
-  const res = await fetch(`${base("nonfiction")}/read-queue`, { cache: "no-store" });
+  const res = await apiFetch(`${base("nonfiction")}/read-queue`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -367,7 +413,7 @@ export async function saveNonfictionRecommendation(
   payload: SaveNonfictionRecPayload
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/recommendations`, {
+  const res = await apiFetch(`${base("nonfiction")}/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -381,7 +427,7 @@ export async function deleteNonfictionRecommendation(
   title: string
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}`, {
+  const res = await apiFetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}`, {
     method: "DELETE",
   });
   const data = await res.json();
@@ -394,7 +440,7 @@ export async function setNonfictionDone(
   done = true
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}/done`, {
+  const res = await apiFetch(`${base("nonfiction")}/recommendations/${encodeURIComponent(title)}/done`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ done }),
@@ -404,9 +450,9 @@ export async function setNonfictionDone(
   return data;
 }
 
-export async function fetchNonfictionQueue(): Promise<string[]> {
+export async function fetchNonfictionQueue(token?: ServerToken): Promise<string[]> {
   if (STATIC) return (await getJSON<{ titles: string[] }>("nonfiction/queue.json")).titles;
-  const res = await fetch(`${base("nonfiction")}/queue`, { cache: "no-store" });
+  const res = await apiFetch(`${base("nonfiction")}/queue`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return (await res.json()).titles;
 }
@@ -415,7 +461,7 @@ export async function saveNonfictionQueue(
   titles: string[]
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base("nonfiction")}/queue`, {
+  const res = await apiFetch(`${base("nonfiction")}/queue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ titles }),
@@ -425,16 +471,16 @@ export async function saveNonfictionQueue(
   return data;
 }
 
-export async function fetchReadingStats(kind: BookKind = "fiction"): Promise<ReadingStatsResponse> {
+export async function fetchReadingStats(kind: BookKind = "fiction", token?: ServerToken): Promise<ReadingStatsResponse> {
   if (STATIC) return getJSON<ReadingStatsResponse>(`${kind}/reading-stats.json`);
-  const res = await fetch(`${base(kind)}/reading/stats`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/reading/stats`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchReadingStatus(kind: BookKind = "fiction"): Promise<ReadingStatusResponse> {
+export async function fetchReadingStatus(kind: BookKind = "fiction", token?: ServerToken): Promise<ReadingStatusResponse> {
   if (STATIC) return getJSON<ReadingStatusResponse>(`${kind}/reading-status.json`);
-  const res = await fetch(`${base(kind)}/reading/status`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/reading/status`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -445,7 +491,7 @@ export async function setYearRead(
   kind: BookKind = "fiction"
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${base(kind)}/reading/set-year`, {
+  const res = await apiFetch(`${base(kind)}/reading/set-year`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, year }),
@@ -455,23 +501,23 @@ export async function setYearRead(
   return data;
 }
 
-export async function fetchSeries(kind: BookKind = "fiction"): Promise<SeriesResponse> {
+export async function fetchSeries(kind: BookKind = "fiction", token?: ServerToken): Promise<SeriesResponse> {
   if (STATIC) return getJSON<SeriesResponse>(`${kind}/series.json`);
-  const res = await fetch(`${base(kind)}/series`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/series`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchSeriesTiers(kind: BookKind = "fiction"): Promise<SeriesTiersResponse> {
+export async function fetchSeriesTiers(kind: BookKind = "fiction", token?: ServerToken): Promise<SeriesTiersResponse> {
   if (STATIC) return getJSON<SeriesTiersResponse>(`${kind}/series-tiers.json`);
-  const res = await fetch(`${base(kind)}/series/tiers`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/series/tiers`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchTimeline(kind: BookKind = "fiction"): Promise<TimelineResponse> {
+export async function fetchTimeline(kind: BookKind = "fiction", token?: ServerToken): Promise<TimelineResponse> {
   if (STATIC) return getJSON<TimelineResponse>(`${kind}/timeline.json`);
-  const res = await fetch(`${base(kind)}/timeline`, { cache: "no-store" });
+  const res = await apiFetch(`${base(kind)}/timeline`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -482,7 +528,7 @@ export async function generateRecommendationMeta(
   genre: string
 ): Promise<{ ok: boolean; blurb: string; keywords: string }> {
   assertWritable();
-  const res = await fetch(`${API}/api/recommendations/generate-meta`, {
+  const res = await apiFetch(`${API}/api/recommendations/generate-meta`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre }),
@@ -494,7 +540,7 @@ export async function generateRecommendationMeta(
 
 export async function deleteRecommendation(title: string): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${API}/api/recommendations/${encodeURIComponent(title)}`, {
+  const res = await apiFetch(`${API}/api/recommendations/${encodeURIComponent(title)}`, {
     method: "DELETE",
   });
   const data = await res.json();
@@ -504,7 +550,7 @@ export async function deleteRecommendation(title: string): Promise<{ ok: boolean
 
 export async function addSeriesToQueue(seriesName: string): Promise<AddSeriesResult> {
   assertWritable();
-  const res = await fetch(`${API}/api/queue/add-series`, {
+  const res = await apiFetch(`${API}/api/queue/add-series`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ series_name: seriesName }),
@@ -514,16 +560,16 @@ export async function addSeriesToQueue(seriesName: string): Promise<AddSeriesRes
   return data;
 }
 
-export async function fetchCalibrationHealth(): Promise<CalibrationHealth> {
+export async function fetchCalibrationHealth(token?: ServerToken): Promise<CalibrationHealth> {
   if (STATIC) return getJSON<CalibrationHealth>("calibration-health.json");
-  const res = await fetch(`${API}/api/calibration/health`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/calibration/health`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
 export async function runLooValidation(): Promise<LooResult> {
   assertWritable();
-  const res = await fetch(`${API}/api/calibration/loo`, { method: "POST" });
+  const res = await apiFetch(`${API}/api/calibration/loo`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
@@ -533,7 +579,7 @@ export async function runLooValidation(): Promise<LooResult> {
 export async function fetchResearcherComparison(): Promise<ResearcherComparison | null> {
   // The snapshot holds either the comparison object or JSON null (no run yet).
   if (STATIC) return getJSON<ResearcherComparison | null>("calibration-researcher-comparison.json");
-  const res = await fetch(`${API}/api/calibration/researcher-comparison`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/calibration/researcher-comparison`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
@@ -541,9 +587,9 @@ export async function fetchResearcherComparison(): Promise<ResearcherComparison 
 
 /** Public walk-forward track record, or null if the artifacts haven't been
  * produced yet (the snapshot stores JSON null; the endpoint 404s locally). */
-export async function fetchTrackRecord(): Promise<TrackRecord | null> {
+export async function fetchTrackRecord(token?: ServerToken): Promise<TrackRecord | null> {
   if (STATIC) return getJSON<TrackRecord | null>("track-record.json");
-  const res = await fetch(`${API}/api/track-record`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/track-record`, { cache: "no-store" }, token);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
@@ -551,23 +597,23 @@ export async function fetchTrackRecord(): Promise<TrackRecord | null> {
 
 /** Live engine parameters for the public "How the Engine Works" page — schema,
  * weights, shrinkage/interval/model constants, all read from committed data. */
-export async function fetchEngineParameters(): Promise<EngineParameters> {
+export async function fetchEngineParameters(token?: ServerToken): Promise<EngineParameters> {
   if (STATIC) return getJSON<EngineParameters>("engine-parameters.json");
-  const res = await fetch(`${API}/api/engine-parameters`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/engine-parameters`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
-export async function fetchStats(): Promise<CombinedStatsResponse> {
+export async function fetchStats(token?: ServerToken): Promise<CombinedStatsResponse> {
   if (STATIC) return getJSON<CombinedStatsResponse>("stats.json");
-  const res = await fetch(`${API}/api/stats`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/stats`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
 
 export async function fetchDeltaLog(): Promise<DeltaLogResponse> {
   if (STATIC) return getJSON<DeltaLogResponse>("delta-log.json");
-  const res = await fetch(`${API}/api/delta-log`, { cache: "no-store" });
+  const res = await apiFetch(`${API}/api/delta-log`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }
@@ -584,7 +630,7 @@ export async function saveRecommendation(payload: {
   series_number?: number;
 }): Promise<{ ok: boolean; message: string }> {
   assertWritable();
-  const res = await fetch(`${API}/api/recommendations`, {
+  const res = await apiFetch(`${API}/api/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

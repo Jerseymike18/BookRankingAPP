@@ -1,10 +1,12 @@
 import { fetchTiers } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/supabase/server";
 import TierListView from "@/components/views/TierListView";
 
 export const dynamic = "force-dynamic";
 
 export default async function NonfictionTierListPage() {
-  const data = await fetchTiers(undefined, "nonfiction");
+  const token = await getServerAccessToken();
+  const data = await fetchTiers(undefined, "nonfiction", token);
   // Nonfiction has no year_read, so the year tabs are hidden; pass the same
   // data for all three slots.
   return (

@@ -4,6 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { READONLY } from "@/lib/readonly";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+/** The Sign-out affordance renders only when Supabase is configured — i.e. the
+ * hosted multi-tenant build. Local dev + the static public build leave the env
+ * unset, so the nav looks and behaves exactly as before. */
+const AUTH_CONFIGURED =
+  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+async function signOut() {
+  try {
+    await createSupabaseBrowserClient().auth.signOut();
+  } catch {
+    /* ignore — navigate to /login regardless */
+  }
+  window.location.assign("/login");
+}
 
 type NavItem = { href: string; label: string };
 type NavGroup =
@@ -262,6 +279,17 @@ export default function Nav() {
           )}
         </nav>
 
+        {/* Sign out (hosted multi-tenant build only) */}
+        {AUTH_CONFIGURED && (
+          <button
+            onClick={signOut}
+            className="hidden md:inline-flex ml-auto px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            style={{ color: "var(--color-muted)" }}
+          >
+            Sign out
+          </button>
+        )}
+
         {/* Mobile menu toggle */}
         <button
           onClick={() => setMobileOpen((o) => !o)}
@@ -321,6 +349,18 @@ export default function Nav() {
                   standalone
                 />
               )
+            )}
+            {AUTH_CONFIGURED && (
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  signOut();
+                }}
+                className="mt-1 text-left rounded-md py-3 px-2 text-sm font-medium transition-colors"
+                style={{ color: "var(--color-muted)" }}
+              >
+                Sign out
+              </button>
             )}
           </div>
         </nav>

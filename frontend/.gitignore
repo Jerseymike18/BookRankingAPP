@@ -32,8 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-# ...but the secret-free deployment template should be tracked.
+# ...but the secret-free deployment templates should be tracked.
 !.env.production.example
+!.env.hosted.example
 
 # vercel
 .vercel
