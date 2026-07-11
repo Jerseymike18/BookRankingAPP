@@ -211,15 +211,16 @@ def _genre_baseline_shift(books, cache, gw, gcw, genre, trigger_title):
         return 0.0, None, None
 
 
-def _recs_by(con, column, value, exclude_title):
+def _recs_by(con, column, value, exclude_title, user_id):
     """Active (done=0) recommendations matching author/genre, excluding the
-    trigger title itself (it may still have a done=0 rec row after being read)."""
+    trigger title itself (it may still have a done=0 rec row after being read).
+    Tenant-scoped: only the caller's own recommendations are ever re-predicted."""
     cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
     rows = con.execute(
         f"SELECT id, title, author, genre, words, {cols} FROM recommendations "
         f"WHERE COALESCE(done,0)=0 AND {column}=? "
-        f"AND LOWER(title)<>LOWER(?) ORDER BY id",
-        (value, exclude_title),
+        f"AND LOWER(title)<>LOWER(?) AND user_id=? ORDER BY id",
+        (value, exclude_title, user_id),
     ).fetchall()
     return [dict(r) for r in rows]
 
@@ -270,7 +271,7 @@ def _raw_scores_for(title, author, genre, cache, web, web_cache_only, allow_rese
 def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=None,
                   *, get_engine, cache=None, web="auto", corr_models="auto",
                   research_trigger=True, web_cache_only=True, dry_run=False,
-                  verbose=True):
+                  verbose=True, user_id=None):
     """Re-predict the unread cohort whose baseline the finished book just moved.
 
     Call AFTER the finished book is committed and the engine invalidated, so the
@@ -284,10 +285,15 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
                   author correction actually incorporates the new data point.
     web_cache_only   : never make a fresh web call inside this pass (see helper).
     dry_run     : compute + report only; write nothing, log nothing.
+    user_id     : tenant whose recommendations are re-predicted + written
+                  (None -> DEFAULT_USER_ID, so the CLI/single-user path is
+                  unchanged). The engine passed via get_engine must be built for
+                  this same tenant.
 
     Returns a JSON-serializable report dict (or None if the feature is inert).
     Never raises — callers keep add-book non-fatal.
     """
+    user_id = user_id or db_backend.DEFAULT_USER_ID
     try:
         engine = get_engine()
         books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = engine
@@ -337,8 +343,8 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
         con = db_backend.connect(db_write.DB)
         con.row_factory = sqlite3.Row
         try:
-            author_peers = _recs_by(con, "author", trigger_author, trigger_title)
-            genre_peers = _recs_by(con, "genre", trigger_genre, trigger_title)
+            author_peers = _recs_by(con, "author", trigger_author, trigger_title, user_id)
+            genre_peers = _recs_by(con, "genre", trigger_genre, trigger_title, user_id)
         finally:
             con.close()
         author_titles = {r["title"] for r in author_peers}
@@ -410,8 +416,9 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
                         "corr_method": ("corr_smooth+author_genre" if corr_models else "author_genre"),
                     }
                     db_write.log_delta(title, old, old_wa, new, new_wa,
-                                       pred_model=db_write.RESEARCH_MODEL, meta=meta)
-                db_write.update_recommendation_scores(title, new)
+                                       pred_model=db_write.RESEARCH_MODEL, meta=meta,
+                                       user_id=user_id)
+                db_write.update_recommendation_scores(title, new, user_id=user_id)
 
             rows.append({
                 "title": title, "reason": r["_reason"], "source": src,

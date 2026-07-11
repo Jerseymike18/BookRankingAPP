@@ -228,15 +228,17 @@ def _norm_snum(num):
     return int(num) if float(num) == int(num) else float(num)
 
 
-def _series_number_map(table: str) -> dict:
+def _series_number_map(table: str, user_id: str) -> dict:
     """Return {lowercased-title: series_number} for a table. Used to attach
     ordinals to engine-backed responses (db_loader is read-only and doesn't
-    carry series_number). series_number may be int or float (0.5 prequels)."""
+    carry series_number). series_number may be int or float (0.5 prequels).
+    Tenant-scoped: only the caller's own rows contribute ordinals."""
     con = db_backend.connect(db_write.DB)
     try:
         rows = con.execute(
             f"SELECT title, series_number FROM {table} "
-            f"WHERE series_number IS NOT NULL"
+            f"WHERE series_number IS NOT NULL AND user_id=?",
+            (user_id,)
         ).fetchall()
     finally:
         con.close()
@@ -279,11 +281,11 @@ def _lookup_series_meta(client, title: str, author_hint: str = "unknown") -> dic
 
 
 @app.get("/api/books")
-def get_books():
+def get_books(user_id: str = Depends(auth.get_current_user_id)):
     """Return all rated books with their WA, metadata, and component scores."""
-    books, gw, gcw = _get_engine()[:3]
+    books, gw, gcw = _get_engine(user_id)[:3]
     category_components = books.attrs["category_components"]
-    snum_map = _series_number_map("books")
+    snum_map = _series_number_map("books", user_id)
 
     # Convert to a list of dicts that JSON can handle cleanly
     result = []
@@ -342,9 +344,9 @@ def get_valid_genres():
 
 
 @app.get("/api/books/{title}/scores")
-def get_book_scores(title: str):
+def get_book_scores(title: str, user_id: str = Depends(auth.get_current_user_id)):
     """Return component scores for a single rated book (for Edit Ratings)."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     row = books[books["Book"] == title]
     if row.empty:
         raise HTTPException(status_code=404, detail=f"Book '{title}' not found")
@@ -377,7 +379,8 @@ class AddBookRequest(BaseModel):
 
 
 @app.post("/api/books")
-def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
+def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
+             user_id: str = Depends(auth.get_current_user_id)):
     """Add a newly-rated book via db_write.add_book, then dequeue it."""
     buf = io.StringIO()
     try:
@@ -388,6 +391,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
                 series_number=req.series_number or None,
                 words=req.words or None,
                 year_read=req.year_read,
+                user_id=user_id,
             )
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -402,13 +406,14 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
     try:
         con = db_backend.connect(db_write.DB)
         current_queue = [t for (t,) in con.execute(
-            "SELECT title FROM read_queue ORDER BY position")]
+            "SELECT title FROM read_queue WHERE user_id=? ORDER BY position",
+            (user_id,))]
         con.close()
         title_lower = req.title.strip().lower()
         new_queue = [t for t in current_queue
                      if t.strip().lower() != title_lower]
         if len(new_queue) < len(current_queue):
-            db_write.update_queue(new_queue)
+            db_write.update_queue(new_queue, user_id=user_id)
     except Exception:
         pass  # dequeue failure is non-fatal; book was still added
 
@@ -422,21 +427,21 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
         con = db_backend.connect(db_write.DB)
         rec = con.execute(
             "SELECT title FROM recommendations "
-            "WHERE LOWER(title)=LOWER(?) AND done=0 ORDER BY id DESC LIMIT 1",
-            (req.title,)).fetchone()
+            "WHERE LOWER(title)=LOWER(?) AND done=0 AND user_id=? ORDER BY id DESC LIMIT 1",
+            (req.title, user_id)).fetchone()
         con.close()
         if rec:
             with contextlib.redirect_stdout(io.StringIO()):
-                db_write.set_done(rec[0], True)
+                db_write.set_done(rec[0], True, user_id=user_id)
     except Exception:
         pass  # marking done is best-effort; the book was still added
 
-    _invalidate_engine()
+    _invalidate_engine(user_id)
 
     # If this title had a stored prediction, record the delta automatically.
     # Non-fatal: a failure here never rolls back the successful add_book.
     try:
-        _maybe_log_delta(req.title, req.scores)
+        _maybe_log_delta(req.title, req.scores, user_id)
     except Exception:
         pass
 
@@ -451,22 +456,25 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks):
     if _repred is not None and _rp is not None:
         token = uuid.uuid4().hex
         background_tasks.add_task(
-            _run_repredict, token, req.title, req.author, req.genre, req.scores)
+            _run_repredict, token, req.title, req.author, req.genre, req.scores, user_id)
         repredict = {"status": "running", "token": token, "trigger": req.title}
 
     return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict}
 
 
-def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict) -> None:
+def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict,
+                   user_id: str) -> None:
     """Background worker: run the scoped baseline re-prediction and stash the
     report under `token` for the client to poll. Serialized against other adds so
     the SQLite writer never contends. Always records a terminal report (even on
-    failure) so the poller never hangs."""
+    failure) so the poller never hangs. Scoped to the adding tenant: the engine is
+    built for user_id and only that tenant's recommendations are re-predicted."""
     report = None
     try:
         with _repred_lock:
             report = _repred.on_book_added(
-                title, author, genre, scores, get_engine=_get_engine)
+                title, author, genre, scores,
+                get_engine=lambda: _get_engine(user_id), user_id=user_id)
     except Exception as exc:
         report = None
         print(f"  (background repredict failed for '{title}': {exc})")
@@ -479,7 +487,7 @@ def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict
 
 
 @app.get("/api/repredict/recent")
-def repredict_recent(token: str):
+def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id)):
     """Poll for a background cohort re-prediction's report by its token. Returns
     {status:"pending"} until the background pass finishes, then {status:"done",
     report:{...}}. Never 404s — a token that never existed just stays pending
@@ -492,14 +500,16 @@ def repredict_recent(token: str):
     return {"status": "done", "report": report}
 
 
-def _maybe_log_delta(title: str, act_scores: dict) -> None:
-    """Check recommendations for a stored prediction and log delta if found."""
+def _maybe_log_delta(title: str, act_scores: dict, user_id: str) -> None:
+    """Check recommendations for a stored prediction and log delta if found.
+    Tenant-scoped: only the caller's own prediction row is matched and logged."""
     con = db_backend.connect(db_write.DB)
     row = con.execute(
         "SELECT genre, author, words, "
         + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
-        + ' FROM recommendations WHERE LOWER(title)=LOWER(?) ORDER BY id DESC LIMIT 1',
-        (title,)
+        + ' FROM recommendations WHERE LOWER(title)=LOWER(?) AND user_id=?'
+        + ' ORDER BY id DESC LIMIT 1',
+        (title, user_id)
     ).fetchone()
     con.close()
     if row is None:
@@ -511,7 +521,7 @@ def _maybe_log_delta(title: str, act_scores: dict) -> None:
         return  # recommendation exists but has no component scores
 
     # Compute pred_wa by running the same WA formula as db_loader
-    engine = _get_engine()
+    engine = _get_engine(user_id)
     books, gw, gcw, resid_sd = engine[0], engine[1], engine[2], engine[5]
     wcats = {
         cat: db_loader._weighted_cat_avg(pred_scores, genre, cat, gcw)
@@ -549,7 +559,7 @@ def _maybe_log_delta(title: str, act_scores: dict) -> None:
     # Opus-era predicted-vs-actual pairs accrue under their own label for a
     # later clean recalibration. Pre-Opus rows stay NULL (not relabeled).
     db_write.log_delta(title, pred_scores, pred_wa, act_scores, act_wa,
-                       pred_model=db_write.RESEARCH_MODEL, meta=meta)
+                       pred_model=db_write.RESEARCH_MODEL, meta=meta, user_id=user_id)
 
 
 class EditRatingRequest(BaseModel):
@@ -557,12 +567,13 @@ class EditRatingRequest(BaseModel):
 
 
 @app.post("/api/books/{title}/scores")
-def edit_rating(title: str, req: EditRatingRequest):
+def edit_rating(title: str, req: EditRatingRequest,
+                user_id: str = Depends(auth.get_current_user_id)):
     """Update component scores for an existing book via db_write.change_rating."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.change_rating(title, req.scores)
+            db_write.change_rating(title, req.scores, user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -571,7 +582,7 @@ def edit_rating(title: str, req: EditRatingRequest):
     if "✗" in out:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not update rating.")
-    _invalidate_engine()
+    _invalidate_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -589,10 +600,10 @@ class BookMetadataRequest(BaseModel):
 
 
 def _update_metadata(current_title: str, table: str,
-                     req: "BookMetadataRequest") -> dict:
+                     req: "BookMetadataRequest", user_id: str) -> dict:
     """Shared handler for the fiction + nonfiction metadata endpoints. Only the
     fields the client actually sent (non-None) are passed through, so an omitted
-    field is left unchanged. Returns the db_write report dict."""
+    field is left unchanged. Returns the db_write report dict. Tenant-scoped."""
     fields = req.model_dump(exclude_none=True)
     if not fields:
         raise HTTPException(status_code=422,
@@ -600,7 +611,8 @@ def _update_metadata(current_title: str, table: str,
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            report = db_write.update_book_metadata(current_title, table, fields)
+            report = db_write.update_book_metadata(current_title, table, fields,
+                                                   user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -612,13 +624,14 @@ def _update_metadata(current_title: str, table: str,
 
 
 @app.post("/api/books/{title}/metadata")
-def edit_book_metadata(title: str, req: BookMetadataRequest):
+def edit_book_metadata(title: str, req: BookMetadataRequest,
+                       user_id: str = Depends(auth.get_current_user_id)):
     """Edit a fiction book's metadata (author/genre/series/series_number/words/
     year_read/title) via db_write.update_book_metadata. A genre change re-weights
     WA on the next read; a title change cascades the rename across all tables
     that reference the book by title."""
-    report = _update_metadata(title, "books", req)
-    _invalidate_engine()
+    report = _update_metadata(title, "books", req, user_id)
+    _invalidate_engine(user_id)
     return {"ok": True, "renamed_to": report["renamed_to"],
             "cascade": report["cascade"],
             "message": f"Updated metadata for “{report['renamed_to'] or title}”."}
@@ -630,11 +643,13 @@ class LookupRequest(BaseModel):
 
 
 @app.post("/api/lookup")
-def lookup_book(req: LookupRequest):
+def lookup_book(req: LookupRequest,
+                user_id: str = Depends(auth.get_current_user_id)):
     """
     Title-only metadata lookup: calls the LLM to find author, genre, estimated
     word count, series, and a blurb. Genre is constrained to the genre_weights
-    list. Returns the raw lookup result for the user to confirm before filling.
+    list (global table). Returns the raw lookup result for the user to confirm
+    before filling. Auth-gated though it reads no per-tenant data.
     """
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
@@ -676,11 +691,12 @@ def lookup_book(req: LookupRequest):
 
 
 @app.get("/api/tiers")
-def get_tiers(year: Optional[int] = None):
+def get_tiers(year: Optional[int] = None,
+              user_id: str = Depends(auth.get_current_user_id)):
     """Return books with tier assignments (S+/S/A/B/C/D/F), optionally filtered by year_read."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     category_components = books.attrs["category_components"]
-    snum_map = _series_number_map("books")
+    snum_map = _series_number_map("books", user_id)
 
     if year is not None:
         books = books[books["Year"] == year]
@@ -748,12 +764,12 @@ def get_tiers(year: Optional[int] = None):
 
 
 @app.delete("/api/books/{title}")
-def delete_book(title: str):
+def delete_book(title: str, user_id: str = Depends(auth.get_current_user_id)):
     """Permanently delete a rated book via db_write.delete_book (backup-protected)."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.delete_book(title)
+            db_write.delete_book(title, user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -762,17 +778,18 @@ def delete_book(title: str):
     if "✗" in out:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not delete book.")
-    _invalidate_engine()
+    _invalidate_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
 @app.delete("/api/recommendations/{title}")
-def delete_recommendation(title: str):
+def delete_recommendation(title: str,
+                          user_id: str = Depends(auth.get_current_user_id)):
     """Permanently delete a TBR recommendation via db_write.delete_recommendation."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.delete_recommendation(title)
+            ok = db_write.delete_recommendation(title, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
@@ -792,11 +809,12 @@ def health():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/queue")
-def get_queue():
+def get_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Return the ordered read-queue titles."""
     con = db_backend.connect(db_write.DB)
     titles = [r[0] for r in con.execute(
-        "SELECT title FROM read_queue ORDER BY position")]
+        "SELECT title FROM read_queue WHERE user_id=? ORDER BY position",
+        (user_id,))]
     con.close()
     return {"titles": titles}
 
@@ -806,12 +824,13 @@ class UpdateQueueRequest(BaseModel):
 
 
 @app.post("/api/queue")
-def update_queue(req: UpdateQueueRequest):
+def update_queue(req: UpdateQueueRequest,
+                 user_id: str = Depends(auth.get_current_user_id)):
     """Replace the read queue with the given ordered list of titles."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.update_queue(req.titles)
+            db_write.update_queue(req.titles, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
@@ -822,7 +841,8 @@ class AddSeriesRequest(BaseModel):
 
 
 @app.post("/api/queue/add-series")
-def add_series_to_queue(req: AddSeriesRequest):
+def add_series_to_queue(req: AddSeriesRequest,
+                        user_id: str = Depends(auth.get_current_user_id)):
     """
     Resolve a series name via LLM, then append the unread books (in reading
     order) to the end of the current queue. Books not already in the TBR or
@@ -844,10 +864,13 @@ def add_series_to_queue(req: AddSeriesRequest):
     con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
 
-    # Fetch existing data for de-dupe checks
-    read_titles = {t.strip().lower() for (t,) in con.execute("SELECT title FROM books")}
-    tbr_titles = {t.strip().lower() for (t,) in con.execute("SELECT title FROM recommendations WHERE done=0")}
-    current_queue = [t for (t,) in con.execute("SELECT title FROM read_queue ORDER BY position")]
+    # Fetch existing data for de-dupe checks (scoped to this tenant)
+    read_titles = {t.strip().lower() for (t,) in con.execute(
+        "SELECT title FROM books WHERE user_id=?", (user_id,))}
+    tbr_titles = {t.strip().lower() for (t,) in con.execute(
+        "SELECT title FROM recommendations WHERE done=0 AND user_id=?", (user_id,))}
+    current_queue = [t for (t,) in con.execute(
+        "SELECT title FROM read_queue WHERE user_id=? ORDER BY position", (user_id,))]
     queue_set = {t.strip().lower() for t in current_queue}
     con.close()
 
@@ -948,6 +971,7 @@ Rules:
                     words=int(words) if words else None,
                     done=0,
                     require_scores=False,
+                    user_id=user_id,
                 )
         except Exception as e:
             skipped_errors.append(f"{title}: {e}")
@@ -966,7 +990,7 @@ Rules:
         buf2 = io.StringIO()
         try:
             with contextlib.redirect_stdout(buf2):
-                db_write.update_queue(new_queue)
+                db_write.update_queue(new_queue, user_id=user_id)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Queue update failed: {e}")
 
@@ -1005,9 +1029,9 @@ Rules:
 
 
 @app.get("/api/read-queue")
-def get_read_queue():
+def get_read_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Return all not-done recommendations with flat component scores and predicted rank."""
-    books, gw, gcw = _get_engine()[:3]
+    books, gw, gcw = _get_engine(user_id)[:3]
     rated_wa = books["WA"].values
     # Same-author analog counts drive the conformal interval bucket (author is the
     # engine's innermost density tier). Precompute once so the per-rec lookup is O(1).
@@ -1018,7 +1042,8 @@ def get_read_queue():
     con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
-        f'FROM recommendations WHERE done=0'
+        f'FROM recommendations WHERE done=0 AND user_id=?',
+        (user_id,)
     ).fetchall()
     con.close()
 
@@ -1088,10 +1113,11 @@ def get_read_queue():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/predict/instant")
-def predict_instant(title: str, author: str, genre: str):
+def predict_instant(title: str, author: str, genre: str,
+                    user_id: str = Depends(auth.get_current_user_id)):
     """Free instant analog prediction — no API call, uses rated-book analogs."""
     try:
-        data = _get_engine()
+        data = _get_engine(user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
@@ -1150,7 +1176,8 @@ class ResearchRequest(BaseModel):
 
 
 @app.post("/api/predict/research")
-def predict_research(req: ResearchRequest):
+def predict_research(req: ResearchRequest,
+                     user_id: str = Depends(auth.get_current_user_id)):
     """
     Grounded research prediction: research_rich_plus → correlation-smooth →
     author+genre correct → WA roll-up. One LLM API call (or cache hit).
@@ -1168,7 +1195,7 @@ def predict_research(req: ResearchRequest):
         raise HTTPException(status_code=503, detail=f"Client error: {e}")
 
     try:
-        data = _get_engine()
+        data = _get_engine(user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
@@ -1283,7 +1310,8 @@ class DiscoverRequest(BaseModel):
 
 
 @app.post("/api/discover/candidates")
-def discover_candidates(req: DiscoverRequest):
+def discover_candidates(req: DiscoverRequest,
+                        user_id: str = Depends(auth.get_current_user_id)):
     """Generate candidate book titles for a free-text request (1 API call)."""
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
@@ -1293,13 +1321,13 @@ def discover_candidates(req: DiscoverRequest):
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
 
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     cache = _rp.load_cache()
 
     con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     tbr_books = [(t or "", a or "") for t, a in con.execute(
-        "SELECT title, author FROM recommendations")]
+        "SELECT title, author FROM recommendations WHERE user_id=?", (user_id,))]
     con.close()
 
     read_books = list(zip(books["Book"].tolist(), books["Author"].tolist()))
@@ -1344,7 +1372,8 @@ class GenerateMetaRequest(BaseModel):
 
 
 @app.post("/api/recommendations/generate-meta")
-def generate_recommendation_meta(req: GenerateMetaRequest):
+def generate_recommendation_meta(req: GenerateMetaRequest,
+                                 user_id: str = Depends(auth.get_current_user_id)):
     """Generate blurb + keywords for a recommendation that was added without research."""
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
@@ -1365,7 +1394,8 @@ def generate_recommendation_meta(req: GenerateMetaRequest):
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.set_recommendation_meta(req.title, blurb or None, keywords or None)
+            db_write.set_recommendation_meta(req.title, blurb or None, keywords or None,
+                                             user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "blurb": blurb or "", "keywords": keywords or ""}
@@ -1376,9 +1406,9 @@ def generate_recommendation_meta(req: GenerateMetaRequest):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/reading/stats")
-def get_reading_stats():
+def get_reading_stats(user_id: str = Depends(auth.get_current_user_id)):
     """Reading stats: totals, per-year, by-genre, by-author breakdowns."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     rs = views_mod.reading_stats(books)
     s = rs["summary"]
 
@@ -1428,9 +1458,9 @@ def get_reading_stats():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/reading/status")
-def get_reading_status():
+def get_reading_status(user_id: str = Depends(auth.get_current_user_id)):
     """Queue-derived reading status: last read, currently reading, reading next."""
-    books, gw, gcw = _get_engine()[:3]
+    books, gw, gcw = _get_engine(user_id)[:3]
     rated_wa = books["WA"].values
     total_rated = len(books)
 
@@ -1441,14 +1471,15 @@ def get_reading_status():
 
     # Queue positions 1 and 2
     queue_titles = [r[0].strip() for r in con.execute(
-        "SELECT title FROM read_queue ORDER BY position LIMIT 2").fetchall()]
+        "SELECT title FROM read_queue WHERE user_id=? ORDER BY position LIMIT 2",
+        (user_id,)).fetchall()]
 
     def _slot_from_rec(title: str):
-        """Build a status slot from the recommendations table."""
+        """Build a status slot from the recommendations table (this tenant only)."""
         row = con.execute(
             f'SELECT author, genre, series, series_number, words, {comp_cols} '
-            f'FROM recommendations WHERE LOWER(TRIM(title))=LOWER(TRIM(?))',
-            (title,)
+            f'FROM recommendations WHERE LOWER(TRIM(title))=LOWER(TRIM(?)) AND user_id=?',
+            (title, user_id)
         ).fetchone()
         if row is None:
             # In queue but not in recommendations — show name only, no scores
@@ -1499,7 +1530,8 @@ def get_reading_status():
 
     # Last read: most recently inserted row in books (by rowid)
     last_row = con.execute(
-        "SELECT title FROM books ORDER BY id DESC LIMIT 1"
+        "SELECT title FROM books WHERE user_id=? ORDER BY id DESC LIMIT 1",
+        (user_id,)
     ).fetchone()
     con.close()
 
@@ -1520,7 +1552,7 @@ def get_reading_status():
                 "author": str(brow["Author"]),
                 "genre": str(brow["Genre"]),
                 "series": str(brow["Series"]),
-                "series_number": _series_number_map("books").get(lr_title.lower()),
+                "series_number": _series_number_map("books", user_id).get(lr_title.lower()),
                 "has_prediction": False,
                 "wa": round(wa_val, 2),
                 "rank": rank,
@@ -1541,18 +1573,19 @@ class SetYearRequest(BaseModel):
 
 
 @app.post("/api/reading/set-year")
-def set_year_read(req: SetYearRequest):
+def set_year_read(req: SetYearRequest,
+                  user_id: str = Depends(auth.get_current_user_id)):
     """Set year_read on a rated book."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.set_year_read(req.title, req.year)
+            ok = db_write.set_year_read(req.title, req.year, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
-    _invalidate_engine()
+    _invalidate_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -1561,9 +1594,9 @@ def set_year_read(req: SetYearRequest):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/series")
-def get_series():
+def get_series(user_id: str = Depends(auth.get_current_user_id)):
     """Series rankings: per-series aggregates sorted by Adjusted WA."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     sa = views_mod.series_aggregate(books)
     if sa.empty:
         return {"series": []}
@@ -1583,9 +1616,9 @@ def get_series():
 
 
 @app.get("/api/series/tiers")
-def get_series_tiers():
+def get_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
     """Series tier list: same bands as book tier list but by Adjusted WA (S+ >= 9.0)."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     sa = views_mod.series_aggregate(books)
     if sa.empty:
         return {"series": [], "tier_order": views_mod.TIER_ORDER, "tier_counts": {}}
@@ -1612,9 +1645,9 @@ def get_series_tiers():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/timeline")
-def get_timeline():
+def get_timeline(user_id: str = Depends(auth.get_current_user_id)):
     """Per-year reading timeline: book count, avg WA, five category averages."""
-    books = _get_engine()[0]
+    books = _get_engine(user_id)[0]
     tl = views_mod.timeline(books)
     if tl.empty:
         return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
@@ -1675,13 +1708,13 @@ def _nf_book_dict(row, cat_components, snum_map):
 
 
 @app.get("/api/nonfiction/books")
-def get_nf_books():
+def get_nf_books(user_id: str = Depends(auth.get_current_user_id)):
     """All nonfiction books, ranked by Total Average (the workbook's nonfiction
     ranking). Carries both `total_average` and the Quality-lean `wa`."""
-    books, gw, gcw = _get_nf_engine()
+    books, gw, gcw = _get_nf_engine(user_id)
     bt = nfe.add_total_average(books)
     cat_components = books.attrs["category_components"]
-    snum_map = _series_number_map("nonfiction_books")
+    snum_map = _series_number_map("nonfiction_books", user_id)
     result = [_nf_book_dict(row, cat_components, snum_map) for _, row in bt.iterrows()]
     result.sort(key=lambda b: (b["total_average"] is not None,
                                b["total_average"] or 0.0), reverse=True)
@@ -1695,13 +1728,13 @@ def get_nf_books():
 
 
 @app.get("/api/nonfiction/tiers")
-def get_nf_tiers():
+def get_nf_tiers(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction tier list, banded by Total Average (reuses the fiction
     thresholds: S+ >= 9.5, then 9/15/25/25/15/10% percentiles)."""
-    books, gw, gcw = _get_nf_engine()
+    books, gw, gcw = _get_nf_engine(user_id)
     bt = nfe.add_total_average(books)
     cat_components = books.attrs["category_components"]
-    snum_map = _series_number_map("nonfiction_books")
+    snum_map = _series_number_map("nonfiction_books", user_id)
     if bt.empty:
         return {"books": [], "tier_counts": {}, "tier_order": views_mod.TIER_ORDER,
                 "category_order": list(NF_CAT_ORDER)}
@@ -1722,10 +1755,10 @@ def get_nf_tiers():
 
 
 @app.get("/api/nonfiction/series")
-def get_nf_series():
+def get_nf_series(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction series rollup (ranked by Avg Total Average). Normally empty —
     nonfiction has no series yet."""
-    books = _get_nf_engine()[0]
+    books = _get_nf_engine(user_id)[0]
     sa = nfe.series_aggregate(books)
     if sa.empty:
         return {"series": []}
@@ -1745,9 +1778,9 @@ def get_nf_series():
 
 
 @app.get("/api/nonfiction/series/tiers")
-def get_nf_series_tiers():
+def get_nf_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction series tier list. Normally empty (no nonfiction series yet)."""
-    books = _get_nf_engine()[0]
+    books = _get_nf_engine(user_id)[0]
     sa = nfe.series_aggregate(books)
     if sa.empty:
         return {"series": [], "tier_order": views_mod.TIER_ORDER, "tier_counts": {}}
@@ -1768,10 +1801,10 @@ def get_nf_series_tiers():
 
 
 @app.get("/api/nonfiction/timeline")
-def get_nf_timeline():
+def get_nf_timeline(user_id: str = Depends(auth.get_current_user_id)):
     """Per-year nonfiction timeline (Quality/Aesthetics/Theme). Normally empty —
     the migrated nonfiction books have no year_read."""
-    books = _get_nf_engine()[0]
+    books = _get_nf_engine(user_id)[0]
     tl = nfe.timeline(books)
     cats = list(NF_CAT_ORDER)
     if tl.empty:
@@ -1791,10 +1824,10 @@ def get_nf_timeline():
 
 
 @app.get("/api/nonfiction/reading/stats")
-def get_nf_reading_stats():
+def get_nf_reading_stats(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction reading stats. by_genre is omitted (no nonfiction genre
     taxonomy yet); by_author carries the breakdown."""
-    books = _get_nf_engine()[0]
+    books = _get_nf_engine(user_id)[0]
     rs = nfe.reading_stats(books)
     s = rs["summary"]
     per_year = []
@@ -1826,15 +1859,15 @@ def get_nf_reading_stats():
 
 
 @app.get("/api/nonfiction/reading/status")
-def get_nf_reading_status():
+def get_nf_reading_status(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction reading status. currently-reading / reading-next come from the
     nonfiction_books.status column (there is no nonfiction queue); last_read is
     the most recently added nonfiction book."""
-    books = _get_nf_engine()[0]
+    books = _get_nf_engine(user_id)[0]
     bt = nfe.add_total_average(books)
     total = int(len(bt))
     ta_vals = bt["Total Average"].values
-    snum = _series_number_map("nonfiction_books")
+    snum = _series_number_map("nonfiction_books", user_id)
 
     def slot_for(title):
         if not title:
@@ -1860,11 +1893,14 @@ def get_nf_reading_status():
     con = db_backend.connect(db_write.DB)
     try:
         cur = con.execute("SELECT title FROM nonfiction_books "
-                          "WHERE status='currently-reading' LIMIT 1").fetchone()
+                          "WHERE status='currently-reading' AND user_id=? LIMIT 1",
+                          (user_id,)).fetchone()
         nxt = con.execute("SELECT title FROM nonfiction_books "
-                          "WHERE status='reading-next' LIMIT 1").fetchone()
+                          "WHERE status='reading-next' AND user_id=? LIMIT 1",
+                          (user_id,)).fetchone()
         last = con.execute("SELECT title FROM nonfiction_books "
-                           "ORDER BY id DESC LIMIT 1").fetchone()
+                           "WHERE user_id=? ORDER BY id DESC LIMIT 1",
+                           (user_id,)).fetchone()
     finally:
         con.close()
     return {
@@ -1886,7 +1922,8 @@ class NonfictionAddRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/books")
-def add_nf_book(req: NonfictionAddRequest):
+def add_nf_book(req: NonfictionAddRequest,
+                user_id: str = Depends(auth.get_current_user_id)):
     """Add a rated nonfiction book via db_write.add_nonfiction_book."""
     buf = io.StringIO()
     try:
@@ -1895,7 +1932,7 @@ def add_nf_book(req: NonfictionAddRequest):
                 title=req.title, author=req.author, genre=req.genre,
                 scores=req.scores, series=req.series,
                 series_number=req.series_number, words=req.words,
-                year_read=req.year_read,
+                year_read=req.year_read, user_id=user_id,
             )
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -1904,7 +1941,7 @@ def add_nf_book(req: NonfictionAddRequest):
     out = buf.getvalue().strip()
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not add book.")
-    _invalidate_nf_engine()
+    _invalidate_nf_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -1913,12 +1950,13 @@ class NonfictionScoresRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/books/{title}/scores")
-def edit_nf_scores(title: str, req: NonfictionScoresRequest):
+def edit_nf_scores(title: str, req: NonfictionScoresRequest,
+                   user_id: str = Depends(auth.get_current_user_id)):
     """Update component scores on a nonfiction book (recomputes its averages)."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.change_nonfiction_rating(title, req.scores)
+            db_write.change_nonfiction_rating(title, req.scores, user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -1926,17 +1964,18 @@ def edit_nf_scores(title: str, req: NonfictionScoresRequest):
     out = buf.getvalue().strip()
     if "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update scores.")
-    _invalidate_nf_engine()
+    _invalidate_nf_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
 @app.post("/api/nonfiction/books/{title}/metadata")
-def edit_nf_book_metadata(title: str, req: BookMetadataRequest):
+def edit_nf_book_metadata(title: str, req: BookMetadataRequest,
+                          user_id: str = Depends(auth.get_current_user_id)):
     """Edit a nonfiction book's metadata via db_write.update_book_metadata (same
     partial-update + rename-cascade behaviour as the fiction endpoint, over the
     nonfiction tables)."""
-    report = _update_metadata(title, "nonfiction_books", req)
-    _invalidate_nf_engine()
+    report = _update_metadata(title, "nonfiction_books", req, user_id)
+    _invalidate_nf_engine(user_id)
     return {"ok": True, "renamed_to": report["renamed_to"],
             "cascade": report["cascade"],
             "message": f"Updated metadata for “{report['renamed_to'] or title}”."}
@@ -1954,34 +1993,36 @@ def get_nf_valid_genres():
 
 
 @app.delete("/api/nonfiction/books/{title}")
-def delete_nf_book(title: str):
+def delete_nf_book(title: str,
+                   user_id: str = Depends(auth.get_current_user_id)):
     """Permanently delete a nonfiction book via db_write.delete_nonfiction_book."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.delete_nonfiction_book(title)
+            ok = db_write.delete_nonfiction_book(title, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not delete book.")
-    _invalidate_nf_engine()
+    _invalidate_nf_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
 @app.post("/api/nonfiction/reading/set-year")
-def set_nf_year(req: SetYearRequest):
+def set_nf_year(req: SetYearRequest,
+                user_id: str = Depends(auth.get_current_user_id)):
     """Set year_read on a nonfiction book."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.set_nonfiction_year_read(req.title, req.year)
+            ok = db_write.set_nonfiction_year_read(req.title, req.year, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
-    _invalidate_nf_engine()
+    _invalidate_nf_engine(user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 
@@ -1992,7 +2033,8 @@ class NonfictionResearchRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/predict/research")
-def predict_nf_research(req: NonfictionResearchRequest):
+def predict_nf_research(req: NonfictionResearchRequest,
+                        user_id: str = Depends(auth.get_current_user_id)):
     """Grounded nonfiction prediction: one LLM call scores the 8 components, then
     they roll up through the SAME nonfiction math (category averages, Quality-lean
     WA, Total Average) and are ranked by Total Average against the rated nonfiction
@@ -2001,7 +2043,7 @@ def predict_nf_research(req: NonfictionResearchRequest):
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
     try:
-        data = _get_nf_engine()
+        data = _get_nf_engine(user_id)
         r = _nr.research_and_predict(req.title, req.author, req.genre or "Nonfiction", data=data)
     except FileNotFoundError:
         raise HTTPException(status_code=503,
@@ -2032,7 +2074,8 @@ class NonfictionDiscoverRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/discover/candidates")
-def discover_nf_candidates(req: NonfictionDiscoverRequest):
+def discover_nf_candidates(req: NonfictionDiscoverRequest,
+                           user_id: str = Depends(auth.get_current_user_id)):
     """Brainstorm nonfiction candidates for a free-text request (one cheap Sonnet
     call), excluding books already in your nonfiction library or TBR."""
     if _nr is None:
@@ -2052,8 +2095,10 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
     con = db_backend.connect(db_write.DB)
-    have = {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_books") if r[0]}
-    have |= {r[0].strip().lower() for r in con.execute("SELECT title FROM nonfiction_recommendations") if r[0]}
+    have = {r[0].strip().lower() for r in con.execute(
+        "SELECT title FROM nonfiction_books WHERE user_id=?", (user_id,)) if r[0]}
+    have |= {r[0].strip().lower() for r in con.execute(
+        "SELECT title FROM nonfiction_recommendations WHERE user_id=?", (user_id,)) if r[0]}
     con.close()
     fresh = [c for c in cands if c["title"].strip().lower() not in have]
     note = "" if fresh else "Every suggestion is already in your library or TBR — try a different request."
@@ -2063,10 +2108,10 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest):
 # ─── Nonfiction TBR (recommendations + read queue) ───────────────────────────
 
 @app.get("/api/nonfiction/read-queue")
-def get_nf_read_queue():
+def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Not-done nonfiction recommendations with components, category averages,
     Total Average / WA (computed on read), and predicted rank by Total Average."""
-    books, gw, gcw = _get_nf_engine()
+    books, gw, gcw = _get_nf_engine(user_id)
     bt = nfe.add_total_average(books)
     rated_ta = bt["Total Average"].values
 
@@ -2075,7 +2120,8 @@ def get_nf_read_queue():
     con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
-        f'FROM nonfiction_recommendations WHERE done=0'
+        f'FROM nonfiction_recommendations WHERE done=0 AND user_id=?',
+        (user_id,)
     ).fetchall()
     con.close()
 
@@ -2120,7 +2166,8 @@ class NonfictionRecRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/recommendations")
-def add_nf_recommendation(req: NonfictionRecRequest):
+def add_nf_recommendation(req: NonfictionRecRequest,
+                          user_id: str = Depends(auth.get_current_user_id)):
     """Save a researched nonfiction book to the TBR."""
     buf = io.StringIO()
     try:
@@ -2129,7 +2176,7 @@ def add_nf_recommendation(req: NonfictionRecRequest):
                 title=req.title, author=req.author, genre=req.genre,
                 scores=req.scores, series=req.series,
                 series_number=req.series_number, words=req.words,
-                blurb=req.blurb, keywords=req.keywords)
+                blurb=req.blurb, keywords=req.keywords, user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
@@ -2141,12 +2188,13 @@ def add_nf_recommendation(req: NonfictionRecRequest):
 
 
 @app.delete("/api/nonfiction/recommendations/{title}")
-def delete_nf_recommendation(title: str):
+def delete_nf_recommendation(title: str,
+                             user_id: str = Depends(auth.get_current_user_id)):
     """Remove a nonfiction TBR recommendation."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.delete_nonfiction_recommendation(title)
+            ok = db_write.delete_nonfiction_recommendation(title, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
@@ -2160,12 +2208,13 @@ class NfDoneRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/recommendations/{title}/done")
-def set_nf_done(title: str, req: NfDoneRequest):
+def set_nf_done(title: str, req: NfDoneRequest,
+                user_id: str = Depends(auth.get_current_user_id)):
     """Mark a nonfiction recommendation done / not-done."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            ok = db_write.set_nonfiction_done(title, req.done)
+            ok = db_write.set_nonfiction_done(title, req.done, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     out = buf.getvalue().strip()
@@ -2175,29 +2224,31 @@ def set_nf_done(title: str, req: NfDoneRequest):
 
 
 @app.get("/api/nonfiction/queue")
-def get_nf_queue():
+def get_nf_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Ordered nonfiction read-queue titles."""
     con = db_backend.connect(db_write.DB)
     titles = [r[0] for r in con.execute(
-        "SELECT title FROM nonfiction_read_queue ORDER BY position")]
+        "SELECT title FROM nonfiction_read_queue WHERE user_id=? ORDER BY position",
+        (user_id,))]
     con.close()
     return {"titles": titles}
 
 
 @app.post("/api/nonfiction/queue")
-def update_nf_queue(req: UpdateQueueRequest):
+def update_nf_queue(req: UpdateQueueRequest,
+                    user_id: str = Depends(auth.get_current_user_id)):
     """Replace the nonfiction read queue with the given ordered titles."""
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            db_write.update_nonfiction_queue(req.titles)
+            db_write.update_nonfiction_queue(req.titles, user_id=user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
 
 
 @app.get("/api/stats")
-def get_combined_stats():
+def get_combined_stats(user_id: str = Depends(auth.get_current_user_id)):
     """Combined Fiction + Nonfiction stats. The two WAs come from different
     formulas, so the cross-type ranking is by TOTAL AVERAGE (the unweighted mean
     of category averages — directly comparable across types on the same 0-10
@@ -2215,14 +2266,14 @@ def get_combined_stats():
     # views.add_total_average skips the empty worldbuilding category exactly as
     # its docstring intends. Only Total Average is affected; WA is precomputed in
     # the loader and untouched (the 0 component values contribute 0 either way).
-    _fbooks = _get_engine()[0]
+    _fbooks = _get_engine(user_id)[0]
     _fmasked = _fbooks.copy()
     _fmasked.attrs = dict(_fbooks.attrs)
     for _wbc in _fmasked.attrs.get("category_components", {}).get("Worldbuilding", []):
         if _wbc in _fmasked.columns:
             _fmasked.loc[_fmasked[_wbc] == 0, _wbc] = float("nan")
     fbt = views_mod.add_total_average(_fmasked)
-    nbt = nfe.add_total_average(_get_nf_engine()[0])
+    nbt = nfe.add_total_average(_get_nf_engine(user_id)[0])
 
     def _summ(bt):
         words = bt["Words"].dropna() if "Words" in bt else []
@@ -2289,12 +2340,13 @@ def get_combined_stats():
     }
 
 
-def _enrich_recommendation(req: "SaveRecommendationRequest"):
+def _enrich_recommendation(req: "SaveRecommendationRequest", user_id: str):
     """Generate the rich house-style blurb and resolve series + ordinal at SAVE
     time (deferred from scoring so the two extra LLM calls are only paid for
     books actually kept). Best-effort: returns (blurb, series, series_number),
     falling back to whatever the request already carried if the LLM is
-    unavailable or the calls fail."""
+    unavailable or the calls fail. The blurb's WA/CI frame is built from the
+    caller's OWN engine (user_id-scoped)."""
     blurb = req.blurb or None
     series = req.series or None
     series_number = req.series_number or None
@@ -2319,7 +2371,7 @@ def _enrich_recommendation(req: "SaveRecommendationRequest"):
     # engine for WA/CI, grounding counts, and the analog source.
     if req.scores:
         try:
-            books_e, gw_e, gcw_e, _coeffs, _r2, _resid_sd, _ginfo, _up = _get_engine()
+            books_e, gw_e, gcw_e, _coeffs, _r2, _resid_sd, _ginfo, _up = _get_engine(user_id)
             genre = req.genre
             wa = 0.0
             for cat in db_loader.CATEGORY_OF_INTEREST:
@@ -2350,11 +2402,12 @@ def _enrich_recommendation(req: "SaveRecommendationRequest"):
 
 
 @app.post("/api/recommendations")
-def save_recommendation(req: SaveRecommendationRequest):
+def save_recommendation(req: SaveRecommendationRequest,
+                        user_id: str = Depends(auth.get_current_user_id)):
     """Save a researched book to recommendations (TBR list). Generates the rich
     blurb and resolves series/ordinal here (deferred from scoring) so those LLM
     calls are only spent on books the reader keeps."""
-    blurb, series, series_number = _enrich_recommendation(req)
+    blurb, series, series_number = _enrich_recommendation(req, user_id)
 
     buf = io.StringIO()
     try:
@@ -2366,6 +2419,7 @@ def save_recommendation(req: SaveRecommendationRequest):
                 words=req.words or None,
                 blurb=blurb,
                 keywords=req.keywords or None,
+                user_id=user_id,
             )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -2385,12 +2439,12 @@ def save_recommendation(req: SaveRecommendationRequest):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/calibration/health")
-def get_calibration_health():
+def get_calibration_health(user_id: str = Depends(auth.get_current_user_id)):
     """
     Free model-health metrics from the cached engine build:
     R², residual SD, regression coefficients, and per-genre bias/trust.
     """
-    books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = _get_engine()
+    books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = _get_engine(user_id)
     return {
         "n_books": len(books),
         "r2": round(float(r2), 4),
@@ -2414,12 +2468,12 @@ def get_calibration_health():
 
 
 @app.post("/api/calibration/loo")
-def run_loo_validation():
+def run_loo_validation(user_id: str = Depends(auth.get_current_user_id)):
     """
     Honest leave-one-out validation. Refits the engine ~n times — SLOW (seconds).
     Triggered explicitly by the user on the Calibration page, not on every load.
     """
-    books, gw, gcw = _get_engine()[:3]
+    books, gw, gcw = _get_engine(user_id)[:3]
     try:
         result = ve.run_loo(books=books, gw=gw, gcw=gcw)
     except Exception as e:
@@ -2428,11 +2482,12 @@ def run_loo_validation():
 
 
 @app.get("/api/calibration/researcher-comparison")
-def get_researcher_comparison():
+def get_researcher_comparison(user_id: str = Depends(auth.get_current_user_id)):
     """Serve the last memory-vs-web-grounded per-component MAE comparison, if one
     has been run. This reads the static output of compare_researchers.py — a
     measurement artifact, NOT a live metric — so it never triggers LLM spend or
-    touches the engine. Returns 404 when the comparison hasn't been run yet."""
+    touches the engine. Returns 404 when the comparison hasn't been run yet.
+    Auth-gated (diagnostic) though the artifact it serves is not per-tenant."""
     path = os.path.join(PROJECT_ROOT, "compare_researchers_result.json")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="No researcher comparison run yet.")
@@ -2489,7 +2544,7 @@ def get_engine_parameters():
 
 
 @app.get("/api/delta-log")
-def get_delta_log():
+def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     """Return all recorded prediction-vs-actual deltas, newest first."""
     COMPS = db_write.FICTION_COMPONENTS
 
@@ -2505,7 +2560,8 @@ def get_delta_log():
     )
     con = db_backend.connect(db_write.DB)
     rows = con.execute(
-        f"SELECT {sel} FROM delta_log ORDER BY id DESC"
+        f"SELECT {sel} FROM delta_log WHERE user_id=? ORDER BY id DESC",
+        (user_id,)
     ).fetchall()
     col_names = (
         ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
