@@ -216,11 +216,6 @@ export interface NonfictionRecommendation {
   predicted_rank: number | null;
 }
 
-export interface NonfictionReadQueueResponse {
-  recommendations: NonfictionRecommendation[];
-  genres: string[];
-}
-
 export interface ReadingStatsSummary {
   total_books: number;
   avg_wa: number | null;

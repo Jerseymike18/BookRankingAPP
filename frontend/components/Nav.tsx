@@ -58,7 +58,6 @@ const sections: NavGroup[] = [
       { href: "/nonfiction/series", label: "Series" },
       { href: "/nonfiction/timeline", label: "Timeline" },
       { href: "/nonfiction/reading", label: "Reading" },
-      { href: "/nonfiction/read-queue", label: "Read Queue" },
     ],
   },
   {
