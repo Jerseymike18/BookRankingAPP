@@ -49,13 +49,14 @@ import sqlite3
 # relative to cwd (backend/main.py chdirs to project root before any connect).
 SQLITE_PATH = os.environ.get("SQLITE_PATH", "books.db")
 
-# Tenancy (Phase 2). Every per-user table carries a user_id; callers that don't
-# supply one fall back to DEFAULT_USER_ID. In Phase 2 this is Michael's placeholder
-# (his existing rows are backfilled with it, approach-a: nullable, no FK yet).
-# Phase 3 overrides it per-request from the verified Supabase JWT and swaps the
-# placeholder for his real auth.users.id (then adds NOT NULL + FK).
+# Tenancy. Every per-user table carries a user_id; callers that don't supply one
+# fall back to DEFAULT_USER_ID — the local single-user (Michael) fallback for
+# sqlite dev and any not-yet-auth'd path. Phase 3 overrides it per-request from
+# the verified Supabase JWT. As of Phase-3 finalization this is Michael's REAL
+# auth.users id (the Phase-2 placeholder 00000000-…-0001 was swapped out via
+# migrate_finalize_tenancy.py).
 DEFAULT_USER_ID = os.environ.get(
-    "DEFAULT_USER_ID", "00000000-0000-0000-0000-000000000001")
+    "DEFAULT_USER_ID", "e3160346-91f8-4334-a099-202217b376a5")
 
 
 def backend():
