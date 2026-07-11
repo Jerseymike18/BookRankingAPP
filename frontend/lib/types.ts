@@ -65,6 +65,8 @@ export interface LookupResult {
   series: string;
   series_number: number | null;
   blurb: string;
+  // "prediction" = filled from an existing prediction (no LLM call); "llm" = freshly researched.
+  source?: "prediction" | "llm";
 }
 
 export interface InstantPrediction {

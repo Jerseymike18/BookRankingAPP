@@ -462,7 +462,7 @@ export default function AddBookClient({
           Look up book metadata
         </h2>
         <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Type a title and click Look up — the LLM will find the author, genre, word count, and series so you don't have to.
+          Type a title and click Look up — the LLM will find the author, genre, word count, and series so you don't have to. Books you've already predicted are filled straight from that prediction, no LLM call.
         </p>
 
         <div className="flex flex-wrap gap-3 mb-3">
@@ -509,6 +509,11 @@ export default function AddBookClient({
         {lookupResult && (
           <div className="rounded-lg px-4 py-4 mt-3"
             style={{ background: "var(--color-sage-light)", border: "1px solid var(--color-sage)" }}>
+            {lookupResult.source === "prediction" && (
+              <p className="text-xs font-semibold mb-2" style={{ color: "var(--color-sage)" }}>
+                ★ From your existing prediction — no LLM call
+              </p>
+            )}
             <p className="text-sm font-semibold mb-0.5" style={{ color: "var(--color-ink)" }}>
               Found: <span className="font-bold">{lookupResult.title}</span> by {lookupResult.author}
             </p>

@@ -689,15 +689,59 @@ class LookupRequest(BaseModel):
     author_hint: Optional[str] = None
 
 
+def _lookup_from_prediction(title: str, user_id: str) -> Optional[dict]:
+    """If this title has already been predicted (it exists in the caller's
+    recommendations), return its stored metadata in the /api/lookup shape so the
+    lookup can skip the LLM entirely — no API key, no spend. Every field the
+    lookup surfaces (author/genre/words/series/series_number/blurb) is persisted
+    on the recommendation at save time, so nothing is re-derived. Tenant-scoped,
+    with the same case-insensitive/trimmed title match _maybe_log_delta uses, so
+    the canonical stored title flows back and the eventual add re-finds the
+    prediction. Returns None when no prediction is on record."""
+    con = db_backend.connect(db_write.DB)
+    try:
+        row = con.execute(
+            "SELECT title, author, genre, words, series, series_number, blurb "
+            "FROM recommendations "
+            "WHERE LOWER(TRIM(title))=LOWER(TRIM(?)) AND user_id=? "
+            "ORDER BY id DESC LIMIT 1",
+            (title, user_id),
+        ).fetchone()
+    finally:
+        con.close()
+    if row is None:
+        return None
+    stored_title, author, genre, words, series, series_number, blurb = row
+    return {
+        "title": stored_title or title,
+        "author": author or "",
+        "genre": genre,
+        "words": words,
+        "series": series or "",
+        "series_number": series_number,
+        "blurb": blurb or "",
+        "source": "prediction",
+    }
+
+
 @app.post("/api/lookup")
 def lookup_book(req: LookupRequest,
                 user_id: str = Depends(auth.get_current_user_id)):
     """
-    Title-only metadata lookup: calls the LLM to find author, genre, estimated
-    word count, series, and a blurb. Genre is constrained to the genre_weights
-    list (global table). Returns the raw lookup result for the user to confirm
-    before filling. Auth-gated though it reads no per-tenant data.
+    Title-only metadata lookup. If the title has already been predicted (it is in
+    the caller's recommendations), the stored prediction metadata is returned
+    directly — no LLM call and no API key needed. Otherwise the LLM finds author,
+    genre, estimated word count, series, and a blurb, with genre constrained to
+    the genre_weights list (global table). Returns the raw lookup result (tagged
+    with its `source`) for the user to confirm before filling. Auth-gated.
     """
+    title = req.title.strip()
+
+    # Already-predicted books: serve the stored metadata, skip the LLM entirely.
+    from_pred = _lookup_from_prediction(title, user_id)
+    if from_pred is not None:
+        return from_pred
+
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
 
@@ -713,7 +757,6 @@ def lookup_book(req: LookupRequest,
     con.close()
 
     hint_author = req.author_hint.strip() if req.author_hint else "unknown"
-    title = req.title.strip()
 
     try:
         _scores_raw, _conf, blurb, _keywords, det_genre, words_raw = \
@@ -732,6 +775,7 @@ def lookup_book(req: LookupRequest,
             "series": meta["series"],
             "series_number": meta["series_number"],
             "blurb": blurb or "",
+            "source": "llm",
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Look-up failed: {e}")
