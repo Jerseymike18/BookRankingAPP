@@ -12,6 +12,12 @@ a discovery service, not multi-user. The full read/write app runs on localhost; 
 `NEXT_PUBLIC_STATIC_DATA=1` + `NEXT_PUBLIC_READONLY=1`) via a deterministic export + git-hook
 pipeline — see **Publishing** below and `README.md`.
 
+> **Current state (read `ARCHITECTURE.md` first).** The same codebase now also runs as a **hosted
+> multi-tenant web app** (`www.thereadingledger.com`, Supabase auth + Railway/Postgres) alongside
+> the public read-only showcase — **three env-switched run-modes** (local dev / public showcase /
+> hosted app), both live sites building from **`main`**. `ARCHITECTURE.md` has the run-modes,
+> deployment map, and codebase map; consult it before scoping work.
+
 ## Stack
 
 - **Backend API:** FastAPI (Python), uvicorn, SQLite via `books.db`
@@ -122,9 +128,19 @@ reimplements or mutates prediction math.
 
 ## Security posture
 
-This app is **localhost single-user only — no auth of any kind.**
+The app runs in **two postures** (full detail in `ARCHITECTURE.md`):
 
-- All write/delete endpoints are intentionally unauthenticated. That is safe on loopback.
+- **Local dev + public showcase — single-user, no auth.** Local dev binds to loopback with
+  `AUTH_ENABLED` off (every request → `db_backend.DEFAULT_USER_ID` = Michael); the public showcase
+  is a backend-free static read-only snapshot. The rules below govern this posture.
+- **Hosted app — auth ENFORCED.** On Railway with `AUTH_ENABLED=1`, every request must carry a
+  valid Supabase JWT (tenant = token `sub`, verified in `auth.py`); per-user isolation via `user_id`
+  on the 7 tenant tables; `ALLOWED_ORIGIN` locked to the app domain; sign-up is invite-gated
+  (`signup.py`). This is the "expose on a network" path below, done properly.
+
+Rules for the **unauthenticated (local / showcase) posture:**
+
+- Write/delete endpoints are unauthenticated when `AUTH_ENABLED` is off. That is safe on loopback.
 - CORS is locked to `http://localhost:3000` by default (env var `ALLOWED_ORIGIN` to override).
 - uvicorn must bind to `127.0.0.1` (the default). Never pass `--host 0.0.0.0` without
   first adding authentication and reviewing every write/delete endpoint.
