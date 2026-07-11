@@ -148,11 +148,50 @@ def _uid(user_id):
     return user_id or db_backend.DEFAULT_USER_ID
 
 
+# Cold-start prior (Phase-4 K_USER_PRIOR, v1). A tenant with too few books to fit
+# a stable model of their own BORROWS the seed tenant's fitted prediction model
+# (coeffs / genre-trust / upstream). Their OWN books + weights are still used for
+# listing and WA ranking — WA is computed from GLOBAL weights + their own scores
+# in db_loader, so rankings stay correctly per-user. This both crash-proofs the
+# 0-book case (pe.fit_regression on an empty frame raises — the multi-tenant
+# cold-start 500) and gives brand-new users working predictions from book #1.
+# The seed is the local single-user (Michael / DEFAULT_USER_ID), who always fits
+# his own model, so his behavior is byte-identical and the 0.631 gate is intact.
+# TODO(phase4): replace this hard switch with smooth shrinkage toward the prior.
+SEED_USER_ID = db_backend.DEFAULT_USER_ID
+MIN_OWN_FIT = 15  # below this many books, borrow the seed model instead of fitting
+
+
+def _shape_empty_books(books, categories):
+    """A brand-new tenant's scoped load is a 0-row frame with NO columns, so the
+    read-only views (which index by name: WA, Series, Year, Words, …) KeyError.
+    Reindex it to the columns the loader would have produced — zero rows, right
+    shape — so those views return empty naturally. Loaders/views stay untouched;
+    this is caller-layer shaping only. `categories` is the per-track category
+    order (fiction vs nonfiction). Preserves the .attrs the engine reads."""
+    cc = books.attrs.get("category_components", {})
+    allc = list(books.attrs.get("all_components", []))
+    cols = (["Book", "Genre", "Author", "Series", "Words", "Year", "Status"]
+            + ["W" + cat for cat in categories]
+            + allc + ["WA"])
+    books = books.reindex(columns=cols)
+    books.attrs["category_components"] = cc
+    books.attrs["all_components"] = allc
+    return books
+
+
 def _build_engine_for(uid) -> tuple:
     """pe.build(source='db') for ONE tenant: a user-scoped load fed to the
     read-only engine fit functions. No prediction math is reimplemented here —
-    predict_engine stays tenant-agnostic and simply receives scoped data."""
+    predict_engine stays tenant-agnostic and simply receives scoped data. A
+    below-threshold tenant borrows the seed's fitted model (see SEED_USER_ID)."""
     books, gw, gcw = db_loader.load_from_db(user_id=uid)
+    if len(books) == 0:
+        books = _shape_empty_books(books, db_loader.CATEGORY_OF_INTEREST)
+    if uid != SEED_USER_ID and len(books) < MIN_OWN_FIT:
+        # Cold start: borrow the seed's fitted prediction model, keep own books.
+        _, _, _, coeffs, r2, resid_sd, ginfo, upstream = _get_engine(SEED_USER_ID)
+        return books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream
     coeffs, r2, resid_sd = pe.fit_regression(books)
     ginfo = pe.genre_bias_and_trust(books, coeffs)
     upstream = pe.fit_upstream(books)
@@ -174,17 +213,24 @@ def _invalidate_engine(user_id=None) -> None:
 
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
 # nonfiction engine, per tenant. Built lazily; rebuilt after any nonfiction write.
+def _load_nf(uid) -> tuple:
+    books, gw, gcw = nfe.load_nonfiction_from_db(user_id=uid)
+    if len(books) == 0:  # brand-new tenant: shape the empty frame (see fiction)
+        books = _shape_empty_books(books, nfe.NONFICTION_CATEGORY_ORDER)
+    return books, gw, gcw
+
+
 def _get_nf_engine(user_id=None) -> tuple:
     uid = _uid(user_id)
     cached = _nf_engine_cache.get(uid)
     if cached is None:
-        cached = _nf_engine_cache[uid] = nfe.load_nonfiction_from_db(user_id=uid)
+        cached = _nf_engine_cache[uid] = _load_nf(uid)
     return cached
 
 
 def _invalidate_nf_engine(user_id=None) -> None:
     uid = _uid(user_id)
-    _nf_engine_cache[uid] = nfe.load_nonfiction_from_db(user_id=uid)
+    _nf_engine_cache[uid] = _load_nf(uid)
 
 
 @asynccontextmanager
@@ -1648,6 +1694,8 @@ def get_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
 def get_timeline(user_id: str = Depends(auth.get_current_user_id)):
     """Per-year reading timeline: book count, avg WA, five category averages."""
     books = _get_engine(user_id)[0]
+    if len(books) == 0:  # brand-new tenant: views_mod.timeline indexes 'Year'
+        return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
     tl = views_mod.timeline(books)
     if tl.empty:
         return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
@@ -1805,8 +1853,10 @@ def get_nf_timeline(user_id: str = Depends(auth.get_current_user_id)):
     """Per-year nonfiction timeline (Quality/Aesthetics/Theme). Normally empty —
     the migrated nonfiction books have no year_read."""
     books = _get_nf_engine(user_id)[0]
-    tl = nfe.timeline(books)
     cats = list(NF_CAT_ORDER)
+    if len(books) == 0:  # brand-new tenant: nfe.timeline indexes 'Year'
+        return {"rows": [], "categories": cats}
+    tl = nfe.timeline(books)
     if tl.empty:
         return {"rows": [], "categories": cats}
     rows = []
