@@ -42,6 +42,7 @@ spending money on the full sample evaluation.
 """
 
 import json
+import os
 import re
 import numpy as np
 import pandas as pd
@@ -109,8 +110,28 @@ WORKBOOK = pe.WORKBOOK
 # Load the key from file (never hardcoded, never printed)
 # ---------------------------------------------------------------------------
 def load_key(path="apikey.txt"):
-    with open(path) as f:
-        return f.read().strip()
+    """Return the Anthropic API key.
+
+    Canonical source is the local, gitignored key file (apikey.txt) — the file
+    wins whenever it exists and is non-empty. Deploy fallback: if the file is
+    absent, use the ANTHROPIC_API_KEY environment variable, so hosted
+    environments (e.g. Railway) that can't ship apikey.txt still serve the LLM
+    endpoints. Raises FileNotFoundError when neither source has a key, so callers
+    keep returning their existing 503 (key-missing) response.
+    """
+    try:
+        with open(path) as f:
+            key = f.read().strip()
+        if key:
+            return key
+    except FileNotFoundError:
+        pass
+    env_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if env_key:
+        return env_key
+    raise FileNotFoundError(
+        f"No Anthropic API key: {path} not found (or empty) and "
+        f"ANTHROPIC_API_KEY is not set.")
 
 
 # ---------------------------------------------------------------------------
