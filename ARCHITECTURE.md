@@ -32,10 +32,10 @@ Consequences worth memorizing:
 
 ## Deployment map
 
-- **Branch:** everything is on **`main`** (consolidated 2026-07-11). The old `feat/multi-tenant-migration` branch is redundant.
+- **Branch:** everything builds from **`main`** — both Vercel projects **and** the Railway backend. Railway was repointed from `feat/multi-tenant-migration` → `main` on 2026-07-11 (verified via a main-only marker on the live API), so a single push to `main` now updates the whole live app, frontend and backend. The `feat/multi-tenant-migration` branch is fully redundant and safe to delete.
 - **Vercel `book-ranking-app`** (showcase): builds `main`, static+readonly, no Supabase → public read-only snapshot. **A data commit IS a publish** (git hooks regenerate + gate the snapshot).
 - **Vercel `the-reading-ledger`** (app): builds `main`, Supabase+`API_URL`, **Root Directory = `frontend`** → live multi-tenant app on `www.thereadingledger.com` (apex `thereadingledger.com` 308→www; domain at Cloudflare, DNS-only/grey-cloud records).
-- **Railway** (backend): FastAPI + Postgres (Supabase); env `AUTH_ENABLED=1`, `ALLOWED_ORIGIN=https://www.thereadingledger.com`, `SIGNUP_INVITE_CODE`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `ANTHROPIC_API_KEY`, `DATABASE_URL`. Serves the app's SSR fetches and client mutations (CORS-locked to the app origin).
+- **Railway** (backend): **builds `main`**; FastAPI + Postgres (Supabase); env `AUTH_ENABLED=1`, `ALLOWED_ORIGIN=https://www.thereadingledger.com`, `SIGNUP_INVITE_CODE`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `ANTHROPIC_API_KEY`, `DATABASE_URL`. Serves the app's SSR fetches and client mutations (CORS-locked to the app origin).
 - **Supabase**: Auth (ES256 JWT via JWKS) + Postgres. Public sign-ups disabled; accounts minted only via the backend `POST /api/signup` (invite-gated, admin API, email pre-confirmed).
 
 ## Codebase map
