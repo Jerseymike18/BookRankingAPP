@@ -734,6 +734,8 @@ def lookup_book(req: LookupRequest,
     genre, estimated word count, series, and a blurb, with genre constrained to
     the genre_weights list (global table). Returns the raw lookup result (tagged
     with its `source`) for the user to confirm before filling. Auth-gated.
+
+    [deploy-branch-check DVMAIN0711 — temporary marker, removed after verification]
     """
     title = req.title.strip()
 
