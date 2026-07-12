@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ReadQueueResponse, Recommendation } from "@/lib/types";
-import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation } from "@/lib/api";
+import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata } from "@/lib/api";
+import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { READONLY } from "@/lib/readonly";
 
@@ -162,13 +164,16 @@ function RecExpandedPanel({
   rec,
   moodScore,
   hasMoods,
+  genres,
   onDelete,
 }: {
   rec: Recommendation;
   moodScore: number | null;
   hasMoods: boolean;
+  genres: string[];
   onDelete: () => void;
 }) {
+  const router = useRouter();
   const [blurb, setBlurb] = useState(rec.blurb);
   const [keywords, setKeywords] = useState(rec.keywords);
   const [genError, setGenError] = useState<string | null>(null);
@@ -176,6 +181,71 @@ function RecExpandedPanel({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ── Edit metadata (author/genre/series/series_number/words — no title/year) ──
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const emptyForm = useCallback(() => ({
+    author: rec.author ?? "",
+    genre: rec.genre ?? "",
+    series: rec.series ?? "",
+    series_number: rec.series_number != null ? String(rec.series_number) : "",
+    words: rec.words != null ? String(rec.words) : "",
+  }), [rec]);
+  const [form, setForm] = useState(emptyForm);
+
+  function startEdit() {
+    setForm(emptyForm());
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  const setNumField = (k: "series_number" | "words") =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (raw === "" || /^\d*\.?\d*$/.test(raw)) setForm((f) => ({ ...f, [k]: raw }));
+    };
+
+  // Only send fields the user actually changed (omit-unchanged, matching the
+  // ranked-book metadata editor). Blank numeric = leave the stored value as-is.
+  function buildRecPayload(): RecommendationMetadataPayload {
+    const p: RecommendationMetadataPayload = {};
+    const a = form.author.trim();
+    if (a && a !== (rec.author ?? "")) p.author = a;
+    if (form.genre && form.genre !== rec.genre) p.genre = form.genre;
+    const s = form.series.trim();
+    if (s && s !== (rec.series ?? "")) p.series = s;
+    const sn = form.series_number.trim();
+    if (sn !== "") { const v = parseFloat(sn); if (!isNaN(v) && v !== rec.series_number) p.series_number = v; }
+    const w = form.words.trim();
+    if (w !== "") { const v = parseInt(w, 10); if (!isNaN(v) && v !== rec.words) p.words = v; }
+    return p;
+  }
+
+  async function handleSaveMeta() {
+    const payload = buildRecPayload();
+    if (Object.keys(payload).length === 0) { setEditing(false); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateRecommendationMetadata(rec.title, payload);
+      setEditing(false);
+      router.refresh(); // refetch so the row, this panel, and the re-weighted WA update
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const metaInputStyle: React.CSSProperties = {
+    background: "var(--color-surface)",
+    borderColor: "var(--color-rule)",
+    color: "var(--color-ink)",
+  };
+  const metaInputCls = "w-full px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2";
+  const genreOptions = Array.from(new Set([...genres, ...(rec.genre ? [rec.genre] : [])])).sort();
 
   function handleGenerate() {
     setGenError(null);
@@ -278,52 +348,128 @@ function RecExpandedPanel({
       {/* Component scores */}
       <ComponentScores components={rec.components} />
 
-      {/* Delete (mutation — hidden on a read-only deploy) */}
+      {/* Edit metadata + remove (mutations — hidden on a read-only deploy) */}
       {!READONLY && (
-      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: "var(--color-rule)" }}>
-        {!deleteConfirm ? (
-          <button
-            onClick={() => setDeleteConfirm(true)}
-            className="text-xs px-3 py-1.5 rounded-lg transition-colors"
-            style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
-          >
-            Remove from TBR
-          </button>
-        ) : (
-          <>
-            <span className="text-xs" style={{ color: "#c0392b" }}>Remove permanently?</span>
+      <div className="pt-2 border-t space-y-3" style={{ borderColor: "var(--color-rule)" }}>
+        {editing && (
+          <div className="space-y-2">
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(10rem, 1fr))" }}>
+              <label className="block">
+                <span className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>Author</span>
+                <input type="text" value={form.author}
+                  onChange={(e) => setForm((f) => ({ ...f, author: e.target.value }))}
+                  className={metaInputCls} style={metaInputStyle} />
+              </label>
+              <label className="block">
+                <span className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>Genre</span>
+                <select value={form.genre}
+                  onChange={(e) => setForm((f) => ({ ...f, genre: e.target.value }))}
+                  className={metaInputCls} style={metaInputStyle}>
+                  {!form.genre && <option value="">— choose —</option>}
+                  {genreOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>Series</span>
+                <input type="text" value={form.series}
+                  onChange={(e) => setForm((f) => ({ ...f, series: e.target.value }))}
+                  className={metaInputCls} style={metaInputStyle} />
+              </label>
+              <label className="block">
+                <span className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>Series #</span>
+                <input type="text" inputMode="decimal" value={form.series_number}
+                  onChange={setNumField("series_number")}
+                  className={metaInputCls} style={metaInputStyle} />
+              </label>
+              <label className="block">
+                <span className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>Words</span>
+                <input type="text" inputMode="numeric" value={form.words}
+                  onChange={setNumField("words")}
+                  className={metaInputCls} style={metaInputStyle} />
+              </label>
+            </div>
+            <p className="text-xs" style={{ color: "var(--color-faint)" }}>
+              Blank leaves a field unchanged. Changing the genre re-weights the predicted WA. The title isn’t editable here.
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3">
+          {!editing && !deleteConfirm && (
             <button
-              onClick={async () => {
-                setIsDeleting(true);
-                setDeleteError(null);
-                try {
-                  await deleteRecommendation(rec.title);
-                  onDelete();
-                } catch (e: unknown) {
-                  setDeleteError(e instanceof Error ? e.message : "Delete failed.");
-                  setDeleteConfirm(false);
-                } finally {
-                  setIsDeleting(false);
-                }
-              }}
-              disabled={isDeleting}
-              className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-              style={{ background: "#c0392b", color: "#fff" }}
-            >
-              {isDeleting ? "Removing…" : "Yes, remove"}
-            </button>
-            <button
-              onClick={() => setDeleteConfirm(false)}
-              className="text-xs px-3 py-1.5 rounded-lg"
+              onClick={startEdit}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors"
               style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
             >
-              Cancel
+              Edit details
             </button>
-          </>
-        )}
-        {deleteError && (
-          <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
-        )}
+          )}
+
+          {editing && (
+            <>
+              <button
+                onClick={handleSaveMeta}
+                disabled={saving}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40 transition-colors"
+                style={{ background: "var(--color-sage)", color: "#fff" }}
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+              >
+                Cancel
+              </button>
+              {saveError && <span className="text-xs" style={{ color: "#c0392b" }}>{saveError}</span>}
+            </>
+          )}
+
+          {!editing && (!deleteConfirm ? (
+            <button
+              onClick={() => setDeleteConfirm(true)}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+              style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+            >
+              Remove from TBR
+            </button>
+          ) : (
+            <>
+              <span className="text-xs" style={{ color: "#c0392b" }}>Remove permanently?</span>
+              <button
+                onClick={async () => {
+                  setIsDeleting(true);
+                  setDeleteError(null);
+                  try {
+                    await deleteRecommendation(rec.title);
+                    onDelete();
+                  } catch (e: unknown) {
+                    setDeleteError(e instanceof Error ? e.message : "Delete failed.");
+                    setDeleteConfirm(false);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
+                style={{ background: "#c0392b", color: "#fff" }}
+              >
+                {isDeleting ? "Removing…" : "Yes, remove"}
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+              >
+                Cancel
+              </button>
+            </>
+          ))}
+          {deleteError && (
+            <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
+          )}
+        </div>
       </div>
       )}
     </div>
@@ -1354,6 +1500,7 @@ export default function ReadQueueClient({
                                   rec={rec}
                                   moodScore={moodScore}
                                   hasMoods={hasMoods}
+                                  genres={genres}
                                   onDelete={() => {
                                     setDeletedTitles((prev) => new Set([...prev, rec.title]));
                                     setExpandedTitle(null);

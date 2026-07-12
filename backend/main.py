@@ -684,6 +684,18 @@ def edit_book_metadata(title: str, req: BookMetadataRequest,
             "message": f"Updated metadata for “{report['renamed_to'] or title}”."}
 
 
+@app.post("/api/recommendations/{title}/metadata")
+def edit_recommendation_metadata(title: str, req: BookMetadataRequest,
+                                 user_id: str = Depends(auth.get_current_user_id)):
+    """Edit a predicted (TBR) book's metadata — author/genre/series/series_number/
+    words — via db_write.update_book_metadata on the recommendations table. Title
+    and year_read are not editable there (the write layer rejects them). No engine
+    invalidation: recommendations aren't part of the rated-books engine; the
+    predicted WA simply re-weights on the next read if the genre changed."""
+    _update_metadata(title, "recommendations", req, user_id)
+    return {"ok": True, "message": f"Updated metadata for “{title}”."}
+
+
 class LookupRequest(BaseModel):
     title: str
     author_hint: Optional[str] = None

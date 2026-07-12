@@ -173,6 +173,34 @@ export async function updateBookMetadata(
   return data;
 }
 
+/** Partial metadata update for a predicted (TBR) book. Only author/genre/series/
+ * series_number/words are editable on a recommendation — no title or year_read. */
+export interface RecommendationMetadataPayload {
+  author?: string;
+  genre?: string;
+  series?: string;
+  series_number?: number;
+  words?: number;
+}
+
+export async function updateRecommendationMetadata(
+  currentTitle: string,
+  payload: RecommendationMetadataPayload
+): Promise<{ ok: boolean; message: string }> {
+  assertWritable();
+  const res = await apiFetch(
+    `${API}/api/recommendations/${encodeURIComponent(currentTitle)}/metadata`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function fetchBookScores(title: string): Promise<BookScoresResponse> {
   if (STATIC) return getJSON<BookScoresResponse>(`fiction/scores/${slugify(title)}.json`);
   const res = await apiFetch(
