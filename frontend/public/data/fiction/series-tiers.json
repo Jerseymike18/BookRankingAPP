@@ -1,9 +1,9 @@
 {
   "series": [
     {
-      "adjusted_wa": 9.222,
+      "adjusted_wa": 9.219,
       "author": "Steven Erikson",
-      "avg_total_average": 9.08,
+      "avg_total_average": 9.07,
       "avg_wa": 9.02,
       "books": 10,
       "genre": "Epic Fantasy",
@@ -151,16 +151,6 @@
       "tier": "C"
     },
     {
-      "adjusted_wa": 6.503,
-      "author": "N.K. Jemisin",
-      "avg_total_average": 7.03,
-      "avg_wa": 6.9,
-      "books": 1,
-      "genre": "Science Fiction (Soft)",
-      "series": "Broken Earth",
-      "tier": "C"
-    },
-    {
       "adjusted_wa": 6.286,
       "author": "Patrick Rothfuss",
       "avg_total_average": 6.83,
@@ -168,6 +158,16 @@
       "books": 1,
       "genre": "Epic Fantasy",
       "series": "The Kingkiller Chronicles",
+      "tier": "C"
+    },
+    {
+      "adjusted_wa": 6.183,
+      "author": "N. K. Jemisin",
+      "avg_total_average": 6.56,
+      "avg_wa": 6.37,
+      "books": 2,
+      "genre": "Science Fantasy",
+      "series": "The Broken Earth",
       "tier": "D"
     },
     {

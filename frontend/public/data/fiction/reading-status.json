@@ -2,42 +2,6 @@
   "currently_reading": {
     "author": "N.K. Jemisin",
     "category_avgs": {
-      "Aesthetics": 6.81,
-      "Character": 6.35,
-      "Story": 6.11,
-      "Theme": 7.42,
-      "Worldbuilding": 7.67
-    },
-    "genre": "Science Fiction (Soft)",
-    "has_prediction": true,
-    "rank": 110,
-    "series": "Broken Earth",
-    "series_number": 2,
-    "title": "The Obelisk Gate",
-    "total": 128,
-    "wa": 6.64
-  },
-  "last_read": {
-    "author": "Dan Simmons",
-    "category_avgs": {
-      "Aesthetics": 7.12,
-      "Character": 7.1,
-      "Story": 7.74,
-      "Theme": 8.78,
-      "Worldbuilding": 8.08
-    },
-    "genre": "Science Fiction (Soft)",
-    "has_prediction": false,
-    "rank": 65,
-    "series": "Hyperion Cantos",
-    "series_number": 4,
-    "title": "The Rise of Endymion",
-    "total": 128,
-    "wa": 7.73
-  },
-  "reading_next": {
-    "author": "N.K. Jemisin",
-    "category_avgs": {
       "Aesthetics": 7.21,
       "Character": 6.87,
       "Story": 6.93,
@@ -50,7 +14,43 @@
     "series": "Broken Earth",
     "series_number": 3,
     "title": "The Stone Sky",
-    "total": 128,
+    "total": 129,
     "wa": 7.16
+  },
+  "last_read": {
+    "author": "N. K. Jemisin",
+    "category_avgs": {
+      "Aesthetics": 5.75,
+      "Character": 6.92,
+      "Story": 4.42,
+      "Theme": 6.65,
+      "Worldbuilding": 7.43
+    },
+    "genre": "Science Fantasy",
+    "has_prediction": false,
+    "rank": 119,
+    "series": "The Broken Earth",
+    "series_number": 2,
+    "title": "The Obelisk Gate",
+    "total": 129,
+    "wa": 5.84
+  },
+  "reading_next": {
+    "author": "Guy Gavriel Kay",
+    "category_avgs": {
+      "Aesthetics": 8.54,
+      "Character": 8.52,
+      "Story": 8.39,
+      "Theme": 7.64,
+      "Worldbuilding": 6.79
+    },
+    "genre": "Literary Fantasy",
+    "has_prediction": true,
+    "rank": 43,
+    "series": "The Sarantine Mosaic",
+    "series_number": 2,
+    "title": "Lord of Emperors",
+    "total": 129,
+    "wa": 8.17
   }
 }

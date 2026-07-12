@@ -1,10 +1,10 @@
 {
   "by_type": {
     "fiction": {
-      "avg_total_average": 7.6,
-      "avg_wa": 7.58,
-      "books": 128,
-      "total_words": 25395553
+      "avg_total_average": 7.59,
+      "avg_wa": 7.57,
+      "books": 129,
+      "total_words": 25525553
     },
     "nonfiction": {
       "avg_total_average": 7.34,
@@ -19,9 +19,9 @@
       "genre": "Epic Fantasy",
       "rank": 1,
       "title": "Toll the Hounds",
-      "total_average": 9.7917,
+      "total_average": 9.7067,
       "type": "fiction",
-      "wa": 9.7877
+      "wa": 9.7576
     },
     {
       "author": "Steven Erikson",
@@ -1095,9 +1095,18 @@
       "wa": 5.8954
     },
     {
+      "author": "N. K. Jemisin",
+      "genre": "Science Fantasy",
+      "rank": 121,
+      "title": "The Obelisk Gate",
+      "total_average": 6.0917,
+      "type": "fiction",
+      "wa": 5.8425
+    },
+    {
       "author": "Orson Scott Card",
       "genre": "Science Fiction (Hard)",
-      "rank": 121,
+      "rank": 122,
       "title": "Shadows in Flight",
       "total_average": 6.06,
       "type": "fiction",
@@ -1106,7 +1115,7 @@
     {
       "author": "Friedrich Nietzsche",
       "genre": "Nonfiction",
-      "rank": 122,
+      "rank": 123,
       "title": "Twilight of the Idols",
       "total_average": 6.0167,
       "type": "nonfiction",
@@ -1115,7 +1124,7 @@
     {
       "author": "Timothy Zahn",
       "genre": "Science Fantasy",
-      "rank": 123,
+      "rank": 124,
       "title": "Heir to the Empire",
       "total_average": 5.9033,
       "type": "fiction",
@@ -1124,7 +1133,7 @@
     {
       "author": "Alan Lightman",
       "genre": "Speculative Literary Fiction",
-      "rank": 124,
+      "rank": 125,
       "title": "Einstein's Dreams",
       "total_average": 5.8667,
       "type": "fiction",
@@ -1133,7 +1142,7 @@
     {
       "author": "Timothy Zahn",
       "genre": "Science Fantasy",
-      "rank": 125,
+      "rank": 126,
       "title": "The Last Command",
       "total_average": 5.555,
       "type": "fiction",
@@ -1142,7 +1151,7 @@
     {
       "author": "Jack London",
       "genre": "Literary Fiction",
-      "rank": 126,
+      "rank": 127,
       "title": "Martin Eden",
       "total_average": 5.5146,
       "type": "fiction",
@@ -1151,7 +1160,7 @@
     {
       "author": "Emily St. John Mandel",
       "genre": "Speculative Literary Fiction",
-      "rank": 127,
+      "rank": 128,
       "title": "Station 11",
       "total_average": 5.485,
       "type": "fiction",
@@ -1160,7 +1169,7 @@
     {
       "author": "Brandon Sanderson",
       "genre": "Literary Fantasy",
-      "rank": 128,
+      "rank": 129,
       "title": "Shadows for Silence",
       "total_average": 5.3667,
       "type": "fiction",
@@ -1169,7 +1178,7 @@
     {
       "author": "Brandon Sanderson",
       "genre": "Literary Fantasy",
-      "rank": 129,
+      "rank": 130,
       "title": "Mistborn: Secret History",
       "total_average": 5.1233,
       "type": "fiction",
@@ -1178,7 +1187,7 @@
     {
       "author": "Tad Williams",
       "genre": "Epic Fantasy",
-      "rank": 130,
+      "rank": 131,
       "title": "The Stone of Farewell",
       "total_average": 4.9817,
       "type": "fiction",
@@ -1187,7 +1196,7 @@
     {
       "author": "William Kennedy",
       "genre": "Literary Fiction",
-      "rank": 131,
+      "rank": 132,
       "title": "Ironweed",
       "total_average": 4.6083,
       "type": "fiction",
@@ -1196,7 +1205,7 @@
     {
       "author": "Ernest Cline",
       "genre": "Science Fiction (Soft)",
-      "rank": 132,
+      "rank": 133,
       "title": "Ready Player One",
       "total_average": 4.5533,
       "type": "fiction",
@@ -1205,7 +1214,7 @@
     {
       "author": "Ernest Cline",
       "genre": "Science Fiction (Soft)",
-      "rank": 133,
+      "rank": 134,
       "title": "Ready Player Two",
       "total_average": 4.365,
       "type": "fiction",
@@ -1214,7 +1223,7 @@
     {
       "author": "Orson Scott Card",
       "genre": "Science Fiction (Hard)",
-      "rank": 134,
+      "rank": 135,
       "title": "The Last Shadow",
       "total_average": 2.71,
       "type": "fiction",
@@ -1229,8 +1238,8 @@
       "year": 2025
     },
     {
-      "books": 58,
-      "fiction": 55,
+      "books": 59,
+      "fiction": 56,
       "nonfiction": 3,
       "year": 2026
     }
@@ -1239,7 +1248,7 @@
     "fiction": {
       "A": 19,
       "B": 32,
-      "C": 31,
+      "C": 32,
       "D": 19,
       "F": 14,
       "S": 11,
@@ -1265,10 +1274,10 @@
     ]
   },
   "totals": {
-    "avg_total_average": 7.59,
-    "fiction_books": 128,
+    "avg_total_average": 7.58,
+    "fiction_books": 129,
     "nonfiction_books": 6,
-    "total_books": 134,
-    "total_words": 25395553
+    "total_books": 135,
+    "total_words": 25525553
   }
 }

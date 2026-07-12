@@ -6,27 +6,27 @@
       "Prose": 9.7
     },
     "Character": {
-      "Depth": 9.9,
+      "Depth": 9.8,
       "Emotional Impact": 9.9,
       "Motivations": 9.6
     },
     "Story": {
       "Action": 9.3,
-      "Ending": 10.0,
+      "Ending": 9.9,
       "Entertainment": 9.8,
-      "Plot": 9.6
+      "Plot": 9.8
     },
     "Theme": {
       "Insights": 9.8,
-      "Thought-Provokingness": 10.0
+      "Thought-Provokingness": 9.9
     },
     "Worldbuilding": {
-      "Depth2": 9.8,
-      "Integration": 9.6,
-      "Originality": 9.8
+      "Depth2": 9.6,
+      "Integration": 9.3,
+      "Originality": 9.2
     }
   },
   "genre": "Epic Fantasy",
   "title": "Toll the Hounds",
-  "wa": 9.7877
+  "wa": 9.7576
 }

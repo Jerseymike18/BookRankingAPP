@@ -8,24 +8,24 @@
           "Prose": 9.7
         },
         "Character": {
-          "Depth": 9.9,
+          "Depth": 9.8,
           "Emotional Impact": 9.9,
           "Motivations": 9.6
         },
         "Story": {
           "Action": 9.3,
-          "Ending": 10.0,
+          "Ending": 9.9,
           "Entertainment": 9.8,
-          "Plot": 9.6
+          "Plot": 9.8
         },
         "Theme": {
           "Insights": 9.8,
-          "Thought-Provokingness": 10.0
+          "Thought-Provokingness": 9.9
         },
         "Worldbuilding": {
-          "Depth2": 9.8,
-          "Integration": 9.6,
-          "Originality": 9.8
+          "Depth2": 9.6,
+          "Integration": 9.3,
+          "Originality": 9.2
         }
       },
       "genre": "Epic Fantasy",
@@ -34,7 +34,7 @@
       "series_number": 8,
       "tier": "S+",
       "title": "Toll the Hounds",
-      "wa": 9.7877,
+      "wa": 9.7576,
       "words": 389000,
       "year_read": 2026
     },
@@ -1590,7 +1590,7 @@
       "rank": 42,
       "series": "Dungeon Crawler Carl",
       "series_number": 2,
-      "tier": "D",
+      "tier": "C",
       "title": "Carl's Doomsday Scenario",
       "wa": 7.1209,
       "words": 130000,
@@ -1664,7 +1664,7 @@
       },
       "genre": "Science Fiction (Soft)",
       "rank": 44,
-      "series": "Broken Earth",
+      "series": "The Broken Earth",
       "series_number": 1,
       "tier": "D",
       "title": "The Fifth Season",
@@ -1894,7 +1894,7 @@
       "rank": 50,
       "series": "Dungeon Crawler Carl",
       "series_number": 1,
-      "tier": "F",
+      "tier": "D",
       "title": "Dungeon Crawler Carl",
       "wa": 6.6805,
       "words": 100000,
@@ -1977,6 +1977,44 @@
       "year_read": 2026
     },
     {
+      "author": "N. K. Jemisin",
+      "components": {
+        "Aesthetics": {
+          "Narration": 3.5,
+          "Prose": 6.5
+        },
+        "Character": {
+          "Depth": 7.3,
+          "Emotional Impact": 6.5,
+          "Motivations": 7.0
+        },
+        "Story": {
+          "Action": 5.6,
+          "Ending": 4.4,
+          "Entertainment": 3.1,
+          "Plot": 4.8
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 6.5
+        },
+        "Worldbuilding": {
+          "Depth2": 7.4,
+          "Integration": 7.1,
+          "Originality": 7.7
+        }
+      },
+      "genre": "Science Fantasy",
+      "rank": 53,
+      "series": "The Broken Earth",
+      "series_number": 2,
+      "tier": "F",
+      "title": "The Obelisk Gate",
+      "wa": 5.8425,
+      "words": 130000,
+      "year_read": 2026
+    },
+    {
       "author": "Ernest Cline",
       "components": {
         "Aesthetics": {
@@ -2005,7 +2043,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 53,
+      "rank": 54,
       "series": "Ready Player One",
       "series_number": 1,
       "tier": "F",
@@ -2043,7 +2081,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 54,
+      "rank": 55,
       "series": "Ready Player One",
       "series_number": 2,
       "tier": "F",
@@ -2081,7 +2119,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 55,
+      "rank": 56,
       "series": "Ender's Shadow",
       "series_number": 6,
       "tier": "F",
@@ -2101,7 +2139,7 @@
   "tier_counts": {
     "A": 8,
     "B": 13,
-    "C": 13,
+    "C": 14,
     "D": 8,
     "F": 6,
     "S": 5,

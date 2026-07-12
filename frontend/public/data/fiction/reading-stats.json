@@ -211,6 +211,11 @@
       "books": 1
     },
     {
+      "author": "N. K. Jemisin",
+      "avg_wa": 5.84,
+      "books": 1
+    },
+    {
       "author": "Jack London",
       "avg_wa": 5.6,
       "books": 1
@@ -291,10 +296,10 @@
       "genre": "Literary Fantasy"
     },
     {
-      "avg_total_average": 6.93,
-      "avg_wa": 6.98,
-      "avg_words": 157727.0,
-      "books": 11,
+      "avg_total_average": 6.86,
+      "avg_wa": 6.88,
+      "avg_words": 155417.0,
+      "books": 12,
       "genre": "Science Fantasy"
     },
     {
@@ -321,17 +326,17 @@
       "year": 2025
     },
     {
-      "avg_total_average": 7.5,
-      "avg_wa": 7.68,
-      "avg_words": 188796.0,
-      "books": 55,
+      "avg_total_average": 7.47,
+      "avg_wa": 7.64,
+      "avg_words": 187746.0,
+      "books": 56,
       "year": 2026
     }
   ],
   "summary": {
-    "avg_total_average": 7.35,
-    "avg_wa": 7.58,
-    "avg_words": 198403.0,
-    "total_books": 128
+    "avg_total_average": 7.34,
+    "avg_wa": 7.57,
+    "avg_words": 197873.0,
+    "total_books": 129
   }
 }

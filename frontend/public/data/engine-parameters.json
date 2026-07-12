@@ -548,7 +548,7 @@
     "residuals_available": true
   },
   "library": {
-    "n_rated_books": 128
+    "n_rated_books": 129
   },
   "models": {
     "discover": "claude-sonnet-4-6",
@@ -561,7 +561,7 @@
       "Aesthetics",
       "Theme"
     ],
-    "r2": 0.9881,
+    "r2": 0.9882,
     "resid_sd": 0.1363
   },
   "schema": {

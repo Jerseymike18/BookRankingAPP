@@ -4,10 +4,10 @@
       "author": "Steven Erikson",
       "category_avgs": {
         "Aesthetics": 9.8125,
-        "Character": 9.8571,
-        "Story": 9.705,
-        "Theme": 9.9143,
-        "Worldbuilding": 9.7444
+        "Character": 9.8071,
+        "Story": 9.75,
+        "Theme": 9.8571,
+        "Worldbuilding": 9.4722
       },
       "components": {
         "Aesthetics": {
@@ -15,24 +15,24 @@
           "Prose": 9.7
         },
         "Character": {
-          "Depth": 9.9,
+          "Depth": 9.8,
           "Emotional Impact": 9.9,
           "Motivations": 9.6
         },
         "Story": {
           "Action": 9.3,
-          "Ending": 10.0,
+          "Ending": 9.9,
           "Entertainment": 9.8,
-          "Plot": 9.6
+          "Plot": 9.8
         },
         "Theme": {
           "Insights": 9.8,
-          "Thought-Provokingness": 10.0
+          "Thought-Provokingness": 9.9
         },
         "Worldbuilding": {
-          "Depth2": 9.8,
-          "Integration": 9.6,
-          "Originality": 9.8
+          "Depth2": 9.6,
+          "Integration": 9.3,
+          "Originality": 9.2
         }
       },
       "genre": "Epic Fantasy",
@@ -41,7 +41,7 @@
       "series_number": 8,
       "slug": "toll-the-hounds",
       "title": "Toll the Hounds",
-      "wa": 9.7877,
+      "wa": 9.7576,
       "words": 389000,
       "year": 2026,
       "year_read": 2026
@@ -4683,7 +4683,7 @@
       },
       "genre": "Science Fiction (Soft)",
       "rank": 102,
-      "series": "Broken Earth",
+      "series": "The Broken Earth",
       "series_number": 1,
       "slug": "the-fifth-season",
       "title": "The Fifth Season",
@@ -5429,6 +5429,52 @@
       "year_read": 2025
     },
     {
+      "author": "N. K. Jemisin",
+      "category_avgs": {
+        "Aesthetics": 5.75,
+        "Character": 6.925,
+        "Story": 4.415,
+        "Theme": 6.65,
+        "Worldbuilding": 7.4333
+      },
+      "components": {
+        "Aesthetics": {
+          "Narration": 3.5,
+          "Prose": 6.5
+        },
+        "Character": {
+          "Depth": 7.3,
+          "Emotional Impact": 6.5,
+          "Motivations": 7.0
+        },
+        "Story": {
+          "Action": 5.6,
+          "Ending": 4.4,
+          "Entertainment": 3.1,
+          "Plot": 4.8
+        },
+        "Theme": {
+          "Insights": 6.8,
+          "Thought-Provokingness": 6.5
+        },
+        "Worldbuilding": {
+          "Depth2": 7.4,
+          "Integration": 7.1,
+          "Originality": 7.7
+        }
+      },
+      "genre": "Science Fantasy",
+      "rank": 119,
+      "series": "The Broken Earth",
+      "series_number": 2,
+      "slug": "the-obelisk-gate",
+      "title": "The Obelisk Gate",
+      "wa": 5.8425,
+      "words": 130000,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
       "author": "Jack London",
       "category_avgs": {
         "Aesthetics": 6.4625,
@@ -5464,7 +5510,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 119,
+      "rank": 120,
       "series": "Standalone",
       "series_number": null,
       "slug": "martin-eden",
@@ -5510,7 +5556,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 120,
+      "rank": 121,
       "series": "Thrawn Trilogy",
       "series_number": 3,
       "slug": "the-last-command",
@@ -5556,7 +5602,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 121,
+      "rank": 122,
       "series": "Standalone",
       "series_number": null,
       "slug": "station-11",
@@ -5602,7 +5648,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 122,
+      "rank": 123,
       "series": "Standalone",
       "series_number": null,
       "slug": "shadows-for-silence",
@@ -5648,7 +5694,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 123,
+      "rank": 124,
       "series": "Standalone",
       "series_number": null,
       "slug": "ironweed",
@@ -5694,7 +5740,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 124,
+      "rank": 125,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 2,
       "slug": "the-stone-of-farewell",
@@ -5740,7 +5786,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 125,
+      "rank": 126,
       "series": "Ready Player One",
       "series_number": 1,
       "slug": "ready-player-one",
@@ -5786,7 +5832,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 126,
+      "rank": 127,
       "series": "Standalone",
       "series_number": null,
       "slug": "mistborn-secret-history",
@@ -5832,7 +5878,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 127,
+      "rank": 128,
       "series": "Ready Player One",
       "series_number": 2,
       "slug": "ready-player-two",
@@ -5878,7 +5924,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 128,
+      "rank": 129,
       "series": "Ender's Shadow",
       "series_number": 6,
       "slug": "the-last-shadow",
