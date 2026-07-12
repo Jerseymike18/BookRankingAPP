@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import type { TiersResponse, TierBook, BookKind } from "@/lib/types";
-import { TierLadder } from "@/components/TierLadder";
+import { TierLadder, type TierItem } from "@/components/TierLadder";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -69,16 +69,26 @@ export default function TierListView({
   const { books, tier_counts, tier_order } = activeData;
 
   const itemsByTier = useMemo(() => {
-    const map: Record<string, { label: string }[]> = {};
-    for (const t of tier_order) map[t] = [];
-    for (const b of books) {
-      if (map[b.tier]) map[b.tier].push({ label: b.title });
-    }
+    const scoreLabel = kind === "nonfiction" ? "Total Avg" : "WA";
+    const map: Record<string, TierItem[]> = {};
     // Sort each tier by the primary score descending (best first, left to right)
     for (const t of tier_order) {
-      const tierBooks = books.filter((b: TierBook) => b.tier === t);
-      tierBooks.sort((a: TierBook, b: TierBook) => score(b) - score(a));
-      map[t] = tierBooks.map((b: TierBook) => ({ label: b.title }));
+      const tierBooks = books
+        .filter((b: TierBook) => b.tier === t)
+        .sort((a: TierBook, b: TierBook) => score(b) - score(a));
+      map[t] = tierBooks.map((b: TierBook) => ({
+        label: b.title,
+        author: b.author,
+        genre: b.genre,
+        series: b.series || undefined,
+        seriesNumber: b.series_number,
+        words: b.words,
+        yearRead: b.year_read,
+        rank: b.rank,
+        score: score(b),
+        scoreLabel,
+        tier: b.tier,
+      }));
     }
     return map;
   }, [books, tier_order, kind]);
