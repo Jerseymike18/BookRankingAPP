@@ -322,6 +322,16 @@ def predict(title, author, genre, data):
     analog_mean = float(analog_wa.mean()) if len(analog_wa) else wa_corrected
     trust = g["trust"]
     wa_final = trust * wa_corrected + (1 - trust) * analog_mean
+    # NOTE: `ci`/`rank_range` below are the legacy ±1.645·resid_sd fit band
+    # (nominal 90%) — the OVERCONFIDENT regression-fit band, NOT the served
+    # interval. The served WA interval is the conformal 80% band (intervals.py).
+    #   • `ci` is unused on every served path (only the __main__ demo,
+    #     test_engine.py, and archive/app.py read it). Never surface it in a
+    #     served response/page/prompt — CLAUDE.md regression guard.
+    #   • `rank_range` is resid_sd-derived too and IS currently surfaced by
+    #     predict_instant (backend/main.py) as a *rank* range — distinct from
+    #     the banned WA "CI"; under separate review, do not extend it.
+    # Both kept only for that demo + return-shape stability (test_engine, archive).
     half = 1.645 * resid_sd
     ci_low, ci_high = wa_final - half, wa_final + half
     rank = int((books["WA"] > wa_final).sum() + 1)
@@ -350,7 +360,10 @@ def report(p):
     print(f"  Model/analog blend (trust : {p['trust']:.2f}, analog mean {p['analog_mean']:.2f})")
     print(f"  ─────────────────────────────────────")
     print(f"  PREDICTED WA              : {p['wa_final']:.2f}")
-    print(f"  90% CI                    : [{p['ci'][0]:.2f}, {p['ci'][1]:.2f}]")
+    # DEMO-ONLY diagnostic: this ±1.645·resid_sd band is the OVERCONFIDENT
+    # regression-fit band, NOT a served interval. The served interval is the
+    # conformal 80% band (intervals.py). Do NOT surface this anywhere served.
+    print(f"  [demo] fit band ±1.645·sd : [{p['ci'][0]:.2f}, {p['ci'][1]:.2f}]")
     print(f"  Predicted Total-Avg Rank  : ~{p['rank']} of {p['total']}  "
           f"(range {p['rank_range'][0]}–{p['rank_range'][1]})")
     if p["n_genre"] < 5:
