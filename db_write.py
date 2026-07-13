@@ -34,6 +34,7 @@ functions from other scripts / the future website.
 """
 
 import os
+import math
 import shutil
 import sqlite3
 import db_backend
@@ -52,6 +53,11 @@ FICTION_COMPONENTS = [
 ]
 # Worldbuilding components are legitimately optional (blank for realist genres).
 WORLDBUILDING = {"Depth2", "Integration", "Originality"}
+
+# The five scoring categories, in the same order (and spelling) the loader's
+# genre-weights dict uses (db_loader.CATEGORY_OF_INTEREST). Category weights per
+# genre sum to 1.0; the WA roll-up assumes that, so writes here normalize to it.
+CATEGORIES = ["Story", "Character", "Theme", "Aesthetics", "Worldbuilding"]
 
 # Reading-log status values. 'finished' is the default for every rated book
 # (set as the column default in the schema); the other two are transient states
@@ -214,6 +220,39 @@ def _ensure_component_corrections():
     con.close()
 
 
+# ---------------------------------------------------------------------------
+# Per-user weight OVERRIDES (tenant-tailored genre weighting)
+# ---------------------------------------------------------------------------
+# The global genre_weights / gcomp_weights tables are the shared cold-start
+# prior. These two override tables let a tenant tailor the weighting to their
+# own taste WITHOUT disturbing the globals: only the rows a user changes are
+# stored, and db_loader overlays them on the global defaults at load time.
+# "Reset to default" is simply a row delete. Both are stored in LONG format
+# (row-per-weight) so they mirror gcomp_weights and dodge Postgres-reserved
+# column names ("character"). Portable DDL — runs on SQLite and Postgres alike.
+def _ensure_weight_overrides():
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS genre_weight_overrides (
+            user_id  TEXT NOT NULL,
+            genre    TEXT NOT NULL,
+            category TEXT NOT NULL,
+            weight   REAL NOT NULL,
+            PRIMARY KEY (user_id, genre, category)
+        )""")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS gcomp_weight_overrides (
+            user_id   TEXT NOT NULL,
+            genre     TEXT NOT NULL,
+            category  TEXT NOT NULL,
+            component TEXT NOT NULL,
+            weight    REAL NOT NULL,
+            PRIMARY KEY (user_id, genre, category, component)
+        )""")
+    con.commit()
+    con.close()
+
+
 def set_component_corrections(version, constants, blend_weight, *, active=True,
                               source_tag=None, engine_hash=None, n_books=None,
                               decision=None, note=None):
@@ -282,6 +321,7 @@ def get_active_corrections():
 _ensure_series_number()
 _ensure_delta_log()
 _ensure_component_corrections()
+_ensure_weight_overrides()
 
 
 def _valid_genres(con):
@@ -463,6 +503,133 @@ def update_recommendation_scores(title, new_scores, user_id=None):
     except ValidationError as e:
         con.rollback()
         print(f"  ✗ '{title}' not repredicted — {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# WRITE: per-user weight overrides
+# ---------------------------------------------------------------------------
+def _coerce_weight(value, label):
+    """Non-negative, finite float or a ValidationError."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        raise ValidationError(f"weight for '{label}' is not a number")
+    if not math.isfinite(v) or v < 0:
+        raise ValidationError(f"weight for '{label}' must be a finite value >= 0")
+    return v
+
+
+def set_genre_weights(genre, weights, user_id=None):
+    """Override the FIVE category weights (Story/Character/Theme/Aesthetics/
+    Worldbuilding) for one genre, for one tenant. `weights` maps each category in
+    CATEGORIES to a non-negative number; values are NORMALIZED to sum 1.0 before
+    storage (the WA roll-up assumes normalized category weights). Replaces any
+    existing override for (user_id, genre). Returns True on success, else False
+    (nothing commits on failure). Global genre_weights is never touched."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if genre not in _valid_genres(con):
+            raise ValidationError(f"unknown genre '{genre}'")
+        missing = [c for c in CATEGORIES if c not in weights]
+        if missing:
+            raise ValidationError(f"missing category weights: {missing}")
+        vals = {c: _coerce_weight(weights[c], c) for c in CATEGORIES}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("category weights sum to zero")
+        _backup_once()
+        con.execute("DELETE FROM genre_weight_overrides WHERE user_id=? AND genre=?",
+                    (uid, genre))
+        con.executemany(
+            "INSERT INTO genre_weight_overrides (user_id, genre, category, weight) "
+            "VALUES (?,?,?,?)",
+            [(uid, genre, c, vals[c] / total) for c in CATEGORIES])
+        con.commit()
+        print(f"  ✓ Genre weights set for '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Genre weights not set — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_component_weights(genre, category, comp_weights, user_id=None):
+    """Override the within-category COMPONENT weights for one (genre, category),
+    for one tenant. `comp_weights` must map EXACTLY the components that global
+    gcomp_weights defines for that (genre, category); values are NORMALIZED to sum
+    1.0 (db_loader._weighted_cat_avg assumes normalized component weights).
+    Replaces any existing override for (user_id, genre, category). Returns True on
+    success, else False. Global gcomp_weights is never touched."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        canon = [r[0] for r in con.execute(
+            "SELECT component FROM gcomp_weights WHERE genre=? AND category=?",
+            (genre, category))]
+        if not canon:
+            raise ValidationError(
+                f"no components defined for genre '{genre}' category '{category}'")
+        if set(comp_weights) != set(canon):
+            raise ValidationError(
+                f"components for {genre}/{category} must be exactly {sorted(canon)}")
+        vals = {c: _coerce_weight(comp_weights[c], c) for c in canon}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("component weights sum to zero")
+        _backup_once()
+        con.execute(
+            "DELETE FROM gcomp_weight_overrides "
+            "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))
+        con.executemany(
+            "INSERT INTO gcomp_weight_overrides "
+            "(user_id, genre, category, component, weight) VALUES (?,?,?,?,?)",
+            [(uid, genre, category, c, vals[c] / total) for c in canon])
+        con.commit()
+        print(f"  ✓ Component weights set for '{genre}'/{category} (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Component weights not set — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def reset_weights(user_id=None, genre=None, category=None):
+    """Delete a tenant's weight overrides, reverting to the global defaults.
+      • genre=None                 → reset EVERYTHING for the user (both tables).
+      • genre=G                    → reset genre G entirely (its category split AND
+                                     all its component splits).
+      • genre=G, category=C        → reset only genre G's category-C component split.
+    Returns True on success, else False."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if category is not None:
+            if genre is None:
+                raise ValidationError("category reset requires a genre")
+            con.execute(
+                "DELETE FROM gcomp_weight_overrides "
+                "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))
+        elif genre is not None:
+            con.execute("DELETE FROM genre_weight_overrides "
+                        "WHERE user_id=? AND genre=?", (uid, genre))
+            con.execute("DELETE FROM gcomp_weight_overrides "
+                        "WHERE user_id=? AND genre=?", (uid, genre))
+        else:
+            con.execute("DELETE FROM genre_weight_overrides WHERE user_id=?", (uid,))
+            con.execute("DELETE FROM gcomp_weight_overrides WHERE user_id=?", (uid,))
+        con.commit()
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Weights not reset — {e}")
         return False
     finally:
         con.close()
@@ -1042,6 +1209,28 @@ def _ensure_nonfiction_schema():
             title    TEXT NOT NULL
         )
     ''')
+    # Per-user weight overrides (nonfiction mirror of genre_weight_overrides /
+    # gcomp_weight_overrides). Long format; category stored capitalized
+    # (Quality/Aesthetics/Theme) to match nonfiction_gcomp_weights and the API.
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_genre_weight_overrides (
+            user_id  TEXT NOT NULL,
+            genre    TEXT NOT NULL,
+            category TEXT NOT NULL,
+            weight   REAL NOT NULL,
+            PRIMARY KEY (user_id, genre, category)
+        )
+    ''')
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS nonfiction_gcomp_weight_overrides (
+            user_id   TEXT NOT NULL,
+            genre     TEXT NOT NULL,
+            category  TEXT NOT NULL,
+            component TEXT NOT NULL,
+            weight    REAL NOT NULL,
+            PRIMARY KEY (user_id, genre, category, component)
+        )
+    ''')
     con.commit()
     con.close()
 
@@ -1316,6 +1505,112 @@ def seed_nonfiction_weights(quality=0.45, aesthetics=0.20, theme=0.35,
     except ValidationError as e:
         con.rollback()
         print(f"  ✗ Not seeded — {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# WRITE: per-user nonfiction weight overrides (mirror of the fiction pair)
+# ---------------------------------------------------------------------------
+def set_nonfiction_genre_weights(genre, weights, user_id=None):
+    """Override the nonfiction category weights (Quality/Aesthetics/Theme) for one
+    genre, for one tenant. Values normalized to sum 1.0. The nonfiction mirror of
+    set_genre_weights; global nonfiction_genre_weights is never touched."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    cats = list(NONFICTION_CATEGORIES)
+    try:
+        if genre not in _valid_nonfiction_genres(con):
+            raise ValidationError(f"unknown nonfiction genre '{genre}'")
+        missing = [c for c in cats if c not in weights]
+        if missing:
+            raise ValidationError(f"missing category weights: {missing}")
+        vals = {c: _coerce_weight(weights[c], c) for c in cats}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("category weights sum to zero")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_genre_weight_overrides "
+                    "WHERE user_id=? AND genre=?", (uid, genre))
+        con.executemany(
+            "INSERT INTO nonfiction_genre_weight_overrides "
+            "(user_id, genre, category, weight) VALUES (?,?,?,?)",
+            [(uid, genre, c, vals[c] / total) for c in cats])
+        con.commit()
+        print(f"  ✓ Nonfiction genre weights set for '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Nonfiction genre weights not set — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_component_weights(genre, category, comp_weights, user_id=None):
+    """Override the within-category component weights for one nonfiction
+    (genre, category). `comp_weights` must map exactly that group's components
+    (per nonfiction_gcomp_weights); normalized to sum 1.0. Nonfiction mirror of
+    set_component_weights."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        canon = [r[0] for r in con.execute(
+            "SELECT component FROM nonfiction_gcomp_weights "
+            "WHERE genre=? AND category=?", (genre, category))]
+        if not canon:
+            raise ValidationError(
+                f"no components for nonfiction genre '{genre}' category '{category}'")
+        if set(comp_weights) != set(canon):
+            raise ValidationError(
+                f"components for {genre}/{category} must be exactly {sorted(canon)}")
+        vals = {c: _coerce_weight(comp_weights[c], c) for c in canon}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("component weights sum to zero")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_gcomp_weight_overrides "
+                    "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))
+        con.executemany(
+            "INSERT INTO nonfiction_gcomp_weight_overrides "
+            "(user_id, genre, category, component, weight) VALUES (?,?,?,?,?)",
+            [(uid, genre, category, c, vals[c] / total) for c in canon])
+        con.commit()
+        print(f"  ✓ Nonfiction component weights set for '{genre}'/{category} (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Nonfiction component weights not set — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def reset_nonfiction_weights(user_id=None, genre=None, category=None):
+    """Delete a tenant's nonfiction weight overrides (revert to defaults). Same
+    scoping as reset_weights: all (no args) / one genre / one component split."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if category is not None:
+            if genre is None:
+                raise ValidationError("category reset requires a genre")
+            con.execute("DELETE FROM nonfiction_gcomp_weight_overrides "
+                        "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))
+        elif genre is not None:
+            con.execute("DELETE FROM nonfiction_genre_weight_overrides "
+                        "WHERE user_id=? AND genre=?", (uid, genre))
+            con.execute("DELETE FROM nonfiction_gcomp_weight_overrides "
+                        "WHERE user_id=? AND genre=?", (uid, genre))
+        else:
+            con.execute("DELETE FROM nonfiction_genre_weight_overrides WHERE user_id=?", (uid,))
+            con.execute("DELETE FROM nonfiction_gcomp_weight_overrides WHERE user_id=?", (uid,))
+        con.commit()
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Nonfiction weights not reset — {e}")
         return False
     finally:
         con.close()

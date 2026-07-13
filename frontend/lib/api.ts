@@ -23,6 +23,7 @@ import type {
   RepredictPoll,
   TrackRecord,
   EngineParameters,
+  EffectiveWeights,
 } from "./types";
 import { slugify } from "./slug";
 import {
@@ -622,6 +623,78 @@ export async function fetchEngineParameters(token?: ServerToken): Promise<Engine
   const res = await apiFetch(`${API}/api/engine-parameters`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+/* ── Genre / component weights (per-tenant tailoring; fiction + nonfiction) ── */
+
+/** The caller's effective genre + component weights (global defaults overlaid
+ *  with their overrides) for one track. Live-backend only — the read-only static
+ *  build never reaches here (the page is gated off). */
+export async function fetchWeights(
+  kind: BookKind = "fiction",
+  token?: ServerToken
+): Promise<EffectiveWeights> {
+  if (STATIC) throw new Error("Read-only deployment");
+  const res = await apiFetch(`${base(kind)}/weights`, { cache: "no-store" }, token);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Override the category weights for one genre. Values are relative; the server
+ *  normalizes them to sum 1.0 and rebuilds the caller's ranking engine. */
+export async function setGenreWeights(
+  genre: string,
+  weights: Record<string, number>,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${base(kind)}/weights/genre/${encodeURIComponent(genre)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ weights }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Override one (genre, category)'s within-category component weights. Must send
+ *  exactly that category's components; normalized to sum 1.0 server-side. */
+export async function setComponentWeights(
+  genre: string,
+  category: string,
+  weights: Record<string, number>,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(
+    `${base(kind)}/weights/component/${encodeURIComponent(genre)}/${encodeURIComponent(category)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weights }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Revert weight overrides to defaults. Scope: whole account (no scope), one genre
+ *  ({genre}), or one component split ({genre, category}). */
+export async function resetWeights(
+  scope?: { genre?: string; category?: string },
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${base(kind)}/weights/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(scope ?? {}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
 }
 
 export async function fetchStats(token?: ServerToken): Promise<CombinedStatsResponse> {

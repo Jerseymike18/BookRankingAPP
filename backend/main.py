@@ -50,6 +50,7 @@ from typing import Optional
 
 import db_loader
 import db_write
+import user_weights
 import predict_engine as pe
 import views as views_mod
 import validate_engine as ve
@@ -152,8 +153,9 @@ def _uid(user_id):
 # Cold-start prior (Phase-4 K_USER_PRIOR, v1). A tenant with too few books to fit
 # a stable model of their own BORROWS the seed tenant's fitted prediction model
 # (coeffs / genre-trust / upstream). Their OWN books + weights are still used for
-# listing and WA ranking — WA is computed from GLOBAL weights + their own scores
-# in db_loader, so rankings stay correctly per-user. This both crash-proofs the
+# listing and WA ranking — WA is computed from their EFFECTIVE weights (the global
+# defaults overlaid with any of their own overrides) + their own scores in
+# db_loader, so rankings stay correctly per-user. This both crash-proofs the
 # 0-book case (pe.fit_regression on an empty frame raises — the multi-tenant
 # cold-start 500) and gives brand-new users working predictions from book #1.
 # The seed is the local single-user (Michael / DEFAULT_USER_ID), who always fits
@@ -184,9 +186,12 @@ def _shape_empty_books(books, categories):
 def _build_engine_for(uid) -> tuple:
     """pe.build(source='db') for ONE tenant: a user-scoped load fed to the
     read-only engine fit functions. No prediction math is reimplemented here —
-    predict_engine stays tenant-agnostic and simply receives scoped data. A
-    below-threshold tenant borrows the seed's fitted model (see SEED_USER_ID)."""
-    books, gw, gcw = db_loader.load_from_db(user_id=uid)
+    predict_engine stays tenant-agnostic and simply receives scoped data. The
+    tenant's own weight overrides (if any) are overlaid on the global weights
+    before the load computes WA (see user_weights). A below-threshold tenant
+    borrows the seed's fitted model (see SEED_USER_ID)."""
+    books, gw, gcw = db_loader.load_from_db(
+        user_id=uid, weight_overrides=user_weights.load_overrides(uid))
     if len(books) == 0:
         books = _shape_empty_books(books, db_loader.CATEGORY_OF_INTEREST)
     if uid != SEED_USER_ID and len(books) < MIN_OWN_FIT:
@@ -215,7 +220,8 @@ def _invalidate_engine(user_id=None) -> None:
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
 # nonfiction engine, per tenant. Built lazily; rebuilt after any nonfiction write.
 def _load_nf(uid) -> tuple:
-    books, gw, gcw = nfe.load_nonfiction_from_db(user_id=uid)
+    books, gw, gcw = nfe.load_nonfiction_from_db(
+        user_id=uid, weight_overrides=user_weights.load_overrides_nf(uid))
     if len(books) == 0:  # brand-new tenant: shape the empty frame (see fiction)
         books = _shape_empty_books(books, nfe.NONFICTION_CATEGORY_ORDER)
     return books, gw, gcw
@@ -388,6 +394,125 @@ def get_valid_genres():
     genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
     return genres
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GENRE / COMPONENT WEIGHTS  (per-tenant tailoring)
+# ─────────────────────────────────────────────────────────────────────────────
+# The weights that turn component scores into WA. Global tables are the shared
+# default; each tenant may override them (stored sparsely by db_write, overlaid
+# in db_loader). Every write normalizes to sum 1.0 and rebuilds the caller's
+# engine, so their rankings/predictions re-order immediately. Auth-scoped.
+class GenreWeightsRequest(BaseModel):
+    weights: dict[str, float]          # the 5 categories -> weight
+
+
+class ComponentWeightsRequest(BaseModel):
+    weights: dict[str, float]          # one (genre, category)'s components -> weight
+
+
+class ResetWeightsRequest(BaseModel):
+    genre: Optional[str] = None        # None -> reset everything for the user
+    category: Optional[str] = None     # with genre -> reset just that component split
+
+
+@app.get("/api/weights")
+def get_weights(user_id: str = Depends(auth.get_current_user_id)):
+    """The caller's EFFECTIVE genre + component weights — global defaults overlaid
+    with their own overrides, plus per-group `customized` flags — for the weights
+    editor. Read-only."""
+    return user_weights.effective_weights(user_id)
+
+
+@app.put("/api/weights/genre/{genre}")
+def put_genre_weights(genre: str, req: GenreWeightsRequest,
+                      user_id: str = Depends(auth.get_current_user_id)):
+    """Override the 5 category weights (Story/Character/Theme/Aesthetics/
+    Worldbuilding) for one genre, for the caller. Normalized to sum 1.0."""
+    if not db_write.set_genre_weights(genre, req.weights, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not set category weights for '{genre}'. "
+                   "Provide the 5 categories as non-negative numbers.")
+    _invalidate_engine(user_id)
+    return {"ok": True}
+
+
+@app.put("/api/weights/component/{genre}/{category}")
+def put_component_weights(genre: str, category: str, req: ComponentWeightsRequest,
+                          user_id: str = Depends(auth.get_current_user_id)):
+    """Override the within-category component weights for one (genre, category),
+    for the caller. Must supply exactly that group's components; normalized to
+    sum 1.0."""
+    if not db_write.set_component_weights(genre, category, req.weights,
+                                          user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not set component weights for '{genre}' / {category}. "
+                   "Supply exactly that category's components as non-negative numbers.")
+    _invalidate_engine(user_id)
+    return {"ok": True}
+
+
+@app.post("/api/weights/reset")
+def post_reset_weights(req: ResetWeightsRequest,
+                       user_id: str = Depends(auth.get_current_user_id)):
+    """Revert the caller's weight overrides to the global defaults. Scope: whole
+    account (no body), one genre (`genre`), or one component split (`genre` +
+    `category`)."""
+    if not db_write.reset_weights(user_id=user_id, genre=req.genre,
+                                  category=req.category):
+        raise HTTPException(status_code=422, detail="Could not reset weights.")
+    _invalidate_engine(user_id)
+    return {"ok": True}
+
+
+# ── Nonfiction weights (same shape, separate track / engine) ──────────────────
+@app.get("/api/nonfiction/weights")
+def get_nonfiction_weights(user_id: str = Depends(auth.get_current_user_id)):
+    """The caller's effective nonfiction genre + component weights (Quality/
+    Aesthetics/Theme), for the weights editor. Read-only."""
+    return user_weights.effective_weights_nf(user_id)
+
+
+@app.put("/api/nonfiction/weights/genre/{genre}")
+def put_nonfiction_genre_weights(genre: str, req: GenreWeightsRequest,
+                                 user_id: str = Depends(auth.get_current_user_id)):
+    """Override the nonfiction category weights for one genre. Normalized to 1.0."""
+    if not db_write.set_nonfiction_genre_weights(genre, req.weights, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not set nonfiction category weights for '{genre}'. "
+                   "Provide Quality/Aesthetics/Theme as non-negative numbers.")
+    _invalidate_nf_engine(user_id)
+    return {"ok": True}
+
+
+@app.put("/api/nonfiction/weights/component/{genre}/{category}")
+def put_nonfiction_component_weights(genre: str, category: str,
+                                     req: ComponentWeightsRequest,
+                                     user_id: str = Depends(auth.get_current_user_id)):
+    """Override the within-category nonfiction component weights for one
+    (genre, category). Must supply exactly that group's components; normalized."""
+    if not db_write.set_nonfiction_component_weights(genre, category, req.weights,
+                                                     user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not set nonfiction component weights for '{genre}' / {category}. "
+                   "Supply exactly that category's components as non-negative numbers.")
+    _invalidate_nf_engine(user_id)
+    return {"ok": True}
+
+
+@app.post("/api/nonfiction/weights/reset")
+def post_reset_nonfiction_weights(req: ResetWeightsRequest,
+                                  user_id: str = Depends(auth.get_current_user_id)):
+    """Revert the caller's nonfiction weight overrides to the global defaults."""
+    if not db_write.reset_nonfiction_weights(user_id=user_id, genre=req.genre,
+                                             category=req.category):
+        raise HTTPException(status_code=422, detail="Could not reset nonfiction weights.")
+    _invalidate_nf_engine(user_id)
+    return {"ok": True}
 
 
 @app.get("/api/books/{title}/scores")

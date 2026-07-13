@@ -649,3 +649,33 @@ export interface RepredictReport {
 export type RepredictPoll =
   | { status: "pending" }
   | { status: "done"; report: RepredictReport | null };
+
+/* ── Genre / component weights editor (per-tenant tailoring) ──────────────── */
+
+/** One editable weight group: its effective values (global default overlaid with
+ *  the user's override), the pristine default (for "reset"), and whether the user
+ *  has customized it. Values are normalized to sum 1.0. */
+export interface WeightGroup {
+  effective: Record<string, number>;
+  default: Record<string, number>;
+  customized: boolean;
+}
+
+/** A genre's within-category component split (e.g. Story → Plot/…/Ending). */
+export interface CategoryWeightGroup extends WeightGroup {
+  category: string;
+  components: string[];
+}
+
+export interface GenreWeights {
+  genre: string;
+  /** The 5 category weights (Story/Character/Theme/Aesthetics/Worldbuilding). */
+  category_weights: WeightGroup;
+  /** Per-category component splits — only categories that have components. */
+  categories: CategoryWeightGroup[];
+}
+
+export interface EffectiveWeights {
+  categories: string[]; // canonical category order
+  genres: GenreWeights[];
+}

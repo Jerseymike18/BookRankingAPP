@@ -107,13 +107,19 @@ def _wa(cat_avgs, cat_weights):
     return (num / den) if den > 0 else float("nan")
 
 
-def load_nonfiction_from_db(path=DB, user_id=None):
+def load_nonfiction_from_db(path=DB, user_id=None, weight_overrides=None):
     """Return (books_df, gw, gcw) for nonfiction, shaped like db_loader's output:
       books_df : one row per nonfiction book with raw components, the three
                  category averages (WQuality/WAesthetics/WTheme), WA, and identity.
       gw       : {genre: {"quality","aesthetics","theme"}} category weights.
       gcw      : {genre: {category: {component: weight}}} within-category weights.
-    books_df.attrs['category_components'] / ['all_components'] carry the schema."""
+    books_df.attrs['category_components'] / ['all_components'] carry the schema.
+
+    `weight_overrides`, when given, is an OPTIONAL (gw_over, gcw_over) pair (see
+    user_weights.load_overrides_nf) overlaid on the global weights BEFORE any WA
+    is computed — the per-tenant tailoring path. gw_over is keyed lowercase to
+    match gw; gcw_over keeps capitalized categories. When None (the nonfiction
+    engine's own callers, backtests), behaviour is byte-identical."""
     con = db_backend.connect(path)
     uid = user_id or db_backend.DEFAULT_USER_ID
     category_components, gcw = _discover_schema_from_db(con)
@@ -123,6 +129,19 @@ def load_nonfiction_from_db(path=DB, user_id=None):
     for genre, q, a, t in con.execute(
             "SELECT genre,quality,aesthetics,theme FROM nonfiction_genre_weights"):
         gw[genre] = {"quality": q, "aesthetics": a, "theme": t}
+
+    # Optional per-tenant overrides: overlay category weights (gw) and within-
+    # category component weights (gcw) on the globals before any roll-up. No-op
+    # when weight_overrides is None (or empty).
+    if weight_overrides:
+        gw_over, gcw_over = weight_overrides
+        for genre, cats in (gw_over or {}).items():
+            merged = dict(gw.get(genre, {}))
+            merged.update(cats)
+            gw[genre] = merged
+        for genre, cat_map in (gcw_over or {}).items():
+            for cat, comps in cat_map.items():
+                gcw.setdefault(genre, {})[cat] = dict(comps)
 
     comp_cols = ",".join(f'"{c}"' for c in all_components)
     rows = con.execute(

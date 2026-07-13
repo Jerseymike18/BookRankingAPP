@@ -61,10 +61,17 @@ def _weighted_cat_avg(comp_vals, genre, cat, gcw):
     return total if used > 0 else 0.0
 
 
-def load_from_db(path=DB, user_id=None):
+def load_from_db(path=DB, user_id=None, weight_overrides=None):
     """Return (books_df, gw, gcw) identical in shape to load_everything(), scoped
-    to one tenant's books (user_id; defaults to DEFAULT_USER_ID). Genre/component
-    weights are GLOBAL (the shared cold-start prior), so they are not scoped."""
+    to one tenant's books (user_id; defaults to DEFAULT_USER_ID).
+
+    Genre/component weights default to the GLOBAL tables (the shared cold-start
+    prior). `weight_overrides`, when provided, is an OPTIONAL (gw_over, gcw_over)
+    pair (see user_weights.load_overrides) overlaid on those globals BEFORE any
+    WA is computed — the per-tenant tailoring path. When it is None (every
+    existing caller, and test_engine), behaviour is byte-identical: the weights,
+    the WStoryAvg roll-up, and WA are exactly as before. The prediction math
+    below is unchanged; only which weights dict gets assembled differs."""
     con = db_backend.connect(path)
     uid = user_id or db_backend.DEFAULT_USER_ID
     category_components, gcw = _discover_schema_from_db(con)
@@ -76,6 +83,21 @@ def load_from_db(path=DB, user_id=None):
                          "worldbuilding FROM genre_weights"):
         gw[r[0]] = {"Story": r[1], "Character": r[2], "Theme": r[3],
                     "Aesthetics": r[4], "Worldbuilding": r[5]}
+
+    # Optional per-tenant overrides: overlay category weights (gw) and within-
+    # category component weights (gcw) on the globals before any roll-up. An
+    # overridden (genre) replaces that genre's category weights; an overridden
+    # (genre, category) replaces that category's component split. Untouched groups
+    # keep the global default. No-op when weight_overrides is None (or empty).
+    if weight_overrides:
+        gw_over, gcw_over = weight_overrides
+        for genre, cats in (gw_over or {}).items():
+            merged = dict(gw.get(genre, {}))
+            merged.update(cats)
+            gw[genre] = merged
+        for genre, cat_map in (gcw_over or {}).items():
+            for cat, comps in cat_map.items():
+                gcw.setdefault(genre, {})[cat] = dict(comps)
 
     # Books: pull raw rows, rebuild the WCategoryAvg fields the engine expects,
     # and compute the stored WA the same way (so the WA column matches Excel).

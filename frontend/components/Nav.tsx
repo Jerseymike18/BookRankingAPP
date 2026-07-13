@@ -38,6 +38,17 @@ const PREDICTION_ITEMS: NavItem[] = READONLY
       { href: "/add-book", label: "Add a Book" },
     ];
 
+// Genre Weights edits per-user overrides — a live-backend feature, hidden on the
+// read-only public build (its page also self-guards with ComingSoon).
+const MORE_ITEMS: NavItem[] = [
+  { href: "/analytics", label: "Taste Lab" },
+  { href: "/track-record", label: "Track Record" },
+  { href: "/methodology", label: "Methodology" },
+  { href: "/calibration", label: "Calibration" },
+  { href: "/delta-log", label: "Delta Log" },
+  ...(READONLY ? [] : [{ href: "/weights", label: "Genre Weights" }]),
+];
+
 const sections: NavGroup[] = [
   { label: "Stats", href: "/stats" },
   {
@@ -66,13 +77,7 @@ const sections: NavGroup[] = [
   },
   {
     label: "More",
-    items: [
-      { href: "/analytics", label: "Taste Lab" },
-      { href: "/track-record", label: "Track Record" },
-      { href: "/methodology", label: "Methodology" },
-      { href: "/calibration", label: "Calibration" },
-      { href: "/delta-log", label: "Delta Log" },
-    ],
+    items: MORE_ITEMS,
   },
 ];
 
