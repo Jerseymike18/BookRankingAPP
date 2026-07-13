@@ -388,12 +388,15 @@ def get_genres():
 
 
 @app.get("/api/valid-genres")
-def get_valid_genres():
-    """All genres defined in genre_weights (valid for adding new books)."""
+def get_valid_genres(user_id: str = Depends(auth.get_current_user_id)):
+    """Genres valid for adding a book: the global genre_weights set PLUS the
+    caller's own private genres."""
     con = db_backend.connect(db_write.DB)
-    genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
+    genres = {r[0] for r in con.execute("SELECT genre FROM genre_weights")}
+    genres |= {r[0] for r in con.execute(
+        "SELECT DISTINCT genre FROM genre_weight_overrides WHERE user_id=?", (user_id,))}
     con.close()
-    return genres
+    return sorted(genres)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -414,6 +417,11 @@ class ComponentWeightsRequest(BaseModel):
 class ResetWeightsRequest(BaseModel):
     genre: Optional[str] = None        # None -> reset everything for the user
     category: Optional[str] = None     # with genre -> reset just that component split
+
+
+class AddGenreRequest(BaseModel):
+    name: str                          # the new private genre's name
+    weights: dict[str, float]          # its category weights (normalized server-side)
 
 
 @app.get("/api/weights")
@@ -467,6 +475,33 @@ def post_reset_weights(req: ResetWeightsRequest,
     return {"ok": True}
 
 
+@app.post("/api/weights/genre")
+def post_add_genre(req: AddGenreRequest,
+                   user_id: str = Depends(auth.get_current_user_id)):
+    """Create a PRIVATE fiction genre for the caller (category weights + equal
+    component seeds). It becomes selectable when adding books and rankable."""
+    if not db_write.add_genre(req.name, req.weights, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not add genre “{req.name}”. It may already exist, or the "
+                   "category weights are missing/invalid.")
+    _invalidate_engine(user_id)
+    return {"ok": True}
+
+
+@app.delete("/api/weights/genre/{genre}")
+def delete_genre(genre: str, user_id: str = Depends(auth.get_current_user_id)):
+    """Delete one of the caller's PRIVATE fiction genres. Refused for global
+    genres or if any of the caller's books still use it."""
+    if not db_write.delete_user_genre(genre, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not delete “{genre}”. It must be one of your own genres "
+                   "with no books or predictions assigned to it.")
+    _invalidate_engine(user_id)
+    return {"ok": True}
+
+
 # ── Nonfiction weights (same shape, separate track / engine) ──────────────────
 @app.get("/api/nonfiction/weights")
 def get_nonfiction_weights(user_id: str = Depends(auth.get_current_user_id)):
@@ -511,6 +546,32 @@ def post_reset_nonfiction_weights(req: ResetWeightsRequest,
     if not db_write.reset_nonfiction_weights(user_id=user_id, genre=req.genre,
                                              category=req.category):
         raise HTTPException(status_code=422, detail="Could not reset nonfiction weights.")
+    _invalidate_nf_engine(user_id)
+    return {"ok": True}
+
+
+@app.post("/api/nonfiction/weights/genre")
+def post_add_nonfiction_genre(req: AddGenreRequest,
+                              user_id: str = Depends(auth.get_current_user_id)):
+    """Create a PRIVATE nonfiction genre for the caller."""
+    if not db_write.add_nonfiction_genre(req.name, req.weights, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not add nonfiction genre “{req.name}”. It may already exist, "
+                   "or the category weights are missing/invalid.")
+    _invalidate_nf_engine(user_id)
+    return {"ok": True}
+
+
+@app.delete("/api/nonfiction/weights/genre/{genre}")
+def delete_nonfiction_genre(genre: str,
+                            user_id: str = Depends(auth.get_current_user_id)):
+    """Delete one of the caller's PRIVATE nonfiction genres."""
+    if not db_write.delete_nonfiction_user_genre(genre, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not delete nonfiction genre “{genre}”. It must be one of your "
+                   "own genres with no books or predictions assigned to it.")
     _invalidate_nf_engine(user_id)
     return {"ok": True}
 
@@ -2240,14 +2301,16 @@ def edit_nf_book_metadata(title: str, req: BookMetadataRequest,
 
 
 @app.get("/api/nonfiction/valid-genres")
-def get_nf_valid_genres():
-    """Genres defined in nonfiction_genre_weights (valid for the metadata genre
-    dropdown). Normally just ['Nonfiction'] until a finer taxonomy exists."""
+def get_nf_valid_genres(user_id: str = Depends(auth.get_current_user_id)):
+    """Nonfiction genres valid for the metadata dropdown: the global set PLUS the
+    caller's own private genres."""
     con = db_backend.connect(db_write.DB)
-    genres = sorted(r[0] for r in con.execute(
-        "SELECT genre FROM nonfiction_genre_weights"))
+    genres = {r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")}
+    genres |= {r[0] for r in con.execute(
+        "SELECT DISTINCT genre FROM nonfiction_genre_weight_overrides WHERE user_id=?",
+        (user_id,))}
     con.close()
-    return genres
+    return sorted(genres)
 
 
 @app.delete("/api/nonfiction/books/{title}")

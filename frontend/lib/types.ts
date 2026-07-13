@@ -669,7 +669,10 @@ export interface CategoryWeightGroup extends WeightGroup {
 
 export interface GenreWeights {
   genre: string;
-  /** The 5 category weights (Story/Character/Theme/Aesthetics/Worldbuilding). */
+  /** True for a private genre the user created (vs a shared global genre). */
+  custom: boolean;
+  /** The category weights (Story/Character/Theme/Aesthetics/Worldbuilding, or the
+   *  3 nonfiction categories). */
   category_weights: WeightGroup;
   /** Per-category component splits — only categories that have components. */
   categories: CategoryWeightGroup[];

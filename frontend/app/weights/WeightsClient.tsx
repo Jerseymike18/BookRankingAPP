@@ -5,34 +5,40 @@ import {
   setGenreWeights,
   setComponentWeights,
   resetWeights,
+  addGenre,
+  deleteGenre,
+  fetchWeights,
 } from "@/lib/api";
 import type { EffectiveWeights, BookKind } from "@/lib/types";
 
 /* ── Working model ──────────────────────────────────────────────────────────
-   Sliders operate on RELATIVE raw values (0–100 units); the displayed % is
-   raw / sum, and the server normalizes to sum 1.0 on save. Effective weights
-   already sum to 1.0, so ×100 seeds each slider at its own current percentage. */
+   Weights are TYPED (not dragged). Each box holds a raw STRING (so it can be
+   empty/partial while typing) interpreted as a RELATIVE weight; the shown % is
+   raw / sum, and the server normalizes to sum 1.0 on save. */
 
 type Group = {
-  raw: Record<string, number>;
-  saved: Record<string, number>;
-  def: Record<string, number>;
+  raw: Record<string, string>;
+  saved: Record<string, string>;
+  def: Record<string, string>;
   customized: boolean;
 };
 type CompGroup = Group & { category: string; components: string[] };
 type GenreModel = {
   genre: string;
+  custom: boolean;
   catKeys: string[];
   cat: Group;
   comps: CompGroup[];
 };
 
-const toRaw = (m: Record<string, number>): Record<string, number> =>
-  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, v * 100]));
+const fmt = (v: number) => String(+(v * 100).toFixed(2));
+const toRaw = (m: Record<string, number>): Record<string, string> =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [k, fmt(v)]));
 
 function buildModels(data: EffectiveWeights): GenreModel[] {
   return data.genres.map((g) => ({
     genre: g.genre,
+    custom: g.custom,
     catKeys: data.categories,
     cat: {
       raw: toRaw(g.category_weights.effective),
@@ -51,14 +57,22 @@ function buildModels(data: EffectiveWeights): GenreModel[] {
   }));
 }
 
-const sum = (m: Record<string, number>) =>
-  Object.values(m).reduce((a, b) => a + b, 0);
-const pctOf = (m: Record<string, number>, k: string) => {
-  const s = sum(m);
-  return s > 0 ? (m[k] / s) * 100 : 0;
+const numOf = (s: string) => {
+  const v = parseFloat(s);
+  return Number.isFinite(v) && v >= 0 ? v : 0;
 };
+const sumOf = (m: Record<string, string>) =>
+  Object.values(m).reduce((a, s) => a + numOf(s), 0);
+const pctOf = (m: Record<string, string>, k: string) => {
+  const s = sumOf(m);
+  return s > 0 ? (numOf(m[k]) / s) * 100 : 0;
+};
+const toNums = (m: Record<string, string>): Record<string, number> =>
+  Object.fromEntries(Object.keys(m).map((k) => [k, numOf(m[k])]));
 const isDirty = (g: Group) =>
-  Object.keys(g.raw).some((k) => Math.abs(g.raw[k] - g.saved[k]) > 1e-6);
+  Object.keys(g.raw).some((k) => numOf(g.raw[k]) !== numOf(g.saved[k]));
+
+const NUM_RE = /^\d*\.?\d*$/; // allow "", "0", "0.", "12.5" while typing
 
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -67,31 +81,28 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "var(--font-body)",
 };
 
-function CustomizedTag() {
+function Tag({ label, tone = "sage" }: { label: string; tone?: "sage" | "muted" }) {
+  const c =
+    tone === "sage"
+      ? { background: "var(--color-sage-light)", color: "var(--color-sage)" }
+      : { background: "var(--color-surface-2)", color: "var(--color-muted)" };
   return (
-    <span
-      className="rounded px-1.5 py-0.5"
-      style={{
-        background: "var(--color-sage-light)",
-        color: "var(--color-sage)",
-        fontSize: "10px",
-      }}
-    >
-      customized
+    <span className="rounded px-1.5 py-0.5" style={{ ...c, fontSize: "10px" }}>
+      {label}
     </span>
   );
 }
 
-function SliderRow({
+function NumberRow({
   label,
   value,
   pct,
   onChange,
 }: {
   label: string;
-  value: number;
+  value: string;
   pct: number;
-  onChange: (v: number) => void;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="flex items-center gap-3 py-1">
@@ -99,20 +110,21 @@ function SliderRow({
         {label}
       </div>
       <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
+        type="text"
+        inputMode="decimal"
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 min-w-0"
-        style={{ accentColor: "var(--color-sage)" }}
+        onChange={(e) => {
+          const r = e.target.value;
+          if (r === "" || NUM_RE.test(r)) onChange(r);
+        }}
+        className="w-24 px-2 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+        style={inputStyle}
       />
       <div
-        className="w-14 shrink-0 text-right text-sm tabular-nums"
+        className="w-16 shrink-0 text-sm tabular-nums"
         style={{ color: "var(--color-muted)" }}
       >
-        {pct.toFixed(1)}%
+        = {pct.toFixed(1)}%
       </div>
     </div>
   );
@@ -145,17 +157,19 @@ function LinkButton({
   onClick,
   children,
   disabled,
+  danger,
 }: {
   onClick: () => void;
   children: React.ReactNode;
   disabled?: boolean;
+  danger?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       className="text-xs underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
-      style={{ color: "var(--color-muted)" }}
+      style={{ color: danger ? "var(--color-spine-c)" : "var(--color-muted)" }}
     >
       {children}
     </button>
@@ -176,8 +190,19 @@ export default function WeightsClient({
   const [notice, setNotice] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  const anyCustomized = useMemo(
-    () => models.some((m) => m.cat.customized || m.comps.some((c) => c.customized)),
+  // Add-genre form
+  const [adding, setAdding] = useState(false);
+  const emptyNew = () =>
+    Object.fromEntries(initial.categories.map((c) => [c, "1"])) as Record<string, string>;
+  const [newName, setNewName] = useState("");
+  const [newWeights, setNewWeights] = useState<Record<string, string>>(emptyNew);
+
+  // "Reset all" only affects global-genre customizations (custom genres are kept).
+  const anyGlobalCustomized = useMemo(
+    () =>
+      models.some(
+        (m) => !m.custom && (m.cat.customized || m.comps.some((c) => c.customized))
+      ),
     [models]
   );
   const visible = useMemo(() => {
@@ -211,11 +236,17 @@ export default function WeightsClient({
     }
   }
 
+  // After a structural change (add/delete genre) re-seed from the server so the
+  // genre list + custom flags stay authoritative.
+  async function refetch() {
+    setModels(buildModels(await fetchWeights(kind)));
+  }
+
   const saveCat = (m: GenreModel) =>
     run(
       `cat:${m.genre}`,
       async () => {
-        await setGenreWeights(m.genre, m.cat.raw, kind);
+        await setGenreWeights(m.genre, toNums(m.cat.raw), kind);
         patchGenre(m.genre, (x) => ({
           ...x,
           cat: { ...x.cat, saved: { ...x.cat.raw }, customized: true },
@@ -228,13 +259,11 @@ export default function WeightsClient({
     run(
       `comp:${m.genre}:${c.category}`,
       async () => {
-        await setComponentWeights(m.genre, c.category, c.raw, kind);
+        await setComponentWeights(m.genre, c.category, toNums(c.raw), kind);
         patchGenre(m.genre, (x) => ({
           ...x,
           comps: x.comps.map((g) =>
-            g.category === c.category
-              ? { ...g, saved: { ...g.raw }, customized: true }
-              : g
+            g.category === c.category ? { ...g, saved: { ...g.raw }, customized: true } : g
           ),
         }));
       },
@@ -282,27 +311,61 @@ export default function WeightsClient({
       "all",
       async () => {
         await resetWeights(undefined, kind);
-        setModels((ms) =>
-          ms.map((x) => ({
-            ...x,
-            cat: { ...x.cat, raw: { ...x.cat.def }, saved: { ...x.cat.def }, customized: false },
-            comps: x.comps.map((g) => ({
-              ...g,
-              raw: { ...g.def },
-              saved: { ...g.def },
-              customized: false,
-            })),
-          }))
-        );
+        await refetch();
       },
       "Reset all genres to default weights."
     );
 
+  const removeGenre = (m: GenreModel) =>
+    run(
+      `del:${m.genre}`,
+      async () => {
+        await deleteGenre(m.genre, kind);
+        await refetch();
+      },
+      `Deleted “${m.genre}”.`
+    );
+
+  const submitAddGenre = () => {
+    const name = newName.trim();
+    if (!name) {
+      setError("Enter a name for the new genre.");
+      return;
+    }
+    if (sumOf(newWeights) <= 0) {
+      setError("At least one category weight must be above zero.");
+      return;
+    }
+    return run(
+      "add-genre",
+      async () => {
+        await addGenre(name, toNums(newWeights), kind);
+        await refetch();
+        setNewName("");
+        setNewWeights(emptyNew());
+        setAdding(false);
+      },
+      `Added “${name}”.`
+    );
+  };
+
+  const trackNoun = kind === "nonfiction" ? "nonfiction genre" : "genre";
+
   return (
     <div>
-      {/* Reset-all (state-dependent, so it lives with the editor, not the header) */}
-      {anyCustomized && (
-        <div className="mb-4 flex justify-end">
+      {/* Top actions */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={() => {
+            setAdding((v) => !v);
+            setError(null);
+          }}
+          className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{ background: "var(--color-sage-light)", color: "var(--color-sage)" }}
+        >
+          {adding ? "Cancel" : `＋ Add a ${trackNoun}`}
+        </button>
+        {anyGlobalCustomized && (
           <button
             onClick={resetAll}
             disabled={busyKey === "all"}
@@ -311,7 +374,57 @@ export default function WeightsClient({
           >
             {busyKey === "all" ? "Resetting…" : "Reset all to defaults"}
           </button>
-        </div>
+        )}
+      </div>
+
+      {/* Add-genre form */}
+      {adding && (
+        <section
+          className="rounded-xl p-5 mb-4"
+          style={{ background: "var(--color-surface)", border: "1px solid var(--color-sage)" }}
+        >
+          <label
+            className="block text-xs font-semibold uppercase tracking-widest mb-1"
+            style={{ color: "var(--color-muted)" }}
+          >
+            New {trackNoun} name
+          </label>
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="e.g. Grimdark Fantasy"
+            className="w-full max-w-sm px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 mb-3"
+            style={inputStyle}
+          />
+          <p
+            className="text-xs font-semibold uppercase tracking-widest mb-1"
+            style={{ color: "var(--color-muted)" }}
+          >
+            Category weights
+          </p>
+          <div className="mb-3">
+            {initial.categories.map((cat) => (
+              <NumberRow
+                key={cat}
+                label={cat}
+                value={newWeights[cat] ?? ""}
+                pct={pctOf(newWeights, cat)}
+                onChange={(v) => setNewWeights((w) => ({ ...w, [cat]: v }))}
+              />
+            ))}
+          </div>
+          <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>
+            Component weights start equal within each category — tune them after the genre is
+            created. Books can then be tagged with this genre.
+          </p>
+          <SaveButton
+            disabled={!newName.trim() || sumOf(newWeights) <= 0}
+            busy={busyKey === "add-genre"}
+            onClick={submitAddGenre}
+            label={`Create ${trackNoun}`}
+          />
+        </section>
       )}
 
       {/* Feedback */}
@@ -349,11 +462,11 @@ export default function WeightsClient({
       {/* Genre cards */}
       <div className="space-y-4">
         {visible.map((m) => {
-          const catSum = sum(m.cat.raw);
+          const catSum = sumOf(m.cat.raw);
           const catDirty = isDirty(m.cat);
           const open = expanded.has(m.genre);
-          const genreCustomized =
-            m.cat.customized || m.comps.some((c) => c.customized);
+          const globalCustomized =
+            !m.custom && (m.cat.customized || m.comps.some((c) => c.customized));
           return (
             <section
               key={m.genre}
@@ -372,15 +485,29 @@ export default function WeightsClient({
                   >
                     {m.genre}
                   </h2>
-                  {genreCustomized && <CustomizedTag />}
+                  {m.custom ? (
+                    <Tag label="private" />
+                  ) : globalCustomized ? (
+                    <Tag label="customized" />
+                  ) : null}
                 </div>
-                {genreCustomized && (
+                {m.custom ? (
                   <LinkButton
-                    onClick={() => resetGenre(m)}
-                    disabled={busyKey === `genre:${m.genre}`}
+                    onClick={() => removeGenre(m)}
+                    disabled={busyKey === `del:${m.genre}`}
+                    danger
                   >
-                    {busyKey === `genre:${m.genre}` ? "Resetting…" : "Reset genre"}
+                    {busyKey === `del:${m.genre}` ? "Deleting…" : "Delete genre"}
                   </LinkButton>
+                ) : (
+                  globalCustomized && (
+                    <LinkButton
+                      onClick={() => resetGenre(m)}
+                      disabled={busyKey === `genre:${m.genre}`}
+                    >
+                      {busyKey === `genre:${m.genre}` ? "Resetting…" : "Reset genre"}
+                    </LinkButton>
+                  )
                 )}
               </div>
 
@@ -393,10 +520,10 @@ export default function WeightsClient({
               </p>
               <div className="mb-2">
                 {m.catKeys.map((cat) => (
-                  <SliderRow
+                  <NumberRow
                     key={cat}
                     label={cat}
-                    value={m.cat.raw[cat] ?? 0}
+                    value={m.cat.raw[cat] ?? ""}
                     pct={pctOf(m.cat.raw, cat)}
                     onChange={(v) =>
                       patchGenre(m.genre, (x) => ({
@@ -433,7 +560,7 @@ export default function WeightsClient({
                   {open && (
                     <div className="mt-3 space-y-4">
                       {m.comps.map((c) => {
-                        const cSum = sum(c.raw);
+                        const cSum = sumOf(c.raw);
                         const cDirty = isDirty(c);
                         const cKey = `comp:${m.genre}:${c.category}`;
                         return (
@@ -444,9 +571,13 @@ export default function WeightsClient({
                                 style={{ color: "var(--color-ink)" }}
                               >
                                 {c.category}
-                                {c.customized && <span className="ml-2"><CustomizedTag /></span>}
+                                {c.customized && !m.custom && (
+                                  <span className="ml-2">
+                                    <Tag label="customized" />
+                                  </span>
+                                )}
                               </p>
-                              {c.customized && (
+                              {c.customized && !m.custom && (
                                 <LinkButton
                                   onClick={() => resetComp(m, c)}
                                   disabled={busyKey === cKey}
@@ -456,10 +587,10 @@ export default function WeightsClient({
                               )}
                             </div>
                             {c.components.map((comp) => (
-                              <SliderRow
+                              <NumberRow
                                 key={comp}
                                 label={comp}
-                                value={c.raw[comp] ?? 0}
+                                value={c.raw[comp] ?? ""}
                                 pct={pctOf(c.raw, comp)}
                                 onChange={(v) =>
                                   patchGenre(m.genre, (x) => ({

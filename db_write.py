@@ -59,6 +59,17 @@ WORLDBUILDING = {"Depth2", "Integration", "Originality"}
 # genre sum to 1.0; the WA roll-up assumes that, so writes here normalize to it.
 CATEGORIES = ["Story", "Character", "Theme", "Aesthetics", "Worldbuilding"]
 
+# Fiction category → its components (fixed; mirrors CLAUDE.md's scoring model and
+# the NONFICTION_CATEGORIES map below). Used to seed a brand-new user genre with
+# equal within-category weights.
+FICTION_CATEGORIES = {
+    "Story": ["Plot", "Entertainment", "Action", "Ending"],
+    "Character": ["Depth", "Emotional Impact", "Motivations"],
+    "Aesthetics": ["Prose", "Narration"],
+    "Theme": ["Insights", "Thought-Provokingness"],
+    "Worldbuilding": ["Depth2", "Integration", "Originality"],
+}
+
 # Reading-log status values. 'finished' is the default for every rated book
 # (set as the column default in the schema); the other two are transient states
 # for the Reading Status view.
@@ -324,8 +335,15 @@ _ensure_component_corrections()
 _ensure_weight_overrides()
 
 
-def _valid_genres(con):
-    return {r[0] for r in con.execute("SELECT genre FROM genre_weights")}
+def _valid_genres(con, uid=None):
+    """Global fiction genres, plus the user's own custom genres (override-only)
+    when uid is given. Union so a tenant can add + use private genres; byte-
+    identical to the old global-only behaviour when uid is None or has none."""
+    genres = {r[0] for r in con.execute("SELECT genre FROM genre_weights")}
+    if uid:
+        genres |= {r[0] for r in con.execute(
+            "SELECT DISTINCT genre FROM genre_weight_overrides WHERE user_id=?", (uid,))}
+    return genres
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +382,7 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
     uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         # genre check
-        valid = _valid_genres(con)
+        valid = _valid_genres(con, uid)
         if genre not in valid and not allow_new_genre:
             raise ValidationError(
                 f"Genre '{genre}' is not in genre_weights. Either fix the "
@@ -412,7 +430,7 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
     con = _connect()
     uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        valid = _valid_genres(con)
+        valid = _valid_genres(con, uid)
         if genre not in valid and not allow_new_genre:
             raise ValidationError(
                 f"Genre '{genre}' is not in genre_weights. Either fix the "
@@ -532,7 +550,7 @@ def set_genre_weights(genre, weights, user_id=None):
     con = _connect()
     uid = user_id or db_backend.DEFAULT_USER_ID
     try:
-        if genre not in _valid_genres(con):
+        if genre not in _valid_genres(con, uid):
             raise ValidationError(f"unknown genre '{genre}'")
         missing = [c for c in CATEGORIES if c not in weights]
         if missing:
@@ -572,6 +590,10 @@ def set_component_weights(genre, category, comp_weights, user_id=None):
         canon = [r[0] for r in con.execute(
             "SELECT component FROM gcomp_weights WHERE genre=? AND category=?",
             (genre, category))]
+        if not canon:  # a private genre: components live in the user's overrides
+            canon = [r[0] for r in con.execute(
+                "SELECT component FROM gcomp_weight_overrides "
+                "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))]
         if not canon:
             raise ValidationError(
                 f"no components defined for genre '{genre}' category '{category}'")
@@ -623,13 +645,105 @@ def reset_weights(user_id=None, genre=None, category=None):
             con.execute("DELETE FROM gcomp_weight_overrides "
                         "WHERE user_id=? AND genre=?", (uid, genre))
         else:
-            con.execute("DELETE FROM genre_weight_overrides WHERE user_id=?", (uid,))
-            con.execute("DELETE FROM gcomp_weight_overrides WHERE user_id=?", (uid,))
+            # Reset overrides on GLOBAL genres only. A user's PRIVATE genres live
+            # in the same tables but are creations, not customizations of a default
+            # — preserve them (remove those via delete_user_genre) so "reset all"
+            # can't silently orphan books tagged with a custom genre.
+            gl = _valid_genres(con)  # global only
+            if gl:
+                ph = ",".join("?" for _ in gl)
+                con.execute(f"DELETE FROM genre_weight_overrides "
+                            f"WHERE user_id=? AND genre IN ({ph})", [uid, *gl])
+                con.execute(f"DELETE FROM gcomp_weight_overrides "
+                            f"WHERE user_id=? AND genre IN ({ph})", [uid, *gl])
         con.commit()
         return True
     except ValidationError as e:
         con.rollback()
         print(f"  ✗ Weights not reset — {e}")
+        return False
+    finally:
+        con.close()
+
+
+# ---------------------------------------------------------------------------
+# WRITE: add / delete a PRIVATE (per-user) genre
+# ---------------------------------------------------------------------------
+def add_genre(genre, category_weights, user_id=None):
+    """Create a PRIVATE fiction genre for one tenant: the 5 category weights
+    (normalized to sum 1.0) written to genre_weight_overrides, plus EQUAL within-
+    category component weights seeded into gcomp_weight_overrides so the engine can
+    roll up WA for books tagged with it. The global tables are never touched, and
+    the name must not collide with a global or the user's existing genre."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    cats = list(CATEGORIES)
+    try:
+        genre = (genre or "").strip()
+        if not genre:
+            raise ValidationError("genre name is required")
+        if genre in _valid_genres(con, uid):
+            raise ValidationError(f"genre '{genre}' already exists")
+        missing = [c for c in cats if c not in category_weights]
+        if missing:
+            raise ValidationError(f"missing category weights: {missing}")
+        vals = {c: _coerce_weight(category_weights[c], c) for c in cats}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("category weights sum to zero")
+        _backup_once()
+        con.executemany(
+            "INSERT INTO genre_weight_overrides (user_id, genre, category, weight) "
+            "VALUES (?,?,?,?)", [(uid, genre, c, vals[c] / total) for c in cats])
+        comp_rows = []
+        for cat, comps in FICTION_CATEGORIES.items():
+            w = 1.0 / len(comps)
+            comp_rows += [(uid, genre, cat, comp, w) for comp in comps]
+        con.executemany(
+            "INSERT INTO gcomp_weight_overrides "
+            "(user_id, genre, category, component, weight) VALUES (?,?,?,?,?)", comp_rows)
+        con.commit()
+        print(f"  ✓ Added private genre '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Genre not added — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def delete_user_genre(genre, user_id=None):
+    """Delete a tenant's PRIVATE fiction genre (all its override rows). Refuses if
+    it's a global genre (reset its weights instead) or if any of the user's books
+    or recommendations still use it."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        genre = (genre or "").strip()
+        if genre in _valid_genres(con):  # no uid → global only
+            raise ValidationError(
+                f"'{genre}' is a global genre — reset its weights instead of deleting.")
+        if genre not in _valid_genres(con, uid):
+            raise ValidationError(f"no custom genre '{genre}' to delete")
+        for tbl in ("books", "recommendations"):
+            n = con.execute(f"SELECT COUNT(*) FROM {tbl} WHERE user_id=? AND genre=?",
+                            (uid, genre)).fetchone()[0]
+            if n:
+                raise ValidationError(
+                    f"{n} {tbl} entr{'y' if n == 1 else 'ies'} still use '{genre}' — "
+                    f"reassign them before deleting the genre.")
+        _backup_once()
+        con.execute("DELETE FROM genre_weight_overrides WHERE user_id=? AND genre=?",
+                    (uid, genre))
+        con.execute("DELETE FROM gcomp_weight_overrides WHERE user_id=? AND genre=?",
+                    (uid, genre))
+        con.commit()
+        print(f"  ✓ Deleted private genre '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Genre not deleted — {e}")
         return False
     finally:
         con.close()
@@ -1235,8 +1349,15 @@ def _ensure_nonfiction_schema():
     con.close()
 
 
-def _valid_nonfiction_genres(con):
-    return {r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")}
+def _valid_nonfiction_genres(con, uid=None):
+    """Global nonfiction genres, plus the user's own custom genres when uid is
+    given (see _valid_genres). Byte-identical when uid is None or has none."""
+    genres = {r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")}
+    if uid:
+        genres |= {r[0] for r in con.execute(
+            "SELECT DISTINCT genre FROM nonfiction_genre_weight_overrides WHERE user_id=?",
+            (uid,))}
+    return genres
 
 
 def _validate_nonfiction_scores(scores, require_all=True):
@@ -1296,7 +1417,7 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
             raise ValidationError(
                 f"A nonfiction book titled '{title}' already exists. "
                 f"Use change_nonfiction_rating() to edit it.")
-        valid = _valid_nonfiction_genres(con)  # empty until weights are added
+        valid = _valid_nonfiction_genres(con, uid)  # empty until weights are added
         if genre is not None and valid and genre not in valid and not allow_new_genre:
             raise ValidationError(
                 f"Genre '{genre}' is not in nonfiction_genre_weights "
@@ -1521,7 +1642,7 @@ def set_nonfiction_genre_weights(genre, weights, user_id=None):
     uid = user_id or db_backend.DEFAULT_USER_ID
     cats = list(NONFICTION_CATEGORIES)
     try:
-        if genre not in _valid_nonfiction_genres(con):
+        if genre not in _valid_nonfiction_genres(con, uid):
             raise ValidationError(f"unknown nonfiction genre '{genre}'")
         missing = [c for c in cats if c not in weights]
         if missing:
@@ -1559,6 +1680,10 @@ def set_nonfiction_component_weights(genre, category, comp_weights, user_id=None
         canon = [r[0] for r in con.execute(
             "SELECT component FROM nonfiction_gcomp_weights "
             "WHERE genre=? AND category=?", (genre, category))]
+        if not canon:  # a private genre: components live in the user's overrides
+            canon = [r[0] for r in con.execute(
+                "SELECT component FROM nonfiction_gcomp_weight_overrides "
+                "WHERE user_id=? AND genre=? AND category=?", (uid, genre, category))]
         if not canon:
             raise ValidationError(
                 f"no components for nonfiction genre '{genre}' category '{category}'")
@@ -1604,13 +1729,96 @@ def reset_nonfiction_weights(user_id=None, genre=None, category=None):
             con.execute("DELETE FROM nonfiction_gcomp_weight_overrides "
                         "WHERE user_id=? AND genre=?", (uid, genre))
         else:
-            con.execute("DELETE FROM nonfiction_genre_weight_overrides WHERE user_id=?", (uid,))
-            con.execute("DELETE FROM nonfiction_gcomp_weight_overrides WHERE user_id=?", (uid,))
+            # Global genres only — preserve the user's private genres (see reset_weights).
+            gl = _valid_nonfiction_genres(con)  # global only
+            if gl:
+                ph = ",".join("?" for _ in gl)
+                con.execute(f"DELETE FROM nonfiction_genre_weight_overrides "
+                            f"WHERE user_id=? AND genre IN ({ph})", [uid, *gl])
+                con.execute(f"DELETE FROM nonfiction_gcomp_weight_overrides "
+                            f"WHERE user_id=? AND genre IN ({ph})", [uid, *gl])
         con.commit()
         return True
     except ValidationError as e:
         con.rollback()
         print(f"  ✗ Nonfiction weights not reset — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def add_nonfiction_genre(genre, category_weights, user_id=None):
+    """Create a PRIVATE nonfiction genre for one tenant (mirror of add_genre):
+    the Quality/Aesthetics/Theme category weights + equal component seeds, written
+    to the nonfiction override tables. Global tables untouched; no name collision."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    cats = list(NONFICTION_CATEGORIES)  # dict keys → Quality/Aesthetics/Theme
+    try:
+        genre = (genre or "").strip()
+        if not genre:
+            raise ValidationError("genre name is required")
+        if genre in _valid_nonfiction_genres(con, uid):
+            raise ValidationError(f"nonfiction genre '{genre}' already exists")
+        missing = [c for c in cats if c not in category_weights]
+        if missing:
+            raise ValidationError(f"missing category weights: {missing}")
+        vals = {c: _coerce_weight(category_weights[c], c) for c in cats}
+        total = sum(vals.values())
+        if total <= 0:
+            raise ValidationError("category weights sum to zero")
+        _backup_once()
+        con.executemany(
+            "INSERT INTO nonfiction_genre_weight_overrides (user_id, genre, category, weight) "
+            "VALUES (?,?,?,?)", [(uid, genre, c, vals[c] / total) for c in cats])
+        comp_rows = []
+        for cat, comps in NONFICTION_CATEGORIES.items():
+            w = 1.0 / len(comps)
+            comp_rows += [(uid, genre, cat, comp, w) for comp in comps]
+        con.executemany(
+            "INSERT INTO nonfiction_gcomp_weight_overrides "
+            "(user_id, genre, category, component, weight) VALUES (?,?,?,?,?)", comp_rows)
+        con.commit()
+        print(f"  ✓ Added private nonfiction genre '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Nonfiction genre not added — {e}")
+        return False
+    finally:
+        con.close()
+
+
+def delete_nonfiction_user_genre(genre, user_id=None):
+    """Delete a tenant's PRIVATE nonfiction genre. Refuses on a global genre or if
+    any of the user's nonfiction books / recommendations still use it."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        genre = (genre or "").strip()
+        if genre in _valid_nonfiction_genres(con):  # global only
+            raise ValidationError(
+                f"'{genre}' is a global genre — reset its weights instead of deleting.")
+        if genre not in _valid_nonfiction_genres(con, uid):
+            raise ValidationError(f"no custom nonfiction genre '{genre}' to delete")
+        for tbl in ("nonfiction_books", "nonfiction_recommendations"):
+            n = con.execute(f"SELECT COUNT(*) FROM {tbl} WHERE user_id=? AND genre=?",
+                            (uid, genre)).fetchone()[0]
+            if n:
+                raise ValidationError(
+                    f"{n} {tbl} entr{'y' if n == 1 else 'ies'} still use '{genre}' — "
+                    f"reassign them before deleting the genre.")
+        _backup_once()
+        con.execute("DELETE FROM nonfiction_genre_weight_overrides WHERE user_id=? AND genre=?",
+                    (uid, genre))
+        con.execute("DELETE FROM nonfiction_gcomp_weight_overrides WHERE user_id=? AND genre=?",
+                    (uid, genre))
+        con.commit()
+        print(f"  ✓ Deleted private nonfiction genre '{genre}' (user {uid[:8]}…).")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ Nonfiction genre not deleted — {e}")
         return False
     finally:
         con.close()
@@ -1638,7 +1846,7 @@ def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
         if dup:
             raise ValidationError(
                 f"A nonfiction recommendation titled '{title}' already exists.")
-        valid = _valid_nonfiction_genres(con)  # empty until weights add genres
+        valid = _valid_nonfiction_genres(con, uid)  # empty until weights add genres
         if genre is not None and valid and genre not in valid and not allow_new_genre:
             raise ValidationError(
                 f"Genre '{genre}' is not in nonfiction_genre_weights "
@@ -1852,10 +2060,10 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False, us
             genre = None if genre is None else str(genre).strip() or None
             if genre is not None:
                 if table in ("books", "recommendations"):
-                    valid = _valid_genres(con)
+                    valid = _valid_genres(con, uid)
                     enforce = valid  # fiction always has a populated table
                 else:
-                    valid = _valid_nonfiction_genres(con)
+                    valid = _valid_nonfiction_genres(con, uid)
                     enforce = valid if valid else None  # empty → skip check
                 if enforce is not None and genre not in enforce and not allow_new_genre:
                     weights_tbl = ("genre_weights"

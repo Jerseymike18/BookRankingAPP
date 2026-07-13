@@ -110,33 +110,45 @@ def _effective_weights(spec, user_id=None, path=DB):
     finally:
         con.close()
 
+    # Genres = the global set PLUS any the user defined privately (override-only).
+    all_genres = sorted(set(g_cat) | set(gw_over) | set(gcw_over))
     genres_out = []
-    for genre in sorted(g_cat):
-        default_cats = g_cat[genre]
+    for genre in all_genres:
+        is_custom = genre not in g_cat          # override-only → a private genre
+        default_cats = g_cat.get(genre, {})     # {} for a custom genre
         over_cats = gw_over.get(genre, {})
         eff_cats = {c: over_cats.get(c, default_cats.get(c, 0.0)) for c in categories}
 
+        # Component structure = the global gcomp for this genre, each category
+        # group replaced wholesale by an override group when present. For a custom
+        # genre g_comp is empty, so the structure comes entirely from the overrides.
+        base_comp = {cat: dict(comps) for cat, comps in g_comp.get(genre, {}).items()}
+        for cat, comps in gcw_over.get(genre, {}).items():
+            base_comp[cat] = dict(comps)
+
         cats_out = []
-        genre_comps = g_comp.get(genre, {})
         for cat in categories:
-            comps = genre_comps.get(cat)
+            comps = base_comp.get(cat)
             if not comps:
                 continue  # category with no components for this genre — nothing to split
             ordered = sorted(comps, key=lambda c: comp_index.get(c, 999))
             over_comp = gcw_over.get(genre, {}).get(cat, {})
+            default_comp = g_comp.get(genre, {}).get(cat, {})  # {} for a custom genre
             cats_out.append({
                 "category": cat,
                 "components": ordered,
-                "effective": _round({c: over_comp.get(c, comps[c]) for c in ordered}),
-                "default": _round({c: comps[c] for c in ordered}),
+                "effective": _round({c: comps[c] for c in ordered}),
+                # a custom genre has no separate default → show effective as default
+                "default": _round({c: default_comp.get(c, comps[c]) for c in ordered}),
                 "customized": bool(over_comp),
             })
 
         genres_out.append({
             "genre": genre,
+            "custom": is_custom,
             "category_weights": {
                 "effective": _round(eff_cats),
-                "default": _round({c: default_cats.get(c, 0.0) for c in categories}),
+                "default": _round({c: default_cats.get(c, eff_cats[c]) for c in categories}),
                 "customized": bool(over_cats),
             },
             "categories": cats_out,

@@ -697,6 +697,39 @@ export async function resetWeights(
   return data;
 }
 
+/** Create a new PRIVATE genre (name + relative category weights, normalized
+ *  server-side). It becomes selectable when adding books and rankable. */
+export async function addGenre(
+  name: string,
+  weights: Record<string, number>,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${base(kind)}/weights/genre`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, weights }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Delete one of the caller's private genres (blocked server-side if any of their
+ *  books/predictions still use it). */
+export async function deleteGenre(
+  genre: string,
+  kind: BookKind = "fiction"
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${base(kind)}/weights/genre/${encodeURIComponent(genre)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function fetchStats(token?: ServerToken): Promise<CombinedStatsResponse> {
   if (STATIC) return getJSON<CombinedStatsResponse>("stats.json");
   const res = await apiFetch(`${API}/api/stats`, { cache: "no-store" }, token);
