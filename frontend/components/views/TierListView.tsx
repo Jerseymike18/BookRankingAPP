@@ -6,18 +6,15 @@ import { TierLadder, type TierItem } from "@/components/TierLadder";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
-type YearTab = "all" | "2026" | "2025";
-
-const YEAR_TABS: { id: YearTab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "2026", label: "2026" },
-  { id: "2025", label: "2025" },
-];
+type YearTab = string; // "all" or a year read, e.g. "2023"
+type YearTabDef = { id: YearTab; label: string };
 
 function SubTabs({
+  tabs,
   active,
   onChange,
 }: {
+  tabs: YearTabDef[];
   active: YearTab;
   onChange: (t: YearTab) => void;
 }) {
@@ -26,7 +23,7 @@ function SubTabs({
       className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
       style={{ background: "var(--color-surface-2)" }}
     >
-      {YEAR_TABS.map(({ id, label }) => (
+      {tabs.map(({ id, label }) => (
         <button
           key={id}
           onClick={() => onChange(id)}
@@ -48,23 +45,31 @@ function SubTabs({
 
 export default function TierListView({
   allData,
-  data2026,
-  data2025,
+  byYear,
   kind = "fiction",
 }: {
   allData: TiersResponse;
-  data2026: TiersResponse;
-  data2025: TiersResponse;
+  // Tier bands are computed within each year's cohort, so the view receives a
+  // per-year snapshot keyed by year. Empty (e.g. nonfiction) → no year tabs.
+  byYear: Record<number, TiersResponse>;
   kind?: BookKind;
 }) {
   const [yearTab, setYearTab] = useState<YearTab>("all");
   const score = (b: TierBook) => (kind === "nonfiction" ? (b.total_average ?? 0) : b.wa);
 
+  const yearTabs = useMemo<YearTabDef[]>(() => {
+    const years = Object.keys(byYear)
+      .map(Number)
+      .sort((a, b) => b - a);
+    return years.length > 1
+      ? [{ id: "all", label: "All" }, ...years.map((y) => ({ id: String(y), label: String(y) }))]
+      : [];
+  }, [byYear]);
+
   const activeData = useMemo(() => {
-    if (yearTab === "2026") return data2026;
-    if (yearTab === "2025") return data2025;
-    return allData;
-  }, [yearTab, allData, data2026, data2025]);
+    if (yearTab === "all") return allData;
+    return byYear[Number(yearTab)] ?? allData;
+  }, [yearTab, allData, byYear]);
 
   const { books, tier_counts, tier_order } = activeData;
 
@@ -114,7 +119,9 @@ export default function TierListView({
         </p>
       </div>
 
-      {kind === "fiction" && <SubTabs active={yearTab} onChange={handleYearTab} />}
+      {yearTabs.length > 0 && (
+        <SubTabs tabs={yearTabs} active={yearTab} onChange={handleYearTab} />
+      )}
 
       <TierLadder tierOrder={tier_order} itemsByTier={itemsByTier} />
     </div>

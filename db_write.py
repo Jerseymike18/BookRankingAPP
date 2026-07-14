@@ -394,6 +394,10 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
         if dup:
             raise ValidationError(f"A book titled '{title}' already exists. "
                                   f"Use change_rating() to edit it.")
+        # Year is any sane read year (not just the current couple) — same rule as
+        # set_year_read / update_book_metadata.
+        if year_read is not None and not (1900 <= int(year_read) <= 2100):
+            raise ValidationError(f"Year {year_read} is out of range (1900-2100).")
         _validate_scores(scores, require_all=True)
 
         _backup_once()
@@ -1417,6 +1421,8 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
             raise ValidationError(
                 f"A nonfiction book titled '{title}' already exists. "
                 f"Use change_nonfiction_rating() to edit it.")
+        if year_read is not None and not (1900 <= int(year_read) <= 2100):
+            raise ValidationError(f"Year {year_read} is out of range (1900-2100).")
         valid = _valid_nonfiction_genres(con, uid)  # empty until weights are added
         if genre is not None and valid and genre not in valid and not allow_new_genre:
             raise ValidationError(

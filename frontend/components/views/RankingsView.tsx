@@ -710,18 +710,15 @@ function buildCols(kind: BookKind, categoryOrder: string[]): ColDef<Book>[] {
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────── */
 
-type YearTab = "all" | "2026" | "2025";
-
-const YEAR_TABS: { id: YearTab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "2026", label: "2026" },
-  { id: "2025", label: "2025" },
-];
+type YearTab = string; // "all" or a year read, e.g. "2023"
+type YearTabDef = { id: YearTab; label: string };
 
 function SubTabs({
+  tabs,
   active,
   onChange,
 }: {
+  tabs: YearTabDef[];
   active: YearTab;
   onChange: (t: YearTab) => void;
 }) {
@@ -730,7 +727,7 @@ function SubTabs({
       className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
       style={{ background: "var(--color-surface-2)" }}
     >
-      {YEAR_TABS.map(({ id, label }) => (
+      {tabs.map(({ id, label }) => (
         <button
           key={id}
           onClick={() => onChange(id)}
@@ -768,6 +765,17 @@ export default function RankingsView({
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
 
   const onRefresh = useCallback(() => router.refresh(), [router]);
+
+  // Year filter tabs derived from the data — any year the reader has, not a
+  // hardcoded set. Offered only when there's more than one year to split by.
+  const yearTabs = useMemo<YearTabDef[]>(() => {
+    const years = [
+      ...new Set(books.map((b) => b.year_read).filter((y): y is number => y != null)),
+    ].sort((a, b) => b - a);
+    return years.length > 1
+      ? [{ id: "all", label: "All" }, ...years.map((y) => ({ id: String(y), label: String(y) }))]
+      : [];
+  }, [books]);
 
   const scopedBooks = useMemo(() => {
     if (yearTab === "all") return books;
@@ -822,8 +830,10 @@ export default function RankingsView({
         </p>
       </div>
 
-      {/* Year sub-tabs (fiction only — nonfiction books have no year_read) */}
-      {kind === "fiction" && <SubTabs active={yearTab} onChange={handleYearTab} />}
+      {/* Year sub-tabs (fiction only — nonfiction books have no year tabs) */}
+      {kind === "fiction" && yearTabs.length > 0 && (
+        <SubTabs tabs={yearTabs} active={yearTab} onChange={handleYearTab} />
+      )}
 
       {/* Controls */}
       <div className="flex flex-wrap gap-3 mb-6">

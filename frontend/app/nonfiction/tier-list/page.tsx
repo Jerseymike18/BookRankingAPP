@@ -7,9 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function NonfictionTierListPage() {
   const token = await getServerAccessToken();
   const data = await fetchTiers(undefined, "nonfiction", token);
-  // Nonfiction has no year_read, so the year tabs are hidden; pass the same
-  // data for all three slots.
-  return (
-    <TierListView allData={data} data2026={data} data2025={data} kind="nonfiction" />
-  );
+  // Nonfiction tiers aren't split by year (the endpoint has no year param), so
+  // there are no per-year tabs — pass an empty by-year map.
+  return <TierListView allData={data} byYear={{}} kind="nonfiction" />;
 }
