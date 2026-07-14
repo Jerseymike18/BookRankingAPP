@@ -48,6 +48,10 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login" || path.startsWith("/login/");
+  const isWelcome = path === "/welcome" || path.startsWith("/welcome/");
+  // First-run signal: a Supabase user_metadata flag set when the tutorial is
+  // completed (see app/welcome). Absent → treat as not-yet-onboarded.
+  const onboarded = user?.user_metadata?.onboarded === true;
 
   if (!user && !isLogin) {
     const redirectUrl = request.nextUrl.clone();
@@ -58,10 +62,19 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isLogin) {
-    const home = request.nextUrl.clone();
-    home.pathname = "/";
-    home.search = "";
-    return NextResponse.redirect(home);
+    const dest = request.nextUrl.clone();
+    dest.pathname = onboarded ? "/" : "/welcome";
+    dest.search = "";
+    return NextResponse.redirect(dest);
+  }
+
+  // Signed in but hasn't finished first-run setup → send to the tutorial. It is
+  // exempt from this (so it can render), and completing it sets the flag above.
+  if (user && !onboarded && !isWelcome) {
+    const welcome = request.nextUrl.clone();
+    welcome.pathname = "/welcome";
+    welcome.search = "";
+    return NextResponse.redirect(welcome);
   }
 
   return response;

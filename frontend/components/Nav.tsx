@@ -46,7 +46,14 @@ const MORE_ITEMS: NavItem[] = [
   { href: "/methodology", label: "Methodology" },
   { href: "/calibration", label: "Calibration" },
   { href: "/delta-log", label: "Delta Log" },
-  ...(READONLY ? [] : [{ href: "/weights", label: "Genre Weights" }]),
+  // Live-backend / per-user features — hidden on the read-only public build (each
+  // page also self-guards with ComingSoon).
+  ...(READONLY
+    ? []
+    : [
+        { href: "/weights", label: "Genre Weights" },
+        { href: "/welcome", label: "Tutorial" },
+      ]),
 ];
 
 const sections: NavGroup[] = [
