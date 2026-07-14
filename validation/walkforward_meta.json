@@ -26,9 +26,9 @@
     "decision": "retire",
     "version": "v2_opus_retired_2026-07-05"
   },
-  "engine_hash": "sha256:72a3d8cdfd15dba9",
-  "generated_at": "2026-07-07T09:30:34-04:00",
-  "git_head": "5701046da78474b620b16292695397041c7a1f6e",
+  "engine_hash": "sha256:6c332077317bde82",
+  "generated_at": "2026-07-14T11:00:20-04:00",
+  "git_head": "b428a2c39c5083d9d7e30319aa45ce5a25303153",
   "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
   "leakage_inventory": {
     "author_genre_correction_pairs": "neutralised in honest (pool), LEAKY in leaky (full library)",
@@ -39,9 +39,9 @@
     "research_cache_vector": "ACCEPTED hindsight caveat -- embeds post-publication reception",
     "resid_sd_for_interval": "neutralised in honest (pool), LEAKY in leaky (full library)"
   },
-  "n_books_total": 128,
-  "n_folds_evaluated": 113,
-  "n_in_cache": 128,
+  "n_books_total": 129,
+  "n_folds_evaluated": 114,
+  "n_in_cache": 129,
   "n_skipped": 15,
   "nominal_interval_coverage": 0.9,
   "skip_reasons": {
