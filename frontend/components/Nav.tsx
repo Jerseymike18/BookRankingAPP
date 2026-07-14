@@ -38,13 +38,16 @@ const PREDICTION_ITEMS: NavItem[] = READONLY
       { href: "/add-book", label: "Add a Book" },
     ];
 
-// Genre Weights edits per-user overrides — a live-backend feature, hidden on the
-// read-only public build (its page also self-guards with ComingSoon).
-const MORE_ITEMS: NavItem[] = [
-  { href: "/analytics", label: "Taste Lab" },
-  { href: "/track-record", label: "Track Record" },
+// "For Nerds" — the how-it-works and deep-diagnostics pages. All render read-only,
+// so they stay available on the public showcase too (not READONLY-gated).
+const NERD_ITEMS: NavItem[] = [
   { href: "/methodology", label: "Methodology" },
+  { href: "/analytics", label: "Taste Lab" },
   { href: "/calibration", label: "Calibration" },
+];
+
+const MORE_ITEMS: NavItem[] = [
+  { href: "/track-record", label: "Track Record" },
   { href: "/delta-log", label: "Delta Log" },
   // Live-backend / per-user features — hidden on the read-only public build (each
   // page also self-guards with ComingSoon).
@@ -85,6 +88,10 @@ const sections: NavGroup[] = [
   {
     label: "More",
     items: MORE_ITEMS,
+  },
+  {
+    label: "For Nerds",
+    items: NERD_ITEMS,
   },
 ];
 
