@@ -48,6 +48,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
+import pandas as pd
 import db_loader
 import db_write
 import user_weights
@@ -362,6 +363,22 @@ def _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term):
     if cold_term is None or n_author != 0 or _rp is None:
         return wa
     return _rp.apply_cold_start_term(wa, words, series_number, author, cold_term)
+
+
+def _correction_pool(user_id, books_e):
+    """Training pool for the research-path author+genre correction. A tenant with too few
+    books to fit their own model would otherwise correct against a tiny/empty library —
+    which is degenerate (near-raw), noisy (a handful of idiosyncratic ratings swing the
+    prediction wildly), or an outright crash on an empty pool. So a below-threshold tenant
+    borrows the SEED's calibrated books UNIONed with their own (their reads still add
+    analogs; the seed's 129 dominate the calibration). This mirrors the model borrow in
+    _build_engine_for and completes it for the research path. The seed and any data-rich
+    tenant use their own books unchanged, so their predictions are byte-identical."""
+    if user_id == SEED_USER_ID or len(books_e) >= MIN_OWN_FIT:
+        return books_e
+    seed_books = _get_engine(SEED_USER_ID)[0]
+    return pd.concat([seed_books, books_e]).drop_duplicates(
+        subset=["Book"], keep="last").reset_index(drop=True)
 
 
 @asynccontextmanager
@@ -1682,10 +1699,11 @@ def predict_research(req: ResearchRequest,
             applied_grounded = False  # keep pure-memory scores if web fails
 
     try:
-        corr_models = _rp.build_corr_models(books_e, cache)
+        corr_pool = _correction_pool(user_id, books_e)   # borrow the seed's calibration if new
+        corr_models = _rp.build_corr_models(corr_pool, cache)
         res = _rp.correct_and_predict(
             req.title, req.author, eff_genre, scores, conf, resid_sd,
-            books_e, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
+            corr_pool, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
             corr_models=corr_models, words=words,
             cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                      user_md.get("fav_authors")),
