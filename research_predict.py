@@ -53,6 +53,7 @@ DISCOVER_MAX = 15            # runaway guard when the candidate count is LLM-inf
 
 WELL_SAMPLED_GENRE = 5       # genre below this is flagged as lower-reliability grounding
 BLEND = 0.2                  # correlation-smoothing weight (validated winning variant)
+COLD_START_MIN_POOL = 25     # min word-counted books before the cold-start term is fit
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +356,8 @@ def smooth_components(scores, models, blend=BLEND):
 
 def correct_and_predict(title, author, genre, scores, conf, resid_sd,
                         books, gw, gcw, cache, blurb="", keywords="",
-                        corr_models=None):
+                        corr_models=None, words=None, series_number=None,
+                        cold_term=None):
     """
     Apply the validated AUTHOR+GENRE hierarchical correction (reference:
     reresearch_and_measure.correct_book, method "author_genre") to the researched
@@ -398,6 +400,13 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     corrected = {c: float(v) for c, v in corrected.items()}
 
     wa = _wa_from_components(corrected, genre, gw, gcw)
+    # Word-count cold-start terminus term (default OFF; see
+    # experiments/cold_start_wordcount_spec.md). Applied ONLY when there is no
+    # same-author analog, where the correction is blind to book length. With
+    # cold_term=None (the default for every current caller) this is byte-identical
+    # to prior behavior, so the 0.636 walk-forward baseline and test_engine hold.
+    if cold_term is not None and n_author == 0:
+        wa = apply_cold_start_term(wa, words, series_number, author, cold_term)
     half = 1.645 * resid_sd
     ci = (wa - half, wa + half)
     rank = int((books["WA"] > wa).sum() + 1)
@@ -407,6 +416,134 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
         "total": len(books), "n_genre": n_genre, "n_author": n_author,
         "conf": conf, "blurb": blurb, "keywords": keywords,
     }
+
+
+# ---------------------------------------------------------------------------
+# Word-count cold-start terminus term (default OFF; opt-in via correct_and_predict's
+# cold_term=). Reference + validation: experiments/cold_start_wordcount_spec.md and
+# experiments/validate_cold_term.py. This is an ADDITIVE post-step on the cold slice
+# (n_author == 0); it never touches the read-only core (predict_engine / db_loader /
+# views / reresearch_and_measure.correct_book).
+# ---------------------------------------------------------------------------
+def _cold_features(words, series_number, use_series):
+    """Raw (uncentered) feature vector for the cold-start term, or None when the word
+    count is missing/invalid (term off for that book). Features: log10(words); and,
+    when use_series, [series_number|0, in_series flag] (a standalone book -> 0, 0).
+    series_number is caller-supplied metadata (db_loader's frame does not carry it and
+    is read-only), so this stays decoupled from any DB read."""
+    try:
+        w = float(words)
+    except (TypeError, ValueError):
+        return None
+    if not w or w <= 0 or (isinstance(w, float) and np.isnan(w)):
+        return None
+    feats = [np.log10(w)]
+    if use_series:
+        try:
+            snv = float(series_number)
+            in_s = 0.0 if np.isnan(snv) else 1.0
+        except (TypeError, ValueError):
+            snv, in_s = 0.0, 0.0
+        feats += [snv if in_s else 0.0, in_s]
+    return feats
+
+
+def normalize_author(name):
+    """Loose author-name key for matching a stated favorite against a book's author
+    ('J.R.R. Tolkien' == 'jrr tolkien')."""
+    return " ".join(str(name).lower().replace(".", " ").split()) if name else ""
+
+
+def apply_cold_start_term(wa, words, series_number, author, coefs):
+    """Return wa adjusted by the cold-start term, or wa unchanged when the term is off
+    (coefs is None). The term may carry two independent, additive components, each optional:
+      * a word-count slope (fitted, or a new user's stated preference);
+      * an author prior — {"map": {normalized_author: weight}, "base": offset} — a new
+        reader's favorite authors (weight 1.0) and their analogs (discounted), a positive
+        offset when the book's author is on the list. Applied only on the cold slice by the
+        caller (n_author==0). The adjusted WA is clamped to [0, 10]."""
+    if coefs is None:
+        return wa
+    adj = 0.0
+    if coefs.get("slopes"):                         # word-count component
+        f = _cold_features(words, series_number, coefs.get("use_series", False))
+        if f is not None:
+            fc = np.array(f) - np.array(coefs["mu"])
+            adj += coefs.get("intercept", 0.0) + float(np.dot(coefs["slopes"], fc))
+    ap = coefs.get("author_prior")                  # author-prior component (new users)
+    if ap and author:
+        adj += float(ap.get("base", 0.0)) * float(ap.get("map", {}).get(
+            normalize_author(author), 0.0))
+    return float(min(max(wa + adj, 0.0), 10.0))
+
+
+def fit_cold_start_term(books, cache, gw, gcw, corr_models=None,
+                        min_pool=COLD_START_MIN_POOL, series_map=None):
+    """Fit the cold-start term on a pool: OLS of the correction's leave-one-out residual
+    (actual_WA - honest_WA) on the centered features from `_cold_features`. When
+    `series_map` ({title: series_number}) is given, series features are included.
+
+    correct_and_predict excludes the target row internally, so each per-book call is a
+    genuine LOO prediction. Fit on ALL word-counted pool books (applied only on the cold
+    slice by the caller). Returns {"intercept","slopes","mu","use_series","n"} or None
+    when fewer than `min_pool` usable books (term stays OFF)."""
+    use_series = series_map is not None
+    X, y = [], []
+    for _, b in books.iterrows():
+        title = b["Book"]
+        entry = cache.get(title)
+        scores = entry.get("scores") if isinstance(entry, dict) else None
+        if not isinstance(scores, dict) or any(c not in scores for c in LIVE):
+            continue
+        f = _cold_features(b.get("Words"),
+                           (series_map or {}).get(title), use_series)
+        if f is None:
+            continue
+        res = correct_and_predict(title, b["Author"], b["Genre"], dict(scores),
+                                  entry.get("conf", "?"), 0.0, books, gw, gcw, cache,
+                                  corr_models=corr_models)   # cold_term omitted -> off
+        X.append(f)
+        y.append(float(b["WA"]) - res["wa"])
+    if len(X) < min_pool:
+        return None
+    X, y = np.array(X, dtype=float), np.array(y, dtype=float)
+    mu = X.mean(axis=0)
+    A = np.column_stack([np.ones(len(X)), X - mu])
+    coef, *_ = np.linalg.lstsq(A, y, rcond=None)
+    return {"intercept": float(coef[0]), "slopes": [float(c) for c in coef[1:]],
+            "mu": [float(m) for m in mu], "use_series": use_series, "n": len(X)}
+
+
+def find_author_analogs(favorites, client, per=3, model=DISCOVER_MODEL):
+    """Widen a new reader's favorite-author list to stylistically-similar authors, so the
+    cold-start author prior covers more unread books (analogs get a discounted offset).
+    One cheap LLM call → {favorite: [analog names]}. Best-effort: returns {} on any
+    failure so the caller simply falls back to the stated favorites alone."""
+    favs = [str(a).strip() for a in (favorites or []) if str(a).strip()][:8]
+    if not favs:
+        return {}
+    prompt = f'''For each author below, list up to {per} DIFFERENT, widely-recognized
+authors whose books are stylistically similar — a reader who loves the first would likely
+enjoy them. Do NOT repeat any of the input authors.
+
+AUTHORS: {"; ".join(favs)}
+
+Respond with ONLY a JSON object mapping each input author to an array of similar author
+names (no prose, no markdown):
+{{"Author One": ["Similar A", "Similar B"]}}'''
+    try:
+        msg = client.messages.create(
+            model=model, max_tokens=600,
+            messages=[{"role": "user", "content": prompt}])
+        data = rl._extract_json(msg.content[0].text.strip())
+    except Exception:
+        return {}
+    out = {}
+    for fav in favs:
+        sims = data.get(fav) if isinstance(data, dict) else None
+        out[fav] = ([str(s).strip() for s in sims if str(s).strip()][:per]
+                    if isinstance(sims, list) else [])
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -24,3 +24,5 @@ frontend/*.db
 books.db.bak.*
 # TabPFN bake-off venv (analysis-only, ~500MB; belongs to the analysis branch)
 .venv-tabpfn/
+# TabPFN-2.5 cold-start-prior venv (analysis-only; belongs to the experiment branch)
+.venv-tabpfn25/

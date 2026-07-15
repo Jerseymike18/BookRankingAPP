@@ -1,4 +1,14 @@
 {
+  "cold_start": {
+    "applied_when": "no same-author analog (same-author count = 0)",
+    "center_words": 163071,
+    "feature": "log10(word count), centered",
+    "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
+    "fitted": true,
+    "min_books_to_fit": 25,
+    "n_books_fit": 129,
+    "slope_wa_per_dex": 1.0159
+  },
   "correction": {
     "all_zero": true,
     "applied_in_engine": false,

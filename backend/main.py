@@ -215,6 +215,7 @@ def _get_engine(user_id=None) -> tuple:
 def _invalidate_engine(user_id=None) -> None:
     uid = _uid(user_id)
     _engine_cache[uid] = _build_engine_for(uid)
+    _cold_term_cache.pop(uid, None)          # refit the cold-start term on next read
 
 
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
@@ -238,6 +239,119 @@ def _get_nf_engine(user_id=None) -> tuple:
 def _invalidate_nf_engine(user_id=None) -> None:
     uid = _uid(user_id)
     _nf_engine_cache[uid] = _load_nf(uid)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WORD-COUNT COLD-START TERM  (per-tenant, cached)
+# ─────────────────────────────────────────────────────────────────────────────
+# The validated word-count cold-start adjustment (experiments/cold_start_wordcount_spec.md):
+# on the cold slice (a book with no same-author analog) the correction is blind to book
+# length, and this reader's residual correlates with word count. We fit the term per tenant
+# on their OWN library and apply it in research_predict.correct_and_predict (n_author==0
+# only). Data-rich tenants get a fitted term; cold-start tenants (too few books to fit) fall
+# back to their onboarding word-count preference if set, else None (term off / unchanged).
+# Kill switch: COLD_START_TERM=0.
+_cold_term_cache: dict = {}
+COLD_START_TERM_ENABLED = os.environ.get("COLD_START_TERM", "1") != "0"
+# New-user favorite-author prior (Part B): a positive WA bump on the cold slice
+# (n_author==0) when the unread book's author is a stated favorite (weight 1.0) or an
+# LLM-found analog of one (discounted). Sanity-calibrated on the seed (favorite-author
+# lift +0.5..+1.4; first-books-by-favorites under-predicted −0.66) → a conservative base.
+_author_prior_cache: dict = {}          # normalized-favorites tuple → {base, map}
+_AUTHOR_OFFSET_BASE = 0.5               # WA bump for a direct favorite
+_ANALOG_WEIGHT = 0.5                    # analogs get this fraction of the favorite bump
+
+
+# Center for a preference-only term: log10 of a typical novel (~160k words), so a
+# stated slope pivots around a mid-length book (matches the seed's fitted mu ≈ 5.2).
+_PREF_LOG_MU = 5.2
+
+
+def _fit_cold_term_for(uid):
+    """Fit the word-count term on a tenant's OWN library. Returns coefs, or None when
+    the tenant has too few books to fit (a cold-start tenant → preference fallback)."""
+    try:
+        books, gw, gcw = _get_engine(uid)[:3]
+        cache = _rp.load_cache()
+        return _rp.fit_cold_start_term(
+            books, cache, gw, gcw, corr_models=_rp.build_corr_models(books, cache))
+    except Exception:
+        return None
+
+
+def _preference_cold_term(word_count_pref):
+    """A cold-start term from a NEW user's stated word-count preference (welcome page):
+    a pure slope on centered log10(words), sign+magnitude from the preference in [-1, 1]
+    (long-preferring → positive). None when unset/zero. Applies only to tenants too new
+    to fit their own term, and only on the cold slice (n_author==0)."""
+    try:
+        slope = float(word_count_pref)
+    except (TypeError, ValueError):
+        return None
+    if not slope:
+        return None
+    slope = max(-2.0, min(2.0, slope))              # guard absurd values
+    return {"intercept": 0.0, "slopes": [slope], "mu": [_PREF_LOG_MU],
+            "use_series": 0, "n": 0}
+
+
+def _expand_author_prior(favs):
+    """Build {base, map} from favorite author names, widened to LLM analogs (discounted).
+    Favorites weight 1.0; analogs _ANALOG_WEIGHT (never downgrading a direct favorite).
+    Best-effort — an LLM failure just yields favorites alone; empty input → None."""
+    m = {}
+    for a in favs:
+        na = _rp.normalize_author(a)
+        if na:
+            m[na] = 1.0
+    if not m:
+        return None
+    try:
+        analogs = _rp.find_author_analogs(list(favs), _rp.get_client())
+        for sims in analogs.values():
+            for s in sims:
+                ns = _rp.normalize_author(s)
+                if ns and ns not in m:
+                    m[ns] = _ANALOG_WEIGHT
+    except Exception:
+        pass
+    return {"base": _AUTHOR_OFFSET_BASE, "map": m}
+
+
+def _build_author_prior(fav_authors):
+    """Cached author prior for a favorites list, keyed by the normalized-favorites tuple
+    so it rebuilds when the reader changes them. None when there are no usable favorites."""
+    favs = tuple(str(a).strip() for a in (fav_authors or []) if str(a).strip())[:5]
+    if not favs:
+        return None
+    if favs not in _author_prior_cache:
+        _author_prior_cache[favs] = _expand_author_prior(favs)
+    return _author_prior_cache[favs]
+
+
+def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None):
+    """Per-tenant cold-start term — two INDEPENDENT components, each applied only on the
+    cold slice (n_author==0) by correct_and_predict:
+      * word count: the tenant's FITTED slope once they have enough books, else their
+        onboarding word-count preference (new users);
+      * author prior: favorite authors + analogs, attached whenever set. It fades PER
+        AUTHOR via the n_author==0 gate (the moment you rate that author), NOT with library
+        size — so a favorite you still haven't read keeps its nudge even once you're data-rich.
+    None when neither component applies."""
+    if not COLD_START_TERM_ENABLED or _rp is None:
+        return None
+    uid = _uid(user_id)
+    if uid not in _cold_term_cache:
+        _cold_term_cache[uid] = _fit_cold_term_for(uid)     # fitted coefs or None
+    fitted = _cold_term_cache[uid]
+    # Word-count component: fitted (data-rich) else the stated preference (new user).
+    # dict(...) copies so attaching an author prior never mutates the cached fitted term.
+    term = dict(fitted if fitted is not None
+                else (_preference_cold_term(word_count_pref) or {}))
+    ap = _build_author_prior(fav_authors)                   # independent of library size
+    if ap:
+        term["author_prior"] = ap
+    return term or None                                     # {} → nothing to apply
 
 
 @asynccontextmanager
@@ -1492,7 +1606,8 @@ class ResearchRequest(BaseModel):
 
 @app.post("/api/predict/research")
 def predict_research(req: ResearchRequest,
-                     user_id: str = Depends(auth.get_current_user_id)):
+                     user_id: str = Depends(auth.get_current_user_id),
+                     user_md: dict = Depends(auth.get_current_user_metadata)):
     """
     Grounded research prediction: research_rich_plus → correlation-smooth →
     author+genre correct → WA roll-up. One LLM API call (or cache hit).
@@ -1555,7 +1670,9 @@ def predict_research(req: ResearchRequest,
         res = _rp.correct_and_predict(
             req.title, req.author, eff_genre, scores, conf, resid_sd,
             books_e, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
-            corr_models=corr_models,
+            corr_models=corr_models, words=words,
+            cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
+                                     user_md.get("fav_authors")),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Correction failed: {e}")
@@ -2860,7 +2977,8 @@ def get_engine_parameters():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
     return ep.build_engine_parameters(
-        books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS, db_path=db_write.DB
+        books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS, db_path=db_write.DB,
+        cold_term=_get_cold_term(),
     )
 
 

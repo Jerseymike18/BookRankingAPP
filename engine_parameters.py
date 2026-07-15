@@ -155,7 +155,30 @@ def _interval_block(residuals):
     return block
 
 
-def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None, db_path=DB):
+def _cold_start_block(cold_term):
+    """The word-count cold-start term (research_predict.apply_cold_start_term): a length
+    adjustment applied ONLY on the cold slice — a book with no same-author analog (same-
+    author count 0), where the correction is blind to length. Fitted per reader on their
+    own leave-one-out (actual − corrected) residuals; the fitted slope/center come from the
+    live engine's term (passed in), so this reflects the reader whose engine feeds the page.
+    ``fitted`` is False when the term is off or the reader has too few books to fit it."""
+    fitted = bool(cold_term and cold_term.get("slopes"))
+    block = {
+        "applied_when": "no same-author analog (same-author count = 0)",
+        "feature": "log10(word count), centered",
+        "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
+        "min_books_to_fit": rp.COLD_START_MIN_POOL,
+        "fitted": fitted,
+    }
+    if fitted:
+        block["slope_wa_per_dex"] = round(float(cold_term["slopes"][0]), 4)
+        block["center_words"] = int(round(10 ** float(cold_term["mu"][0])))
+        block["n_books_fit"] = cold_term.get("n")
+    return block
+
+
+def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None, db_path=DB,
+                            cold_term=None):
     """Assemble the live engine-parameters payload from the prebuilt engine tuple.
 
     Args mirror the cached engine (``books, gw, gcw, …, r2, resid_sd``) so the
@@ -215,6 +238,7 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None, db_pat
             "resid_sd": round(_num(resid_sd), 4) if _num(resid_sd) is not None else None,
             "inputs": REGRESSION_INPUTS,
         },
+        "cold_start": _cold_start_block(cold_term),
         "correction": _correction_status(db_path),
         "models": {
             "research": rm.MODEL,

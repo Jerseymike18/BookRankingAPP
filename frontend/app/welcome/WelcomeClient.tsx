@@ -35,6 +35,19 @@ const STARTER_GENRES = [
   "Historical Fiction",
 ];
 
+// Book-length preference → a cold-start "length slope" the engine applies to unread
+// books by authors you haven't read yet, before it has enough of your ratings to learn
+// this itself. Values are the slope (WA per 10× word count); anchored on the seed
+// reader's fitted slope (~1.0) at the extremes. 0 = no adjustment. Saved to the
+// Supabase user's metadata as `word_count_pref` and read back by the prediction API.
+const LENGTH_OPTIONS: { label: string; value: number }[] = [
+  { label: "Short & tight", value: -1 },
+  { label: "Lean shorter", value: -0.5 },
+  { label: "No preference", value: 0 },
+  { label: "Lean longer", value: 0.5 },
+  { label: "Long epics", value: 1 },
+];
+
 type GenreModel = {
   genre: string;
   cats: string[]; // category order (Story/Character/Theme/Aesthetics/Worldbuilding)
@@ -174,6 +187,8 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
   const [mode, setMode] = useState<"keep" | "customize">("keep");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lengthPref, setLengthPref] = useState<number>(0);
+  const [favAuthors, setFavAuthors] = useState<string[]>(["", "", "", "", ""]);
 
   function patch(genre: string, cat: string, v: string) {
     setModels((ms) =>
@@ -209,7 +224,11 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
       if (AUTH_CONFIGURED) {
         const supabase = createSupabaseBrowserClient();
         const { error: metaErr } = await supabase.auth.updateUser({
-          data: { onboarded: true },
+          data: {
+            onboarded: true,
+            word_count_pref: lengthPref,
+            fav_authors: favAuthors.map((s) => s.trim()).filter(Boolean),
+          },
         });
         if (metaErr) throw new Error(metaErr.message);
       }
@@ -325,8 +344,82 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
           className="font-display text-lg font-semibold mb-2"
           style={{ color: "var(--color-ink)" }}
         >
-          Set your genre weights
+          Set your preferences
         </h2>
+
+        {/* Book-length preference → cold-start length slope. Helps predict brand-new
+            authors before the engine has enough of your ratings to learn this itself. */}
+        <div
+          className="rounded-lg p-4 mb-5"
+          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
+        >
+          <h3 className="font-display font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
+            How long do you like your books?
+          </h3>
+          <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
+            Until you&rsquo;ve logged enough books for the engine to learn this from your
+            ratings, your answer sharpens predictions for authors you&rsquo;ve never read.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {LENGTH_OPTIONS.map((o) => {
+              const on = lengthPref === o.value;
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setLengthPref(o.value)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={
+                    on
+                      ? {
+                          background: "var(--color-sage)",
+                          color: "#fff",
+                          border: "1px solid var(--color-sage)",
+                        }
+                      : {
+                          background: "transparent",
+                          color: "var(--color-ink)",
+                          border: "1px solid var(--color-rule)",
+                        }
+                  }
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Favorite authors → cold-start author prior. Books by these (and LLM-found
+            similar authors) get a nudge until the engine has seen you rate them. */}
+        <div
+          className="rounded-lg p-4 mb-5"
+          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
+        >
+          <h3 className="font-display font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
+            Your favorite authors
+          </h3>
+          <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
+            Up to five. Until you&rsquo;ve rated them here, predictions for their books
+            &mdash; and stylistically similar authors &mdash; get nudged toward your taste.
+          </p>
+          <div className="space-y-2">
+            {favAuthors.map((v, i) => (
+              <input
+                key={i}
+                type="text"
+                value={v}
+                onChange={(e) =>
+                  setFavAuthors((a) => a.map((x, j) => (j === i ? e.target.value : x)))
+                }
+                placeholder={`Author ${i + 1}`}
+                className="w-full px-3 py-1.5 rounded-lg text-sm border focus:outline-none focus:ring-2"
+                style={inputStyle}
+              />
+            ))}
+          </div>
+        </div>
+
         <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--color-ink)" }}>
           Different genres reward different things — a thriller leans on Story, a
           literary novel on Character and Theme. Below are the defaults for a few

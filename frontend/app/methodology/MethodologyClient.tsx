@@ -295,7 +295,8 @@ export default function MethodologyClient({
   params: EngineParameters;
   track: TrackRecord | null;
 }) {
-  const { schema, shrinkage, interval, regression, correction, models, library } = params;
+  const { schema, shrinkage, interval, regression, cold_start, correction, models, library } =
+    params;
   const ka = shrinkage.k_author;
   const kg = shrinkage.k_genre;
   // Live worked shrink weights (not hardcoded — derived from the K constants).
@@ -459,6 +460,41 @@ export default function MethodologyClient({
         <span className="font-mono">{f2(wAuthor1)}</span>{" "}of the weight — it just refuses to let it fully overwrite the
         genre picture it&rsquo;s nested in. As the author pool grows, <TeX>{`w_a \\to 1`}</TeX> and the parent fades.
       </Callout>
+
+      {/* ── Cold-start length term ── */}
+      <SectionHeader id="cold-start">The cold-start length term</SectionHeader>
+      <Lede>
+        One more repair, for the hardest case — a book by an author you&rsquo;ve{" "}
+        <strong>never read</strong>. With no same-author history the correction leans on the
+        genre and global picture, and there it is blind to something that matters:{" "}
+        <strong>length</strong>.
+      </Lede>
+      <Body>
+        Fit on your own held-out residuals, long books are systematically under-predicted in that
+        no-analog case — a genre average knows nothing about how you respond to a 900-page epic. A
+        single linear term repairs it
+        {cold_start.fitted && cold_start.slope_wa_per_dex != null ? (
+          <>
+            : a slope of{" "}
+            <span className="font-mono">{f2(cold_start.slope_wa_per_dex)}</span>{" "}WA per 10× word
+            count, pivoting around a{" "}
+            <span className="font-mono">{(cold_start.center_words ?? 0).toLocaleString()}</span>-word
+            book
+          </>
+        ) : (
+          <> — a slope on centered log word count</>
+        )}
+        , added to the prediction only on the cold slice.
+      </Body>
+      <TeXBlock>{`\\widehat{\\mathrm{WA}}_{\\text{cold}} \\;=\\; \\widehat{\\mathrm{WA}} \\;+\\; \\beta\\,\\big(\\log_{10}\\text{words} - \\mu\\big), \\qquad n_a = 0`}</TeXBlock>
+      <Body>
+        It is deliberately narrow: it fires <strong>only</strong> when {cold_start.applied_when},
+        and switches off the instant you rate a book by that author — the real same-author analog
+        takes over. It is fit once you have at least{" "}
+        <span className="font-mono">{cold_start.min_books_to_fit}</span>{" "}rated books, and it was
+        validated on the walk-forward backtest below and permutation-tested, so it isn&rsquo;t a
+        fluke of the small cold-start sample.
+      </Body>
 
       {/* ── 4. Intervals ── */}
       <SectionHeader id="intervals">Prediction intervals, done honestly (conformal)</SectionHeader>

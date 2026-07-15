@@ -523,6 +523,16 @@ export interface EngineParameters {
     resid_sd: number | null;
     inputs: string[];
   };
+  cold_start: {
+    applied_when: string;
+    feature: string;
+    fit: string;
+    min_books_to_fit: number;
+    fitted: boolean;
+    slope_wa_per_dex?: number; // fitted length slope (WA per 10× word count)
+    center_words?: number; // pivot word count (10^μ)
+    n_books_fit?: number;
+  };
   correction: {
     present: boolean;
     applied_in_engine: boolean;

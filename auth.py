@@ -83,3 +83,20 @@ def get_current_user_id(authorization: str = Header(default=None)) -> str:
     if not sub:
         raise HTTPException(status_code=401, detail="Token has no subject (sub).")
     return sub
+
+
+def get_current_user_metadata(authorization: str = Header(default=None)) -> dict:
+    """The verified token's `user_metadata` (non-sensitive per-user preferences such
+    as the onboarding word-count preference), or {} locally / on any error. The tenant
+    key still comes ONLY from get_current_user_id — this never carries identity, and a
+    bad/absent token simply yields {} (no preference) rather than raising."""
+    if not AUTH_ENABLED:
+        return {}
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return {}
+    try:
+        claims = _verify(authorization.split(" ", 1)[1].strip())
+    except Exception:
+        return {}
+    md = claims.get("user_metadata")
+    return md if isinstance(md, dict) else {}
