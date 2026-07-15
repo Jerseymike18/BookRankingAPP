@@ -354,6 +354,16 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None):
     return term or None                                     # {} → nothing to apply
 
 
+def _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term):
+    """Apply the cold-start term to a SAVED recommendation's displayed WA so cold-slice
+    recs rank consistently with the live Predict page. No-op unless the reader has a term
+    and the rec has no same-author analog (n_author == 0) — the same gate correct_and_predict
+    uses. Keeps the read-queue and reading-status slots agreeing on the same book's WA."""
+    if cold_term is None or n_author != 0 or _rp is None:
+        return wa
+    return _rp.apply_cold_start_term(wa, words, series_number, author, cold_term)
+
+
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
     _invalidate_engine()  # warm cache at startup
@@ -1458,13 +1468,16 @@ Rules:
 
 
 @app.get("/api/read-queue")
-def get_read_queue(user_id: str = Depends(auth.get_current_user_id)):
+def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
+                   user_md: dict = Depends(auth.get_current_user_metadata)):
     """Return all not-done recommendations with flat component scores and predicted rank."""
     books, gw, gcw = _get_engine(user_id)[:3]
     rated_wa = books["WA"].values
     # Same-author analog counts drive the conformal interval bucket (author is the
     # engine's innermost density tier). Precompute once so the per-rec lookup is O(1).
     author_counts = books["Author"].value_counts()
+    cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
+                               user_md.get("fav_authors"))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -1494,6 +1507,10 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id)):
             category_avgs[cat] = round(wcat, 4)
             wa += wcat * ((gw.get(genre_str, {}) or {}).get(cat, 0) or 0)
 
+        # Cold-start term on the no-analog slice — keeps this rec's WA (and its rank
+        # here) consistent with what the Predict page showed for the same book.
+        n_author = int(author_counts.get((author or "").strip(), 0))
+        wa = _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term)
         predicted_rank = int((rated_wa > wa).sum() + 1)
 
         rec = {
@@ -1515,7 +1532,6 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id)):
         # library holds. The point estimate is a shrunk expected value; this is the
         # calibrated spread around it (bounded to the 0–10 WA scale). Omitted when
         # no residual table is loaded, so a width is never invented.
-        n_author = int(author_counts.get((author or "").strip(), 0))
         iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
         if iv is not None:
             hw = iv["half_width"]
@@ -1890,11 +1906,15 @@ def get_reading_stats(user_id: str = Depends(auth.get_current_user_id)):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @app.get("/api/reading/status")
-def get_reading_status(user_id: str = Depends(auth.get_current_user_id)):
+def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
+                       user_md: dict = Depends(auth.get_current_user_metadata)):
     """Queue-derived reading status: last read, currently reading, reading next."""
     books, gw, gcw = _get_engine(user_id)[:3]
     rated_wa = books["WA"].values
     total_rated = len(books)
+    author_counts = books["Author"].value_counts()
+    cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
+                               user_md.get("fav_authors"))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -1943,6 +1963,8 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id)):
             wcat = db_loader._weighted_cat_avg(comp_vals, genre_str, cat, gcw)
             category_avgs[cat] = round(wcat, 2)
             wa += wcat * ((gw.get(genre_str, {}) or {}).get(cat, 0) or 0)
+        n_author = int(author_counts.get((author or "").strip(), 0))
+        wa = _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term)
         predicted_rank = int((rated_wa > wa).sum() + 1)
         return {
             "title": title,
