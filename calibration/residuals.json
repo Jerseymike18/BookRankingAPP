@@ -2,78 +2,78 @@
   "analog_mode": "shrunk",
   "buckets": {
     "author-only n=1": {
-      "half_width": 0.9501,
-      "mean_residual": -0.0793,
+      "half_width": 0.9666,
+      "mean_residual": -0.0727,
       "n": 12,
-      "pool_n": 43,
+      "pool_n": 44,
       "pooled": true,
       "pooled_with": "cluster 2<=n<6",
-      "q10": -1.5562,
-      "q90": 1.4436
+      "q10": -1.5316,
+      "q90": 1.4416
     },
     "cluster 2<=n<6": {
-      "half_width": 0.8471,
-      "mean_residual": -0.0593,
-      "n": 31,
-      "pool_n": 31,
+      "half_width": 0.8658,
+      "mean_residual": -0.0608,
+      "n": 32,
+      "pool_n": 32,
       "pooled": false,
       "pooled_with": null,
-      "q10": -0.8471,
-      "q90": 0.7847
+      "q10": -0.8359,
+      "q90": 0.8506
     },
     "cluster n>=6": {
       "half_width": 0.9209,
-      "mean_residual": 0.027,
+      "mean_residual": 0.0272,
       "n": 59,
       "pool_n": 59,
       "pooled": false,
       "pooled_with": null,
-      "q10": -0.8371,
-      "q90": 1.0847
+      "q10": -0.8347,
+      "q90": 1.0845
     },
     "genre-only n=0": {
-      "half_width": 1.3439,
-      "mean_residual": -0.0075,
-      "n": 25,
-      "pool_n": 25,
+      "half_width": 1.3356,
+      "mean_residual": -0.0509,
+      "n": 26,
+      "pool_n": 26,
       "pooled": false,
       "pooled_with": null,
-      "q10": -1.2705,
-      "q90": 1.1059
+      "q10": -1.2616,
+      "q90": 1.0489
     }
   },
   "coverage": {
     "by_bucket": {
       "author-only n=1": 0.6667,
-      "cluster 2<=n<6": 0.8065,
+      "cluster 2<=n<6": 0.7812,
       "cluster n>=6": 0.7966,
-      "genre-only n=0": 0.8
+      "genre-only n=0": 0.8077
     },
     "by_bucket_n": {
       "author-only n=1": 12,
-      "cluster 2<=n<6": 31,
+      "cluster 2<=n<6": 32,
       "cluster n>=6": 59,
-      "genre-only n=0": 25
+      "genre-only n=0": 26
     },
-    "overall": 0.7874,
+    "overall": 0.7829,
     "target": 0.8
   },
   "coverage_target": 0.8,
-  "engine_hash": "sha256:0c96e1c227afb735",
-  "generated_at": "2026-07-04T14:58:42-04:00",
+  "engine_hash": "sha256:be6cf9840c93f7fc",
+  "generated_at": "2026-07-15T09:04:12-04:00",
   "k_author": 0.5,
   "k_genre": 0.5,
   "min_bucket_n": 20,
-  "n_books": 127,
+  "n_books": 129,
   "residuals": [
     {
-      "actual": 9.7877,
+      "actual": 9.7576,
       "book": "Toll the Hounds",
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 8.9136,
-      "residual": 0.8741
+      "pred": 8.9052,
+      "residual": 0.8524
     },
     {
       "actual": 9.5582,
@@ -81,8 +81,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 8.9441,
-      "residual": 0.6142
+      "pred": 8.9347,
+      "residual": 0.6235
     },
     {
       "actual": 9.348,
@@ -90,8 +90,8 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 6.5237,
-      "residual": 2.8244
+      "pred": 6.5243,
+      "residual": 2.8237
     },
     {
       "actual": 9.3233,
@@ -99,17 +99,17 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 8.9707,
-      "residual": 0.3526
+      "pred": 8.9614,
+      "residual": 0.3619
     },
     {
       "actual": 9.0153,
       "book": "The Fall of Hyperion",
       "bucket": "cluster 2<=n<6",
-      "n_author": 2,
+      "n_author": 3,
       "n_genre": 13,
-      "pred": 8.2306,
-      "residual": 0.7847
+      "pred": 8.0712,
+      "residual": 0.9441
     },
     {
       "actual": 9.329,
@@ -117,26 +117,26 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 12,
-      "pred": 7.5336,
-      "residual": 1.7954
+      "pred": 7.5699,
+      "residual": 1.7592
     },
     {
-      "actual": 9.2741,
+      "actual": 9.2099,
       "book": "Memories of Ice",
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 8.9736,
-      "residual": 0.3005
+      "pred": 8.9714,
+      "residual": 0.2385
     },
     {
       "actual": 9.2409,
       "book": "Hyperion",
       "bucket": "cluster 2<=n<6",
-      "n_author": 2,
+      "n_author": 3,
       "n_genre": 13,
-      "pred": 8.1208,
-      "residual": 1.1201
+      "pred": 7.9945,
+      "residual": 1.2464
     },
     {
       "actual": 9.1595,
@@ -144,8 +144,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 8.5285,
-      "residual": 0.6309
+      "pred": 8.527,
+      "residual": 0.6325
     },
     {
       "actual": 9.1751,
@@ -153,8 +153,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 8.983,
-      "residual": 0.1921
+      "pred": 8.9737,
+      "residual": 0.2014
     },
     {
       "actual": 9.0211,
@@ -162,8 +162,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 8.5478,
-      "residual": 0.4733
+      "pred": 8.5461,
+      "residual": 0.4751
     },
     {
       "actual": 9.0002,
@@ -171,8 +171,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 7.9154,
-      "residual": 1.0848
+      "pred": 7.9148,
+      "residual": 1.0854
     },
     {
       "actual": 8.9677,
@@ -180,8 +180,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 9.0108,
-      "residual": -0.0431
+      "pred": 9.0015,
+      "residual": -0.0339
     },
     {
       "actual": 8.9208,
@@ -189,17 +189,17 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.0083,
-      "residual": 0.9124
+      "pred": 8.0078,
+      "residual": 0.913
     },
     {
       "actual": 8.8803,
       "book": "Dark Age",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.012,
-      "residual": 0.8682
+      "n_genre": 17,
+      "pred": 8.0088,
+      "residual": 0.8714
     },
     {
       "actual": 8.8556,
@@ -207,8 +207,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.013,
-      "residual": 0.8425
+      "pred": 8.0125,
+      "residual": 0.8431
     },
     {
       "actual": 8.8434,
@@ -216,8 +216,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 12,
-      "pred": 7.3017,
-      "residual": 1.5418
+      "pred": 7.304,
+      "residual": 1.5394
     },
     {
       "actual": 8.8054,
@@ -225,8 +225,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.017,
-      "residual": 0.7884
+      "pred": 8.0164,
+      "residual": 0.789
     },
     {
       "actual": 8.9341,
@@ -234,8 +234,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 9.011,
-      "residual": -0.0769
+      "pred": 9.0016,
+      "residual": -0.0675
     },
     {
       "actual": 8.7536,
@@ -243,8 +243,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.9103,
-      "residual": 1.8433
+      "pred": 6.9111,
+      "residual": 1.8425
     },
     {
       "actual": 8.7443,
@@ -252,8 +252,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 9.0399,
-      "residual": -0.2956
+      "pred": 9.0305,
+      "residual": -0.2862
     },
     {
       "actual": 8.664,
@@ -261,8 +261,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 3,
       "n_genre": 53,
-      "pred": 8.0612,
-      "residual": 0.6028
+      "pred": 8.061,
+      "residual": 0.603
     },
     {
       "actual": 8.6531,
@@ -270,8 +270,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 3,
       "n_genre": 53,
-      "pred": 8.0923,
-      "residual": 0.5608
+      "pred": 8.0917,
+      "residual": 0.5614
     },
     {
       "actual": 8.5822,
@@ -279,8 +279,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 12,
-      "pred": 7.0058,
-      "residual": 1.5764
+      "pred": 7.0112,
+      "residual": 1.571
     },
     {
       "actual": 8.5723,
@@ -288,17 +288,17 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.0385,
-      "residual": 0.5338
+      "pred": 8.0379,
+      "residual": 0.5344
     },
     {
       "actual": 8.5478,
       "book": "Golden Son",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.0835,
-      "residual": 0.4643
+      "n_genre": 17,
+      "pred": 8.0803,
+      "residual": 0.4675
     },
     {
       "actual": 8.5504,
@@ -306,17 +306,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.928,
-      "residual": 1.6224
+      "pred": 6.9287,
+      "residual": 1.6217
     },
     {
       "actual": 8.5439,
       "book": "Lightbringer",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.0881,
-      "residual": 0.4559
+      "n_genre": 17,
+      "pred": 8.0848,
+      "residual": 0.4591
     },
     {
       "actual": 8.5242,
@@ -324,8 +324,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 2,
-      "pred": 8.0521,
-      "residual": 0.4721
+      "pred": 8.0515,
+      "residual": 0.4727
     },
     {
       "actual": 8.5048,
@@ -333,8 +333,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 1,
-      "pred": 7.8672,
-      "residual": 0.6376
+      "pred": 7.8663,
+      "residual": 0.6385
     },
     {
       "actual": 8.4732,
@@ -342,8 +342,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.9324,
-      "residual": 1.5408
+      "pred": 6.9332,
+      "residual": 1.54
     },
     {
       "actual": 8.4222,
@@ -351,8 +351,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.0563,
-      "residual": 0.3659
+      "pred": 8.0557,
+      "residual": 0.3665
     },
     {
       "actual": 8.4537,
@@ -360,8 +360,8 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 6.6493,
-      "residual": 1.8044
+      "pred": 6.65,
+      "residual": 1.8037
     },
     {
       "actual": 8.4103,
@@ -369,17 +369,17 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 53,
-      "pred": 7.8504,
-      "residual": 0.5599
+      "pred": 7.8488,
+      "residual": 0.5615
     },
     {
       "actual": 8.3697,
       "book": "Demon in White",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.6686,
-      "residual": 0.7011
+      "n_genre": 17,
+      "pred": 7.6647,
+      "residual": 0.705
     },
     {
       "actual": 8.3517,
@@ -387,8 +387,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 7.5892,
-      "residual": 0.7625
+      "pred": 7.5895,
+      "residual": 0.7622
     },
     {
       "actual": 8.3097,
@@ -396,8 +396,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 9.0794,
-      "residual": -0.7697
+      "pred": 9.07,
+      "residual": -0.7603
     },
     {
       "actual": 8.3037,
@@ -405,8 +405,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.0636,
-      "residual": 0.2402
+      "pred": 8.063,
+      "residual": 0.2407
     },
     {
       "actual": 8.2609,
@@ -414,8 +414,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.9485,
-      "residual": 1.3124
+      "pred": 6.9492,
+      "residual": 1.3117
     },
     {
       "actual": 8.2108,
@@ -423,8 +423,8 @@
       "bucket": "cluster n>=6",
       "n_author": 9,
       "n_genre": 53,
-      "pred": 9.0979,
-      "residual": -0.8871
+      "pred": 9.0885,
+      "residual": -0.8777
     },
     {
       "actual": 8.1969,
@@ -432,17 +432,17 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 8.9193,
-      "residual": -0.7223
+      "pred": 8.9166,
+      "residual": -0.7197
     },
     {
       "actual": 8.1787,
       "book": "Disquiet Gods",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.6963,
-      "residual": 0.4824
+      "n_genre": 17,
+      "pred": 7.6923,
+      "residual": 0.4863
     },
     {
       "actual": 8.1512,
@@ -450,8 +450,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 8.2488,
-      "residual": -0.0976
+      "pred": 8.2476,
+      "residual": -0.0964
     },
     {
       "actual": 8.0873,
@@ -459,8 +459,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 7.7176,
-      "residual": 0.3697
+      "pred": 7.7173,
+      "residual": 0.3699
     },
     {
       "actual": 8.055,
@@ -468,26 +468,26 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 8.1016,
-      "residual": -0.0465
+      "pred": 8.1006,
+      "residual": -0.0456
     },
     {
-      "actual": 8.0473,
+      "actual": 8.1028,
       "book": "Momo",
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 12,
-      "pred": 7.9698,
-      "residual": 0.0775
+      "pred": 7.9687,
+      "residual": 0.1341
     },
     {
       "actual": 8.0326,
       "book": "Morning Star",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.1825,
-      "residual": -0.1499
+      "n_genre": 17,
+      "pred": 8.1791,
+      "residual": -0.1465
     },
     {
       "actual": 8.0167,
@@ -495,8 +495,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 2,
-      "pred": 8.3544,
-      "residual": -0.3377
+      "pred": 8.3543,
+      "residual": -0.3376
     },
     {
       "actual": 8.0017,
@@ -504,8 +504,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.0956,
-      "residual": -0.0939
+      "pred": 8.0949,
+      "residual": -0.0932
     },
     {
       "actual": 7.9686,
@@ -513,8 +513,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 8.1197,
-      "residual": -0.1511
+      "pred": 8.1189,
+      "residual": -0.1503
     },
     {
       "actual": 7.9376,
@@ -522,17 +522,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 0,
-      "pred": 7.5524,
-      "residual": 0.3852
+      "pred": 7.5396,
+      "residual": 0.398
     },
     {
       "actual": 7.9303,
       "book": "Ashes of Man",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.7469,
-      "residual": 0.1834
+      "n_genre": 17,
+      "pred": 7.7431,
+      "residual": 0.1873
     },
     {
       "actual": 7.9128,
@@ -540,26 +540,26 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 3,
       "n_genre": 53,
-      "pred": 8.2898,
-      "residual": -0.377
+      "pred": 8.2891,
+      "residual": -0.3763
     },
     {
       "actual": 7.8902,
       "book": "Kingdoms of Death",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.7573,
-      "residual": 0.1329
+      "n_genre": 17,
+      "pred": 7.7536,
+      "residual": 0.1366
     },
     {
       "actual": 7.886,
       "book": "This Inevitable Ruin",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.2361,
-      "residual": 0.65
+      "n_genre": 11,
+      "pred": 7.2374,
+      "residual": 0.6486
     },
     {
       "actual": 7.8718,
@@ -567,8 +567,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 1,
-      "pred": 8.4786,
-      "residual": -0.6068
+      "pred": 8.4778,
+      "residual": -0.606
     },
     {
       "actual": 7.8266,
@@ -576,8 +576,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 8.1478,
-      "residual": -0.3213
+      "pred": 8.147,
+      "residual": -0.3204
     },
     {
       "actual": 7.8299,
@@ -585,8 +585,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 8.1381,
-      "residual": -0.3082
+      "pred": 8.1374,
+      "residual": -0.3074
     },
     {
       "actual": 7.8072,
@@ -594,8 +594,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 12,
-      "pred": 7.0734,
-      "residual": 0.7338
+      "pred": 7.0788,
+      "residual": 0.7285
     },
     {
       "actual": 7.8073,
@@ -603,8 +603,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 3,
       "n_genre": 53,
-      "pred": 8.3303,
-      "residual": -0.523
+      "pred": 8.3298,
+      "residual": -0.5224
     },
     {
       "actual": 7.8057,
@@ -612,8 +612,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 53,
-      "pred": 8.1664,
-      "residual": -0.3607
+      "pred": 8.1646,
+      "residual": -0.3589
     },
     {
       "actual": 7.7845,
@@ -621,17 +621,17 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 6.7567,
-      "residual": 1.0278
+      "pred": 6.7569,
+      "residual": 1.0277
     },
     {
       "actual": 7.7646,
       "book": "The Butcher's Masquerade",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.2548,
-      "residual": 0.5098
+      "n_genre": 11,
+      "pred": 7.2564,
+      "residual": 0.5082
     },
     {
       "actual": 7.7503,
@@ -639,17 +639,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 13,
-      "pred": 7.3069,
-      "residual": 0.4434
+      "pred": 7.3058,
+      "residual": 0.4445
     },
     {
       "actual": 7.7291,
       "book": "Red Rising",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.2362,
-      "residual": -0.5071
+      "n_genre": 17,
+      "pred": 8.2325,
+      "residual": -0.5034
     },
     {
       "actual": 7.7048,
@@ -657,8 +657,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 12,
-      "pred": 7.7781,
-      "residual": -0.0734
+      "pred": 7.78,
+      "residual": -0.0753
     },
     {
       "actual": 7.6406,
@@ -666,8 +666,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.1156,
-      "residual": -0.475
+      "pred": 8.1149,
+      "residual": -0.4743
     },
     {
       "actual": 7.6441,
@@ -675,17 +675,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.9851,
-      "residual": 0.659
+      "pred": 6.9859,
+      "residual": 0.6583
     },
     {
       "actual": 7.6313,
       "book": "Howling Dark",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.7904,
-      "residual": -0.1592
+      "n_genre": 17,
+      "pred": 7.7863,
+      "residual": -0.1551
     },
     {
       "actual": 7.6291,
@@ -693,8 +693,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.1173,
-      "residual": -0.4882
+      "pred": 8.1168,
+      "residual": -0.4877
     },
     {
       "actual": 7.6332,
@@ -702,8 +702,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 6.9876,
-      "residual": 0.6456
+      "pred": 6.9883,
+      "residual": 0.6449
     },
     {
       "actual": 7.6042,
@@ -711,8 +711,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 7.0815,
-      "residual": 0.5228
+      "pred": 7.0827,
+      "residual": 0.5216
     },
     {
       "actual": 7.5829,
@@ -720,8 +720,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
       "n_genre": 53,
-      "pred": 8.1971,
-      "residual": -0.6142
+      "pred": 8.1961,
+      "residual": -0.6133
     },
     {
       "actual": 7.5442,
@@ -729,8 +729,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.1268,
-      "residual": -0.5826
+      "pred": 8.1262,
+      "residual": -0.582
     },
     {
       "actual": 7.4847,
@@ -738,8 +738,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 1,
-      "pred": 7.2602,
-      "residual": 0.2245
+      "pred": 7.2593,
+      "residual": 0.2254
     },
     {
       "actual": 7.4738,
@@ -747,8 +747,8 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.1345,
-      "residual": -0.6607
+      "pred": 8.1338,
+      "residual": -0.66
     },
     {
       "actual": 7.4714,
@@ -756,44 +756,44 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 13,
-      "pred": 7.3286,
-      "residual": 0.1427
+      "pred": 7.3275,
+      "residual": 0.1439
     },
     {
       "actual": 7.4715,
       "book": "A Parade of Horribles",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.2971,
-      "residual": 0.1744
+      "n_genre": 11,
+      "pred": 7.2985,
+      "residual": 0.173
     },
     {
       "actual": 7.4474,
       "book": "Iron Gold",
       "bucket": "cluster 2<=n<6",
       "n_author": 5,
-      "n_genre": 16,
-      "pred": 8.2945,
-      "residual": -0.8471
+      "n_genre": 17,
+      "pred": 8.2908,
+      "residual": -0.8434
     },
     {
       "actual": 7.4396,
       "book": "The Eye of the Bedlam Bride",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.3,
-      "residual": 0.1396
+      "n_genre": 11,
+      "pred": 7.3013,
+      "residual": 0.1383
     },
     {
       "actual": 7.4365,
       "book": "Shadows Upon Time",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.8262,
-      "residual": -0.3897
+      "n_genre": 17,
+      "pred": 7.8224,
+      "residual": -0.3859
     },
     {
       "actual": 7.3201,
@@ -801,17 +801,17 @@
       "bucket": "cluster n>=6",
       "n_author": 11,
       "n_genre": 53,
-      "pred": 8.1447,
-      "residual": -0.8246
+      "pred": 8.144,
+      "residual": -0.8239
     },
     {
       "actual": 7.3239,
       "book": "The Gate of the Feral Gods",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.3124,
-      "residual": 0.0115
+      "n_genre": 11,
+      "pred": 7.3137,
+      "residual": 0.0102
     },
     {
       "actual": 7.2773,
@@ -819,8 +819,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 13,
-      "pred": 7.3455,
-      "residual": -0.0682
+      "pred": 7.3443,
+      "residual": -0.0671
     },
     {
       "actual": 7.2456,
@@ -828,17 +828,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 1,
-      "pred": 7.4917,
-      "residual": -0.246
+      "pred": 7.4911,
+      "residual": -0.2455
     },
     {
       "actual": 7.2217,
       "book": "The Dungeon Anarchist's Cookbook",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.3258,
-      "residual": -0.1042
+      "n_genre": 11,
+      "pred": 7.3269,
+      "residual": -0.1052
     },
     {
       "actual": 7.2282,
@@ -846,8 +846,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 53,
-      "pred": 7.4098,
-      "residual": -0.1816
+      "pred": 7.4063,
+      "residual": -0.1781
     },
     {
       "actual": 7.2108,
@@ -855,8 +855,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 6.9425,
-      "residual": 0.2683
+      "pred": 6.9418,
+      "residual": 0.269
     },
     {
       "actual": 7.1322,
@@ -864,17 +864,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 6.9527,
-      "residual": 0.1795
+      "pred": 6.9518,
+      "residual": 0.1803
     },
     {
       "actual": 7.1259,
       "book": "Empire of Silence",
       "bucket": "cluster n>=6",
       "n_author": 6,
-      "n_genre": 16,
-      "pred": 7.873,
-      "residual": -0.7471
+      "n_genre": 17,
+      "pred": 7.8687,
+      "residual": -0.7428
     },
     {
       "actual": 7.1314,
@@ -882,17 +882,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 7.0245,
-      "residual": 0.1068
+      "pred": 7.0252,
+      "residual": 0.1062
     },
     {
       "actual": 7.1209,
       "book": "Carl's Doomsday Scenario",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.3421,
-      "residual": -0.2212
+      "n_genre": 11,
+      "pred": 7.343,
+      "residual": -0.2221
     },
     {
       "actual": 7.1035,
@@ -900,8 +900,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 5.6192,
-      "residual": 1.4842
+      "pred": 5.618,
+      "residual": 1.4855
     },
     {
       "actual": 7.0988,
@@ -909,8 +909,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 8.2048,
-      "residual": -1.106
+      "pred": 8.2047,
+      "residual": -1.1059
     },
     {
       "actual": 7.0636,
@@ -918,8 +918,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 3,
-      "pred": 5.7288,
-      "residual": 1.3348
+      "pred": 5.7281,
+      "residual": 1.3356
     },
     {
       "actual": 6.9988,
@@ -927,8 +927,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 13,
-      "pred": 7.3671,
-      "residual": -0.3683
+      "pred": 7.3659,
+      "residual": -0.3671
     },
     {
       "actual": 6.9811,
@@ -936,8 +936,8 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 6.9263,
-      "residual": 0.0548
+      "pred": 6.9271,
+      "residual": 0.0539
     },
     {
       "actual": 6.982,
@@ -945,8 +945,8 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 6.9152,
-      "residual": 0.0668
+      "pred": 6.9158,
+      "residual": 0.0661
     },
     {
       "actual": 6.9363,
@@ -954,17 +954,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 53,
-      "pred": 7.0371,
-      "residual": -0.1008
+      "pred": 7.0378,
+      "residual": -0.1015
     },
     {
       "actual": 6.9027,
       "book": "The Fifth Season",
       "bucket": "genre-only n=0",
       "n_author": 0,
-      "n_genre": 16,
-      "pred": 7.4994,
-      "residual": -0.5966
+      "n_genre": 17,
+      "pred": 7.5115,
+      "residual": -0.6088
     },
     {
       "actual": 6.863,
@@ -972,8 +972,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 13,
-      "pred": 7.3749,
-      "residual": -0.5119
+      "pred": 7.3737,
+      "residual": -0.5107
     },
     {
       "actual": 6.8666,
@@ -981,8 +981,8 @@
       "bucket": "author-only n=1",
       "n_author": 1,
       "n_genre": 53,
-      "pred": 7.6351,
-      "residual": -0.7685
+      "pred": 7.6316,
+      "residual": -0.765
     },
     {
       "actual": 6.7708,
@@ -990,8 +990,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 7.4671,
-      "residual": -0.6963
+      "pred": 7.4681,
+      "residual": -0.6973
     },
     {
       "actual": 6.6949,
@@ -999,8 +999,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 6.0303,
-      "residual": 0.6646
+      "pred": 6.0319,
+      "residual": 0.663
     },
     {
       "actual": 6.6864,
@@ -1008,17 +1008,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 53,
-      "pred": 8.0666,
-      "residual": -1.3802
+      "pred": 8.0643,
+      "residual": -1.378
     },
     {
       "actual": 6.6805,
       "book": "Dungeon Crawler Carl",
       "bucket": "cluster n>=6",
       "n_author": 7,
-      "n_genre": 10,
-      "pred": 7.4004,
-      "residual": -0.7199
+      "n_genre": 11,
+      "pred": 7.401,
+      "residual": -0.7205
     },
     {
       "actual": 6.554,
@@ -1026,17 +1026,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 3,
-      "pred": 5.8928,
-      "residual": 0.6612
+      "pred": 5.892,
+      "residual": 0.662
     },
     {
       "actual": 6.5342,
       "book": "Dark Force Rising",
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
-      "n_genre": 10,
-      "pred": 5.8991,
-      "residual": 0.635
+      "n_genre": 11,
+      "pred": 5.9042,
+      "residual": 0.63
     },
     {
       "actual": 6.3431,
@@ -1044,8 +1044,8 @@
       "bucket": "cluster n>=6",
       "n_author": 6,
       "n_genre": 13,
-      "pred": 7.031,
-      "residual": -0.6879
+      "pred": 7.0318,
+      "residual": -0.6887
     },
     {
       "actual": 6.2101,
@@ -1053,8 +1053,8 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 6.1915,
-      "residual": 0.0185
+      "pred": 6.193,
+      "residual": 0.0171
     },
     {
       "actual": 6.1984,
@@ -1062,8 +1062,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 7.0132,
-      "residual": -0.8147
+      "pred": 7.0127,
+      "residual": -0.8143
     },
     {
       "actual": 6.0888,
@@ -1071,17 +1071,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 7.0224,
-      "residual": -0.9336
+      "pred": 7.0217,
+      "residual": -0.9329
     },
     {
       "actual": 5.9618,
       "book": "Heir to the Empire",
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
-      "n_genre": 10,
-      "pred": 6.1963,
-      "residual": -0.2346
+      "n_genre": 11,
+      "pred": 6.2012,
+      "residual": -0.2395
     },
     {
       "actual": 5.9099,
@@ -1089,8 +1089,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 6.1943,
-      "residual": -0.2844
+      "pred": 6.193,
+      "residual": -0.2832
     },
     {
       "actual": 5.8954,
@@ -1098,8 +1098,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 7.0439,
-      "residual": -1.1485
+      "pred": 7.0433,
+      "residual": -1.1479
     },
     {
       "actual": 5.5959,
@@ -1107,17 +1107,17 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 3,
-      "pred": 6.1989,
-      "residual": -0.603
+      "pred": 6.198,
+      "residual": -0.6022
     },
     {
       "actual": 5.3671,
       "book": "The Last Command",
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
-      "n_genre": 10,
-      "pred": 6.3718,
-      "residual": -1.0047
+      "n_genre": 11,
+      "pred": 6.3716,
+      "residual": -1.0045
     },
     {
       "actual": 5.1542,
@@ -1125,8 +1125,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 2,
-      "pred": 6.5439,
-      "residual": -1.3897
+      "pred": 6.5426,
+      "residual": -1.3884
     },
     {
       "actual": 5.0699,
@@ -1134,8 +1134,8 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 7.1017,
-      "residual": -2.0319
+      "pred": 7.101,
+      "residual": -2.0311
     },
     {
       "actual": 4.7755,
@@ -1143,8 +1143,8 @@
       "bucket": "genre-only n=0",
       "n_author": 0,
       "n_genre": 3,
-      "pred": 6.4592,
-      "residual": -1.6837
+      "pred": 6.4585,
+      "residual": -1.683
     },
     {
       "actual": 4.5388,
@@ -1152,17 +1152,17 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 6.8244,
-      "residual": -2.2856
+      "pred": 6.8239,
+      "residual": -2.2852
     },
     {
       "actual": 4.5092,
       "book": "Ready Player One",
       "bucket": "author-only n=1",
       "n_author": 1,
-      "n_genre": 16,
-      "pred": 6.153,
-      "residual": -1.6438
+      "n_genre": 17,
+      "pred": 6.126,
+      "residual": -1.6168
     },
     {
       "actual": 4.3985,
@@ -1170,17 +1170,17 @@
       "bucket": "cluster n>=6",
       "n_author": 14,
       "n_genre": 12,
-      "pred": 7.1448,
-      "residual": -2.7463
+      "pred": 7.144,
+      "residual": -2.7455
     },
     {
       "actual": 4.2579,
       "book": "Ready Player Two",
       "bucket": "author-only n=1",
       "n_author": 1,
-      "n_genre": 16,
-      "pred": 6.2903,
-      "residual": -2.0324
+      "n_genre": 17,
+      "pred": 6.265,
+      "residual": -2.0071
     },
     {
       "actual": 2.2993,
@@ -1195,10 +1195,10 @@
       "actual": 7.5731,
       "book": "Endymion",
       "bucket": "cluster 2<=n<6",
-      "n_author": 2,
-      "n_genre": 16,
-      "pred": 8.9293,
-      "residual": -1.3562
+      "n_author": 3,
+      "n_genre": 17,
+      "pred": 8.5733,
+      "residual": -1.0002
     },
     {
       "actual": 6.8177,
@@ -1206,8 +1206,26 @@
       "bucket": "cluster 2<=n<6",
       "n_author": 2,
       "n_genre": 53,
-      "pred": 7.3978,
-      "residual": -0.5801
+      "pred": 7.3984,
+      "residual": -0.5807
+    },
+    {
+      "actual": 7.7344,
+      "book": "The Rise of Endymion",
+      "bucket": "cluster 2<=n<6",
+      "n_author": 3,
+      "n_genre": 17,
+      "pred": 8.5029,
+      "residual": -0.7685
+    },
+    {
+      "actual": 5.8425,
+      "book": "The Obelisk Gate",
+      "bucket": "genre-only n=0",
+      "n_author": 0,
+      "n_genre": 11,
+      "pred": 6.9878,
+      "residual": -1.1453
     }
   ]
 }

@@ -526,24 +526,24 @@
         "pooled": false
       },
       {
-        "half_width": 0.8471,
+        "half_width": 0.8658,
         "key": "cluster 2<=n<6",
         "label": "some author data",
-        "n_residuals": 31,
+        "n_residuals": 32,
         "pooled": false
       },
       {
-        "half_width": 0.9501,
+        "half_width": 0.9666,
         "key": "author-only n=1",
         "label": "single author book",
         "n_residuals": 12,
         "pooled": true
       },
       {
-        "half_width": 1.3439,
+        "half_width": 1.3356,
         "key": "genre-only n=0",
         "label": "genre only",
-        "n_residuals": 25,
+        "n_residuals": 26,
         "pooled": false
       }
     ],
@@ -551,7 +551,7 @@
       "analog_mode": "shrunk",
       "k_author": 0.5,
       "k_genre": 0.5,
-      "n_residuals": 127
+      "n_residuals": 129
     },
     "min_bucket_n": 20,
     "nominal": 0.8,
