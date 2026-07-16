@@ -282,8 +282,9 @@ function DiscoverMode({
   const [scoringDone, setScoringDone] = useState(false);
   const [refiningTitles, setRefiningTitles] = useState<Set<string>>(new Set()); // titles being grounded-refined now
 
-  // Step 3: save
-  const [toSave, setToSave] = useState<Set<string>>(new Set());
+  // Step 3: save. Opt-out model — every scored book is queued to save unless the
+  // reader removes it with the ✕ (`removed`), so a "save most of them" run is one click.
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [saveResults, setSaveResults] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -297,7 +298,7 @@ function DiscoverMode({
     setScored([]);
     setScoringDone(false);
     setRefiningTitles(new Set());
-    setToSave(new Set());
+    setRemoved(new Set());
     setSaveResults({});
     try {
       const result = await discoverCandidates(request.trim());
@@ -317,6 +318,8 @@ function DiscoverMode({
     setScored([]);
     setScoringDone(false);
     setRefiningTitles(new Set());
+    setRemoved(new Set());
+    setSaveResults({});
     const results: ScoredCandidate[] = [];
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];
@@ -389,37 +392,45 @@ function DiscoverMode({
   }
 
   // Refine every candidate not yet grounded (the "Refine all remaining" escape hatch).
+  // Skips books the reader removed with ✕ — no point spending a web_search on a discard.
   function refineRemaining() {
-    void refineSet(scored);
+    void refineSet(scored.filter((r) => !removed.has(r.title)));
   }
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
   const nNew = (candidates?.length ?? 0) - nCached;
   const okScored = scored.filter((r) => !r.error).sort((a, b) => b.wa - a.wa);
   const failedScored = scored.filter((r) => !!r.error);
+  // Opt-out save model: every scored book is queued to save UNLESS the reader
+  // removed it with the ✕. `kept` is what's shown + saved; `savable` also excludes
+  // ones already saved so re-clicking Save doesn't re-POST (and hit a dup refusal).
+  const kept = okScored.filter((r) => !removed.has(r.title));
+  const savable = kept.filter((r) => !saveResults[r.title]);
+  const nRemoved = removed.size;
   const refiningCount = refiningTitles.size;
   // Candidates that could still be grounded but haven't been (and aren't in flight).
-  const unrefined = okScored.filter(
+  // Excludes removed books — no point grounding something the reader discarded.
+  const unrefined = kept.filter(
     (r) => r.hybrid_available && r.sourcing !== "hybrid" && !refiningTitles.has(r.title),
   );
 
-  function toggleSave(title: string) {
-    setToSave((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) next.delete(title);
-      else next.add(title);
-      return next;
-    });
+  // Opt-out: ✕ on a card drops it from the save set; everything else still saves.
+  function removeBook(title: string) {
+    setRemoved((prev) => new Set(prev).add(title));
+  }
+  function restoreAll() {
+    setRemoved(new Set());
   }
 
   async function handleSave() {
-    if (toSave.size === 0) return;
+    if (savable.length === 0) return;
     setSaving(true);
-    // Save the selected books with bounded concurrency instead of one-at-a-time:
-    // each save costs ~2 server-side LLM calls, so a sequential loop stacked that
-    // cost linearly. Distinct titles write distinct keys of `newResults`, so the
-    // concurrent writes don't race (single-threaded event loop, one key each).
-    const targets = okScored.filter((r) => toSave.has(r.title));
+    // Opt-out save: everything scored is queued unless the reader removed it with ✕.
+    // Save the kept, not-yet-saved books with bounded concurrency instead of
+    // one-at-a-time — each save costs ~2 server-side LLM calls, so a sequential loop
+    // stacked that cost linearly. Distinct titles write distinct keys of `newResults`,
+    // so the concurrent writes don't race (single-threaded event loop, one key each).
+    const targets = savable;
     const newResults: Record<string, string> = {};
     await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
       const flatScores: Record<string, number> = {};
@@ -443,9 +454,9 @@ function DiscoverMode({
         newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
       }
     });
-    setSaveResults(newResults);
+    // Merge (don't replace) so an earlier batch's ✓ results survive a second save.
+    setSaveResults((prev) => ({ ...prev, ...newResults }));
     setSaving(false);
-    setToSave(new Set());
   }
 
   return (
@@ -609,16 +620,14 @@ function DiscoverMode({
             </div>
           )}
 
-          {okScored.map((r, i) => (
+          {kept.map((r, i) => (
             <ScoredCard
               key={r.title}
               result={r}
               rank={i + 1}
               categoryOrder={r.category_order?.length ? r.category_order : categoryOrder}
-              selected={toSave.has(r.title)}
-              onToggle={() => toggleSave(r.title)}
+              onRemove={() => removeBook(r.title)}
               saveMsg={saveResults[r.title]}
-              scoringDone={scoringDone}
               refining={refiningTitles.has(r.title)}
               onRefine={() => refineOne(r.title)}
             />
@@ -635,15 +644,27 @@ function DiscoverMode({
           )}
 
           {scoringDone && (
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 pt-2 flex-wrap">
               <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-                {toSave.size > 0
-                  ? `${toSave.size} book${toSave.size > 1 ? "s" : ""} selected to save`
-                  : "Select books above to save to your recommendations (TBR)"}
+                {savable.length > 0
+                  ? `${savable.length} book${savable.length > 1 ? "s" : ""} will be saved to your recommendations (TBR) — remove any you don't want with ✕`
+                  : kept.length > 0
+                    ? "All saved."
+                    : "Every book removed — nothing to save."}
+                {nRemoved > 0 && ` · ${nRemoved} removed`}
               </p>
-              {toSave.size > 0 && (
+              {nRemoved > 0 && (
+                <button
+                  onClick={restoreAll}
+                  className="text-xs underline"
+                  style={{ color: "var(--color-sage)" }}
+                >
+                  Restore {nRemoved}
+                </button>
+              )}
+              {savable.length > 0 && (
                 <SageButton onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving…" : `Save ${toSave.size} to recommendations`}
+                  {saving ? "Saving…" : `Save ${savable.length} to recommendations`}
                 </SageButton>
               )}
             </div>
@@ -659,20 +680,16 @@ function ScoredCard({
   result,
   rank,
   categoryOrder,
-  selected,
-  onToggle,
+  onRemove,
   saveMsg,
-  scoringDone,
   refining,
   onRefine,
 }: {
   result: ScoredCandidate;
   rank: number;
   categoryOrder: string[];
-  selected: boolean;
-  onToggle: () => void;
+  onRemove: () => void;
   saveMsg?: string;
-  scoringDone: boolean;
   refining?: boolean;
   onRefine?: () => void;
 }) {
@@ -756,6 +773,21 @@ function ScoredCard({
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
+        {/* Remove from the save set (opt-out): everything saves unless dropped here */}
+        {!saveMsg && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="flex-shrink-0 text-base leading-none px-1.5 py-0.5 rounded-md"
+            style={{ color: "var(--color-faint)" }}
+            title="Remove — don't save this book"
+            aria-label={`Remove ${result.title}`}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Expanded detail */}
@@ -815,36 +847,22 @@ function ScoredCard({
         </div>
       )}
 
-      {/* Save toggle row */}
-      {scoringDone && (
+      {/* Save result row — only appears once this book has been saved (opt-out model:
+          books save via the global button; the ✕ in the header removes unwanted ones). */}
+      {saveMsg && (
         <div
-          className="px-5 py-2 flex items-center justify-between"
+          className="px-5 py-2"
           style={{
             borderTop: "1px solid var(--color-rule)",
-            background: selected ? "var(--color-sage-light)" : "var(--color-surface)",
+            background: "var(--color-surface)",
           }}
         >
-          {saveMsg ? (
-            <p className="text-xs" style={{ color: "var(--color-sage)" }}>
-              ✓ {saveMsg}
-            </p>
-          ) : (
-            <button
-              onClick={onToggle}
-              className="text-xs font-medium px-3 py-1 rounded-lg transition-colors"
-              style={
-                selected
-                  ? { background: "var(--color-sage)", color: "#fff" }
-                  : {
-                      background: "transparent",
-                      color: "var(--color-muted)",
-                      border: "1px solid var(--color-rule)",
-                    }
-              }
-            >
-              {selected ? "✓ Selected for save" : "Save to recommendations"}
-            </button>
-          )}
+          <p
+            className="text-xs"
+            style={{ color: saveMsg.startsWith("Error") ? "#92400E" : "var(--color-sage)" }}
+          >
+            {saveMsg.startsWith("Error") ? saveMsg : `✓ ${saveMsg}`}
+          </p>
         </div>
       )}
     </div>
