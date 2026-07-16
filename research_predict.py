@@ -222,6 +222,52 @@ def research_rich_plus(client, title, author, genre, allowed_genres=None):
     return scores, conf, blurb, keywords, det_genre, words
 
 
+def estimate_word_count(client, title, author, genre=None, model=rm.MODEL):
+    """Small standalone call estimating ONLY a book's total word count. Used to
+    lazily backfill cache entries written before research_rich_plus began returning
+    'words' (old batch-reference rows store just scores/conf), so a cache-served book
+    still gets a word count for the cold-start word-count term. Best-effort: returns
+    a positive int, or None on any failure / unparseable result so the caller
+    degrades to no word count (the cold-start term stays off for that book, as before)."""
+    gpart = f" (genre: {genre})" if genre else ""
+    prompt = (f'Estimate the total word count of the book "{title}" by {author}{gpart}. '
+              f'Respond with ONLY a JSON object, no prose:\n'
+              f'{{"words": <your best integer estimate of the total word count, e.g. 150000>}}')
+    try:
+        msg = client.messages.create(
+            model=model, max_tokens=100,
+            messages=[{"role": "user", "content": prompt}])
+        return _coerce_words(rl._extract_json(msg.content[0].text.strip()).get("words"))
+    except Exception:
+        return None
+
+
+def _entry_words(entry, title, author, genre, client):
+    """Return a cache entry's word count, lazily backfilling it when a pre-'words'
+    entry is served (old rows carry only scores/conf, so `words` is absent → None,
+    which silently disables the cold-start word-count term for that book). Order:
+    (1) the entry's own words; (2) else a prior backfill from the durable store — the
+    committed file cache reloads pre-'words' rows as None on every deploy, so without
+    this the estimate would re-run each deploy; (3) else estimate once and persist it
+    (file, via the caller's save_cache mutating `entry`; and durable, so it survives
+    redeploys). Returns None (unchanged behavior) when there is no durable count, no
+    client, or the estimate fails — the cold-start term simply stays off for that book."""
+    w = entry.get("words")
+    if w is not None:
+        return w
+    dur = db_cache_get(CACHE, title)                    # cheap read; only when words missing
+    if dur is not None and dur.get("words") is not None:
+        entry["words"] = dur["words"]
+        return dur["words"]
+    if client is None:
+        return None
+    w = estimate_word_count(client, title, author, entry.get("genre") or genre)
+    if w is not None:
+        entry["words"] = w
+        db_cache_put(CACHE, title, entry)              # persist so it's estimated once, ever
+    return w
+
+
 def research_book(title, author, genre, client, cache, allowed_genres=None):
     """Return (scores, conf, blurb, keywords, det_genre, words, from_cache). On a
     miss, researches with the RICHER prompt (extended to also yield a blurb,
@@ -235,7 +281,8 @@ def research_book(title, author, genre, client, cache, allowed_genres=None):
     if e is not None:
         return (e["scores"], e.get("conf", "?"),
                 e.get("blurb", ""), e.get("keywords", ""),
-                e.get("genre") or genre, e.get("words"), True)
+                e.get("genre") or genre,
+                _entry_words(e, title, author, genre, client), True)
     # Durable store: a book researched at runtime (persisted below) survives Railway
     # redeploys even though the JSON file write does not. Consulted ONLY on a file
     # miss — one cheap read before a multi-second LLM call — so the hit path is
@@ -245,7 +292,8 @@ def research_book(title, author, genre, client, cache, allowed_genres=None):
         cache[title] = e
         return (e["scores"], e.get("conf", "?"),
                 e.get("blurb", ""), e.get("keywords", ""),
-                e.get("genre") or genre, e.get("words"), True)
+                e.get("genre") or genre,
+                _entry_words(e, title, author, genre, client), True)
     scores, conf, blurb, keywords, det_genre, words = research_rich_plus(
         client, title, author, genre, allowed_genres)
     entry = {"scores": scores, "conf": conf, "blurb": blurb, "keywords": keywords,
