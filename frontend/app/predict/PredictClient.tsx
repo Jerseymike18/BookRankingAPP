@@ -53,8 +53,18 @@ async function mapPool<T>(
   );
 }
 
-/* Max grounded refines in flight at once (bounded to respect API rate limits). */
-const REFINE_CONCURRENCY = 4;
+/* Max grounded refines in flight at once. Raised from 4 to parallelize the
+   unavoidable grounding of a genuinely-new series; the Anthropic SDK auto-retries
+   429s with exponential backoff (honoring Retry-After), and a refine that still
+   fails degrades to its memory score (re-runnable via the per-card Refine button),
+   so a higher fan-out is safe. Bounded so a burst can't exhaust the rate limit. */
+const REFINE_CONCURRENCY = 8;
+
+/* How many top candidates (by predicted WA) are grounded-refined automatically after
+   scoring. The rest refine ON DEMAND (per card, or "Refine all") so a large Discover
+   run doesn't fire a slow ~tens-of-seconds web_search for every candidate up front —
+   only for the handful the reader is most likely to care about. */
+const EAGER_REFINE_K = 3;
 
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
@@ -262,7 +272,7 @@ function DiscoverMode({
   const [scored, setScored] = useState<ScoredCandidate[]>([]);
   const [scoringIdx, setScoringIdx] = useState<number | null>(null); // which candidate is being scored now
   const [scoringDone, setScoringDone] = useState(false);
-  const [refinePending, setRefinePending] = useState(0); // books still being grounded-refined in the background
+  const [refiningTitles, setRefiningTitles] = useState<Set<string>>(new Set()); // titles being grounded-refined now
 
   // Step 3: save
   const [toSave, setToSave] = useState<Set<string>>(new Set());
@@ -278,7 +288,7 @@ function DiscoverMode({
     setCandidates(null);
     setScored([]);
     setScoringDone(false);
-    setRefinePending(0);
+    setRefiningTitles(new Set());
     setToSave(new Set());
     setSaveResults({});
     try {
@@ -298,7 +308,7 @@ function DiscoverMode({
     if (!candidates || candidates.length === 0) return;
     setScored([]);
     setScoringDone(false);
-    setRefinePending(0);
+    setRefiningTitles(new Set());
     const results: ScoredCandidate[] = [];
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];
@@ -322,21 +332,33 @@ function DiscoverMode({
     }
     setScoringIdx(null);
     setScoringDone(true);
-    void refineAll(results); // progressive: upgrade memory scores to the hybrid in the background
+    // Eager pass: grounded-refine only the top few by predicted WA; the rest refine
+    // on demand (per card, or "Refine all") so a large run doesn't fire N slow calls.
+    const eager = [...results]
+      .filter((r) => !r.error)
+      .sort((a, b) => b.wa - a.wa)
+      .slice(0, EAGER_REFINE_K);
+    void refineSet(eager);
   }
 
-  // Phase 2 (progressive): re-score each candidate with the grounded (hybrid)
-  // upgrade in the background and swap its score in place. The memory scores are
-  // already on screen, so the user can act immediately; grounded scores stream
-  // in (~110s each, cached) and the list re-sorts as they land.
-  async function refineAll(memResults: ScoredCandidate[]) {
-    const todo = memResults.filter((r) => !r.error && r.hybrid_available);
+  // Progressive grounded (hybrid) refine: re-score the given candidates with the
+  // web-grounded upgrade and swap each in place as it lands, up to REFINE_CONCURRENCY
+  // at once. Skips any already grounded, currently refining, errored, or with no
+  // upgrade available — so it is safe to call repeatedly (eager top-K, per card, or
+  // "Refine all"). The memory scores are already on screen, so the reader can act
+  // immediately; grounded scores stream in and the list re-sorts. Functional
+  // setState updaters compose safely under interleaving.
+  async function refineSet(targets: ScoredCandidate[]) {
+    const todo = targets.filter(
+      (r) => !r.error && r.hybrid_available && r.sourcing !== "hybrid"
+        && !refiningTitles.has(r.title),
+    );
     if (todo.length === 0) return;
-    setRefinePending(todo.length);
-    // Grounded refine is the slow pass (~110s/book). Run up to REFINE_CONCURRENCY
-    // at once instead of sequentially, so N candidates finish in ~ceil(N/limit)
-    // rounds. Each refined score swaps in as it lands; the pending count ticks
-    // down. The functional setState updaters compose safely under interleaving.
+    setRefiningTitles((prev) => {
+      const next = new Set(prev);
+      todo.forEach((r) => next.add(r.title));
+      return next;
+    });
     await mapPool(todo, REFINE_CONCURRENCY, async (r) => {
       try {
         const g = await predictResearch(r.title, r.author, r.genre, true);
@@ -344,14 +366,34 @@ function DiscoverMode({
       } catch {
         // keep the memory result if the grounded refine fails
       }
-      setRefinePending((n) => Math.max(0, n - 1));
+      setRefiningTitles((prev) => {
+        const next = new Set(prev);
+        next.delete(r.title);
+        return next;
+      });
     });
+  }
+
+  // Refine one candidate on demand (looks up its current scored object by title).
+  function refineOne(title: string) {
+    const r = scored.find((x) => x.title === title);
+    if (r) void refineSet([r]);
+  }
+
+  // Refine every candidate not yet grounded (the "Refine all remaining" escape hatch).
+  function refineRemaining() {
+    void refineSet(scored);
   }
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
   const nNew = (candidates?.length ?? 0) - nCached;
   const okScored = scored.filter((r) => !r.error).sort((a, b) => b.wa - a.wa);
   const failedScored = scored.filter((r) => !!r.error);
+  const refiningCount = refiningTitles.size;
+  // Candidates that could still be grounded but haven't been (and aren't in flight).
+  const unrefined = okScored.filter(
+    (r) => r.hybrid_available && r.sourcing !== "hybrid" && !refiningTitles.has(r.title),
+  );
 
   function toggleSave(title: string) {
     setToSave((prev) => {
@@ -521,21 +563,37 @@ function DiscoverMode({
             this author. Model self-confidence shown separately as a secondary note.
           </p>
 
-          {refinePending > 0 && (
+          {(refiningCount > 0 || unrefined.length > 0) && (
             <div
-              className="rounded-lg px-4 py-2 text-xs flex items-center gap-2"
+              className="rounded-lg px-4 py-2 text-xs flex items-center gap-x-4 gap-y-1 flex-wrap"
               style={{
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-rule)",
                 color: "var(--color-muted)",
               }}
             >
-              <span
-                className="inline-block w-2 h-2 rounded-full animate-pulse"
-                style={{ background: "var(--color-sage)" }}
-              />
-              Refining {refinePending} {refinePending === 1 ? "book" : "books"} with reviews —
-              scores update live; you can save now.
+              {refiningCount > 0 && (
+                <span className="flex items-center gap-2">
+                  <span
+                    className="inline-block w-2 h-2 rounded-full animate-pulse"
+                    style={{ background: "var(--color-sage)" }}
+                  />
+                  Refining {refiningCount} with reviews — scores update live.
+                </span>
+              )}
+              {unrefined.length > 0 && (
+                <button
+                  onClick={refineRemaining}
+                  className="underline"
+                  style={{ color: "var(--color-sage)" }}
+                >
+                  Refine {refiningCount > 0 ? `${unrefined.length} more` : `all ${unrefined.length}`}
+                  {" "}with reviews
+                </button>
+              )}
+              <span style={{ color: "var(--color-faint)" }}>
+                Top {EAGER_REFINE_K} refined automatically · you can save anytime.
+              </span>
             </div>
           )}
 
@@ -549,6 +607,8 @@ function DiscoverMode({
               onToggle={() => toggleSave(r.title)}
               saveMsg={saveResults[r.title]}
               scoringDone={scoringDone}
+              refining={refiningTitles.has(r.title)}
+              onRefine={() => refineOne(r.title)}
             />
           ))}
 
@@ -591,6 +651,8 @@ function ScoredCard({
   onToggle,
   saveMsg,
   scoringDone,
+  refining,
+  onRefine,
 }: {
   result: ScoredCandidate;
   rank: number;
@@ -599,6 +661,8 @@ function ScoredCard({
   onToggle: () => void;
   saveMsg?: string;
   scoringDone: boolean;
+  refining?: boolean;
+  onRefine?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -642,6 +706,34 @@ function ScoredCard({
             rank ~{result.rank} of {result.total}
           </span>
         </div>
+        {result.sourcing === "hybrid" ? (
+          <span
+            className="text-xs flex-shrink-0 hidden sm:inline"
+            style={{ color: "var(--color-sage)" }}
+            title="Grounded with reader reviews"
+          >
+            ✓ reviews
+          </span>
+        ) : refining ? (
+          <span
+            className="text-xs flex-shrink-0 animate-pulse"
+            style={{ color: "var(--color-muted)" }}
+          >
+            refining…
+          </span>
+        ) : result.hybrid_available && onRefine ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRefine();
+            }}
+            className="text-xs px-2 py-1 rounded-md flex-shrink-0"
+            style={{ border: "1px solid var(--color-rule)", color: "var(--color-sage)" }}
+            title="Ground this book's scores with reader reviews"
+          >
+            Refine
+          </button>
+        ) : null}
         <svg
           className="w-4 h-4 flex-shrink-0 transition-transform"
           style={{
