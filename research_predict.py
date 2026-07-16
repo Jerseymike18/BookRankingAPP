@@ -456,6 +456,15 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     # EXACT reference correction, full method.
     corrected = rm.correct_book(df2, len(df2) - 1, "author_genre")
     corrected = {c: float(v) for c, v in corrected.items()}
+    # Bound each corrected component to the definitional 0–10 component domain.
+    # The additive author+genre correction (rm.correct_book, unchanged) can lift an
+    # already-high raw score above 10 — e.g. a 9.6 Ending plus a positive correction —
+    # or push a low one below 0. A component is a 0–10 score by definition, and
+    # db_write validates 0–10, so an out-of-range value both misrepresents the score
+    # AND makes the book un-saveable. Clamp the correction's OUTPUT only (the
+    # correction math is untouched), before the WA roll-up so WA is a weighted
+    # average of valid components.
+    corrected = {c: min(10.0, max(0.0, v)) for c, v in corrected.items()}
 
     wa = _wa_from_components(corrected, genre, gw, gcw)
     # Word-count cold-start terminus term (default OFF; see
