@@ -132,7 +132,7 @@ class MemoryResearcher:
         return self._client
 
     def research(self, title, author, genre):
-        e = self.cache.get(title)
+        e = rl.cache_lookup(self.cache, title)
         if e and "scores" in e:
             return ({c: float(e["scores"][c]) for c in LIVE if c in e["scores"]},
                     e.get("conf", "cache"))
@@ -181,14 +181,24 @@ class WebGroundedResearcher:
         return self._client
 
     def research(self, title, author, genre):
-        e = self.cache.get(title)
+        e = rl.cache_lookup(self.cache, title)
         if e and "scores" in e and all(c in e["scores"] for c in LIVE):
             return ({c: float(e["scores"][c]) for c in LIVE},
                     e.get("conf", "cache"))
+        # Durable store before the ~38-110s web_search: a book grounded at runtime
+        # survives redeploys (the JSON write is ephemeral on Railway). One cheap read
+        # on a file miss only; best-effort so a DB hiccup never blocks grounding.
+        e = rp.db_cache_get(self.cache_path, title)
+        if e and "scores" in e and all(c in e["scores"] for c in LIVE):
+            self.cache[title] = e
+            return ({c: float(e["scores"][c]) for c in LIVE},
+                    e.get("conf", "cache"))
         scores, conf, sources = self._search_and_score(title, author, genre)
+        entry = {"scores": scores, "conf": conf, "sources": sources}
         with self._lock:
-            self.cache[title] = {"scores": scores, "conf": conf, "sources": sources}
+            self.cache[title] = entry
             rp.save_cache(self.cache, self.cache_path)
+        rp.db_cache_put(self.cache_path, title, entry)
         return scores, conf
 
     def _search_and_score(self, title, author, genre, max_continuations=6):

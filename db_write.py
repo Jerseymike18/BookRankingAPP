@@ -34,6 +34,7 @@ functions from other scripts / the future website.
 """
 
 import os
+import json
 import math
 import shutil
 import sqlite3
@@ -198,6 +199,71 @@ def _backup_once():
 
 def _connect():
     return db_backend.connect(DB)
+
+
+# ---------------------------------------------------------------------------
+# Durable research cache (global) — survives Railway redeploys
+# ---------------------------------------------------------------------------
+# The LLM research caches (llm_scores_richer.json / web_grounded_cache.json) are
+# title-keyed JSON files: git-committed as the warm SEED, but runtime writes land
+# on the container filesystem and are LOST on every redeploy (and not shared across
+# instances), so a book grounded on the live app is re-researched — a ~38-110s
+# web_search — after each deploy. This global table is the DURABLE store for
+# research produced at runtime. The serving path reads it ONLY on a file-cache miss
+# (one cheap read right before a multi-second LLM call, so the fast hit path is
+# untouched) and writes one row after researching. Global (no user_id) — the same
+# book has the same grounded facts for every tenant. NEVER purged. `cache_name` is
+# the source file's basename, so the base and grounded caches share one table;
+# `title_key` is caller-normalized (see research_predict.db_cache_*). Portable DDL /
+# UPSERT — runs on SQLite and Postgres alike.
+_research_cache_ensured = False
+
+
+def _ensure_research_cache():
+    global _research_cache_ensured
+    if _research_cache_ensured:
+        return
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS research_cache (
+            cache_name TEXT NOT NULL,
+            title_key  TEXT NOT NULL,
+            payload    TEXT NOT NULL,
+            updated_at TEXT,
+            PRIMARY KEY (cache_name, title_key)
+        )""")
+    con.commit()
+    con.close()
+    _research_cache_ensured = True
+
+
+def put_research_cache(cache_name, title_key, entry):
+    """UPSERT one research-cache entry durably. Idempotent per (cache_name,
+    title_key) so concurrent writers and repeated saves converge; the row is never
+    deleted. `entry` is the JSON-serialisable cache value ({"scores":..,"conf":..,
+    ...}). Callers wrap this best-effort so a DB hiccup never fails a prediction."""
+    _ensure_research_cache()
+    con = _connect()
+    con.execute(
+        "INSERT INTO research_cache (cache_name,title_key,payload,updated_at) "
+        "VALUES (?,?,?,?) ON CONFLICT(cache_name,title_key) "
+        "DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
+        (cache_name, title_key, json.dumps(entry),
+         dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
+    con.commit()
+    con.close()
+
+
+def get_research_cache(cache_name, title_key):
+    """Return one durable research-cache entry (dict) or None. Read-only; exact
+    match on the caller-normalized title_key."""
+    _ensure_research_cache()
+    con = _connect()
+    row = con.execute(
+        "SELECT payload FROM research_cache WHERE cache_name=? AND title_key=?",
+        (cache_name, title_key)).fetchone()
+    con.close()
+    return json.loads(row[0]) if row else None
 
 
 # ---------------------------------------------------------------------------

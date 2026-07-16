@@ -51,6 +51,44 @@ import anthropic
 import predict_engine as pe
 
 
+# ---------------------------------------------------------------------------
+# Research-cache key normalization (latency: avoid false cache misses)
+# ---------------------------------------------------------------------------
+# Every research cache (llm_scores_richer.json, web_grounded_cache.json) is keyed
+# by the bare book TITLE. A predicted/Discover-generated title that differs from a
+# cached key only by case or whitespace ("gardens of the moon", "Gardens of the
+# Moon ") was an exact-match MISS → a fresh ~6.8s (memory) / ~38–110s (web_search)
+# LLM call for a book already in the cache. cache_lookup adds a normalized fallback
+# so those hit. Deliberately GENTLE (case + whitespace only) — it does NOT strip
+# subtitles or series suffixes, which could conflate genuinely different books.
+def normalize_title(title):
+    """Canonical cache key: trimmed, lowercased, internal whitespace collapsed.
+    Empty string for a null/blank title. Pure; no dependencies."""
+    return " ".join(str(title).strip().lower().split()) if title else ""
+
+
+def cache_lookup(cache, title):
+    """Look a title up in a title-keyed research cache. Tries the exact key first
+    (the common fast path, O(1)), then falls back to a normalized match so a
+    case/whitespace variant still hits. Returns the cache entry or None; never
+    raises. The normalized scan is O(n) and runs ONLY on an exact miss — where the
+    caller is about to make a multi-second LLM call anyway, so it is free by
+    comparison. Callers keep their own entry validation (e.g. 'scores' present).
+
+    Writes still store under the caller's raw title (no key migration), so every
+    existing entry is preserved and no downstream reader that keys by the exact DB
+    title is affected."""
+    if title in cache:
+        return cache[title]
+    nt = normalize_title(title)
+    if not nt:
+        return None
+    for k, v in cache.items():
+        if normalize_title(k) == nt:
+            return v
+    return None
+
+
 def _extract_json(text: str):
     """Parse JSON from LLM output robustly.
 

@@ -94,6 +94,34 @@ def get_client(key_path="apikey.txt"):
     return anthropic.Anthropic(api_key=rl.load_key(key_path))
 
 
+# ---------------------------------------------------------------------------
+# Durable research cache (DB-backed; see db_write.research_cache)
+# ---------------------------------------------------------------------------
+# The title-keyed JSON caches are the warm SEED, but their runtime writes are
+# EPHEMERAL on Railway (container FS, lost per deploy). These best-effort wrappers
+# persist runtime research to the global research_cache table and read it back on a
+# file-cache MISS, so a book researched once survives redeploys/instances without a
+# repeat ~38-110s web_search. Best-effort BY DESIGN: any DB error is swallowed (the
+# prediction still succeeds from the in-memory/file cache). The key is normalized
+# (matches rl.cache_lookup) so case/whitespace variants share one durable row.
+def db_cache_get(cache_name, title):
+    """Durable-store lookup for a title; None on miss or any DB error."""
+    try:
+        import db_write
+        return db_write.get_research_cache(cache_name, rl.normalize_title(title))
+    except Exception:
+        return None
+
+
+def db_cache_put(cache_name, title, entry):
+    """Persist one research entry to the durable store; silent on any DB error."""
+    try:
+        import db_write
+        db_write.put_research_cache(cache_name, rl.normalize_title(title), entry)
+    except Exception:
+        pass
+
+
 def _normalize_keywords(raw):
     """Coerce a model's keyword output into the EXACT comma-separated, lowercase
     string format the existing 447 entries use (so the Read Queue keyword filter,
@@ -196,16 +224,29 @@ def research_book(title, author, genre, client, cache, allowed_genres=None):
     and adds it to `cache` in place so the book is never re-researched. Cache
     entries written by the batch reference script may predate the blurb/keywords/
     genre/words fields, so those default to empty/None."""
-    if title in cache:
-        e = cache[title]
+    # Exact-then-normalized lookup: a case/whitespace variant of a cached title
+    # still hits, avoiding a needless research call for an already-cached book.
+    e = rl.cache_lookup(cache, title)
+    if e is not None:
+        return (e["scores"], e.get("conf", "?"),
+                e.get("blurb", ""), e.get("keywords", ""),
+                e.get("genre") or genre, e.get("words"), True)
+    # Durable store: a book researched at runtime (persisted below) survives Railway
+    # redeploys even though the JSON file write does not. Consulted ONLY on a file
+    # miss — one cheap read before a multi-second LLM call — so the hit path is
+    # unchanged. Warm the in-memory cache so the rest of this process reuses it.
+    e = db_cache_get(CACHE, title)
+    if e is not None:
+        cache[title] = e
         return (e["scores"], e.get("conf", "?"),
                 e.get("blurb", ""), e.get("keywords", ""),
                 e.get("genre") or genre, e.get("words"), True)
     scores, conf, blurb, keywords, det_genre, words = research_rich_plus(
         client, title, author, genre, allowed_genres)
-    cache[title] = {"scores": scores, "conf": conf,
-                    "blurb": blurb, "keywords": keywords,
-                    "genre": det_genre or genre, "words": words}
+    entry = {"scores": scores, "conf": conf, "blurb": blurb, "keywords": keywords,
+             "genre": det_genre or genre, "words": words}
+    cache[title] = entry
+    db_cache_put(CACHE, title, entry)
     return scores, conf, blurb, keywords, det_genre or genre, words, False
 
 
