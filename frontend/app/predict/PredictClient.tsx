@@ -61,10 +61,12 @@ async function mapPool<T>(
 const REFINE_CONCURRENCY = 8;
 
 /* How many top candidates (by predicted WA) are grounded-refined automatically after
-   scoring. The rest refine ON DEMAND (per card, or "Refine all") so a large Discover
-   run doesn't fire a slow ~tens-of-seconds web_search for every candidate up front —
-   only for the handful the reader is most likely to care about. */
-const EAGER_REFINE_K = 3;
+   scoring. The rest refine ON DEMAND (per card, or "Refine all"). Raised to 10 to match
+   the opt-out save flow — the reader now keeps most candidates, so ground most of them
+   up front rather than leaving them base-only. Still capped so a max-size Discover run
+   (DISCOVER_MAX=15) doesn't fire a slow ~tens-of-seconds web_search for EVERY candidate;
+   the eager batch runs bounded at REFINE_CONCURRENCY and progressively (scores stream in). */
+const EAGER_REFINE_K = 10;
 
 /* Max recommendation saves in flight at once. Each /api/recommendations save is
    server-side ~2 LLM calls (series/ordinal lookup + rich house-style blurb,
