@@ -66,6 +66,14 @@ const REFINE_CONCURRENCY = 8;
    only for the handful the reader is most likely to care about. */
 const EAGER_REFINE_K = 3;
 
+/* Max recommendation saves in flight at once. Each /api/recommendations save is
+   server-side ~2 LLM calls (series/ordinal lookup + rich house-style blurb,
+   deferred from scoring so they're only paid for kept books), so saving a
+   multi-book selection one-at-a-time was the slowest step in the flow. Bounded
+   like REFINE_CONCURRENCY; the Anthropic SDK auto-retries 429s and each save is
+   reported per-book, so a burst can't corrupt the batch. */
+const SAVE_CONCURRENCY = 8;
+
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
 const CANDIDATE_COLS: ColDef<Candidate>[] = [
@@ -407,9 +415,13 @@ function DiscoverMode({
   async function handleSave() {
     if (toSave.size === 0) return;
     setSaving(true);
+    // Save the selected books with bounded concurrency instead of one-at-a-time:
+    // each save costs ~2 server-side LLM calls, so a sequential loop stacked that
+    // cost linearly. Distinct titles write distinct keys of `newResults`, so the
+    // concurrent writes don't race (single-threaded event loop, one key each).
+    const targets = okScored.filter((r) => toSave.has(r.title));
     const newResults: Record<string, string> = {};
-    for (const r of okScored) {
-      if (!toSave.has(r.title)) continue;
+    await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
       const flatScores: Record<string, number> = {};
       for (const comps of Object.values(r.components)) {
         for (const [comp, val] of Object.entries(comps)) {
@@ -430,7 +442,7 @@ function DiscoverMode({
       } catch (e: unknown) {
         newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
       }
-    }
+    });
     setSaveResults(newResults);
     setSaving(false);
     setToSave(new Set());
