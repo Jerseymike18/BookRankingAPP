@@ -324,13 +324,19 @@ invent titles or cite books not on this list):
 
 Write ONE blurb of about 3-5 sentences, plain prose (no markdown, no line
 breaks), following this exact four-beat structure:
-1. Positioning + plot hook: what the book is, its standing, and its core premise.
+1. Positioning + plot hook: what the book is and its core premise.
 2. "Closest analog: <Book A> for <specific reason> + <Book B> for <specific
    reason>." — both books MUST come from the reader's library above.
 3. A thematic line beginning "A meditation on" or "An exploration of".
 4. "Confidence caveat: <Component> (predicted <score>) is highest-risk — <one
    clause on why, with a plausible numeric range>." Pick the single component
    you are least certain about and justify it from the book's content.
+
+Describe the book QUALITATIVELY: do NOT state the overall weighted-average number,
+a numeric rank, or the book's position in the reader's library ("Nth of M", "ranks
+41st", "out of 129"). Those are shown as live, always-current fields elsewhere; a
+number frozen into the blurb goes stale as the library grows and must never reflect
+another reader's library. (Per-component predicted scores in beat 4 are fine.)
 
 Respond with ONLY a JSON object — no prose, no markdown:
 {{"blurb": "..."}}'''
