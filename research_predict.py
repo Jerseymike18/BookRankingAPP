@@ -196,8 +196,10 @@ def research_book(title, author, genre, client, cache, allowed_genres=None):
     and adds it to `cache` in place so the book is never re-researched. Cache
     entries written by the batch reference script may predate the blurb/keywords/
     genre/words fields, so those default to empty/None."""
-    if title in cache:
-        e = cache[title]
+    # Exact-then-normalized lookup: a case/whitespace variant of a cached title
+    # still hits, avoiding a needless research call for an already-cached book.
+    e = rl.cache_lookup(cache, title)
+    if e is not None:
         return (e["scores"], e.get("conf", "?"),
                 e.get("blurb", ""), e.get("keywords", ""),
                 e.get("genre") or genre, e.get("words"), True)

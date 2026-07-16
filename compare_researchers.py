@@ -132,7 +132,7 @@ class MemoryResearcher:
         return self._client
 
     def research(self, title, author, genre):
-        e = self.cache.get(title)
+        e = rl.cache_lookup(self.cache, title)
         if e and "scores" in e:
             return ({c: float(e["scores"][c]) for c in LIVE if c in e["scores"]},
                     e.get("conf", "cache"))
@@ -181,7 +181,7 @@ class WebGroundedResearcher:
         return self._client
 
     def research(self, title, author, genre):
-        e = self.cache.get(title)
+        e = rl.cache_lookup(self.cache, title)
         if e and "scores" in e and all(c in e["scores"] for c in LIVE):
             return ({c: float(e["scores"][c]) for c in LIVE},
                     e.get("conf", "cache"))
