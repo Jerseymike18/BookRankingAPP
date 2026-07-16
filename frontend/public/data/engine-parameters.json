@@ -7,7 +7,7 @@
     "fitted": true,
     "min_books_to_fit": 25,
     "n_books_fit": 129,
-    "slope_wa_per_dex": 1.0159
+    "slope_wa_per_dex": 1.0238
   },
   "correction": {
     "all_zero": true,
