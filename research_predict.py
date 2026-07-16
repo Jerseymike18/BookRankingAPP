@@ -357,7 +357,7 @@ def smooth_components(scores, models, blend=BLEND):
 def correct_and_predict(title, author, genre, scores, conf, resid_sd,
                         books, gw, gcw, cache, blurb="", keywords="",
                         corr_models=None, words=None, series_number=None,
-                        cold_term=None):
+                        cold_term=None, rank_pool=None):
     """
     Apply the validated AUTHOR+GENRE hierarchical correction (reference:
     reresearch_and_measure.correct_book, method "author_genre") to the researched
@@ -374,6 +374,15 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     Pipeline: research -> correlation-smooth (when corr_models given) -> author+
     genre correct. The smoothing is a validated preprocessing step that runs on
     the raw LLM scores BEFORE the unchanged correction below.
+
+    `rank_pool` (optional): the frame the reader-facing RANK, TOTAL, and grounding
+    counts (n_author / n_genre) are measured against — the reader's OWN rated
+    library. It is DISTINCT from `books` (the correction pool): a multi-tenant
+    cold-start reader borrows the seed's calibrated books for the correction VALUE,
+    but must never rank against them, or a fresh account sees "rank #2 of <seed
+    corpus>". Defaults to `books`, so single-pool callers (walk-forward,
+    test_engine) are byte-identical. The cold-start GATE still keys off the
+    correction pool, so prediction VALUES are unchanged regardless of rank_pool.
     """
     # NEW (preprocessing): correlation-smooth the raw LLM scores before correction.
     if corr_models is not None:
@@ -384,7 +393,10 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     # Never let the target train on itself (e.g. if you research a rated book).
     df = df[df["Book"] != title].reset_index(drop=True)
 
-    # How well-grounded the correction is (the UI reliability signal).
+    # Correction-pool grounding: how many analogs the CORRECTION trained on. This
+    # gates the cold-start term below (the correction is author-blind iff its pool
+    # holds no same-author book), so it stays on `books` — the (possibly
+    # seed-borrowed) correction pool — and prediction VALUES stay unchanged.
     n_genre = int((df["Genre"] == genre).sum())
     n_author = int((df["Author"] == author).sum())
 
@@ -409,11 +421,25 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
         wa = apply_cold_start_term(wa, words, series_number, author, cold_term)
     half = 1.645 * resid_sd
     ci = (wa - half, wa + half)
-    rank = int((books["WA"] > wa).sum() + 1)
+
+    # Reader-facing rank / total / grounding are scoped to `rank_pool` — the reader's
+    # OWN rated library — NOT the correction pool. For a multi-tenant cold-start
+    # reader the correction borrows the seed's calibrated books, but their predicted
+    # rank and "N books by this author" must reflect only what THEY have read.
+    # rank_pool defaults to `books`, so single-pool callers stay byte-identical.
+    if rank_pool is None:
+        rank_frame = books
+        disp_n_genre, disp_n_author = n_genre, n_author
+    else:
+        rank_frame = rank_pool
+        disp_n_genre = int((rank_frame["Genre"] == genre).sum())
+        disp_n_author = int((rank_frame["Author"] == author).sum())
+    rank = int((rank_frame["WA"] > wa).sum() + 1)
+    total = int(len(rank_frame))
     return {
         "title": title, "author": author, "genre": genre,
         "scores": corrected, "wa": wa, "ci": ci, "rank": rank,
-        "total": len(books), "n_genre": n_genre, "n_author": n_author,
+        "total": total, "n_genre": disp_n_genre, "n_author": disp_n_author,
         "conf": conf, "blurb": blurb, "keywords": keywords,
     }
 

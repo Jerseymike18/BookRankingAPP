@@ -1707,6 +1707,11 @@ def predict_research(req: ResearchRequest,
             corr_models=corr_models, words=words,
             cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                      user_md.get("fav_authors")),
+            # Rank / total / grounding counts scope to the tenant's OWN library
+            # (books_e), never the seed-borrowed correction pool (corr_pool). The
+            # correction VALUE still borrows the seed; only the display denominator
+            # changes — so a cold-start reader no longer sees "rank #2 of <seed>".
+            rank_pool=books_e,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Correction failed: {e}")
