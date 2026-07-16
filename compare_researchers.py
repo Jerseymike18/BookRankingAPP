@@ -128,7 +128,7 @@ class MemoryResearcher:
 
     def _client_lazy(self):
         if self._client is None:
-            self._client = anthropic.Anthropic(api_key=rl.load_key(self._key_path))
+            self._client = anthropic.Anthropic(api_key=rl.load_key(self._key_path), max_retries=rp.LLM_MAX_RETRIES)
         return self._client
 
     def research(self, title, author, genre):
@@ -177,7 +177,7 @@ class WebGroundedResearcher:
 
     def _client_lazy(self):
         if self._client is None:
-            self._client = anthropic.Anthropic(api_key=rl.load_key(self._key_path))
+            self._client = anthropic.Anthropic(api_key=rl.load_key(self._key_path), max_retries=rp.LLM_MAX_RETRIES)
         return self._client
 
     def research(self, title, author, genre):

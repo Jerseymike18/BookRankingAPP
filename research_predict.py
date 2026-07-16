@@ -54,6 +54,11 @@ DISCOVER_MAX = 15            # runaway guard when the candidate count is LLM-inf
 WELL_SAMPLED_GENRE = 5       # genre below this is flagged as lower-reliability grounding
 BLEND = 0.2                  # correlation-smoothing weight (validated winning variant)
 COLD_START_MIN_POOL = 25     # min word-counted books before the cold-start term is fit
+# Anthropic client retry budget (default is 2). The client auto-retries 429/529 and
+# 5xx with exponential backoff, honoring Retry-After; a higher budget absorbs the
+# extra rate-limit pressure from concurrent grounded refines (see the frontend's
+# REFINE_CONCURRENCY) so a transient 429 retries through instead of failing.
+LLM_MAX_RETRIES = 4
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +96,7 @@ def save_cache(cache, path=CACHE):
 
 def get_client(key_path="apikey.txt"):
     """Anthropic client for the richer-prompt researcher (raises if key missing)."""
-    return anthropic.Anthropic(api_key=rl.load_key(key_path))
+    return anthropic.Anthropic(api_key=rl.load_key(key_path), max_retries=LLM_MAX_RETRIES)
 
 
 def _normalize_keywords(raw):

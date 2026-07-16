@@ -53,8 +53,12 @@ async function mapPool<T>(
   );
 }
 
-/* Max grounded refines in flight at once (bounded to respect API rate limits). */
-const REFINE_CONCURRENCY = 4;
+/* Max grounded refines in flight at once. Raised from 4 to parallelize the
+   unavoidable grounding of a genuinely-new series; the Anthropic SDK auto-retries
+   429s with exponential backoff (honoring Retry-After), and a refine that still
+   fails degrades to its memory score (re-runnable via the per-card Refine button),
+   so a higher fan-out is safe. Bounded so a burst can't exhaust the rate limit. */
+const REFINE_CONCURRENCY = 8;
 
 /* How many top candidates (by predicted WA) are grounded-refined automatically after
    scoring. The rest refine ON DEMAND (per card, or "Refine all") so a large Discover
