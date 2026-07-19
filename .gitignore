@@ -18,6 +18,13 @@ BookRankingsNew.xlsx.backup-*
 # books.db at the project root). frontend/ never legitimately holds one.
 frontend/*.db
 
+# Stray `pip freeze` dumps into the backend dir. The canonical, deploy-used
+# dependency spec is the ROOT requirements.txt (Railway builds from it via the
+# Procfile); a backend/requirements.txt is always an accidental local freeze
+# (macOS file:// wheels, old Streamlit stack) — ignore so it can't be committed.
+# Path-anchored, so the tracked root requirements.txt is unaffected.
+backend/requirements.txt
+
 # Secrets / local env — Supabase DATABASE_URL lives here. NEVER commit.
 .env
 # Timestamped DB backups from the Postgres migration (bak.<ts>; distinct from backup-*)
