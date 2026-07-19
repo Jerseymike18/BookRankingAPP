@@ -560,6 +560,67 @@ def test_repredict_on_add():
         shutil.rmtree(tmpd, ignore_errors=True)
 
 
+def test_delta_log_view():
+    """Delta Log eligibility + dedup (delta_log_view.visible_rows).
+
+    Guards the two brief requirements as a pure-logic regression:
+      1. only genuinely-FINISHED books appear, and a `baseline_repredict:*`
+         re-prediction audit row NEVER appears (even once its book is read);
+      2. each book shows at most one row, preferring live > backfill > retro.
+    Frozen-pred is structural: visible_rows passes pred_* through untouched."""
+    import delta_log_view as dlv
+    import db_write
+    MARK = db_write.DELTA_BACKFILL_MARKER
+    finished = {"lord of emperors", "tigana", "the name of the wind"}
+
+    rows = [
+        # unread same-author peer re-predicted on an add — must be hidden
+        {"id": 10, "title": "Under Heaven", "logged_at": "2026-07-11T00:00:00Z",
+         "tag": "baseline_repredict:Lord of Emperors", "pred_wa": 8.0, "act_wa": 8.2},
+        # untagged row for an unread book (legacy anomaly) — must be hidden
+        {"id": 11, "title": "A Song for Arbonne", "logged_at": "2026-07-04T00:00:00Z",
+         "tag": None, "pred_wa": 7.0, "act_wa": 5.0},
+        # genuine live pred-vs-actual for a finished book — must be shown
+        {"id": 12, "title": "Lord of Emperors", "logged_at": "2026-07-15T00:00:00Z",
+         "tag": None, "pred_wa": 8.1, "act_wa": 8.4},
+        # finished book with a retro row AND a live row — dedup keeps the live one
+        {"id": 13, "title": "The Name of the Wind", "logged_at": MARK,
+         "tag": "retro_sweep_v1_shrunk", "pred_wa": 6.5, "act_wa": 6.9},
+        {"id": 14, "title": "The Name of the Wind", "logged_at": "2026-07-16T00:00:00Z",
+         "tag": None, "pred_wa": 6.6, "act_wa": 6.9},
+        # finished book with only a workbook-backfill row — shown (best available)
+        {"id": 15, "title": "Tigana", "logged_at": MARK,
+         "tag": None, "pred_wa": 7.8, "act_wa": 7.5},
+        # a STALE baseline_repredict row for a NOW-finished book — still hidden
+        {"id": 16, "title": "Tigana", "logged_at": "2026-07-10T00:00:00Z",
+         "tag": "baseline_repredict:Some Trigger", "pred_wa": 9.9, "act_wa": 1.1},
+    ]
+
+    shown = dlv.visible_rows(rows, finished, MARK)
+    titles = [e["title"] for e in shown]
+    by_id = {e["id"] for e in shown}
+
+    check("delta-log view: unread books excluded (Under Heaven / A Song for Arbonne gone)",
+          "Under Heaven" not in titles and "A Song for Arbonne" not in titles,
+          f"shown={titles}")
+    check("delta-log view: genuinely-read book shown (Lord of Emperors present)",
+          "Lord of Emperors" in titles, f"shown={titles}")
+    check("delta-log view: no baseline_repredict row survives (even when book is now read)",
+          16 not in by_id and 10 not in by_id, f"ids shown={sorted(by_id)}")
+    check("delta-log view: one row per book, live preferred over retro (Name of the Wind -> id 14)",
+          titles.count("The Name of the Wind") == 1 and 14 in by_id and 13 not in by_id,
+          f"ids shown={sorted(by_id)}")
+    check("delta-log view: Tigana shows its genuine backfill row, not its stale repredict row",
+          titles.count("Tigana") == 1 and 15 in by_id,
+          f"ids shown={sorted(by_id)}")
+    check("delta-log view: frozen pred passed through unchanged (no recompute)",
+          next(e for e in shown if e["id"] == 12)["pred_wa"] == 8.1,
+          "pred_wa for id 12 preserved")
+    check("delta-log view: newest-first ordering preserved",
+          [e["id"] for e in shown] == sorted((e["id"] for e in shown), reverse=True),
+          f"ids={[e['id'] for e in shown]}")
+
+
 def main():
     print("=" * 60)
     print("ENGINE TEST SUITE")
@@ -573,6 +634,7 @@ def main():
     test_analog_shrinkage()
     test_conformal_intervals()
     test_repredict_on_add()
+    test_delta_log_view()
 
     passed = sum(1 for _, ok, _ in _results if ok)
     total = len(_results)

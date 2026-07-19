@@ -60,6 +60,7 @@ import auth
 import signup as signup_mod
 import track_record as tr
 import engine_parameters as ep
+import delta_log_view
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -3029,7 +3030,14 @@ def get_engine_parameters():
 
 @app.get("/api/delta-log")
 def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
-    """Return all recorded prediction-vs-actual deltas, newest first."""
+    """Prediction-vs-actual deltas for genuinely-read books, newest first.
+
+    Shows one row per book the tenant has actually FINISHED
+    (`books.status='finished'`), excluding `repredict_on_add` audit rows (whose
+    "actual" is a re-prediction, not a rating) and collapsing duplicate history
+    rows to the most authoritative one. See delta_log_view.visible_rows. The
+    displayed `pred_*` is the frozen value stored at log time — never recomputed
+    here, so it does not move when the engine is retrained or reweighted."""
     COMPS = db_write.FICTION_COMPONENTS
 
     def _col(c: str) -> str:
@@ -3038,26 +3046,45 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     pred_cols = [f'"pred_{_col(c)}" as "pred_{_col(c)}"' for c in COMPS]
     act_cols  = [f'"act_{_col(c)}"  as "act_{_col(c)}"'  for c in COMPS]
     d_cols    = [f'"d_{_col(c)}"    as "d_{_col(c)}"'    for c in COMPS]
-    sel = ", ".join(
-        ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
-        + pred_cols + act_cols + d_cols
-    )
+    base_cols = ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+    # `tag` is fetched only to classify rows (genuine vs re-prediction audit, and
+    # backfill vs retro_sweep for dedup); it is stripped before the response.
+    sel = ", ".join(base_cols + pred_cols + act_cols + d_cols + ["tag"])
     con = db_backend.connect(db_write.DB)
     rows = con.execute(
         f"SELECT {sel} FROM delta_log WHERE user_id=? ORDER BY id DESC",
         (user_id,)
     ).fetchall()
+    # Authoritative "genuinely finished and rated" set for this tenant. The Delta
+    # Log is a historical accuracy record, so eligibility keys off the explicit
+    # read state — not merely "an act_* value exists" (repredict/backfill rows
+    # carry those too).
+    finished = {
+        (t or "").strip().lower()
+        for (t,) in con.execute(
+            "SELECT title FROM books WHERE user_id=? AND status=?",
+            (user_id, "finished")
+        ).fetchall()
+    }
+    con.close()
+
     col_names = (
-        ["id", "title", "logged_at", "pred_wa", "act_wa", "d_wa"]
+        base_cols
         + [f"pred_{_col(c)}" for c in COMPS]
         + [f"act_{_col(c)}"  for c in COMPS]
         + [f"d_{_col(c)}"    for c in COMPS]
+        + ["tag"]
     )
-    con.close()
 
     entries = [dict(zip(col_names, r)) for r in rows]
+    # Requirement 1 (only genuinely-read books, never a re-prediction audit row)
+    # + dedup to one authoritative row per book. Pure, unit-tested: delta_log_view.
+    entries = delta_log_view.visible_rows(
+        entries, finished, db_write.DELTA_BACKFILL_MARKER)
+    for e in entries:
+        e.pop("tag", None)   # internal classifier; not part of the response
 
-    # Per-component mean delta across all logged entries (predictive drift)
+    # Per-component mean delta across the shown (genuine, deduped) entries
     drift: dict = {}
     for c in COMPS:
         vals = [e[f"d_{_col(c)}"] for e in entries if e.get(f"d_{_col(c)}") is not None]
