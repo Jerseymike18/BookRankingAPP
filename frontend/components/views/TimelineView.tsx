@@ -24,12 +24,14 @@ function BarChart({
   color = "var(--color-sage)",
   barW = 40,
   gap = 12,
+  fmt,
 }: {
   bars: Bar[];
   label: string;
   color?: string;
   barW?: number;
   gap?: number;
+  fmt?: (v: number) => string;
 }) {
   const values = bars.map((b) => b.value);
   const max = Math.max(...values, 1);
@@ -68,7 +70,7 @@ function BarChart({
                   fontSize={11}
                   fill="var(--color-muted)"
                 >
-                  {Number.isInteger(val) ? val : val.toFixed(1)}
+                  {fmt ? fmt(val) : Number.isInteger(val) ? val : val.toFixed(1)}
                 </text>
                 <text
                   x={x + barW / 2}
@@ -99,10 +101,20 @@ const CAT_COLORS: Record<string, string> = {
   Quality:      "#4A7C59",  // nonfiction
 };
 
-function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: string[] }) {
-  if (rows.length < 2) return null;
+type LinePoint = { label: string; [key: string]: number | string | null };
 
-  const w = Math.max(500, rows.length * 80);
+function LineChart({
+  points,
+  categories,
+  title,
+}: {
+  points: LinePoint[];
+  categories: string[];
+  title: string;
+}) {
+  if (points.length < 2) return null;
+
+  const w = Math.max(500, points.length * 80);
   const h = 140;
   const padL = 36;
   const padR = 16;
@@ -112,13 +124,13 @@ function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: stri
   const plotH = h - padT - padB;
 
   const allVals = categories.flatMap((cat) =>
-    rows.map((r) => (r[cat.toLowerCase() as keyof TimelineRow] as number | null) ?? null)
+    points.map((p) => (p[cat.toLowerCase()] as number | null) ?? null)
   ).filter((v): v is number => v !== null);
   const minV = Math.min(...allVals, 0);
   const maxV = Math.max(...allVals, 10);
 
   function xOf(i: number) {
-    return padL + (i / (rows.length - 1)) * plotW;
+    return padL + (i / (points.length - 1)) * plotW;
   }
   function yOf(v: number) {
     return padT + ((maxV - v) / (maxV - minV)) * plotH;
@@ -130,7 +142,7 @@ function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: stri
         className="font-display font-semibold text-base mb-3"
         style={{ color: "var(--color-ink)" }}
       >
-        Category averages per year
+        {title}
       </h3>
       {/* Legend */}
       <div className="flex flex-wrap gap-3 mb-3">
@@ -162,10 +174,10 @@ function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: stri
 
           {/* Category lines */}
           {categories.map((cat) => {
-            const key = cat.toLowerCase() as keyof TimelineRow;
-            const pts = rows
-              .map((r, i) => {
-                const v = r[key] as number | null;
+            const key = cat.toLowerCase();
+            const pts = points
+              .map((p, i) => {
+                const v = p[key] as number | null;
                 return v != null ? `${xOf(i)},${yOf(v)}` : null;
               })
               .filter(Boolean);
@@ -184,16 +196,16 @@ function LineChart({ rows, categories }: { rows: TimelineRow[]; categories: stri
           })}
 
           {/* X labels */}
-          {rows.map((r, i) => (
+          {points.map((p, i) => (
             <text
-              key={r.year}
+              key={`${p.label}-${i}`}
               x={xOf(i)}
               y={h - 4}
               textAnchor="middle"
               fontSize={10}
               fill="var(--color-faint)"
             >
-              {r.year}
+              {p.label}
             </text>
           ))}
         </svg>
@@ -264,8 +276,15 @@ function fmtWords(w: number | null): string {
   return `${w}`;
 }
 
+function num(v: number | string | null | undefined): string {
+  return typeof v === "number" ? v.toFixed(2) : "—";
+}
+
 function MonthlyTable({ months, categories }: { months: TimelineMonthRow[]; categories: string[] }) {
-  const headers = ["Month", "Books", "Avg WA", ...categories, "Avg Words"];
+  const headers = [
+    "Month", "Books", "Total Words", "Avg Words", "Avg WA", "Total Avg",
+    ...categories, "Standout",
+  ];
   // Newest month first (data arrives oldest→newest).
   const rows = [...months].reverse();
   return (
@@ -286,23 +305,24 @@ function MonthlyTable({ months, categories }: { months: TimelineMonthRow[]; cate
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => {
-              const catVals = categories.map((cat) => {
-                const v = r[cat.toLowerCase()] as number | null;
-                return v?.toFixed(2) ?? "—";
-              });
-              return (
-                <tr key={`${r.year}-${r.month}`} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
-                  <td className="px-3 py-2.5 font-semibold whitespace-nowrap" style={{ color: "var(--color-ink)" }}>{monthLabel(r)}</td>
-                  <td className="px-3 py-2.5" style={{ color: "var(--color-ink)" }}>{r.books}</td>
-                  <td className="px-3 py-2.5" style={{ color: "var(--color-sage)", fontWeight: 600 }}>{r.avg_wa?.toFixed(2) ?? "—"}</td>
-                  {catVals.map((v, j) => (
-                    <td key={j} className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{v}</td>
-                  ))}
-                  <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{fmtWords(r.avg_words)}</td>
-                </tr>
-              );
-            })}
+            {rows.map((r, i) => (
+              <tr key={`${r.year}-${r.month}`} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
+                <td className="px-3 py-2.5 font-semibold whitespace-nowrap" style={{ color: "var(--color-ink)" }}>{monthLabel(r)}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-ink)" }}>{r.books}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{fmtWords(r.total_words)}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{fmtWords(r.avg_words)}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-sage)", fontWeight: 600 }}>{num(r.avg_wa)}</td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{num(r.avg_total_average)}</td>
+                {categories.map((cat) => (
+                  <td key={cat} className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{num(r[cat.toLowerCase()])}</td>
+                ))}
+                <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: "var(--color-ink)" }}>
+                  {typeof r.top_book === "string"
+                    ? <>{r.top_book}{typeof r.top_wa === "number" && <span style={{ color: "var(--color-sage)" }}> {r.top_wa.toFixed(1)}</span>}</>
+                    : "—"}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -335,6 +355,7 @@ export default function TimelineView({
   const totalBooks = data.rows.reduce((s, r) => s + r.books, 0);
   const months = data.months ?? [];
   const hasMonths = months.length > 0;
+  const monthsHaveWords = months.some((m) => m.total_words != null);
 
   return (
     <div>
@@ -357,14 +378,18 @@ export default function TimelineView({
       <TimelineTable rows={data.rows} categories={data.categories} />
       <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.books }))} label="Books per year" />
       <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.avg_wa ?? 0 }))} label="Average WA per year" color="var(--color-sage)" />
-      <LineChart rows={data.rows} categories={data.categories} />
+      <LineChart
+        points={data.rows.map((r) => ({ ...r, label: String(r.year) }))}
+        categories={data.categories}
+        title="Category averages per year"
+      />
 
       {/* By month */}
-      {hasMonths && (
+      <h2 className="font-display text-xl font-semibold mb-1 mt-12" style={{ color: "var(--color-ink)" }}>
+        By month
+      </h2>
+      {hasMonths ? (
         <>
-          <h2 className="font-display text-xl font-semibold mb-1 mt-12" style={{ color: "var(--color-ink)" }}>
-            By month
-          </h2>
           <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
             {months.length} month{months.length !== 1 ? "s" : ""} with a recorded read date · newest first
           </p>
@@ -375,6 +400,16 @@ export default function TimelineView({
             barW={34}
             gap={16}
           />
+          {monthsHaveWords && (
+            <BarChart
+              bars={months.map((m) => ({ label: monthAxis(m), value: m.total_words ?? 0 }))}
+              label="Words read per month"
+              color="var(--color-spine-b)"
+              barW={34}
+              gap={16}
+              fmt={fmtWords}
+            />
+          )}
           <BarChart
             bars={months.map((m) => ({ label: monthAxis(m), value: m.avg_wa ?? 0 }))}
             label="Average WA per month"
@@ -382,7 +417,17 @@ export default function TimelineView({
             barW={34}
             gap={16}
           />
+          <LineChart
+            points={months.map((m) => ({ ...m, label: monthAxis(m) }))}
+            categories={data.categories}
+            title="Category averages per month"
+          />
         </>
+      ) : (
+        <p className="text-sm mt-1" style={{ color: "var(--color-muted)" }}>
+          No month-level read dates recorded yet — the by-month breakdown appears once
+          books have a read month.
+        </p>
       )}
     </div>
   );

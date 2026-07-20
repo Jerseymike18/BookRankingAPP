@@ -314,15 +314,23 @@ export interface TimelineRow {
   [cat: string]: number | null;
 }
 
-// One (year, month) bucket of the by-month breakdown. Same shape as TimelineRow
-// plus an explicit 1-12 month. Only books with a backfilled read_month appear.
+// One (year, month) bucket of the by-month breakdown. Only books with a
+// backfilled read_month appear. Carries the full set of monthly reading stats.
 export interface TimelineMonthRow {
   year: number;
   month: number; // 1-12
   books: number;
-  avg_wa: number | null;
+  total_words: number | null;
   avg_words: number | null;
-  [cat: string]: number | null;
+  avg_wa: number | null;
+  avg_total_average: number | null;
+  genres: number | null;   // distinct genres read that month
+  authors: number | null;  // distinct authors read that month
+  top_book: string | null;  // highest-WA book that month
+  top_wa: number | null;
+  // Category averages keyed by lowercased category name (story/character/… or
+  // quality/aesthetics/theme). String index covers top_book too.
+  [key: string]: number | string | null;
 }
 
 export interface TimelineResponse {

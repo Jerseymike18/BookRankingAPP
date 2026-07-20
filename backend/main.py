@@ -2165,6 +2165,7 @@ def get_timeline(user_id: str = Depends(auth.get_current_user_id)):
         books,
         _read_month_map(user_id, "books"),
         views_mod.category_average,
+        views_mod.total_average,
         views_mod._category_components(books),
         views_mod.CATEGORY_ORDER,
     )
@@ -2332,6 +2333,7 @@ def get_nf_timeline(user_id: str = Depends(auth.get_current_user_id)):
         books,
         _read_month_map(user_id, "nonfiction_books"),
         nfe.category_average,
+        nfe.total_average,
         nfe._category_components(books),
         cats,
     )
