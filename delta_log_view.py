@@ -76,7 +76,7 @@ def _priority(entry, backfill_marker):
     return _PRIORITY_LIVE
 
 
-def visible_rows(entries, finished_titles, backfill_marker):
+def visible_rows(entries, finished_titles, backfill_marker, read_order=None):
     """Filter + dedup delta_log rows for the Delta Log page.
 
     entries: list of row dicts, each with at least ``id``, ``title``,
@@ -86,8 +86,16 @@ def visible_rows(entries, finished_titles, backfill_marker):
              has finished (``books.status = 'finished'``).
     backfill_marker: the ``logged_at`` sentinel stamped on workbook-backfill rows
              (``db_write.DELTA_BACKFILL_MARKER``); may be None.
+    read_order: optional ``{normalized-title: (year, month)}`` map of each book's
+             read date. When given, the returned rows are ordered by reading
+             chronology — LEAST-recently-read first, most-recently-read last —
+             so the page reads oldest→newest. A book with an unknown month sorts
+             after the dated books of its year; a book with no read date at all
+             sorts last. When ``read_order`` is None, rows fall back to
+             newest-logged-first (by ``id`` descending). The dedup below is
+             independent of this ordering.
 
-    Returns the rows to display, newest-first, at most one per book.
+    Returns the rows to display, at most one per book, in the order above.
     """
     finished = set(finished_titles or ())
     best = {}
@@ -104,4 +112,19 @@ def visible_rows(entries, finished_titles, backfill_marker):
             < (_priority(cur, backfill_marker), -(cur.get("id") or 0))
         ):
             best[key] = e
-    return sorted(best.values(), key=lambda e: (e.get("id") or 0), reverse=True)
+    rows = list(best.values())
+    if read_order is None:
+        # Legacy default: newest-logged first.
+        return sorted(rows, key=lambda e: (e.get("id") or 0), reverse=True)
+    # Chronological: least-recently-read → most-recently-read. Missing month sorts
+    # after its year's dated books (13); missing date sorts last (9999). id is a
+    # stable within-month tiebreak (ascending ≈ insertion order).
+    def _chrono_key(e):
+        ym = read_order.get(_norm(e.get("title")))
+        if not ym:
+            return (9999, 13, e.get("id") or 0)
+        year, month = ym
+        return (year if year is not None else 9999,
+                month if month is not None else 13,
+                e.get("id") or 0)
+    return sorted(rows, key=_chrono_key)

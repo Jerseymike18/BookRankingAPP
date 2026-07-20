@@ -61,6 +61,7 @@ import signup as signup_mod
 import track_record as tr
 import engine_parameters as ep
 import delta_log_view
+import timeline_month
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -413,6 +414,22 @@ def _clean(val):
     except TypeError:
         pass
     return val
+
+
+def _read_month_map(user_id, table):
+    """{normalized-title: read_month(1-12)} for one tenant + table, for the
+    by-month Timeline. Reads directly (a read, not a write); titles with a NULL
+    read_month are omitted. `table` is a trusted internal literal
+    ('books' | 'nonfiction_books'), never user input."""
+    con = db_backend.connect(db_write.DB)
+    rows = con.execute(
+        f"SELECT title, read_month FROM {table} WHERE user_id=?", (user_id,)
+    ).fetchall()
+    con.close()
+    return {
+        (t or "").strip().lower(): int(m)
+        for (t, m) in rows if m is not None
+    }
 
 
 def _norm_snum(num):
@@ -2124,13 +2141,15 @@ def get_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
 
 @app.get("/api/timeline")
 def get_timeline(user_id: str = Depends(auth.get_current_user_id)):
-    """Per-year reading timeline: book count, avg WA, five category averages."""
+    """Reading timeline: per-year AND per-month book count, avg WA, five category
+    averages, avg words. The per-month breakdown covers books with a read_month;
+    year-only books still appear in the per-year rows."""
     books = _get_engine(user_id)[0]
     if len(books) == 0:  # brand-new tenant: views_mod.timeline indexes 'Year'
-        return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
+        return {"rows": [], "months": [], "categories": views_mod.CATEGORY_ORDER}
     tl = views_mod.timeline(books)
     if tl.empty:
-        return {"rows": [], "categories": views_mod.CATEGORY_ORDER}
+        return {"rows": [], "months": [], "categories": views_mod.CATEGORY_ORDER}
     rows = []
     for _, row in tl.iterrows():
         rec = {
@@ -2142,7 +2161,14 @@ def get_timeline(user_id: str = Depends(auth.get_current_user_id)):
         for cat in views_mod.CATEGORY_ORDER:
             rec[cat.lower()] = _clean(round(float(row[cat]), 2)) if row[cat] == row[cat] else None
         rows.append(rec)
-    return {"rows": rows, "categories": views_mod.CATEGORY_ORDER}
+    months = timeline_month.by_month(
+        books,
+        _read_month_map(user_id, "books"),
+        views_mod.category_average,
+        views_mod._category_components(books),
+        views_mod.CATEGORY_ORDER,
+    )
+    return {"rows": rows, "months": months, "categories": views_mod.CATEGORY_ORDER}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -2282,15 +2308,15 @@ def get_nf_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
 
 @app.get("/api/nonfiction/timeline")
 def get_nf_timeline(user_id: str = Depends(auth.get_current_user_id)):
-    """Per-year nonfiction timeline (Quality/Aesthetics/Theme). Normally empty —
-    the migrated nonfiction books have no year_read."""
+    """Per-year AND per-month nonfiction timeline (Quality/Aesthetics/Theme). The
+    per-month breakdown covers nonfiction books with a read_month."""
     books = _get_nf_engine(user_id)[0]
     cats = list(NF_CAT_ORDER)
     if len(books) == 0:  # brand-new tenant: nfe.timeline indexes 'Year'
-        return {"rows": [], "categories": cats}
+        return {"rows": [], "months": [], "categories": cats}
     tl = nfe.timeline(books)
     if tl.empty:
-        return {"rows": [], "categories": cats}
+        return {"rows": [], "months": [], "categories": cats}
     rows = []
     for _, row in tl.iterrows():
         rec = {
@@ -2302,7 +2328,14 @@ def get_nf_timeline(user_id: str = Depends(auth.get_current_user_id)):
         for cat in cats:
             rec[cat.lower()] = _clean(round(float(row[cat]), 2)) if row[cat] == row[cat] else None
         rows.append(rec)
-    return {"rows": rows, "categories": cats}
+    months = timeline_month.by_month(
+        books,
+        _read_month_map(user_id, "nonfiction_books"),
+        nfe.category_average,
+        nfe._category_components(books),
+        cats,
+    )
+    return {"rows": rows, "months": months, "categories": cats}
 
 
 @app.get("/api/nonfiction/reading/stats")
@@ -3030,7 +3063,8 @@ def get_engine_parameters():
 
 @app.get("/api/delta-log")
 def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
-    """Prediction-vs-actual deltas for genuinely-read books, newest first.
+    """Prediction-vs-actual deltas for genuinely-read books, in reading order
+    (least-recently-read first → most-recently-read last, by year_read+read_month).
 
     Shows one row per book the tenant has actually FINISHED
     (`books.status='finished'`), excluding `repredict_on_add` audit rows (whose
@@ -3055,17 +3089,20 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
         f"SELECT {sel} FROM delta_log WHERE user_id=? ORDER BY id DESC",
         (user_id,)
     ).fetchall()
-    # Authoritative "genuinely finished and rated" set for this tenant. The Delta
-    # Log is a historical accuracy record, so eligibility keys off the explicit
-    # read state — not merely "an act_* value exists" (repredict/backfill rows
-    # carry those too).
-    finished = {
-        (t or "").strip().lower()
-        for (t,) in con.execute(
-            "SELECT title FROM books WHERE user_id=? AND status=?",
-            (user_id, "finished")
-        ).fetchall()
-    }
+    # Authoritative "genuinely finished and rated" set for this tenant, plus each
+    # book's (year_read, read_month) so the page can order oldest-read → newest.
+    # The Delta Log is a historical accuracy record, so eligibility keys off the
+    # explicit read state — not merely "an act_* value exists" (repredict/backfill
+    # rows carry those too).
+    finished = set()
+    read_order: dict = {}
+    for (t, yr, mo) in con.execute(
+        "SELECT title, year_read, read_month FROM books WHERE user_id=? AND status=?",
+        (user_id, "finished")
+    ).fetchall():
+        key = (t or "").strip().lower()
+        finished.add(key)
+        read_order[key] = (yr, mo)
     con.close()
 
     col_names = (
@@ -3078,11 +3115,17 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
 
     entries = [dict(zip(col_names, r)) for r in rows]
     # Requirement 1 (only genuinely-read books, never a re-prediction audit row)
-    # + dedup to one authoritative row per book. Pure, unit-tested: delta_log_view.
+    # + dedup to one authoritative row per book, ordered oldest-read → newest via
+    # read_order. Pure, unit-tested: delta_log_view.
     entries = delta_log_view.visible_rows(
-        entries, finished, db_write.DELTA_BACKFILL_MARKER)
+        entries, finished, db_write.DELTA_BACKFILL_MARKER, read_order=read_order)
     for e in entries:
         e.pop("tag", None)   # internal classifier; not part of the response
+        # Read date (drives the display + the ordering); logged_at is the forecast
+        # capture time, which for backfilled rows is a bulk marker, not the read day.
+        yr, mo = read_order.get((e.get("title") or "").strip().lower(), (None, None))
+        e["read_year"] = yr
+        e["read_month"] = mo
 
     # Per-component mean delta across the shown (genuine, deduped) entries
     drift: dict = {}

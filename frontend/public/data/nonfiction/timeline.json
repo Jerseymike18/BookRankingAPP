@@ -4,6 +4,58 @@
     "Aesthetics",
     "Theme"
   ],
+  "months": [
+    {
+      "aesthetics": 6.9,
+      "avg_wa": 6.35,
+      "avg_words": null,
+      "books": 1,
+      "month": 6,
+      "quality": 6.77,
+      "theme": 5.5,
+      "year": 2025
+    },
+    {
+      "aesthetics": 7.65,
+      "avg_wa": 8.16,
+      "avg_words": null,
+      "books": 1,
+      "month": 8,
+      "quality": 8.17,
+      "theme": 8.43,
+      "year": 2025
+    },
+    {
+      "aesthetics": 7.4,
+      "avg_wa": 7.84,
+      "avg_words": null,
+      "books": 1,
+      "month": 1,
+      "quality": 7.07,
+      "theme": 9.1,
+      "year": 2026
+    },
+    {
+      "aesthetics": 7.45,
+      "avg_wa": 5.61,
+      "avg_words": null,
+      "books": 1,
+      "month": 3,
+      "quality": 4.13,
+      "theme": 6.47,
+      "year": 2026
+    },
+    {
+      "aesthetics": 8.1,
+      "avg_wa": 8.0,
+      "avg_words": null,
+      "books": 1,
+      "month": 4,
+      "quality": 6.97,
+      "theme": 9.27,
+      "year": 2026
+    }
+  ],
   "rows": [
     {
       "aesthetics": 7.27,

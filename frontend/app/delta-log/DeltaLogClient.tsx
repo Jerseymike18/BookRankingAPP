@@ -4,8 +4,19 @@ import { useState, useEffect } from "react";
 import { fetchDeltaLog } from "@/lib/api";
 import type { DeltaLogResponse, DeltaLogEntry } from "@/lib/types";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 function col(comp: string): string {
   return comp.replace(/ /g, "_").replace(/-/g, "_");
+}
+
+/** "read Jul 2026" from the book's read date, falling back to the log date. */
+function readWhen(entry: DeltaLogEntry): string {
+  if (entry.read_year != null && entry.read_month != null) {
+    return `read ${MONTHS[entry.read_month - 1] ?? entry.read_month} ${entry.read_year}`;
+  }
+  if (entry.read_year != null) return `read ${entry.read_year}`;
+  return `logged ${entry.logged_at.slice(0, 10)}`;
 }
 
 function sign(v: number | null): string {
@@ -71,7 +82,6 @@ function EntryCard({
   components: string[];
 }) {
   const [open, setOpen] = useState(false);
-  const date = entry.logged_at.slice(0, 10);
 
   return (
     <div
@@ -85,7 +95,7 @@ function EntryCard({
             {entry.title}
           </p>
           <p className="text-xs mt-0.5" style={{ color: "var(--color-faint)" }}>
-            logged {date}
+            {readWhen(entry)}
           </p>
         </div>
 
@@ -177,7 +187,8 @@ export default function DeltaLogClient() {
         Delta Log
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--color-muted)" }}>
-        Prediction accuracy for books that had a stored forecast before being rated.
+        Prediction accuracy for books that had a stored forecast before being rated,
+        in reading order — oldest read first, most recent last.
         Delta = predicted − actual; positive means the model over-predicted.
       </p>
 

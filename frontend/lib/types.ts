@@ -314,8 +314,20 @@ export interface TimelineRow {
   [cat: string]: number | null;
 }
 
+// One (year, month) bucket of the by-month breakdown. Same shape as TimelineRow
+// plus an explicit 1-12 month. Only books with a backfilled read_month appear.
+export interface TimelineMonthRow {
+  year: number;
+  month: number; // 1-12
+  books: number;
+  avg_wa: number | null;
+  avg_words: number | null;
+  [cat: string]: number | null;
+}
+
 export interface TimelineResponse {
   rows: TimelineRow[];
+  months: TimelineMonthRow[];
   categories: string[];
 }
 
@@ -323,6 +335,8 @@ export interface DeltaLogEntry {
   id: number;
   title: string;
   logged_at: string;
+  read_year: number | null;
+  read_month: number | null; // 1-12
   pred_wa: number | null;
   act_wa: number | null;
   d_wa: number | null;

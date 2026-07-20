@@ -97,6 +97,28 @@ def _ensure_series_number():
 
 
 # ---------------------------------------------------------------------------
+# Schema migration: read_month column (2026-07). Optional 1-12 month a book was
+# read, complementing the year-only year_read, so the reading log can be ordered
+# and bucketed by month (Delta Log chronological order + by-month Timeline). It
+# is a plain nullable passthrough — the read-only engine ignores it; only the
+# reading-log/timeline views read it. Self-migrating on both SQLite and Postgres
+# (ALTER-if-missing at import), leaving every historical row NULL until backfilled.
+# NOTE: this must be called AFTER _ensure_nonfiction_schema() so nonfiction_books
+# already exists — see the call site at the bottom of this module.
+# ---------------------------------------------------------------------------
+def _ensure_read_month():
+    """Add read_month INTEGER (1-12, nullable) to books and nonfiction_books if
+    absent. Skips a table that does not exist yet (empty column set)."""
+    con = _connect()
+    for tbl in ("books", "nonfiction_books"):
+        cols = set(db_backend.table_columns(con, tbl))
+        if cols and "read_month" not in cols:
+            con.execute(f"ALTER TABLE {tbl} ADD COLUMN read_month INTEGER")
+    con.commit()
+    con.close()
+
+
+# ---------------------------------------------------------------------------
 # Research model that produces predictions (Opus-era). Kept in sync with
 # research_layer.MODEL — the canonical research-pipeline constant (CLAUDE.md:
 # "single named constant per pipeline"). Stamped onto every live delta_log row
@@ -973,6 +995,33 @@ def set_year_read(title, year, user_id=None):
         con.close()
 
 
+def set_read_month(title, month, user_id=None):
+    """Set/edit the month (1-12, or None to clear) a rated book was read. This
+    complements set_year_read; the year stays the authoritative read-year. Nothing
+    commits on failure. Returns True on success, False otherwise."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if month is not None and not (1 <= int(month) <= 12):
+            raise ValidationError(f"Month {month} is out of range (1-12).")
+        row = con.execute("SELECT 1 FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE books SET read_month=? WHERE user_id=? AND title=?",
+                    (int(month) if month is not None else None, uid, title))
+        con.commit()
+        print(f"  ✓ '{title}' read_month set to {month}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
 # ---------------------------------------------------------------------------
 # WRITE: mark a recommendation done
 # ---------------------------------------------------------------------------
@@ -1641,6 +1690,32 @@ def set_nonfiction_year_read(title, year, user_id=None):
         con.close()
 
 
+def set_nonfiction_read_month(title, month, user_id=None):
+    """Set/edit the month (1-12, or None to clear) a nonfiction book was read.
+    Mirrors set_read_month for the nonfiction_books table. Returns True/False."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if month is not None and not (1 <= int(month) <= 12):
+            raise ValidationError(f"Month {month} is out of range (1-12).")
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_books SET read_month=? WHERE user_id=? AND title=?",
+                    (int(month) if month is not None else None, uid, title))
+        con.commit()
+        print(f"  ✓ Nonfiction '{title}' read_month set to {month}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
 def list_nonfiction_books(limit=50):
     """Quick read of nonfiction_books, sorted by Total Average."""
     con = _connect()
@@ -2240,6 +2315,10 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False, us
 # Create the nonfiction tables on import (idempotent), same discipline as the
 # fiction schema-ensure calls near the top of this module.
 _ensure_nonfiction_schema()
+
+# read_month spans BOTH the fiction (books) and nonfiction (nonfiction_books)
+# tables, so it must run after the nonfiction schema exists (above).
+_ensure_read_month()
 
 
 if __name__ == "__main__":

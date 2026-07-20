@@ -1,26 +1,40 @@
 "use client";
 
-import type { TimelineResponse, TimelineRow, BookKind } from "@/lib/types";
+import type { TimelineResponse, TimelineRow, TimelineMonthRow, BookKind } from "@/lib/types";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Jul 2026" — full label for tables. */
+function monthLabel(m: TimelineMonthRow): string {
+  return `${MONTHS[m.month - 1] ?? m.month} ${m.year}`;
+}
+
+/** "Jul '26" — compact label for chart axes. */
+function monthAxis(m: TimelineMonthRow): string {
+  return `${MONTHS[m.month - 1] ?? m.month} '${String(m.year).slice(2)}`;
+}
 
 /* ── Mini bar chart (SVG) ─────────────────────────────────────────────────── */
 
+type Bar = { label: string; value: number };
+
 function BarChart({
-  rows,
-  valueKey,
+  bars,
   label,
   color = "var(--color-sage)",
+  barW = 40,
+  gap = 12,
 }: {
-  rows: TimelineRow[];
-  valueKey: keyof TimelineRow;
+  bars: Bar[];
   label: string;
   color?: string;
+  barW?: number;
+  gap?: number;
 }) {
-  const values = rows.map((r) => (r[valueKey] as number | null) ?? 0);
+  const values = bars.map((b) => b.value);
   const max = Math.max(...values, 1);
-  const barW = 40;
-  const gap = 12;
   const h = 120;
-  const totalW = rows.length * (barW + gap);
+  const totalW = bars.length * (barW + gap);
 
   return (
     <div className="mb-8">
@@ -32,12 +46,12 @@ function BarChart({
       </h3>
       <div style={{ overflowX: "auto" }}>
         <svg width={totalW} height={h + 36} style={{ display: "block" }}>
-          {rows.map((row, i) => {
-            const val = (row[valueKey] as number | null) ?? 0;
+          {bars.map((bar, i) => {
+            const val = bar.value;
             const barH = Math.round((val / max) * h);
             const x = i * (barW + gap);
             return (
-              <g key={row.year}>
+              <g key={`${bar.label}-${i}`}>
                 <rect
                   x={x}
                   y={h - barH}
@@ -54,7 +68,7 @@ function BarChart({
                   fontSize={11}
                   fill="var(--color-muted)"
                 >
-                  {typeof val === "number" ? (Number.isInteger(val) ? val : val.toFixed(1)) : val}
+                  {Number.isInteger(val) ? val : val.toFixed(1)}
                 </text>
                 <text
                   x={x + barW / 2}
@@ -63,7 +77,7 @@ function BarChart({
                   fontSize={11}
                   fill="var(--color-faint)"
                 >
-                  {row.year}
+                  {bar.label}
                 </text>
               </g>
             );
@@ -241,6 +255,61 @@ function TimelineTable({ rows, categories }: { rows: TimelineRow[]; categories: 
   );
 }
 
+/* ── By-month table ───────────────────────────────────────────────────────── */
+
+function fmtWords(w: number | null): string {
+  if (w == null) return "—";
+  if (w >= 1_000_000) return `${(w / 1_000_000).toFixed(1)}M`;
+  if (w >= 1_000) return `${Math.round(w / 1_000)}K`;
+  return `${w}`;
+}
+
+function MonthlyTable({ months, categories }: { months: TimelineMonthRow[]; categories: string[] }) {
+  const headers = ["Month", "Books", "Avg WA", ...categories, "Avg Words"];
+  // Newest month first (data arrives oldest→newest).
+  const rows = [...months].reverse();
+  return (
+    <div className="mb-8 rounded-xl overflow-hidden" style={{ border: "1px solid var(--color-rule)" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ background: "var(--color-surface-2)" }}>
+              {headers.map((h) => (
+                <th
+                  key={h}
+                  className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const catVals = categories.map((cat) => {
+                const v = r[cat.toLowerCase()] as number | null;
+                return v?.toFixed(2) ?? "—";
+              });
+              return (
+                <tr key={`${r.year}-${r.month}`} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
+                  <td className="px-3 py-2.5 font-semibold whitespace-nowrap" style={{ color: "var(--color-ink)" }}>{monthLabel(r)}</td>
+                  <td className="px-3 py-2.5" style={{ color: "var(--color-ink)" }}>{r.books}</td>
+                  <td className="px-3 py-2.5" style={{ color: "var(--color-sage)", fontWeight: 600 }}>{r.avg_wa?.toFixed(2) ?? "—"}</td>
+                  {catVals.map((v, j) => (
+                    <td key={j} className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{v}</td>
+                  ))}
+                  <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{fmtWords(r.avg_words)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
 export default function TimelineView({
@@ -264,6 +333,8 @@ export default function TimelineView({
   }
 
   const totalBooks = data.rows.reduce((s, r) => s + r.books, 0);
+  const months = data.months ?? [];
+  const hasMonths = months.length > 0;
 
   return (
     <div>
@@ -275,14 +346,44 @@ export default function TimelineView({
           Timeline
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {totalBooks} books across {data.rows.length} year{data.rows.length !== 1 ? "s" : ""} · how your reading and rating shift year to year
+          {totalBooks} books across {data.rows.length} year{data.rows.length !== 1 ? "s" : ""} · how your reading and rating shift over time
         </p>
       </div>
 
+      {/* By year */}
+      <h2 className="font-display text-xl font-semibold mb-4" style={{ color: "var(--color-ink)" }}>
+        By year
+      </h2>
       <TimelineTable rows={data.rows} categories={data.categories} />
-      <BarChart rows={data.rows} valueKey="books" label="Books per year" />
-      <BarChart rows={data.rows} valueKey="avg_wa" label="Average WA per year" color="var(--color-sage)" />
+      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.books }))} label="Books per year" />
+      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.avg_wa ?? 0 }))} label="Average WA per year" color="var(--color-sage)" />
       <LineChart rows={data.rows} categories={data.categories} />
+
+      {/* By month */}
+      {hasMonths && (
+        <>
+          <h2 className="font-display text-xl font-semibold mb-1 mt-12" style={{ color: "var(--color-ink)" }}>
+            By month
+          </h2>
+          <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
+            {months.length} month{months.length !== 1 ? "s" : ""} with a recorded read date · newest first
+          </p>
+          <MonthlyTable months={months} categories={data.categories} />
+          <BarChart
+            bars={months.map((m) => ({ label: monthAxis(m), value: m.books }))}
+            label="Books per month"
+            barW={34}
+            gap={16}
+          />
+          <BarChart
+            bars={months.map((m) => ({ label: monthAxis(m), value: m.avg_wa ?? 0 }))}
+            label="Average WA per month"
+            color="var(--color-sage)"
+            barW={34}
+            gap={16}
+          />
+        </>
+      )}
     </div>
   );
 }
