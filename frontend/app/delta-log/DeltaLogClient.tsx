@@ -188,7 +188,7 @@ export default function DeltaLogClient() {
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--color-muted)" }}>
         Prediction accuracy for books that had a stored forecast before being rated,
-        in reading order — oldest read first, most recent last.
+        in reading order — most recently read first.
         Delta = predicted − actual; positive means the model over-predicted.
       </p>
 

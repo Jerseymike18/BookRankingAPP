@@ -3064,7 +3064,7 @@ def get_engine_parameters():
 @app.get("/api/delta-log")
 def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     """Prediction-vs-actual deltas for genuinely-read books, in reading order
-    (least-recently-read first → most-recently-read last, by year_read+read_month).
+    (most-recently-read first → least-recently-read last, by read_seq).
 
     Shows one row per book the tenant has actually FINISHED
     (`books.status='finished'`), excluding `repredict_on_add` audit rows (whose
@@ -3090,19 +3090,24 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
         (user_id,)
     ).fetchall()
     # Authoritative "genuinely finished and rated" set for this tenant, plus each
-    # book's (year_read, read_month) so the page can order oldest-read → newest.
-    # The Delta Log is a historical accuracy record, so eligibility keys off the
-    # explicit read state — not merely "an act_* value exists" (repredict/backfill
-    # rows carry those too).
+    # book's read_seq (reading-order rank; higher = more recent) so the page can
+    # order most-recently-read → least, and its (year_read, read_month) for the
+    # "read Mon Year" label. The Delta Log is a historical accuracy record, so
+    # eligibility keys off the explicit read state — not merely "an act_* value
+    # exists" (repredict/backfill rows carry those too).
     finished = set()
-    read_order: dict = {}
-    for (t, yr, mo) in con.execute(
-        "SELECT title, year_read, read_month FROM books WHERE user_id=? AND status=?",
+    read_order: dict = {}     # key -> read_seq (sorts the page)
+    read_when: dict = {}      # key -> (year_read, read_month) (labels the card)
+    for (t, yr, mo, seq) in con.execute(
+        "SELECT title, year_read, read_month, read_seq FROM books "
+        "WHERE user_id=? AND status=?",
         (user_id, "finished")
     ).fetchall():
         key = (t or "").strip().lower()
         finished.add(key)
-        read_order[key] = (yr, mo)
+        if seq is not None:
+            read_order[key] = seq
+        read_when[key] = (yr, mo)
     con.close()
 
     col_names = (
@@ -3121,9 +3126,9 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
         entries, finished, db_write.DELTA_BACKFILL_MARKER, read_order=read_order)
     for e in entries:
         e.pop("tag", None)   # internal classifier; not part of the response
-        # Read date (drives the display + the ordering); logged_at is the forecast
+        # Read date labels the card ("read Mon Year"); logged_at is the forecast
         # capture time, which for backfilled rows is a bulk marker, not the read day.
-        yr, mo = read_order.get((e.get("title") or "").strip().lower(), (None, None))
+        yr, mo = read_when.get((e.get("title") or "").strip().lower(), (None, None))
         e["read_year"] = yr
         e["read_month"] = mo
 

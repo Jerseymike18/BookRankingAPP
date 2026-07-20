@@ -1,12 +1,19 @@
 """
 backfill_read_month.py
 ======================
-One-time backfill of ``books.read_month`` / ``nonfiction_books.read_month`` from
-the owner's month-by-month reading log. Writes ONLY through db_write setters
-(constraint: all writes go through db_write). Idempotent and safe to re-run.
+One-time backfill of the reading-order columns on ``books`` /
+``nonfiction_books`` from the owner's reading log:
+  * ``read_month`` (1-12) — the month each book was read (by-month Timeline).
+  * ``read_seq``          — the exact reading-order rank from the log's line
+                            order (top of the log = most recent), HIGHER = more
+                            recently read. The Delta Log sorts by it DESC so the
+                            page matches the log order exactly, even within a
+                            single month. The log is newest-first.
+Writes ONLY through db_write setters (constraint: all writes go through db_write).
+Idempotent and safe to re-run.
 
-Importing db_write self-migrates the ``read_month`` column (ALTER-if-missing) on
-whichever backend is selected, so this also creates the column on first run.
+Importing db_write self-migrates both columns (ALTER-if-missing) on whichever
+backend is selected, so this also creates them on first run.
 
 Usage
 -----
@@ -63,12 +70,21 @@ def norm(t):
 
 
 month_of, year_of = {}, {}
+ordered = []   # normalized titles in log order (top = most recently read)
 for line in LOG.strip().splitlines():
     y, m, titles = line.split("|")
     for t in titles.split(";"):
         k = norm(t)
         month_of[k] = int(m)
         year_of[k] = int(y)
+        ordered.append(k)
+
+# read_seq: higher = more recently read. The log is newest-first, so the TOP
+# title gets the highest rank (len) and the bottom (oldest) gets 1. Global across
+# fiction+nonfiction, so fiction ranks have gaps where nonfiction sits — harmless,
+# relative order is preserved.
+_N = len(ordered)
+seq_of = {k: _N - i for i, k in enumerate(ordered)}
 
 # DB title (normalized) -> log title (normalized), for titles stored differently
 # than the log spelling (Mistborn prefix, "A/The" swap, truncation).
@@ -81,14 +97,24 @@ ALIASES = {
 }
 
 
-def month_for(title):
+def _resolve(title):
+    """Return the normalized log-key for a DB title (direct or via ALIASES)."""
     k = norm(title)
     if k in month_of:
-        return month_of[k], year_of[k]
+        return k
     if k in ALIASES:
-        a = ALIASES[k]
-        return month_of[a], year_of[a]
-    return None, None
+        return ALIASES[k]
+    return None
+
+
+def month_for(title):
+    k = _resolve(title)
+    return (month_of[k], year_of[k]) if k else (None, None)
+
+
+def seq_for(title):
+    k = _resolve(title)
+    return seq_of[k] if k else None
 
 
 def main():
@@ -102,11 +128,12 @@ def main():
     print(f"backend={db_backend.backend()}  user_id={USER_ID}  "
           f"{'DRY RUN' if DRY else 'COMMIT'}")
 
-    def run(rows, setter, label):
+    def run(rows, month_setter, seq_setter, label):
         print(f"\n=== {label} ({len(rows)} rows) ===")
         set_n = miss = yearwarn = 0
         for title, yr in rows:
             m, ly = month_for(title)
+            s = seq_for(title)
             if m is None:
                 miss += 1
                 print(f"  NO MONTH: {title!r} (yr {yr}) — left NULL")
@@ -115,16 +142,18 @@ def main():
                 yearwarn += 1
                 print(f"  YEAR MISMATCH: {title!r} db={yr} log={ly} (setting month {m} anyway)")
             if DRY:
-                print(f"  would set {title!r} -> month {m}")
+                print(f"  would set {title!r} -> month {m}, seq {s}")
             else:
-                if not setter(title, m, user_id=USER_ID):
+                if not month_setter(title, m, user_id=USER_ID) \
+                        or not seq_setter(title, s, user_id=USER_ID):
                     print(f"  SETTER FAILED: {title!r}")
                     continue
             set_n += 1
         print(f"  -> {set_n} set, {miss} left NULL, {yearwarn} year-mismatch")
 
-    run(fic, db_write.set_read_month, "fiction books")
-    run(nf, db_write.set_nonfiction_read_month, "nonfiction_books")
+    run(fic, db_write.set_read_month, db_write.set_read_seq, "fiction books")
+    run(nf, db_write.set_nonfiction_read_month, db_write.set_nonfiction_read_seq,
+        "nonfiction_books")
     print("\nDRY RUN — re-run with --commit to write." if DRY
           else "\nDONE (committed).")
 

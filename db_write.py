@@ -97,23 +97,32 @@ def _ensure_series_number():
 
 
 # ---------------------------------------------------------------------------
-# Schema migration: read_month column (2026-07). Optional 1-12 month a book was
-# read, complementing the year-only year_read, so the reading log can be ordered
-# and bucketed by month (Delta Log chronological order + by-month Timeline). It
-# is a plain nullable passthrough — the read-only engine ignores it; only the
-# reading-log/timeline views read it. Self-migrating on both SQLite and Postgres
-# (ALTER-if-missing at import), leaving every historical row NULL until backfilled.
-# NOTE: this must be called AFTER _ensure_nonfiction_schema() so nonfiction_books
-# already exists — see the call site at the bottom of this module.
+# Schema migration: reading-order columns (2026-07). Two optional nullable
+# passthroughs that complement the year-only year_read so the reading log can be
+# ordered and bucketed:
+#   read_month INTEGER (1-12)  — the month a book was read (by-month Timeline).
+#   read_seq   INTEGER         — a monotonic reading-order rank, HIGHER = more
+#                                recently read. The Delta Log sorts by it DESC
+#                                (most-recent-read first). Month granularity alone
+#                                can't order books read in the same month; read_seq
+#                                captures the exact order.
+# The read-only engine ignores both; only the reading-log/timeline views read them.
+# Self-migrating on both SQLite and Postgres (ALTER-if-missing at import), leaving
+# every historical row NULL until backfilled. NOTE: must be called AFTER
+# _ensure_nonfiction_schema() so nonfiction_books exists — see the bottom call site.
 # ---------------------------------------------------------------------------
 def _ensure_read_month():
-    """Add read_month INTEGER (1-12, nullable) to books and nonfiction_books if
-    absent. Skips a table that does not exist yet (empty column set)."""
+    """Add read_month + read_seq INTEGER (nullable) to books and nonfiction_books
+    if absent. Skips a table that does not exist yet (empty column set)."""
     con = _connect()
     for tbl in ("books", "nonfiction_books"):
         cols = set(db_backend.table_columns(con, tbl))
-        if cols and "read_month" not in cols:
+        if not cols:
+            continue
+        if "read_month" not in cols:
             con.execute(f"ALTER TABLE {tbl} ADD COLUMN read_month INTEGER")
+        if "read_seq" not in cols:
+            con.execute(f"ALTER TABLE {tbl} ADD COLUMN read_seq INTEGER")
     con.commit()
     con.close()
 
@@ -1022,6 +1031,32 @@ def set_read_month(title, month, user_id=None):
         con.close()
 
 
+def set_read_seq(title, seq, user_id=None):
+    """Set/edit the reading-order rank (higher = more recently read; None to
+    clear) of a rated book. The Delta Log sorts by this DESC. Returns True/False."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if seq is not None and int(seq) < 0:
+            raise ValidationError(f"read_seq {seq} must be non-negative.")
+        row = con.execute("SELECT 1 FROM books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
+        if not row:
+            raise ValidationError(f"No book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE books SET read_seq=? WHERE user_id=? AND title=?",
+                    (int(seq) if seq is not None else None, uid, title))
+        con.commit()
+        print(f"  ✓ '{title}' read_seq set to {seq}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
 # ---------------------------------------------------------------------------
 # WRITE: mark a recommendation done
 # ---------------------------------------------------------------------------
@@ -1707,6 +1742,32 @@ def set_nonfiction_read_month(title, month, user_id=None):
                     (int(month) if month is not None else None, uid, title))
         con.commit()
         print(f"  ✓ Nonfiction '{title}' read_month set to {month}.")
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return False
+    finally:
+        con.close()
+
+
+def set_nonfiction_read_seq(title, seq, user_id=None):
+    """Set/edit the reading-order rank (higher = more recently read; None to
+    clear) of a nonfiction book. Mirrors set_read_seq. Returns True/False."""
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        if seq is not None and int(seq) < 0:
+            raise ValidationError(f"read_seq {seq} must be non-negative.")
+        row = con.execute("SELECT 1 FROM nonfiction_books WHERE user_id=? AND title=?",
+                          (uid, title)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction book titled '{title}' found.")
+        _backup_once()
+        con.execute("UPDATE nonfiction_books SET read_seq=? WHERE user_id=? AND title=?",
+                    (int(seq) if seq is not None else None, uid, title))
+        con.commit()
+        print(f"  ✓ Nonfiction '{title}' read_seq set to {seq}.")
         return True
     except ValidationError as e:
         con.rollback()

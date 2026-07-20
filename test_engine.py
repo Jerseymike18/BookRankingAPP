@@ -620,22 +620,21 @@ def test_delta_log_view():
           [e["id"] for e in shown] == sorted((e["id"] for e in shown), reverse=True),
           f"ids={[e['id'] for e in shown]}")
 
-    # read_order path: order by reading chronology, oldest-read first.
-    read_order = {"lord of emperors": (2026, 7),
-                  "the name of the wind": (2025, 4),
-                  "tigana": (2026, 1)}
-    chrono = dlv.visible_rows(rows, finished, MARK, read_order=read_order)
-    check("delta-log view: read_order sorts oldest-read → newest-read",
-          [e["title"] for e in chrono]
-          == ["The Name of the Wind", "Tigana", "Lord of Emperors"],
-          f"order={[e['title'] for e in chrono]}")
-    # a finished book with no read date sorts last, not first.
-    chrono2 = dlv.visible_rows(rows, finished, MARK,
-                               read_order={"lord of emperors": (2026, 7),
-                                           "the name of the wind": (2025, 4)})
-    check("delta-log view: book with no read date sorts last chronologically",
-          chrono2[-1]["title"] == "Tigana",
-          f"order={[e['title'] for e in chrono2]}")
+    # read_order maps title -> recency rank (higher = more recently read); the
+    # page shows MOST-recently-read first.
+    read_order = {"lord of emperors": 30, "tigana": 20, "the name of the wind": 10}
+    ordered = dlv.visible_rows(rows, finished, MARK, read_order=read_order)
+    check("delta-log view: read_order sorts most-recently-read → least",
+          [e["title"] for e in ordered]
+          == ["Lord of Emperors", "Tigana", "The Name of the Wind"],
+          f"order={[e['title'] for e in ordered]}")
+    # a finished book with no rank sorts last (after all ranked books).
+    ordered2 = dlv.visible_rows(rows, finished, MARK,
+                                read_order={"lord of emperors": 30,
+                                            "the name of the wind": 10})
+    check("delta-log view: book with no read_seq sorts last",
+          ordered2[-1]["title"] == "Tigana",
+          f"order={[e['title'] for e in ordered2]}")
 
 
 def main():
