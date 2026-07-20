@@ -39,9 +39,9 @@ import db_write
 import db_backend
 
 DRY = "--commit" not in sys.argv
-USER_ID = db_backend.DEFAULT_USER_ID
+USER_ID_OVERRIDE = None
 if "--user-id" in sys.argv:
-    USER_ID = sys.argv[sys.argv.index("--user-id") + 1]
+    USER_ID_OVERRIDE = sys.argv[sys.argv.index("--user-id") + 1]
 
 # Owner's reading log, newest-first. (year, month, "; "-joined titles)
 LOG = """2026|7|Lord of Emperors; The Obelisk Gate; The Rise of Endymion
@@ -117,16 +117,50 @@ def seq_for(title):
     return seq_of[k] if k else None
 
 
+def _owner_counts(con):
+    """[(user_id, book_count)] across both book tables, most books first — so the
+    real owner is picked even if their user_id differs from DEFAULT_USER_ID
+    (e.g. the hosted Postgres tenant vs. the local export fallback)."""
+    from collections import Counter
+    c = Counter()
+    for tbl in ("books", "nonfiction_books"):
+        for uid, n in con.execute(f"SELECT user_id, COUNT(*) FROM {tbl} GROUP BY user_id"):
+            c[uid] += n
+    return c.most_common()
+
+
 def main():
     con = db_backend.connect(db_write.DB)
-    fic = con.execute("SELECT title, year_read FROM books WHERE user_id=?",
-                      (USER_ID,)).fetchall()
-    nf = con.execute("SELECT title, year_read FROM nonfiction_books WHERE user_id=?",
-                     (USER_ID,)).fetchall()
-    con.close()
 
-    print(f"backend={db_backend.backend()}  user_id={USER_ID}  "
-          f"{'DRY RUN' if DRY else 'COMMIT'}")
+    # ── Diagnostics: which DB, is the schema migrated, and who owns the books ──
+    print(f"backend = {db_backend.backend()}")
+    for tbl in ("books", "nonfiction_books"):
+        cols = set(db_backend.table_columns(con, tbl))
+        print(f"  {tbl}: read_month={'yes' if 'read_month' in cols else 'MISSING!'}"
+              f"  read_seq={'yes' if 'read_seq' in cols else 'MISSING!'}")
+    counts = _owner_counts(con)
+    print("  book owners (user_id: count):")
+    for uid_, n in counts:
+        print(f"    {uid_}: {n}")
+
+    # ── Resolve the target tenant ──
+    if USER_ID_OVERRIDE:
+        uid = USER_ID_OVERRIDE
+        print(f"  → using --user-id {uid}")
+    elif counts:
+        uid = counts[0][0]  # the account with the most books
+        print(f"  → auto-selected owner (most books): {uid}")
+    else:
+        uid = db_backend.DEFAULT_USER_ID
+        print(f"  → no books found; falling back to DEFAULT_USER_ID {uid}")
+
+    fic = con.execute("SELECT title, year_read FROM books WHERE user_id=?",
+                      (uid,)).fetchall()
+    nf = con.execute("SELECT title, year_read FROM nonfiction_books WHERE user_id=?",
+                     (uid,)).fetchall()
+    con.close()
+    print(f"\n{'DRY RUN' if DRY else 'COMMIT'}  target={uid}  "
+          f"({len(fic)} fiction, {len(nf)} nonfiction rows)")
 
     def run(rows, month_setter, seq_setter, label):
         print(f"\n=== {label} ({len(rows)} rows) ===")
@@ -144,8 +178,8 @@ def main():
             if DRY:
                 print(f"  would set {title!r} -> month {m}, seq {s}")
             else:
-                if not month_setter(title, m, user_id=USER_ID) \
-                        or not seq_setter(title, s, user_id=USER_ID):
+                if not month_setter(title, m, user_id=uid) \
+                        or not seq_setter(title, s, user_id=uid):
                     print(f"  SETTER FAILED: {title!r}")
                     continue
             set_n += 1
@@ -154,6 +188,16 @@ def main():
     run(fic, db_write.set_read_month, db_write.set_read_seq, "fiction books")
     run(nf, db_write.set_nonfiction_read_month, db_write.set_nonfiction_read_seq,
         "nonfiction_books")
+
+    if not DRY:  # confirm the writes landed
+        con = db_backend.connect(db_write.DB)
+        for tbl in ("books", "nonfiction_books"):
+            have = con.execute(f"SELECT COUNT(*) FROM {tbl} WHERE user_id=? "
+                               f"AND read_month IS NOT NULL", (uid,)).fetchone()[0]
+            tot = con.execute(f"SELECT COUNT(*) FROM {tbl} WHERE user_id=?",
+                              (uid,)).fetchone()[0]
+            print(f"  {tbl}: {have}/{tot} now have read_month")
+        con.close()
     print("\nDRY RUN — re-run with --commit to write." if DRY
           else "\nDONE (committed).")
 
