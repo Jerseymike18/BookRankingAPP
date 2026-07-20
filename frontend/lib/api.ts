@@ -221,6 +221,7 @@ export interface AddBookPayload {
   series_number?: number;
   words?: number;
   year_read?: number;
+  read_month?: number; // 1-12
 }
 
 export interface AddBookResult {
@@ -262,6 +263,7 @@ export interface AddNonfictionBookPayload {
   series_number?: number;
   words?: number;
   year_read?: number;
+  read_month?: number; // 1-12
 }
 
 export async function addNonfictionBook(

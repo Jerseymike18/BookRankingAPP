@@ -32,6 +32,7 @@ import contextlib
 import json
 import re
 import sqlite3
+import datetime
 import db_backend
 import uuid
 import threading
@@ -768,12 +769,17 @@ class AddBookRequest(BaseModel):
     series_number: Optional[int] = None
     words: Optional[int] = None
     year_read: Optional[int] = None
+    read_month: Optional[int] = None  # 1-12; defaults to the current month
 
 
 @app.post("/api/books")
 def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
              user_id: str = Depends(auth.get_current_user_id)):
     """Add a newly-rated book via db_write.add_book, then dequeue it."""
+    # Default the read month to "now" so a freshly-logged book flows straight into
+    # the by-month Timeline (the client normally sends it, defaulted to this month,
+    # but an API caller may omit it). read_seq is auto-assigned in db_write.
+    read_month = req.read_month if req.read_month is not None else datetime.date.today().month
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -783,6 +789,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
                 series_number=req.series_number or None,
                 words=req.words or None,
                 year_read=req.year_read,
+                read_month=read_month,
                 user_id=user_id,
             )
     except db_write.ValidationError as e:
@@ -2436,12 +2443,14 @@ class NonfictionAddRequest(BaseModel):
     series_number: Optional[float] = None
     words: Optional[int] = None
     year_read: Optional[int] = None
+    read_month: Optional[int] = None  # 1-12; defaults to the current month
 
 
 @app.post("/api/nonfiction/books")
 def add_nf_book(req: NonfictionAddRequest,
                 user_id: str = Depends(auth.get_current_user_id)):
     """Add a rated nonfiction book via db_write.add_nonfiction_book."""
+    read_month = req.read_month if req.read_month is not None else datetime.date.today().month
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -2449,7 +2458,7 @@ def add_nf_book(req: NonfictionAddRequest,
                 title=req.title, author=req.author, genre=req.genre,
                 scores=req.scores, series=req.series,
                 series_number=req.series_number, words=req.words,
-                year_read=req.year_read, user_id=user_id,
+                year_read=req.year_read, read_month=read_month, user_id=user_id,
             )
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -3098,7 +3107,7 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     # eligibility keys off the explicit read state — not merely "an act_* value
     # exists" (repredict/backfill rows carry those too).
     finished = set()
-    read_order: dict = {}     # key -> read_seq (sorts the page)
+    read_order: dict = {}     # key -> encoded reading rank (sorts the page)
     read_when: dict = {}      # key -> (year_read, read_month) (labels the card)
     for (t, yr, mo, seq) in con.execute(
         "SELECT title, year_read, read_month, read_seq FROM books "
@@ -3107,9 +3116,14 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     ).fetchall():
         key = (t or "").strip().lower()
         finished.add(key)
-        if seq is not None:
-            read_order[key] = seq
         read_when[key] = (yr, mo)
+        # Rank = (YYYYMM) · 1e6 + read_seq, encoded into one descending-sortable
+        # int: order by (year, month) first — so a back-dated add lands in ITS
+        # month, not just at the top — then read_seq breaks same-month ties (and
+        # is the add order). Books with a read_seq but no month still sort by year.
+        if yr is not None:
+            read_order[key] = (int(yr) * 100 + (int(mo) if mo else 0)) * 1_000_000 \
+                + (int(seq) if seq else 0)
     con.close()
 
     col_names = (

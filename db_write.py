@@ -467,13 +467,32 @@ def _validate_scores(scores, require_all=True):
 
 
 # ---------------------------------------------------------------------------
+# Reading-order rank for a NEW book. A freshly-added book was just read, so it is
+# the most recent — 1 + the current global max read_seq across BOTH book tables
+# for this tenant (global so fiction/nonfiction share one monotonic sequence).
+# The Delta Log sorts by read_seq, so this drops the new book at the top.
+# ---------------------------------------------------------------------------
+def _next_read_seq(con, uid):
+    hi = 0
+    for tbl in ("books", "nonfiction_books"):
+        r = con.execute(
+            f"SELECT COALESCE(MAX(read_seq), 0) FROM {tbl} WHERE user_id=?",
+            (uid,)).fetchone()
+        hi = max(hi, (r[0] or 0) if r else 0)
+    return hi + 1
+
+
+# ---------------------------------------------------------------------------
 # WRITE: add a book
 # ---------------------------------------------------------------------------
 def add_book(title, genre, author, scores, series=None, series_number=None,
-             words=None, year_read=None, allow_new_genre=False, user_id=None):
+             words=None, year_read=None, read_month=None, allow_new_genre=False,
+             user_id=None):
     """
     Add a newly-rated fiction book. `scores` is a dict of component->value.
-    Refuses to commit anything if validation fails.
+    `read_month` (1-12, optional) is the month it was read — it plus an
+    auto-assigned read_seq (most-recent) feed the by-month Timeline and the Delta
+    Log. Refuses to commit anything if validation fails.
     """
     con = _connect()
     uid = user_id or db_backend.DEFAULT_USER_ID
@@ -495,11 +514,16 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
         # set_year_read / update_book_metadata.
         if year_read is not None and not (1900 <= int(year_read) <= 2100):
             raise ValidationError(f"Year {year_read} is out of range (1900-2100).")
+        if read_month is not None and not (1 <= int(read_month) <= 12):
+            raise ValidationError(f"Month {read_month} is out of range (1-12).")
         _validate_scores(scores, require_all=True)
 
         _backup_once()
-        cols = ["title", "genre", "author", "series", "series_number", "words", "year_read", "user_id"] + FICTION_COMPONENTS
-        vals = [title, genre, author, series, int(series_number) if series_number else None, words, year_read, uid] + \
+        cols = ["title", "genre", "author", "series", "series_number", "words",
+                "year_read", "read_month", "read_seq", "user_id"] + FICTION_COMPONENTS
+        vals = [title, genre, author, series, int(series_number) if series_number else None,
+                words, year_read, int(read_month) if read_month is not None else None,
+                _next_read_seq(con, uid), uid] + \
                [scores.get(c) for c in FICTION_COMPONENTS]
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO books ({",".join(chr(34)+c+chr(34) for c in cols)}) '
@@ -1550,7 +1574,7 @@ def _nonfiction_averages(scores):
 
 def add_nonfiction_book(title, author=None, genre=None, scores=None,
                         series=None, series_number=None, words=None,
-                        year_read=None, status="finished",
+                        year_read=None, read_month=None, status="finished",
                         allow_new_genre=False, require_scores=True, user_id=None):
     """Add a nonfiction book to nonfiction_books, mirroring add_book's
     discipline: duplicate title refused, scores range/completeness checked,
@@ -1573,6 +1597,8 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
                 f"Use change_nonfiction_rating() to edit it.")
         if year_read is not None and not (1900 <= int(year_read) <= 2100):
             raise ValidationError(f"Year {year_read} is out of range (1900-2100).")
+        if read_month is not None and not (1 <= int(read_month) <= 12):
+            raise ValidationError(f"Month {read_month} is out of range (1-12).")
         valid = _valid_nonfiction_genres(con, uid)  # empty until weights are added
         if genre is not None and valid and genre not in valid and not allow_new_genre:
             raise ValidationError(
@@ -1583,13 +1609,14 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
         _backup_once()
         avgs = _nonfiction_averages(scores)
         cols = (["title", "genre", "author", "series", "series_number",
-                 "words", "year_read", "status", "user_id"]
+                 "words", "year_read", "read_month", "read_seq", "status", "user_id"]
                 + NONFICTION_COMPONENTS
                 + ["Quality Average", "Aesthetics Average",
                    "Theme Average", "Total Average"])
         vals = ([title, genre, author, series,
                  int(series_number) if series_number else None,
-                 words, year_read, status, uid]
+                 words, year_read, int(read_month) if read_month is not None else None,
+                 _next_read_seq(con, uid), status, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS]
                 + [avgs["Quality Average"], avgs["Aesthetics Average"],
                    avgs["Theme Average"], avgs["Total Average"]])

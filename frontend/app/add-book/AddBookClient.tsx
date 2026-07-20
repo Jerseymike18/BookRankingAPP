@@ -165,6 +165,9 @@ function defaultScores(kind: BookKind): Record<string, string> {
   );
 }
 
+const MONTHS = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
+
 /* ── Score input helpers ── raw string state so a box can go empty without
    snapping back to 0; empty is validated (required-vs-optional) at submit. ── */
 
@@ -270,6 +273,7 @@ export default function AddBookClient({
   const [seriesNumber, setSeriesNumber] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [yearRead, setYearRead] = useState(new Date().getFullYear());
+  const [monthRead, setMonthRead] = useState(new Date().getMonth() + 1);
   const [scores, setScores] = useState<Record<string, string>>(defaultScores("fiction"));
   const [prefilled, setPrefilled] = useState(false);
 
@@ -383,6 +387,7 @@ export default function AddBookClient({
         series_number: seriesNumber ?? undefined,
         words: words > 0 ? words : undefined,
         year_read: yearRead,
+        read_month: monthRead,
       };
       const submittedTitle = title;
       let handle: RepredictHandle | null = null;
@@ -411,6 +416,7 @@ export default function AddBookClient({
       setSeries("");
       setWords(0);
       setYearRead(new Date().getFullYear());
+      setMonthRead(new Date().getMonth() + 1);
       setScores(defaultScores(kind));
       setPrefilled(false);
     } catch (e: unknown) {
@@ -598,6 +604,19 @@ export default function AddBookClient({
           <div>
             <FieldLabel>Year read</FieldLabel>
             <NumberInput value={yearRead} onChange={(v) => setYearRead(Math.round(v))} min={1900} max={2100} step={1} />
+          </div>
+          <div>
+            <FieldLabel>Month read</FieldLabel>
+            <select
+              value={monthRead}
+              onChange={(e) => setMonthRead(Number(e.target.value))}
+              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
+              style={inputStyle}
+            >
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>{m}</option>
+              ))}
+            </select>
           </div>
         </div>
 
