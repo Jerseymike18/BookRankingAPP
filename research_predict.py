@@ -421,11 +421,15 @@ def _wa_from_components(scores, genre, gw, gcw):
 # The models are stable, so they're built ONCE at load (see app.get_corr_models)
 # rather than refit per prediction.
 # ---------------------------------------------------------------------------
-def build_corr_models(books, cache):
+def build_corr_models(books, cache, pairs=None):
     """Fit your_score_c ~ LLM(other 13 components) on the rated-book pairs.
     Returns {component: (others, coef)}. Reference: correlation_verify.corr_models.
-    Trained on ALL rated books (stable), so build once at load."""
-    train = rm.build_pairs(books, cache)
+    Trained on ALL rated books (stable), so build once at load.
+
+    `pairs` (optional): a precomputed rm.build_pairs(books, cache) frame for the
+    SAME (books, cache) — passed by callers that predict many books per run so the
+    pairs table is built once, not per call. Read-only here; identical output."""
+    train = rm.build_pairs(books, cache) if pairs is None else pairs
     models = {}
     for c in LIVE:
         others = [o for o in LIVE if o != c]
@@ -457,7 +461,7 @@ def smooth_components(scores, models, blend=BLEND):
 def correct_and_predict(title, author, genre, scores, conf, resid_sd,
                         books, gw, gcw, cache, blurb="", keywords="",
                         corr_models=None, words=None, series_number=None,
-                        cold_term=None, rank_pool=None):
+                        cold_term=None, rank_pool=None, pairs=None):
     """
     Apply the validated AUTHOR+GENRE hierarchical correction (reference:
     reresearch_and_measure.correct_book, method "author_genre") to the researched
@@ -483,13 +487,20 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     corpus>". Defaults to `books`, so single-pool callers (walk-forward,
     test_engine) are byte-identical. The cold-start GATE still keys off the
     correction pool, so prediction VALUES are unchanged regardless of rank_pool.
+
+    `pairs` (optional, latency only): a precomputed rm.build_pairs(books, cache)
+    frame for the SAME (books, cache). Callers that predict many books per run
+    (the backend request path, repredict_on_add, the cold-term fit) build the
+    pairs table once and pass it down instead of paying the O(library) rebuild
+    per book. It is never mutated here (the target-row filter and concat below
+    both copy), so sharing one frame across calls is byte-identical to rebuilding.
     """
     # NEW (preprocessing): correlation-smooth the raw LLM scores before correction.
     if corr_models is not None:
         scores = smooth_components(scores, corr_models)
 
     # Training pairs: your rated books (real) x richer-prompt LLM scores (cache).
-    df = rm.build_pairs(books, cache)
+    df = rm.build_pairs(books, cache) if pairs is None else pairs
     # Never let the target train on itself (e.g. if you research a rated book).
     df = df[df["Book"] != title].reset_index(drop=True)
 
@@ -623,6 +634,10 @@ def fit_cold_start_term(books, cache, gw, gcw, corr_models=None,
     slice by the caller). Returns {"intercept","slopes","mu","use_series","n"} or None
     when fewer than `min_pool` usable books (term stays OFF)."""
     use_series = series_map is not None
+    # One pairs build for the whole LOO loop (latency only): every per-book
+    # correct_and_predict call below filters its own target row out of this same
+    # frame, exactly as it would from a per-call rebuild.
+    pairs = rm.build_pairs(books, cache)
     X, y = [], []
     for _, b in books.iterrows():
         title = b["Book"]
@@ -636,7 +651,8 @@ def fit_cold_start_term(books, cache, gw, gcw, corr_models=None,
             continue
         res = correct_and_predict(title, b["Author"], b["Genre"], dict(scores),
                                   entry.get("conf", "?"), 0.0, books, gw, gcw, cache,
-                                  corr_models=corr_models)   # cold_term omitted -> off
+                                  corr_models=corr_models,   # cold_term omitted -> off
+                                  pairs=pairs)
         X.append(f)
         y.append(float(b["WA"]) - res["wa"])
     if len(X) < min_pool:

@@ -220,6 +220,8 @@ def _invalidate_engine(user_id=None) -> None:
     uid = _uid(user_id)
     _engine_cache[uid] = _build_engine_for(uid)
     _cold_term_cache.pop(uid, None)          # refit the cold-start term on next read
+    _engine_epoch[uid] = _engine_epoch.get(uid, 0) + 1   # stale-keys _corr_statics
+    _corr_statics_cache.pop(uid, None)
 
 
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
@@ -382,6 +384,50 @@ def _correction_pool(user_id, books_e):
     seed_books = _get_engine(SEED_USER_ID)[0]
     return pd.concat([seed_books, books_e]).drop_duplicates(
         subset=["Book"], keep="last").reset_index(drop=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-run correction statics (latency only — no math change)
+# ─────────────────────────────────────────────────────────────────────────────
+# The research-predict path used to rebuild the correction-training pairs table
+# and the 14 correlation-smoothing models on EVERY request (and once per book in
+# bulk passes) even though their inputs only change when the tenant's library
+# changes (engine invalidation) or the research cache file gains entries. Both
+# are now computed once and cached per tenant, keyed by (own engine epoch, seed
+# engine epoch, research-cache mtime) — the seed epoch matters because a
+# cold-start tenant's correction pool borrows the seed's books. Same inputs →
+# same pairs/models; a stale key just recomputes. Latency only.
+_corr_statics_cache: dict = {}   # uid -> (key, pairs, corr_models)
+_engine_epoch: dict = {}         # uid -> int, bumped by _invalidate_engine
+
+
+def _research_cache_mtime() -> float:
+    try:
+        return os.path.getmtime(_rp.CACHE)
+    except (OSError, AttributeError):    # missing file / _rp unavailable
+        return 0.0
+
+
+def _corr_statics(user_id, corr_pool):
+    """(pairs, corr_models) for this tenant's correction pool, cached per engine
+    epoch + research-cache mtime. `corr_pool` must be _correction_pool(...)'s
+    result for this tenant — the key tracks exactly the inputs that frame is
+    built from. Returns (None, None) if the build fails (callers fall back to
+    per-call behavior)."""
+    uid = _uid(user_id)
+    key = (_engine_epoch.get(uid, 0), _engine_epoch.get(SEED_USER_ID, 0),
+           _research_cache_mtime())
+    hit = _corr_statics_cache.get(uid)
+    if hit is not None and hit[0] == key:
+        return hit[1], hit[2]
+    try:
+        cache = _rp.load_cache()
+        pairs = _rp.rm.build_pairs(corr_pool, cache)
+        corr_models = _rp.build_corr_models(corr_pool, cache, pairs=pairs)
+    except Exception:
+        return None, None
+    _corr_statics_cache[uid] = (key, pairs, corr_models)
+    return pairs, corr_models
 
 
 @asynccontextmanager
@@ -1725,11 +1771,11 @@ def predict_research(req: ResearchRequest,
 
     try:
         corr_pool = _correction_pool(user_id, books_e)   # borrow the seed's calibration if new
-        corr_models = _rp.build_corr_models(corr_pool, cache)
+        pairs, corr_models = _corr_statics(user_id, corr_pool)   # per-run statics, cached
         res = _rp.correct_and_predict(
             req.title, req.author, eff_genre, scores, conf, resid_sd,
             corr_pool, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
-            corr_models=corr_models, words=words,
+            corr_models=corr_models, words=words, pairs=pairs,
             cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                      user_md.get("fav_authors")),
             # Rank / total / grounding counts scope to the tenant's OWN library

@@ -186,16 +186,18 @@ def _genre_baseline_wa(df, probe_llm, genre, gw, gcw):
     return rp._wa_from_components(corrected, genre, gw, gcw)
 
 
-def _genre_baseline_shift(books, cache, gw, gcw, genre, trigger_title):
+def _genre_baseline_shift(books, cache, gw, gcw, genre, trigger_title, pairs=None):
     """How much the genre-tier baseline moved when the trigger entered the pool.
 
     Measured faithfully: the genre-layer corrected WA of a FIXED probe vector
     (the genre pool's mean LLM vector, global-mean fallback), computed with the
     library WITHOUT vs WITH the trigger. Holding the probe fixed isolates the
     baseline shift from probe drift. Returns (|Δ|, wa_pre, wa_post); (0, None,
-    None) if it cannot be computed (→ conservatively don't fire the gate)."""
+    None) if it cannot be computed (→ conservatively don't fire the gate).
+    `pairs` (latency only): a precomputed rm.build_pairs(books, cache) frame for
+    the same inputs — the WITH-trigger side; the WITHOUT side is still built here."""
     try:
-        df_post = rm.build_pairs(books, cache)
+        df_post = pairs if pairs is not None else rm.build_pairs(books, cache)
         if df_post.empty:
             return 0.0, None, None
         gp = df_post[df_post["Genre"] == genre]
@@ -325,18 +327,27 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
         n_author_before = n_after_incl - (1 if trigger_cached else 0)
         author_is_new = trigger_cached and n_author_before == 0 and n_author_after >= 1
 
+        # Per-pass statics (latency only): the correction-training pairs table is
+        # identical for every book in this pass, so build it ONCE — after the
+        # trigger research above, so it already holds the trigger's vector.
+        # Falls back to None → each consumer rebuilds per call, as before.
+        try:
+            pairs = rm.build_pairs(books, cache)
+        except Exception:
+            pairs = None
+
         # corr_models reflect the (possibly newly-cached) trigger, as a fresh
         # prediction today would build them.
         if corr_models == "auto":
             try:
-                corr_models = rp.build_corr_models(books, cache)
+                corr_models = rp.build_corr_models(books, cache, pairs=pairs)
             except Exception:
                 corr_models = None
 
         # --- 2) Genre gate ---------------------------------------------------
         gate = _genre_gate_threshold(resid_sd)
         shift, wa_pre, wa_post = _genre_baseline_shift(
-            books, cache, gw, gcw, trigger_genre, trigger_title)
+            books, cache, gw, gcw, trigger_genre, trigger_title, pairs=pairs)
         gate_fires = shift > gate
 
         # --- 3) Affected set (author ∪ gated genre) --------------------------
@@ -391,7 +402,7 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
 
             res = rp.correct_and_predict(
                 title, r["author"], r["genre"], raw, conf, resid_sd,
-                books, gw, gcw, cache, corr_models=corr_models)
+                books, gw, gcw, cache, corr_models=corr_models, pairs=pairs)
             new = {c: _clamp(v) for c, v in res["scores"].items()}
             new_wa = rp._wa_from_components(new, r["genre"], gw, gcw)
 
