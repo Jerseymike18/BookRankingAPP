@@ -44,6 +44,7 @@ INSERT OR REPLACE/IGNORE, ON CONFLICT, AUTOINCREMENT, lastrowid, executescript.
 
 import os
 import sqlite3
+import threading
 
 # Default sqlite path — mirrors the existing `DB = "books.db"` constant, resolved
 # relative to cwd (backend/main.py chdirs to project root before any connect).
@@ -75,6 +76,61 @@ def _database_url():
     return url
 
 
+# --------------------------------------------------------------------------
+# Postgres connection pool (latency only; sqlite path untouched).
+# --------------------------------------------------------------------------
+# Every connect() used to open a brand-new server connection — a full
+# TCP+TLS+auth round trip from Railway to the Supabase pooler on EVERY query
+# helper (a single repredict pass makes ~17 of them). Pooling reuses live
+# server connections across requests. Semantics are preserved:
+#   * each borrowed connection is health-checked (SELECT 1) so a server-side
+#     drop (pooler idle timeout, redeploy) is replaced, not surfaced;
+#   * PgConnection.close() ROLLS BACK then returns the connection to the pool,
+#     so no transaction state or uncommitted write ever leaks to the next
+#     borrower — exactly what the old close() discarded;
+#   * any pool failure falls back to the old one-fresh-connection path.
+# Kill switch: DB_POOL=0 restores the prior connect-per-call behavior.
+_PG_POOL = None
+_PG_POOL_LOCK = threading.Lock()
+DB_POOL_MAX = int(os.environ.get("DB_POOL_MAX", "10"))
+
+
+def _pool_enabled():
+    return os.environ.get("DB_POOL", "1") != "0"
+
+
+def _get_pg_pool():
+    global _PG_POOL
+    if _PG_POOL is None:
+        with _PG_POOL_LOCK:
+            if _PG_POOL is None:
+                from psycopg2 import pool as _pgpool
+                _PG_POOL = _pgpool.ThreadedConnectionPool(
+                    0, DB_POOL_MAX, _database_url())
+    return _PG_POOL
+
+
+def _borrow_pg():
+    """A healthy raw psycopg2 connection from the pool (health-checked; one
+    stale connection is replaced transparently). Raises on pool exhaustion or
+    connect failure — the caller falls back to an unpooled connection."""
+    pool = _get_pg_pool()
+    raw = pool.getconn()
+    try:
+        cur = raw.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
+        raw.rollback()          # leave the borrowed conn transaction-clean
+        return raw, pool
+    except Exception:
+        try:
+            pool.putconn(raw, close=True)   # discard the dead connection
+        except Exception:
+            pass
+        return pool.getconn(), pool         # one fresh retry; errors propagate
+
+
 def connect(path=None, uri=False):
     """Return a DB connection for the configured backend.
 
@@ -82,8 +138,10 @@ def connect(path=None, uri=False):
                 the default db file (callers pass db_write.DB / a test-db path so the
                 test_engine monkeypatch keeps working); `uri` passes through to
                 sqlite3.connect(..., uri=True) for read-only "file:...?mode=ro" opens.
-    postgres -> a PgConnection proxy that speaks the sqlite3 surface the app uses.
-                `path`/`uri` are sqlite-only and ignored (the DSN is DATABASE_URL).
+    postgres -> a PgConnection proxy that speaks the sqlite3 surface the app uses,
+                backed by a pooled server connection (see above; DB_POOL=0 for a
+                fresh connection per call). `path`/`uri` are sqlite-only and
+                ignored (the DSN is DATABASE_URL).
     """
     b = backend()
     if b == "sqlite":
@@ -98,6 +156,12 @@ def connect(path=None, uri=False):
                 "DB_BACKEND=postgres requires psycopg2. Install it with "
                 "`pip install psycopg2-binary`."
             ) from e
+        if _pool_enabled():
+            try:
+                raw, pool = _borrow_pg()
+                return PgConnection(raw=raw, pool=pool)
+            except Exception:
+                pass                        # pool trouble -> unpooled fallback
         return PgConnection(_database_url())
     raise ValueError(f"Unknown DB_BACKEND={b!r} (expected 'sqlite' or 'postgres').")
 
@@ -152,11 +216,20 @@ def _translate(sql):
 
 class PgConnection:
     """A thin psycopg2 wrapper presenting the sqlite3.Connection surface the app
-    relies on. Only instantiated in postgres mode."""
+    relies on. Only instantiated in postgres mode.
 
-    def __init__(self, dsn):
-        import psycopg2
-        self._conn = psycopg2.connect(dsn)
+    Backed either by a POOLED raw connection (`raw` + `pool` — close() returns
+    it to the pool after a rollback) or, when constructed with a `dsn`, by a
+    private connection that close() really closes (the pre-pool behavior and
+    the DB_POOL=0 / pool-failure fallback)."""
+
+    def __init__(self, dsn=None, raw=None, pool=None):
+        if raw is None:
+            import psycopg2
+            raw = psycopg2.connect(dsn)
+        self._conn = raw
+        self._pool = pool
+        self._returned = False
         # Assign `sqlite3.Row` (truthy) to get dict-style rows, mirroring the one
         # `con.row_factory = sqlite3.Row` site. None -> plain tuple rows (default).
         self.row_factory = None
@@ -192,7 +265,31 @@ class PgConnection:
         self._conn.rollback()
 
     def close(self):
-        self._conn.close()
+        if self._returned:
+            return                          # idempotent, like sqlite3.close()
+        self._returned = True
+        if self._pool is None:
+            self._conn.close()
+            return
+        try:
+            self._conn.rollback()           # never park a conn mid-transaction
+            self._pool.putconn(self._conn)
+        except Exception:
+            try:
+                self._pool.putconn(self._conn, close=True)
+            except Exception:
+                try:
+                    self._conn.close()
+                except Exception:
+                    pass
+
+    def __del__(self):
+        # Safety net for call sites that error before reaching close(): return
+        # the pooled slot rather than leaking it until pool exhaustion.
+        try:
+            self.close()
+        except Exception:
+            pass
 
     # Context-manager parity with sqlite3 (commit on success, rollback on error,
     # do NOT close — matches sqlite3). No live `with con:` sites today, included
