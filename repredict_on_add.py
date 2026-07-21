@@ -227,6 +227,19 @@ def _recs_by(con, column, value, exclude_title, user_id):
     return [dict(r) for r in rows]
 
 
+def _recs_all(con, exclude_title, user_id):
+    """EVERY active (done=0) recommendation for the tenant (the --full sweep),
+    excluding the trigger title. Same shape and tenant scoping as _recs_by."""
+    cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
+    rows = con.execute(
+        f"SELECT id, title, author, genre, words, {cols} FROM recommendations "
+        f"WHERE COALESCE(done,0)=0 AND LOWER(title)<>LOWER(?) AND user_id=? "
+        f"ORDER BY id",
+        (exclude_title, user_id),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def _raw_scores_for(title, author, genre, cache, web, web_cache_only, allow_research):
     """Reconstruct a book's raw (pre-correction) component vector exactly as the
     live predict path would: cached LLM scores (or one research call if allowed),
@@ -273,7 +286,7 @@ def _raw_scores_for(title, author, genre, cache, web, web_cache_only, allow_rese
 def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=None,
                   *, get_engine, cache=None, web="auto", corr_models="auto",
                   research_trigger=True, web_cache_only=True, dry_run=False,
-                  verbose=True, user_id=None):
+                  verbose=True, user_id=None, full=False):
     """Re-predict the unread cohort whose baseline the finished book just moved.
 
     Call AFTER the finished book is committed and the engine invalidated, so the
@@ -291,6 +304,11 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
                   (None -> DEFAULT_USER_ID, so the CLI/single-user path is
                   unchanged). The engine passed via get_engine must be built for
                   this same tenant.
+    full        : re-predict EVERY active recommendation for the tenant instead
+                  of the scoped author ∪ gated-genre cohort (the old whole-table
+                  sweep, e.g. retro_repredict_recs). No gate suppression, no
+                  genre-peer cap; the gate is still computed for the report.
+                  Same per-book prediction path either way.
 
     Returns a JSON-serializable report dict (or None if the feature is inert).
     Never raises — callers keep add-book non-fatal.
@@ -350,10 +368,12 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
             books, cache, gw, gcw, trigger_genre, trigger_title, pairs=pairs)
         gate_fires = shift > gate
 
-        # --- 3) Affected set (author ∪ gated genre) --------------------------
+        # --- 3) Affected set (author ∪ gated genre; --full = every rec) ------
         con = db_backend.connect(db_write.DB)
         con.row_factory = sqlite3.Row
         try:
+            if full:
+                all_recs = _recs_all(con, trigger_title, user_id)
             author_peers = _recs_by(con, "author", trigger_author, trigger_title, user_id)
             genre_peers = _recs_by(con, "genre", trigger_genre, trigger_title, user_id)
         finally:
@@ -365,7 +385,17 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
         affected = list(author_peers)
         suppressed_genre_peers = []
         capped_genre_peers = []
-        if gate_fires:
+        if full:
+            genre_titles = {r["title"] for r in genre_peers}
+            for r in all_recs:
+                if r["title"] in author_titles:
+                    r["_reason"] = "author"
+                elif r["title"] in genre_titles:
+                    r["_reason"] = "genre"
+                else:
+                    r["_reason"] = "full"
+            affected = all_recs
+        elif gate_fires:
             # Re-predict the genre-peers a genre shift moves most first (weakest
             # own-author support), cap the rest to bound on-add churn.
             def _author_support(a):
@@ -461,6 +491,7 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
             "written": 0 if dry_run else len(rows),
             "skipped": skipped,
             "dry_run": dry_run,
+            "full": full,
         }
         if verbose:
             _print_report(report)
@@ -510,17 +541,23 @@ def _main():
     ap.add_argument("--dry-run", action="store_true", help="compute + report, write nothing (default here)")
     ap.add_argument("--write", action="store_true", help="actually overwrite rows + log deltas")
     ap.add_argument("--no-research", action="store_true", help="do not auto-research an uncached trigger")
+    ap.add_argument("--full", action="store_true",
+                    help="re-predict EVERY active recommendation, not just the scoped cohort")
     args = ap.parse_args()
 
     con = db_backend.connect(db_write.DB)
-    row = con.execute("SELECT author, genre FROM books WHERE LOWER(title)=LOWER(?)",
-                      (args.title,)).fetchone()
+    # Tenant-scoped like every other read here: the CLI acts as the default
+    # (local single-user) tenant, never another tenant's identically-titled book.
+    row = con.execute(
+        "SELECT author, genre FROM books WHERE LOWER(title)=LOWER(?) AND user_id=?",
+        (args.title, db_backend.DEFAULT_USER_ID)).fetchone()
     con.close()
     if not row:
         raise SystemExit(f"No rated book titled {args.title!r} in `books`.")
     author, genre = row
     on_book_added(args.title, author, genre, get_engine=lambda: pe.build(source="db"),
-                  research_trigger=not args.no_research, dry_run=not args.write)
+                  research_trigger=not args.no_research, dry_run=not args.write,
+                  full=args.full)
     return 0
 
 

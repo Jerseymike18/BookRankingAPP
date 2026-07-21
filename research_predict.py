@@ -268,32 +268,40 @@ def _entry_words(entry, title, author, genre, client):
     return w
 
 
-def research_book(title, author, genre, client, cache, allowed_genres=None):
+def research_book(title, author, genre, client, cache, allowed_genres=None,
+                  force=False):
     """Return (scores, conf, blurb, keywords, det_genre, words, from_cache). On a
     miss, researches with the RICHER prompt (extended to also yield a blurb,
     keywords, a schema-valid genre, and an estimated word count in the same call)
     and adds it to `cache` in place so the book is never re-researched. Cache
     entries written by the batch reference script may predate the blurb/keywords/
-    genre/words fields, so those default to empty/None."""
-    # Exact-then-normalized lookup: a case/whitespace variant of a cached title
-    # still hits, avoiding a needless research call for an already-cached book.
-    e = rl.cache_lookup(cache, title)
-    if e is not None:
-        return (e["scores"], e.get("conf", "?"),
-                e.get("blurb", ""), e.get("keywords", ""),
-                e.get("genre") or genre,
-                _entry_words(e, title, author, genre, client), True)
-    # Durable store: a book researched at runtime (persisted below) survives Railway
-    # redeploys even though the JSON file write does not. Consulted ONLY on a file
-    # miss — one cheap read before a multi-second LLM call — so the hit path is
-    # unchanged. Warm the in-memory cache so the rest of this process reuses it.
-    e = db_cache_get(CACHE, title)
-    if e is not None:
-        cache[title] = e
-        return (e["scores"], e.get("conf", "?"),
-                e.get("blurb", ""), e.get("keywords", ""),
-                e.get("genre") or genre,
-                _entry_words(e, title, author, genre, client), True)
+    genre/words fields, so those default to empty/None.
+
+    `force=True` is the explicit no-cache refresh: skip BOTH cache layers (file
+    + durable), re-research, and overwrite this one entry in both. This is a
+    targeted replace, never a purge — the standing rule that cache entries are
+    never auto-invalidated (e.g. on a model switch) is untouched; only a caller
+    explicitly asking for a fresh look pays for one."""
+    if not force:
+        # Exact-then-normalized lookup: a case/whitespace variant of a cached title
+        # still hits, avoiding a needless research call for an already-cached book.
+        e = rl.cache_lookup(cache, title)
+        if e is not None:
+            return (e["scores"], e.get("conf", "?"),
+                    e.get("blurb", ""), e.get("keywords", ""),
+                    e.get("genre") or genre,
+                    _entry_words(e, title, author, genre, client), True)
+        # Durable store: a book researched at runtime (persisted below) survives Railway
+        # redeploys even though the JSON file write does not. Consulted ONLY on a file
+        # miss — one cheap read before a multi-second LLM call — so the hit path is
+        # unchanged. Warm the in-memory cache so the rest of this process reuses it.
+        e = db_cache_get(CACHE, title)
+        if e is not None:
+            cache[title] = e
+            return (e["scores"], e.get("conf", "?"),
+                    e.get("blurb", ""), e.get("keywords", ""),
+                    e.get("genre") or genre,
+                    _entry_words(e, title, author, genre, client), True)
     scores, conf, blurb, keywords, det_genre, words = research_rich_plus(
         client, title, author, genre, allowed_genres)
     entry = {"scores": scores, "conf": conf, "blurb": blurb, "keywords": keywords,

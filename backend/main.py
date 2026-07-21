@@ -1706,6 +1706,9 @@ class ResearchRequest(BaseModel):
                                   # (web-grounded) upgrade. Default is fast so the
                                   # candidate list scores instantly; the client
                                   # re-requests grounded=True to refine per book.
+    force: bool = False           # True → skip every research-cache layer and
+                                  # re-research this one book, overwriting its
+                                  # cached entry (explicit refresh, never a purge).
 
 
 @app.post("/api/predict/research")
@@ -1742,7 +1745,7 @@ def predict_research(req: ResearchRequest,
     try:
         scores, conf, blurb, keywords, det_genre, words, from_cache = _rp.research_book(
             req.title, req.author, req.genre, client, cache,
-            allowed_genres=allowed_genres,
+            allowed_genres=allowed_genres, force=req.force,
         )
         _rp.save_cache(cache)
     except Exception as e:
