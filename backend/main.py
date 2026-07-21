@@ -3096,28 +3096,36 @@ def get_track_record():
 
 
 @app.get("/api/engine-parameters")
-def get_engine_parameters():
-    """Live engine parameters for the public "How the Engine Works" page: the
+def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
+                          user_md: dict = Depends(auth.get_current_user_metadata)):
+    """Live engine parameters for the "How the Engine Works" page: the
     14-component schema + per-genre weights, the served empirical-Bayes shrinkage
-    constants, the conformal-interval config + per-bucket half-widths, the retired
-    correction-layer status, the research/discover model ids, and the
-    WA-from-categories regression diagnostic.
+    constants, the conformal-interval config + per-bucket half-widths, the
+    research/discover model ids, and the WA-from-categories regression diagnostic.
 
-    READ-ONLY: reads the schema/weights from the warm engine cache (books.db) and
-    every drift-prone constant straight off the modules that implement it
+    TENANT-SCOPED: the schema/weights/library size come from the CALLER'S warm
+    engine (their effective weights, overrides included), and the cold-start
+    block reflects THEIR term — fitted on their own library once they cross the
+    fit threshold, else their onboarding word-count preference. A below-threshold
+    tenant is flagged as running on the borrowed seed calibration. Every
+    drift-prone constant is read straight off the modules that implement it
     (reresearch_and_measure / research_predict / intervals) — nothing is
     hardcoded here, so the page can never silently disagree with the engine. No
-    prediction is run, nothing is written, no tokens are spent. Deterministic (no
-    timestamps/HEAD), so it snapshots byte-identically. Validation baselines
-    (walk-forward MAE, measured coverage) live on /api/track-record — this page
-    reuses that so the two can't drift apart."""
+    prediction is run, nothing is written, no tokens are spent. Deterministic for
+    the default user (no timestamps/HEAD), so it snapshots byte-identically.
+    Validation baselines (walk-forward MAE, measured coverage) live on
+    /api/track-record — this page reuses that so the two can't drift apart."""
     try:
-        books, gw, gcw, _coeffs, r2, resid_sd, _ginfo, _upstream = _get_engine()
+        books, gw, gcw, _coeffs, r2, resid_sd, _ginfo, _upstream = _get_engine(user_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
+    borrowed = _uid(user_id) != SEED_USER_ID and len(books) < MIN_OWN_FIT
     return ep.build_engine_parameters(
-        books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS, db_path=db_write.DB,
-        cold_term=_get_cold_term(),
+        books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS,
+        cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
+                                 user_md.get("fav_authors")),
+        model_source="borrowed_seed" if borrowed else "own",
+        min_own_fit=MIN_OWN_FIT,
     )
 
 

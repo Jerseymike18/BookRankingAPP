@@ -1,23 +1,15 @@
 {
   "cold_start": {
     "applied_when": "no same-author analog (same-author count = 0)",
+    "author_prior": false,
     "center_words": 163071,
     "feature": "log10(word count), centered",
     "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
     "fitted": true,
     "min_books_to_fit": 25,
     "n_books_fit": 129,
-    "slope_wa_per_dex": 1.0238
-  },
-  "correction": {
-    "all_zero": true,
-    "applied_in_engine": false,
-    "decision": "retire",
-    "max_blend_weight": 0.0,
-    "n_active": 14,
-    "n_rows": 14,
-    "present": true,
-    "version": "v2_opus_retired_2026-07-05"
+    "slope_wa_per_dex": 1.0238,
+    "source": "fitted"
   },
   "genre_category_weights": {
     "Classical Drama": {
@@ -558,6 +550,8 @@
     "residuals_available": true
   },
   "library": {
+    "min_own_fit": 15,
+    "model_source": "own",
     "n_rated_books": 129
   },
   "models": {

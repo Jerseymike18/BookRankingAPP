@@ -18,8 +18,6 @@ const pct1 = (v: number) => {
 // Trim a stored weight to ≤3 decimals without trailing zeros: 0.4, 0.625, 0.143.
 const wt = (v: number | null | undefined) =>
   v == null ? "—" : Number(v.toFixed(3)).toString();
-const asText = (v: string | string[] | undefined) =>
-  Array.isArray(v) ? v.join(", ") : v ?? "—";
 
 // Short category labels for compact formulas / axes.
 const CAT_ABBR: Record<string, string> = {
@@ -102,7 +100,37 @@ function Callout({ children, tone = "neutral" }: { children: React.ReactNode; to
   );
 }
 
-/* ── 1. Prediction-flow spine (connected stage cards) ───────────────────── */
+/* ── view toggle (the shared SubTabs pill pattern) ──────────────────────── */
+type View = "simple" | "technical";
+function ViewTabs({ active, onChange }: { active: View; onChange: (v: View) => void }) {
+  const tabs: { id: View; label: string }[] = [
+    { id: "simple", label: "Plain English" },
+    { id: "technical", label: "Technical" },
+  ];
+  return (
+    <div
+      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
+      style={{ background: "var(--color-surface-2)" }}
+    >
+      {tabs.map(({ id, label }) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: active === id ? "var(--color-surface)" : "transparent",
+            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
+            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── prediction-flow spine (connected stage cards) ──────────────────────── */
 function FlowStage({
   n,
   title,
@@ -144,7 +172,7 @@ function FlowStage({
   );
 }
 
-/* ── 2. Genre weight explorer ───────────────────────────────────────────── */
+/* ── genre weight explorer ──────────────────────────────────────────────── */
 function GenreWeights({ params }: { params: EngineParameters }) {
   const genres = useMemo(
     () => Object.keys(params.genre_category_weights).sort(),
@@ -188,7 +216,7 @@ function GenreWeights({ params }: { params: EngineParameters }) {
           ))}
         </select>
         <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-          weights read live from the database — {params.schema.n_genres} genres
+          your effective weights, read live — {params.schema.n_genres} genres, customizations included
         </span>
       </div>
 
@@ -238,13 +266,13 @@ function GenreWeights({ params }: { params: EngineParameters }) {
       <p className="text-xs" style={{ color: "var(--color-faint)" }}>
         where <TeX>{`\\bar c_{\\text{cat}}`}</TeX>{" "}is that category&rsquo;s within-category weighted mean of its
         component scores. Within a category the component weights sum to 1; the category weights are the genre&rsquo;s
-        emphasis. Change a weight in the database and this formula changes with it.
+        emphasis. Change a weight on the Weights page and this formula changes with it.
       </p>
     </div>
   );
 }
 
-/* ── 4. Interval bucket table ───────────────────────────────────────────── */
+/* ── interval bucket table ──────────────────────────────────────────────── */
 function BucketTable({ params }: { params: EngineParameters }) {
   const buckets = params.interval.buckets;
   return (
@@ -287,42 +315,197 @@ function BucketTable({ params }: { params: EngineParameters }) {
   );
 }
 
-/* ── page ───────────────────────────────────────────────────────────────── */
-export default function MethodologyClient({
+/* ── per-user cold-start sentence fragments (shared by both views) ──────── */
+function coldStartStatus(params: EngineParameters) {
+  const cs = params.cold_start;
+  return {
+    fitted: cs.source === "fitted",
+    preference: cs.source === "preference",
+    off: cs.source === "off",
+    slope: cs.slope_wa_per_dex,
+    center: cs.center_words,
+    nFit: cs.n_books_fit,
+    minFit: cs.min_books_to_fit,
+    authorPrior: cs.author_prior,
+    longer: (cs.slope_wa_per_dex ?? 0) >= 0,
+  };
+}
+
+/* ── PLAIN-ENGLISH view ─────────────────────────────────────────────────── */
+function SimpleView({
   params,
   track,
 }: {
   params: EngineParameters;
   track: TrackRecord | null;
 }) {
-  const { schema, shrinkage, interval, regression, cold_start, correction, models, library } =
-    params;
+  const { schema, interval, models, library } = params;
+  const cs = coldStartStatus(params);
+  const borrowed = library.model_source === "borrowed_seed";
+
+  return (
+    <>
+      <SectionHeader id="s-score">What the score is</SectionHeader>
+      <Lede>
+        Every book you finish gets rated on {schema.n_components} things — plot, characters, prose, ideas, and so on —
+        each from 0 to 10. Those roll up into one headline number, the <strong>Weighted Average (WA)</strong>, and the
+        weights depend on the genre: an epic fantasy is judged more on its world and story, a literary novel more on its
+        prose and ideas. If you&rsquo;ve customized your weights, <em>your</em>{" "}weights are the ones used everywhere on
+        this site.
+      </Lede>
+
+      <SectionHeader id="s-predict">How a prediction is made</SectionHeader>
+      <Lede>
+        For a book you haven&rsquo;t read, the engine predicts what <em>you</em>{" "}would rate it — not what the internet
+        thinks of it. Four steps:
+      </Lede>
+      <div className="mt-4">
+        <FlowStage
+          n={1}
+          title="An AI reads up on the book"
+          detail={
+            <>
+              A language model ({<span className="font-mono">{models.research}</span>}) researches the book and scores
+              all {schema.n_components} components against the same rubric your own ratings use.
+            </>
+          }
+        />
+        <FlowStage
+          n={2}
+          title="The scores get bent toward your taste"
+          detail={
+            <>
+              The engine knows how the AI&rsquo;s scores tend to differ from <em>yours</em> — for this author if
+              you&rsquo;ve read them, for the genre, and overall — and corrects for that gap. The more you&rsquo;ve
+              read, the sharper this correction gets.
+            </>
+          }
+        />
+        <FlowStage
+          n={3}
+          title="Roll up with your genre weights"
+          detail={
+            <>
+              The corrected scores combine into a predicted WA using exactly the same weights as your rated books, so a
+              prediction slots straight into your rankings.
+            </>
+          }
+        />
+        <FlowStage
+          n={4}
+          title="Add an honest error range"
+          detail={
+            <>
+              Every prediction comes with a range. It&rsquo;s built so that about{" "}
+              {pct1(interval.nominal)} of the time, the score you eventually give lands inside it — and the range is
+              wider for books far from what you&rsquo;ve read, because the engine genuinely knows less there.
+            </>
+          }
+          last
+        />
+      </div>
+
+      <SectionHeader id="s-cold">Authors you&rsquo;ve never read</SectionHeader>
+      <Body>
+        The hardest case is a book by an author you&rsquo;ve never rated — there&rsquo;s no personal history to lean on.
+        One thing that helps: <strong>book length</strong>.{" "}
+        {cs.fitted && cs.slope != null && (
+          <>
+            Your own ratings show that {cs.longer ? "longer" : "shorter"} books land{" "}
+            {cs.longer ? "higher" : "lower"} for you than a genre average would guess, so predictions for unknown
+            authors get a length adjustment fit on your {cs.nFit} rated books.
+          </>
+        )}
+        {cs.preference && (
+          <>
+            You told us during onboarding that you tend to prefer{" "}
+            {cs.longer ? "longer" : "shorter"} books, so predictions for unknown authors get a small nudge in that
+            direction. Once you&rsquo;ve rated {cs.minFit} books, the engine replaces that stated preference with a
+            length effect measured from your actual ratings.
+          </>
+        )}
+        {cs.off && (
+          <>
+            Once you&rsquo;ve rated {cs.minFit} books, the engine measures how length affects <em>your</em>{" "}ratings
+            and applies that to unknown authors. (You can also set a length preference during onboarding to get this
+            earlier.)
+          </>
+        )}
+        {cs.authorPrior && (
+          <>
+            {" "}Your stated favorite authors (and authors very like them) also get a small boost — which disappears
+            per author the moment you actually rate one of their books.
+          </>
+        )}{" "}
+        And the instant you rate anything by an author, all of this steps aside: your real history takes over.
+      </Body>
+
+      <SectionHeader id="s-learning">It learns you as you go</SectionHeader>
+      <Body>
+        Right now your library holds <strong>{library.n_rated_books}</strong>{" "}rated book
+        {library.n_rated_books === 1 ? "" : "s"}.{" "}
+        {borrowed ? (
+          <>
+            While it&rsquo;s under {library.min_own_fit ?? "the threshold"} books, predictions borrow calibration from
+            the engine&rsquo;s reference library so they work from day one — your own books and weights still drive
+            your rankings, and every book you rate shifts predictions toward your taste. Past that threshold the
+            engine runs entirely on your own data.
+          </>
+        ) : (
+          <>
+            Every correction, weight, and adjustment described here is fit on your own ratings — each new book you
+            rate sharpens the next prediction.
+          </>
+        )}
+      </Body>
+
+      <SectionHeader id="s-work">Does it actually work?</SectionHeader>
+      <Body>
+        The engine is graded the honest way: replaying the reference library&rsquo;s reading history in order and
+        predicting each book using only what was known <em>before</em>{" "}it was read.{" "}
+        {track ? (
+          <>
+            Across {track.headline.n_folds} books, the average miss is{" "}
+            <strong>{f2(track.headline.honest_wa_mae)}</strong>{" "}points on the 0&ndash;10 scale — better than research
+            alone ({f2(track.headline.raw_wa_mae)}) and much better than just guessing the average (
+            {f2(track.headline.naive_wa_mae)}).
+          </>
+        ) : (
+          <>The full book-by-book results live on the Track Record page.</>
+        )}{" "}
+        See the <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
+        for every prediction vs. what actually happened — or switch to the <strong>Technical</strong>{" "}tab above for
+        the math.
+      </Body>
+    </>
+  );
+}
+
+/* ── TECHNICAL view ─────────────────────────────────────────────────────── */
+function TechnicalView({
+  params,
+  track,
+}: {
+  params: EngineParameters;
+  track: TrackRecord | null;
+}) {
+  const { schema, shrinkage, interval, regression, models, library } = params;
   const ka = shrinkage.k_author;
   const kg = shrinkage.k_genre;
   // Live worked shrink weights (not hardcoded — derived from the K constants).
   const wAuthor1 = 1 / (1 + ka); // one same-author book
   const wGenre10 = 10 / (10 + kg); // a 10-book genre
   const served = track?.interval_coverage.served_conformal;
+  const cs = coldStartStatus(params);
+  const borrowed = library.model_source === "borrowed_seed";
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <h1 className="font-display text-3xl font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
-        How the Engine Works
-      </h1>
-      <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--color-muted)" }}>
-        A precise account of how the Ledger predicts a book&rsquo;s score before it&rsquo;s read — the{" "}
-        {schema.n_components}-component weighted schema, the empirical-Bayes shrinkage that keeps thin samples honest,
-        the conformal prediction interval, and the walk-forward validation that grades it all. The concepts here are
-        stable; every <em>number</em>{" "}is read live from the engine, so this page can&rsquo;t drift out of sync with the
-        code that runs.
-      </p>
-
+    <>
       {/* ── 1. Overview / flow ── */}
       <SectionHeader id="flow">The prediction, end to end</SectionHeader>
       <Lede>
         A prediction turns a title + author + genre into a Weighted Average (WA) on the same 0&ndash;10 scale as every
-        rated book, plus an honest error band and a projected rank. Five stages, in order — corrections that were once
-        here are <em>not</em>, and that&rsquo;s stated where they&rsquo;d have been.
+        rated book, plus an honest error band and a projected rank in <em>your</em>{" "}library. Five stages, in order.
       </Lede>
       <div className="mt-4">
         <FlowStage
@@ -342,8 +525,8 @@ export default function MethodologyClient({
           detail={
             <>
               Each component is nudged {pct1(shrinkage.corr_blend)} toward the value implied by the other{" "}
-              {schema.n_components - 1} (a regression fit on your rated books), exploiting the strong intercorrelation
-              among your scores. A validated pre-step, upstream of the correction.
+              {schema.n_components - 1} (a regression fit on the rated calibration pool), exploiting the strong
+              intercorrelation among scores. A validated pre-step, upstream of the correction.
             </>
           }
         />
@@ -352,8 +535,9 @@ export default function MethodologyClient({
           title="Author + genre correction (empirical Bayes)"
           detail={
             <>
-              The systematic gap between the model&rsquo;s scores and yours is estimated at the author, genre, and global
-              levels, then shrunk together by sample support (§ below). This maps the LLM&rsquo;s scale onto yours.
+              The systematic gap between the model&rsquo;s scores and the reader&rsquo;s is estimated at the author,
+              genre, and global levels, then shrunk together by sample support (§ below). This maps the LLM&rsquo;s
+              scale onto yours.
             </>
           }
         />
@@ -362,8 +546,8 @@ export default function MethodologyClient({
           title="Weighted-average roll-up"
           detail={
             <>
-              Corrected components combine into category means, then into WA using the genre&rsquo;s weights — the exact
-              same math that computes WA for a rated book, so a prediction is directly comparable to the library.
+              Corrected components combine into category means, then into WA using your genre weights — the exact
+              same math that computes WA for a rated book, so a prediction is directly comparable to your library.
             </>
           }
         />
@@ -373,26 +557,28 @@ export default function MethodologyClient({
           detail={
             <>
               A density-bucketed conformal {pct1(interval.nominal)} band is added around the WA, and the WA is ranked
-              against every rated book. Done.
+              against every book you&rsquo;ve rated. Done.
             </>
           }
           last
         />
       </div>
-      <Callout>
-        <strong>Not in the pipeline:</strong>{" "}a per-component &ldquo;DeltaTracker&rdquo; correction layer once sat between
-        stages 3 and 4. It is <strong>retired</strong> — all {correction.n_rows ?? 14} of its constants are{" "}
-        <span className="font-mono">0.0</span> (version <span className="font-mono">{asText(correction.version)}</span>,
-        decision <span className="font-mono">{asText(correction.decision)}</span>) and{" "}
-        <em>nothing in the serving path reads them</em>. The engine you&rsquo;re reading about is the engine that runs.
-      </Callout>
+      {borrowed && (
+        <Callout>
+          <strong>Your library is still warming up.</strong>{" "}With fewer than{" "}
+          <span className="font-mono">{library.min_own_fit}</span>{" "}rated books, the calibration in stages 2&ndash;3
+          (and the regression diagnostic below) is borrowed from the engine&rsquo;s reference library, unioned with your
+          own reads — a stable prior beats a noisy fit on a handful of books. Your own books and weights still drive the
+          roll-up and the rank. Past the threshold, everything is fit on your data alone.
+        </Callout>
+      )}
 
       {/* ── 2. Schema ── */}
       <SectionHeader id="schema">The {schema.n_components}-component weighted schema</SectionHeader>
       <Lede>
         Every book is scored on {schema.n_components} components grouped into {schema.n_categories}{" "}categories, each
         0&ndash;10. The Weighted Average is a genre-weighted sum of category means — two layers of weights, both
-        per-genre, both stored in the database.
+        per-genre, both yours to customize.
       </Lede>
       <Body>
         First, within each category, component scores combine by <strong>within-category weights</strong>{" "}
@@ -406,7 +592,7 @@ export default function MethodologyClient({
       <TeXBlock>{`\\mathrm{WA} = \\sum_{\\text{cat}} w^{\\text{cat}}_{\\text{genre}} \\, \\bar c_{\\text{cat}}`}</TeXBlock>
       <Body>
         The weights differ by genre — a hard-SF book earns its keep on ideas, an epic fantasy on world and story. Pick a
-        genre to see its live weights and the exact WA formula they produce:
+        genre to see your live weights and the exact WA formula they produce:
       </Body>
       <GenreWeights params={params} />
 
@@ -452,7 +638,9 @@ export default function MethodologyClient({
         <span className="font-mono">{wt(shrinkage.slope_lift)}</span>{" "}blends the fitted per-genre regression (whose
         slope &lt; 1 pulls everything toward the mean) toward a slope-1 deviation model, undoing that
         regression-to-the-mean compression; and the correlation smoothing from stage 2 (<TeX>{`\\text{blend} = ${wt(shrinkage.corr_blend)}`}</TeX>)
-        runs first. All of it is fit only on your rated books, out-of-sample for the book being predicted.
+        runs first. All of it is fit on rated books only
+        {borrowed ? " (currently the borrowed calibration pool — see above)" : " — your rated books"}, out-of-sample
+        for the book being predicted.
       </Body>
       <Callout>
         <strong>Why not just use the author mean when you have one?</strong>{" "}Because a single book is one draw from a
@@ -470,30 +658,48 @@ export default function MethodologyClient({
         <strong>length</strong>.
       </Lede>
       <Body>
-        Fit on your own held-out residuals, long books are systematically under-predicted in that
-        no-analog case — a genre average knows nothing about how you respond to a 900-page epic. A
-        single linear term repairs it
-        {cold_start.fitted && cold_start.slope_wa_per_dex != null ? (
-          <>
-            : a slope of{" "}
-            <span className="font-mono">{f2(cold_start.slope_wa_per_dex)}</span>{" "}WA per 10× word
-            count, pivoting around a{" "}
-            <span className="font-mono">{(cold_start.center_words ?? 0).toLocaleString()}</span>-word
-            book
-          </>
-        ) : (
-          <> — a slope on centered log word count</>
-        )}
-        , added to the prediction only on the cold slice.
+        On held-out residuals, long books are systematically under-predicted in that no-analog case — a genre average
+        knows nothing about how a reader responds to a 900-page epic. A single linear term repairs it: a slope on
+        centered log word count, added to the prediction only on the cold slice.
       </Body>
       <TeXBlock>{`\\widehat{\\mathrm{WA}}_{\\text{cold}} \\;=\\; \\widehat{\\mathrm{WA}} \\;+\\; \\beta\\,\\big(\\log_{10}\\text{words} - \\mu\\big), \\qquad n_a = 0`}</TeXBlock>
       <Body>
-        It is deliberately narrow: it fires <strong>only</strong> when {cold_start.applied_when},
-        and switches off the instant you rate a book by that author — the real same-author analog
-        takes over. It is fit once you have at least{" "}
-        <span className="font-mono">{cold_start.min_books_to_fit}</span>{" "}rated books, and it was
-        validated on the walk-forward backtest below and permutation-tested, so it isn&rsquo;t a
-        fluke of the small cold-start sample.
+        {cs.fitted && cs.slope != null && (
+          <>
+            Yours is <strong>fit on your own leave-one-out residuals</strong> ({cs.nFit} rated books): a slope of{" "}
+            <span className="font-mono">{f2(cs.slope)}</span>{" "}WA per 10× word count, pivoting around a{" "}
+            <span className="font-mono">{(cs.center ?? 0).toLocaleString()}</span>-word book. It refits automatically
+            as your library grows.
+          </>
+        )}
+        {cs.preference && cs.slope != null && (
+          <>
+            Your library is below the <span className="font-mono">{cs.minFit}</span>-book fit threshold, so the slope
+            currently comes from your <strong>onboarding length preference</strong>:{" "}
+            <span className="font-mono">{f2(cs.slope)}</span>{" "}WA per 10× word count, pivoting around a{" "}
+            <span className="font-mono">{(cs.center ?? 0).toLocaleString()}</span>-word typical novel. Once you cross
+            the threshold it is refit on your own leave-one-out residuals.
+          </>
+        )}
+        {cs.off && (
+          <>
+            For your library the term is currently <strong>off</strong> — it is fit on your own leave-one-out residuals
+            once you have at least <span className="font-mono">{cs.minFit}</span>{" "}rated books with word counts (or
+            earlier, from a stated length preference during onboarding).
+          </>
+        )}
+        {cs.authorPrior && (
+          <>
+            {" "}Independently, your stated favorite authors (and close analogs) carry a positive prior on this same
+            cold slice — fading per author the moment you rate one of their books.
+          </>
+        )}
+      </Body>
+      <Body>
+        It is deliberately narrow: it fires <strong>only</strong> when {params.cold_start.applied_when}, and switches
+        off the instant you rate a book by that author — the real same-author analog takes over. The term&rsquo;s design
+        was validated on the walk-forward backtest below and permutation-tested, so it isn&rsquo;t a fluke of the small
+        cold-start sample.
       </Body>
 
       {/* ── 4. Intervals ── */}
@@ -513,8 +719,10 @@ export default function MethodologyClient({
       <Body>
         Under exchangeability this guarantees ~{pct1(interval.nominal)} marginal coverage with no distributional
         assumptions. The one refinement: residuals are <strong>bucketed by data density</strong>{" "}— how many same-author
-        analogs the library holds — so a book on the frontier of your taste gets a wider, honest band instead of a
-        falsely tight one. Thin buckets (&lt; {interval.min_bucket_n} residuals) borrow their nearest richer neighbour.
+        analogs <em>your</em>{" "}library holds for the book being predicted — so a book on the frontier of your taste
+        gets a wider, honest band instead of a falsely tight one. Thin buckets (&lt; {interval.min_bucket_n} residuals)
+        borrow their nearest richer neighbour. The residual table itself is calibrated once, on the reference
+        library&rsquo;s held-out errors; the bucket applied to each prediction is chosen by your own analog count.
       </Body>
       <BucketTable params={params} />
       <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
@@ -552,9 +760,9 @@ export default function MethodologyClient({
         prediction. Walk-forward refuses that.
       </Lede>
       <Body>
-        The backtest replays your reading history in order. For each book it predicts what the engine{" "}
-        <em>would have said the day you started it</em>, training only on the books read before it. It&rsquo;s the
-        &ldquo;what was knowable then&rdquo; accuracy — the honest baseline any future engine change must beat.
+        The backtest replays the reference library&rsquo;s reading history in order. For each book it predicts what the
+        engine <em>would have said the day it was started</em>, training only on the books read before it. It&rsquo;s
+        the &ldquo;what was knowable then&rdquo; accuracy — the honest baseline any future engine change must beat.
       </Body>
       {track ? (
         <>
@@ -581,49 +789,48 @@ export default function MethodologyClient({
         </Callout>
       )}
 
-      {/* ── 6. Honesty / limitations ── */}
-      <SectionHeader id="limits">What it can&rsquo;t do (and what&rsquo;s honest about it)</SectionHeader>
-      <Lede>The instrument is calibrated to one reader&rsquo;s taste. Its limits are stated as plainly as its numbers.</Lede>
-      <ul className="flex flex-col gap-3">
-        {[
-          <>
-            <strong>Hindsight in the research inputs.</strong>{" "}The grounded-research vectors embed post-publication
-            reception — reviews, reputation. The backtest holds those fixed and measures the engine&rsquo;s{" "}
-            <em>math</em>, not a true blind read. An accepted caveat, not a hidden one.
-          </>,
-          <>
-            <strong>The correction is retired to zero.</strong> The per-component DeltaTracker layer failed its
-            out-of-sample gate and was retired — {correction.all_zero ? "all constants are 0.0" : "its constants are held at 0.0"}{" "}
-            and the serving path contains no reader for them. It is documented here only so its absence is unambiguous.
-          </>,
-          <>
-            <strong>One person, not a crowd.</strong>{" "}Every weight, correction, and interval is fit on a single
-            reader&rsquo;s {library.n_rated_books} rated books. This is a precision instrument for one taste, not a
-            general recommender — it says nothing about whether <em>you</em> will like a book.
-          </>,
-          <>
-            <strong>The band is borrowed, slightly conservative.</strong>{" "}The conformal residuals are calibrated on the
-            autonomous analog engine&rsquo;s errors, then centred on the (usually tighter) research prediction — so the
-            served interval leans mildly wide rather than narrow.
-          </>,
-          <>
-            <strong>Thin taste = rough call.</strong> A book with no same-author analog and a sparse genre leans on the
-            broadest pools and gets the widest band. The engine flags this rather than hiding it.
-          </>,
-        ].map((li, i) => (
-          <li key={i} className="text-sm pl-3 border-l-2 leading-relaxed" style={{ color: "var(--color-ink)", borderColor: "var(--color-rule)" }}>
-            {li}
-          </li>
-        ))}
-      </ul>
-
       <p className="text-xs mt-10 pt-4 border-t leading-relaxed" style={{ color: "var(--color-faint)", borderColor: "var(--color-rule)" }}>
-        Every number on this page — the {schema.n_components} components and their weights, the shrinkage constants{" "}
+        Every number on this page — the {schema.n_components} components and your weights, the shrinkage constants{" "}
         (<TeX>{`K_{\\text{author}} = ${wt(ka)}`}</TeX>, <TeX>{`K_{\\text{genre}} = ${wt(kg)}`}</TeX>), the{" "}
-        {pct1(interval.nominal)} interval level, the models — is read live from the engine via{" "}
+        {pct1(interval.nominal)} interval level, your cold-start term, the models — is read live from your engine via{" "}
         <span className="font-mono">/api/engine-parameters</span>. Validation figures are reused from the Track Record so
         the two pages can&rsquo;t disagree. The prose is written by hand; the numbers are not.
       </p>
+    </>
+  );
+}
+
+/* ── page ───────────────────────────────────────────────────────────────── */
+export default function MethodologyClient({
+  params,
+  track,
+}: {
+  params: EngineParameters;
+  track: TrackRecord | null;
+}) {
+  const [view, setView] = useState<View>("simple");
+  const { schema } = params;
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <h1 className="font-display text-3xl font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
+        How the Engine Works
+      </h1>
+      <p className="text-sm mb-6 leading-relaxed" style={{ color: "var(--color-muted)" }}>
+        How the Ledger predicts a book&rsquo;s score before it&rsquo;s read — the {schema.n_components}-component
+        weighted schema, the shrinkage that keeps thin samples honest, the conformal prediction interval, and the
+        walk-forward validation that grades it all. Two tellings of the same engine: pick your depth. The concepts are
+        stable; every <em>number</em>{" "}is read live from your engine, so this page can&rsquo;t drift out of sync with
+        the code that runs.
+      </p>
+
+      <ViewTabs active={view} onChange={setView} />
+
+      {view === "simple" ? (
+        <SimpleView params={params} track={track} />
+      ) : (
+        <TechnicalView params={params} track={track} />
+      )}
     </div>
   );
 }

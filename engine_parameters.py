@@ -1,21 +1,26 @@
 """
-engine_parameters.py — assemble the LIVE engine parameters that the public
+engine_parameters.py — assemble the LIVE engine parameters that the
 "How the Engine Works" (Methodology) page renders.
 
 READ-ONLY by construction. It reads only:
 
-  * the component schema + weights from ``books.db`` (via the engine tuple the
-    caller passes in — ``predict_engine.build(source="db")``), i.e. the same
-    ``gcomp_weights`` / ``genre_weights`` the engine itself uses;
+  * the component schema + weights from the engine tuple the caller passes in —
+    the CALLER'S tenant-scoped engine build, so a hosted user sees their own
+    effective weights (global defaults overlaid with any overrides) and their
+    own library size, not the reference library's;
   * the served shrinkage / model / smoothing constants straight off the modules
     that implement them (``reresearch_and_measure``, ``research_predict``,
     ``intervals``) — never hardcoded here, so a constant change in the engine is
     reflected on the page automatically;
   * the committed conformal residual table (``calibration/residuals.json``) for
-    per-bucket interval half-widths, passed in by the caller.
+    per-bucket interval half-widths, passed in by the caller (global — the
+    residual table is calibrated once, on the reference library);
+  * the caller's cold-start term (fitted per tenant, or their onboarding
+    word-count preference) and whether their prediction model is their own fit
+    or the borrowed seed calibration.
 
 It NEVER touches prediction math, writes anything, or spends tokens. Every value
-is a pure function of committed state (DB + code constants + residual table), so
+is a pure function of the passed-in engine state, so for the default (seed) user
 the payload is snapshot-deterministic — no timestamps, no git HEAD.
 
 The DESIGN INTENT is anti-drift: the Methodology page interpolates these numbers
@@ -26,19 +31,17 @@ from here. The validation baselines (walk-forward MAE, measured interval
 coverage) are deliberately NOT duplicated here — the page reuses
 ``track-record.json`` for those so the two public pages can never disagree.
 
-Consumed by backend ``GET /api/engine-parameters`` and snapshotted
-(deterministically) to ``frontend/public/data/engine-parameters.json`` by
+Consumed by backend ``GET /api/engine-parameters`` (tenant-scoped via the auth
+dependency) and snapshotted (deterministically, as the default user) to
+``frontend/public/data/engine-parameters.json`` by
 ``scripts/export_static_data.py``.
 """
 
 import math
-import sqlite3
 
 import intervals
 import research_predict as rp
 import reresearch_and_measure as rm
-
-DB = "books.db"
 
 # Canonical category display order (matches db_loader.CATEGORY_OF_INTEREST).
 CATEGORY_ORDER = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"]
@@ -73,46 +76,6 @@ def _ordered_components(comps):
         except ValueError:
             return (1, c)
     return sorted(comps, key=key)
-
-
-def _correction_status(db_path=DB):
-    """Read the retired-correction ledger (``component_corrections``) so the page
-    can PROVE the layer is retired from committed data, not just assert it.
-
-    ``applied_in_engine`` is a *code* fact: the serving path (predict_engine +
-    research_predict) contains no reader for this table — there is no
-    ``get_component_corrections`` anywhere — so the layer is both zeroed AND
-    unwired. Degrades to ``present: False`` if the table is absent."""
-    try:
-        con = sqlite3.connect(db_path)
-        rows = con.execute(
-            "SELECT version, constant, blend_weight, active, decision "
-            "FROM component_corrections"
-        ).fetchall()
-        con.close()
-    except sqlite3.Error:
-        return {"present": False, "applied_in_engine": False}
-    if not rows:
-        return {"present": False, "applied_in_engine": False}
-
-    active = [r for r in rows if r[3]]
-    considered = active or rows
-    any_nonzero = any(
-        abs(_num(r[1]) or 0.0) > 1e-12 or abs(_num(r[2]) or 0.0) > 1e-12
-        for r in considered
-    )
-    versions = sorted({r[0] for r in considered if r[0]})
-    decisions = sorted({r[4] for r in considered if r[4]})
-    return {
-        "present": True,
-        "n_rows": len(rows),
-        "n_active": len(active),
-        "version": versions[0] if len(versions) == 1 else versions,
-        "decision": decisions[0] if len(decisions) == 1 else decisions,
-        "all_zero": not any_nonzero,
-        "applied_in_engine": False,
-        "max_blend_weight": max((_num(r[2]) or 0.0 for r in considered), default=0.0),
-    }
 
 
 def _interval_block(residuals):
@@ -158,33 +121,49 @@ def _interval_block(residuals):
 def _cold_start_block(cold_term):
     """The word-count cold-start term (research_predict.apply_cold_start_term): a length
     adjustment applied ONLY on the cold slice — a book with no same-author analog (same-
-    author count 0), where the correction is blind to length. Fitted per reader on their
-    own leave-one-out (actual − corrected) residuals; the fitted slope/center come from the
-    live engine's term (passed in), so this reflects the reader whose engine feeds the page.
-    ``fitted`` is False when the term is off or the reader has too few books to fit it."""
-    fitted = bool(cold_term and cold_term.get("slopes"))
+    author count 0), where the correction is blind to length. ``source`` says where THIS
+    reader's slope comes from:
+
+      * ``fitted`` — OLS on their own leave-one-out residuals (``n`` > 0, i.e. they have
+        at least COLD_START_MIN_POOL word-counted rated books);
+      * ``preference`` — the onboarding word-count preference of a reader too new to fit
+        (a stated slope pivoting around a typical-novel length, ``n`` == 0);
+      * ``off`` — no fitted term and no stated preference.
+
+    ``author_prior`` flags the independent favorite-authors bump (new readers' stated
+    favorites + analogs), which rides along whatever the word-count source is."""
+    slopes = (cold_term or {}).get("slopes")
+    n_fit = int((cold_term or {}).get("n") or 0)
+    source = "fitted" if (slopes and n_fit > 0) else ("preference" if slopes else "off")
     block = {
         "applied_when": "no same-author analog (same-author count = 0)",
         "feature": "log10(word count), centered",
         "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
         "min_books_to_fit": rp.COLD_START_MIN_POOL,
-        "fitted": fitted,
+        "source": source,
+        "fitted": source == "fitted",
+        "author_prior": bool((cold_term or {}).get("author_prior")),
     }
-    if fitted:
-        block["slope_wa_per_dex"] = round(float(cold_term["slopes"][0]), 4)
+    if slopes:
+        block["slope_wa_per_dex"] = round(float(slopes[0]), 4)
         block["center_words"] = int(round(10 ** float(cold_term["mu"][0])))
-        block["n_books_fit"] = cold_term.get("n")
+        if source == "fitted":
+            block["n_books_fit"] = n_fit
     return block
 
 
-def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None, db_path=DB,
-                            cold_term=None):
+def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
+                            cold_term=None, model_source="own", min_own_fit=None):
     """Assemble the live engine-parameters payload from the prebuilt engine tuple.
 
     Args mirror the cached engine (``books, gw, gcw, …, r2, resid_sd``) so the
-    backend can serve from its warm cache without a second DB build. ``residuals``
-    is the loaded ``calibration/residuals.json`` (or None). Deterministic: no
-    timestamps, no HEAD — safe to snapshot byte-identically."""
+    backend can serve from its warm cache without a second DB build — pass the
+    CALLER'S tenant engine so every number is theirs. ``residuals`` is the loaded
+    ``calibration/residuals.json`` (or None). ``model_source`` is "own" when the
+    regression/correction calibration is fit on the reader's own library,
+    "borrowed_seed" for a below-``min_own_fit`` tenant riding the reference
+    library's calibration. Deterministic: no timestamps, no HEAD — safe to
+    snapshot byte-identically for the default user."""
     cat_comps = books.attrs["category_components"]
     cat_order = [c for c in CATEGORY_ORDER if c in cat_comps] + [
         c for c in cat_comps if c not in CATEGORY_ORDER
@@ -239,12 +218,14 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None, db_pat
             "inputs": REGRESSION_INPUTS,
         },
         "cold_start": _cold_start_block(cold_term),
-        "correction": _correction_status(db_path),
         "models": {
             "research": rm.MODEL,
             "discover": rp.DISCOVER_MODEL,
         },
         "library": {
             "n_rated_books": int(len(books)),
+            # Whose calibration the reader's predictions run on right now.
+            "model_source": model_source,
+            "min_own_fit": min_own_fit,
         },
     }

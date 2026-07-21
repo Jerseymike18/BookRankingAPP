@@ -550,20 +550,14 @@ export interface EngineParameters {
     feature: string;
     fit: string;
     min_books_to_fit: number;
+    // Where THIS reader's length slope comes from: fitted on their own
+    // residuals, their onboarding word-count preference, or off entirely.
+    source: "fitted" | "preference" | "off";
     fitted: boolean;
-    slope_wa_per_dex?: number; // fitted length slope (WA per 10× word count)
+    author_prior: boolean; // favorite-authors bump attached (new readers)
+    slope_wa_per_dex?: number; // length slope (WA per 10× word count)
     center_words?: number; // pivot word count (10^μ)
-    n_books_fit?: number;
-  };
-  correction: {
-    present: boolean;
-    applied_in_engine: boolean;
-    all_zero?: boolean;
-    version?: string | string[];
-    decision?: string | string[];
-    n_rows?: number;
-    n_active?: number;
-    max_blend_weight?: number;
+    n_books_fit?: number; // present only when source === "fitted"
   };
   models: {
     research: string;
@@ -571,6 +565,10 @@ export interface EngineParameters {
   };
   library: {
     n_rated_books: number;
+    // "own" once the reader's library fits its own calibration;
+    // "borrowed_seed" while a new tenant rides the reference library's.
+    model_source: "own" | "borrowed_seed";
+    min_own_fit: number | null;
   };
 }
 
