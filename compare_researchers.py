@@ -245,8 +245,21 @@ class WebGroundedResearcher:
         return _retry(_call)
 
 
+class OutOfCreditsError(RuntimeError):
+    """Terminal billing failure: the API key's credit balance is exhausted.
+    Every further call is guaranteed to fail identically until the account is
+    topped up, so batch runs must STOP immediately (owner request 2026-07-21)
+    — never retry it, never grind through the rest of a doomed batch."""
+
+
+def _is_credit_error(e):
+    return (isinstance(e, anthropic.BadRequestError)
+            and "credit balance is too low" in str(e).lower())
+
+
 def _retry(fn, max_retries=5):
-    """Retry on 429/5xx with exponential backoff (pattern from ab_test)."""
+    """Retry on 429/5xx with exponential backoff (pattern from ab_test).
+    A credit-balance 400 is TERMINAL: re-raised as OutOfCreditsError at once."""
     delay = 5
     for attempt in range(max_retries):
         try:
@@ -256,6 +269,14 @@ def _retry(fn, max_retries=5):
                 raise
             time.sleep(delay)
             delay = min(delay * 2, 120)
+        except anthropic.BadRequestError as e:
+            if _is_credit_error(e):
+                raise OutOfCreditsError(
+                    "Anthropic API credit balance exhausted — stopping the run. "
+                    "Top up (Console → Plans & Billing) and re-run; cached "
+                    "results are kept, so the run resumes where it stopped."
+                ) from e
+            raise
         except anthropic.APIStatusError as e:
             if getattr(e, "status_code", 0) >= 500 and attempt < max_retries - 1:
                 time.sleep(delay)
@@ -418,6 +439,14 @@ def prewarm_web(researcher, sample, workers):
                 fut.result()
                 done += 1
                 print(f"    [{done}/{len(todo)}] grounded: {title[:54]}")
+            except OutOfCreditsError as e:
+                # Terminal: every remaining call would fail the same way. Cancel
+                # all queued work and abort the whole run rather than grinding
+                # through a doomed batch and reporting on partial data.
+                for f in futs:
+                    f.cancel()
+                print(f"\n    !! {e}")
+                raise
             except Exception as e:
                 print(f"    ERROR grounding {title[:40]}: {e}")
     print()
@@ -512,7 +541,13 @@ def main():
     # --- the spend: prewarm web cache concurrently --------------------------
     if todo:
         print("\n  Running live web-grounded research...")
-        prewarm_web(web, sample, args.workers)
+        try:
+            prewarm_web(web, sample, args.workers)
+        except OutOfCreditsError:
+            print("\n  >> RUN ABORTED — out of API credits. Nothing evaluated "
+                  "(a partial-sample verdict would mislead). Completed books "
+                  "are cached; top up and re-run to resume. <<")
+            return
 
     # --- overall WA MAE via the REUSED honesty test (cache hits now) --------
     print("  Scoring WA through the honesty test (rl.evaluate_researcher)...")
