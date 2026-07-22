@@ -473,10 +473,22 @@ log = logging.getLogger("reading_ledger")
 
 
 def _server_error(exc: Exception, context: str = "") -> HTTPException:
-    """Log an unexpected exception (full traceback, server-side only) and return a
-    generic 500 — so raw exception text / stack traces never reach the client.
-    Use for the `except Exception` fallbacks; keep raising `ValidationError` as a
-    422 with its own (safe, user-facing) message."""
+    """Map an unexpected exception to a safe HTTPException — raw exception text and
+    stack traces never reach the client. Use for the `except Exception` fallbacks;
+    keep raising `ValidationError` as a 422 with its own (safe, user-facing) message.
+
+    One condition is surfaced honestly rather than as a generic 500: an Anthropic
+    credit-balance 400 is a known, non-secret billing state (not a bug), so it
+    becomes a clear 503 — like the missing-key 503 — telling the operator to top
+    up, and is logged as a concise warning instead of a full-traceback error."""
+    if _rl is not None and _rl.is_out_of_credits(exc):
+        log.warning("Anthropic credit balance exhausted%s",
+                    f" in {context}" if context else "")
+        return HTTPException(
+            status_code=503,
+            detail="The prediction service is temporarily out of Anthropic API "
+                   "credits. Top up in the Anthropic Console (Plans & Billing), "
+                   "then try again.")
     log.exception("Unhandled error%s", f" in {context}" if context else "")
     return HTTPException(status_code=500, detail="Internal server error.")
 

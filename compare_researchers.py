@@ -261,8 +261,7 @@ class OutOfCreditsError(RuntimeError):
 
 
 def _is_credit_error(e):
-    return (isinstance(e, anthropic.BadRequestError)
-            and "credit balance is too low" in str(e).lower())
+    return rl.is_out_of_credits(e)
 
 
 def _retry(fn, max_retries=5):

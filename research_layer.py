@@ -172,6 +172,17 @@ def load_key(path="apikey.txt"):
         f"ANTHROPIC_API_KEY is not set.")
 
 
+def is_out_of_credits(exc) -> bool:
+    """True when `exc` is the Anthropic "credit balance is too low" 400 — a
+    terminal billing failure: every further call fails identically until the
+    account is topped up (Console -> Plans & Billing). Matched on the stable
+    error text (not the SDK class) so it survives client-library churn and holds
+    even if the error is wrapped/re-raised. Callers turn this into a clear,
+    actionable message instead of a generic 500 (backend) or an aborted batch
+    (offline tooling)."""
+    return "credit balance is too low" in str(exc).lower()
+
+
 # ---------------------------------------------------------------------------
 # Your rubric, baked into the prompt so the LLM scores in YOUR framework.
 # (Pulled from RatingGuidelines Section 1 scale + Section 5B anchors.)
