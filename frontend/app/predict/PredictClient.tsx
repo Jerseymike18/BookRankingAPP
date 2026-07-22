@@ -53,15 +53,19 @@ async function mapPool<T>(
   );
 }
 
-/* Max grounded refines in flight at once. Set to DISCOVER_MAX (15) so even a
-   max-size Discover batch of genuinely-new books grounds in ONE wave — the
-   run's wall-clock is a single web_search duration (~1-2 min) instead of two.
-   At 8, a 9-15 book cold batch paid a second full wave for no protection. The
-   Anthropic SDK auto-retries 429s with exponential backoff (honoring
-   Retry-After), and a refine that still fails degrades to its memory score
-   (re-runnable via the per-card Refine button), so the wider fan-out is safe;
-   if a real run shows sustained 429 churn, drop this back toward 8. */
-const REFINE_CONCURRENCY = 15;
+/* Max grounded refines in flight at once. MEASURED, not assumed (2026-07-21):
+   grounding 15 cold books took 333s at concurrency 8 but 386s at 15 — the wider
+   fan-out is 16% SLOWER, not faster. Each grounded call is one Opus web_search
+   turn, and firing more at once trips the server rate limiter harder: at 15,
+   10/15 calls ate a ~60s Retry-After backoff (vs 8/15 at concurrency 8) and one
+   badly-throttled straggler in the single big wave set the whole batch's
+   wall-clock. So "one wave instead of two" is a false economy here — the one
+   wave is throttle-bound. 8 is the measured-better default; the rate limiter
+   starts biting around ~5-6 concurrent (the first few calls in any wave clear
+   at the ~30s fast path, the rest queue behind backoff), so lower may be
+   marginally better still, but 8 is the known-good value. Do NOT raise without
+   re-measuring total wall — per-call latency is NOT independent of concurrency. */
+const REFINE_CONCURRENCY = 8;
 
 /* How many top candidates (by predicted WA) are grounded-refined automatically after
    scoring. The rest refine ON DEMAND (per card, or "Refine all"). Raised to 10 to match
