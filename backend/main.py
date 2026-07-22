@@ -3044,17 +3044,51 @@ def get_calibration_health(user_id: str = Depends(auth.get_current_user_id)):
     }
 
 
-@app.post("/api/calibration/loo")
-def run_loo_validation(user_id: str = Depends(auth.get_current_user_id)):
+def _read_order_keys(user_id):
+    """Chronological sort key per rated book title, for walk-forward validation.
+    Prefers the explicit read_seq rank (the delta-log reading-order convention);
+    falls back to (year_read, read_month, insertion id) with NULL year/month
+    sorted after known values in their group. The engine frame's schema is fixed
+    (no read_seq/read_month columns), so these are fetched here read-only and
+    passed alongside it. Uniform 4-tuples so keys always compare cleanly."""
+    con = db_backend.connect(db_write.DB)
+    rows = con.execute(
+        'SELECT title, year_read, read_month, read_seq, id FROM books '
+        'WHERE user_id=?', (user_id,)).fetchall()
+    con.close()
+    keys = {}
+    for title, year, month, seq, rid in rows:
+        if seq is not None:
+            keys[(title or "").strip()] = (0, int(seq), 0, 0)
+        else:
+            keys[(title or "").strip()] = (
+                1,
+                int(year) if year is not None else 9999,
+                int(month) if month is not None else 13,
+                int(rid),
+            )
+    return keys
+
+
+@app.post("/api/calibration/walkforward")
+def run_walkforward_validation(user_id: str = Depends(auth.get_current_user_id)):
     """
-    Honest leave-one-out validation. Refits the engine ~n times — SLOW (seconds).
-    Triggered explicitly by the user on the Calibration page, not on every load.
+    Honest walk-forward validation: the caller's books are replayed in read
+    order (read_seq when present, else year_read + read_month + insertion
+    order) and each one is predicted by an engine fit ONLY on the books read
+    before it — no future leakage, unlike leave-one-out. Refits the engine ~n
+    times — SLOW (seconds). Triggered explicitly by the user on the Calibration
+    page, not on every load. 422 when the library is under the burn-in size.
     """
     books, gw, gcw = _get_engine(user_id)[:3]
     try:
-        result = ve.run_loo(books=books, gw=gw, gcw=gcw)
+        result = ve.run_walkforward(books=books, gw=gw, gcw=gcw,
+                                    order=_read_order_keys(user_id))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LOO validation failed: {e}")
+        raise HTTPException(status_code=500,
+                            detail=f"Walk-forward validation failed: {e}")
     return result
 
 

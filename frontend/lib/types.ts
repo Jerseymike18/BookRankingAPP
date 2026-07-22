@@ -385,8 +385,15 @@ export interface LooComponentRow {
   verdict: string;
 }
 
-export interface LooResult {
+// Walk-forward validation result (POST /api/calibration/walkforward): each book
+// predicted by an engine fit only on the books read before it. Same shape as
+// the old LOO result plus the walk-forward-specific counters; naive_mae is the
+// past-only mean baseline.
+export interface WalkforwardResult {
   n_books: number;
+  n_evaluated: number;
+  burn_in: number;
+  n_unordered: number;
   naive_mae: number;
   engine_mae: number;
   within_0_5: number;

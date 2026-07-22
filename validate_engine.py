@@ -260,6 +260,116 @@ def run_loo(books=None, gw=None, gcw=None, mode=None, k_author=None,
 
 
 # ---------------------------------------------------------------------------
+# Walk-forward validation (chronological) — the Calibration page's accuracy test
+# ---------------------------------------------------------------------------
+# Leave-one-out trains on every OTHER book — including ones read after the test
+# book — so it quietly launders future taste into a past prediction. The
+# walk-forward variant replays the library in read order and predicts each book
+# from an engine fit ONLY on the books read before it: the honest "what was
+# knowable then" number (same principle as walkforward.py, applied to the
+# autonomous analog engine rather than the research path).
+#
+# run_loo and the conformal residual-table path below are deliberately
+# UNTOUCHED: the served interval calibration stays LOO by owner decision, and
+# compare_researchers.py still consumes run_loo.
+
+WALKFORWARD_BURN_IN = 15  # min training pool before a fold is evaluated
+
+
+def _walkforward_folds(books, ordered_idx, burn_in):
+    """Refit the engine once per evaluated book, training only on the
+    chronological prefix (the books read before it). Fold dicts match
+    _build_folds so _loo_sweep can consume them unchanged."""
+    folds = []
+    for j in range(burn_in, len(ordered_idx)):
+        i = ordered_idx[j]
+        test_row = books.loc[i]
+        train = books.loc[ordered_idx[:j]]
+        coeffs, r2, resid_sd, ginfo, upstream = fit_on(train)
+        folds.append({"i": i, "test_row": test_row, "train": train,
+                      "coeffs": coeffs, "resid_sd": resid_sd, "ginfo": ginfo,
+                      "upstream": upstream,
+                      "n_peers": int((train["Author"] == test_row["Author"]).sum()),
+                      "n_genre": int((train["Genre"] == test_row["Genre"]).sum())})
+    return folds
+
+
+def run_walkforward(books=None, gw=None, gcw=None, mode=None, k_author=None,
+                    k_genre=None, order=None, burn_in=WALKFORWARD_BURN_IN):
+    """Chronological walk-forward validation of the autonomous analog engine.
+
+    ``order`` maps a book title to a sortable tuple giving its read order (the
+    backend builds it from read_seq, falling back to year_read + read_month +
+    insertion id); books without a key are placed LAST, in original row order —
+    the same place-last convention walkforward.py uses for un-timelined books.
+    With ``order=None`` everything falls back to row order (insertion order).
+
+    Returns the same shape as run_loo (so the Calibration page renders either)
+    plus ``n_evaluated`` / ``burn_in`` / ``n_unordered`` / ``validation``.
+    Two honesty differences from LOO: the naive baseline predicts each book
+    with the PAST-ONLY mean WA (not the full-library mean), and per-genre /
+    per-component / bucket tables cover only the evaluated (post-burn-in)
+    books. Raises ValueError when the library is too small to evaluate."""
+    if books is None:
+        import db_loader
+        books, gw, gcw = db_loader.load_from_db()
+    idx = books.index.tolist()
+    pos = {i: p for p, i in enumerate(idx)}
+    order = order or {}
+    keys, n_unordered = {}, 0
+    for i in idx:
+        k = order.get(str(books.loc[i, "Book"]).strip())
+        if k is None:
+            n_unordered += 1
+            keys[i] = (1, (), pos[i])
+        else:
+            keys[i] = (0, tuple(k), pos[i])
+    ordered_idx = sorted(idx, key=lambda i: keys[i])
+
+    if len(ordered_idx) <= burn_in:
+        raise ValueError(
+            f"Walk-forward validation needs more than {burn_in} rated books "
+            f"(the burn-in training pool) — this library has {len(ordered_idx)}.")
+
+    folds = _walkforward_folds(books, ordered_idx, burn_in)
+    eval_idx = ordered_idx[burn_in:]
+    books_eval = books.loc[eval_idx]
+    wa_bias, comp_err, n_peers = _loo_sweep(folds, books_eval, gw, gcw, mode,
+                                            k_author, k_genre, apply_bias=True)
+    wa_nobias, _, _ = _loo_sweep(folds, books_eval, gw, gcw, mode, k_author,
+                                 k_genre, apply_bias=False)
+
+    s = _summarize(books_eval, wa_bias, comp_err, n_peers)
+    actual = books_eval["WA"].values
+    # Honest naive baseline: the past-only mean at the time each book was read
+    # (what "just guess your average" would actually have predicted that day).
+    past_means = np.array([float(f["train"]["WA"].mean()) for f in folds])
+    naive = float(np.abs(actual - past_means).mean())
+    s["naive_mae"] = round(naive, 4)
+    s["improvement_pct"] = (round((naive - s["overall_wa_mae"]) / naive * 100, 1)
+                            if naive else 0.0)
+
+    def _mae(p):
+        mm = ~np.isnan(p)
+        return float(np.abs(p[mm] - actual[mm]).mean())
+
+    mb, mnb = _mae(wa_bias), _mae(wa_nobias)
+    s.update({
+        "n_books": len(books),
+        "n_evaluated": len(eval_idx),
+        "burn_in": burn_in,
+        "n_unordered": n_unordered,
+        "validation": "walk_forward",
+        "bias_mae": round(mb, 4),
+        "no_bias_mae": round(mnb, 4),
+        "bias_helps": bool(mb < mnb),
+        "bias_delta": round(mnb - mb, 4),
+        "mode": mode if mode is not None else pe.ANALOG_MODE,
+    })
+    return s
+
+
+# ---------------------------------------------------------------------------
 # Conformal residual table (offline snapshot that powers prediction intervals)
 # ---------------------------------------------------------------------------
 # The serving path (backend/main.py) must NEVER run LOO per request (~127

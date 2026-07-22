@@ -59,8 +59,8 @@
     "target": 0.8
   },
   "coverage_target": 0.8,
-  "engine_hash": "sha256:be6cf9840c93f7fc",
-  "generated_at": "2026-07-15T09:04:12-04:00",
+  "engine_hash": "sha256:d9d62fa99dd834e8",
+  "generated_at": "2026-07-22T08:51:02-04:00",
   "k_author": 0.5,
   "k_genre": 0.5,
   "min_bucket_n": 20,

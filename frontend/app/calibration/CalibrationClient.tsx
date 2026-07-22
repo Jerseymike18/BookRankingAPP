@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { runLooValidation, fetchResearcherComparison } from "@/lib/api";
+import { runWalkforwardValidation, fetchResearcherComparison } from "@/lib/api";
 import { READONLY } from "@/lib/readonly";
-import type { CalibrationHealth, LooResult, ResearcherComparison } from "@/lib/types";
+import type { CalibrationHealth, WalkforwardResult, ResearcherComparison } from "@/lib/types";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -56,7 +56,7 @@ function deltaColor(delta: number): string {
 }
 
 export default function CalibrationClient({ health }: { health: CalibrationHealth }) {
-  const [loo, setLoo] = useState<LooResult | null>(null);
+  const [loo, setLoo] = useState<WalkforwardResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comparison, setComparison] = useState<ResearcherComparison | null>(null);
@@ -72,10 +72,10 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
     setRunning(true);
     setError(null);
     try {
-      const result = await runLooValidation();
+      const result = await runWalkforwardValidation();
       setLoo(result);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "LOO validation failed");
+      setError(e instanceof Error ? e.message : "Walk-forward validation failed");
     } finally {
       setRunning(false);
     }
@@ -92,7 +92,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
       </h1>
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
         Regression health metrics from the live engine ({health.n_books} rated books).
-        {!READONLY && " LOO accuracy requires a separate run — trigger it below."}
+        {!READONLY && " Walk-forward accuracy requires a separate run — trigger it below."}
       </p>
 
       {/* ── Regression health ── */}
@@ -215,13 +215,15 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
         </table>
       </div>
 
-      {/* ── LOO section (write/compute — hidden on a read-only deploy) ── */}
+      {/* ── Walk-forward section (write/compute — hidden on a read-only deploy) ── */}
       {!READONLY && (
       <>
-      <SectionHeader>Leave-one-out accuracy</SectionHeader>
+      <SectionHeader>Walk-forward accuracy</SectionHeader>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        Each book is removed, the engine refit on the remaining {health.n_books - 1}, and the
-        held-out book predicted from scratch. This is slow — it runs {health.n_books} full regressions.
+        Your books are replayed in read order, and each one is predicted by an engine fit{" "}
+        <em>only on the books read before it</em> — no future leakage, unlike leave-one-out.
+        The first few books are burn-in (training only). This is slow — it refits the engine
+        once per evaluated book.
       </p>
 
       {!loo && (
@@ -236,7 +238,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
             cursor: running ? "not-allowed" : "pointer",
           }}
         >
-          {running ? "Running LOO validation…" : "Run LOO validation"}
+          {running ? "Running walk-forward validation…" : "Run walk-forward validation"}
         </button>
       )}
 
@@ -258,6 +260,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
             <Stat
               label="vs. naive"
               value={`${loo.improvement_pct.toFixed(0)}% better`}
+              note="naive = past-only mean"
             />
             <Stat
               label="Within ±0.5"
@@ -270,6 +273,13 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
               note="of books"
             />
           </div>
+          <p className="text-xs mb-6" style={{ color: "var(--color-muted)" }}>
+            Evaluated {loo.n_evaluated} of {loo.n_books} books in read order (first {loo.burn_in}{" "}
+            are burn-in, training only
+            {loo.n_unordered > 0 &&
+              `; ${loo.n_unordered} without read-order data were placed last`}
+            ).
+          </p>
 
           {/* Bias correction */}
           <div
@@ -401,7 +411,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
               cursor: "pointer",
             }}
           >
-            Re-run LOO
+            Re-run walk-forward
           </button>
         </div>
       )}

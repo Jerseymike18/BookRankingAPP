@@ -1,6 +1,6 @@
 import type {
   CalibrationHealth,
-  LooResult,
+  WalkforwardResult,
   ResearcherComparison,
   DeltaLogResponse,
   BooksResponse,
@@ -590,9 +590,12 @@ export async function fetchCalibrationHealth(token?: ServerToken): Promise<Calib
   return res.json();
 }
 
-export async function runLooValidation(): Promise<LooResult> {
+/** Honest walk-forward validation: each book predicted by an engine fit only on
+ * the books read before it (read order from read_seq / year+month; burn-in
+ * skips the first few). Slow (~n engine refits) — user-triggered only. */
+export async function runWalkforwardValidation(): Promise<WalkforwardResult> {
   assertWritable();
-  const res = await apiFetch(`${API}/api/calibration/loo`, { method: "POST" });
+  const res = await apiFetch(`${API}/api/calibration/walkforward`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
