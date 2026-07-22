@@ -91,6 +91,22 @@ except Exception:
 # safe). The work runs off the request thread; the add-book response returns first.
 _repred_lock = threading.Lock()
 
+# After-save background grounding (Phase 3 of the latency work): when a book is
+# saved to recommendations with memory-only scores, ground it server-side and
+# upgrade its stored prediction — off the interactive path. A DEDICATED small
+# executor (not FastAPI's request threadpool) drains the work so pending
+# groundings queue here instead of holding request threads, and its width bounds
+# how many web_search calls run at once. That bound is deliberate and load-bearing:
+# the concurrency A/B (2026-07-21) showed grounded calls trip the Anthropic rate
+# limiter and self-throttle past ~5-6 concurrent, so background grounding stays
+# LOW (default 3) to leave rate-budget headroom for a user's live Discover refine.
+# BACKGROUND_GROUND_CONCURRENCY=0 disables the feature (saves stay memory-scored).
+from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor
+_BG_GROUND_CONCURRENCY = int(os.environ.get("BACKGROUND_GROUND_CONCURRENCY", "3"))
+_ground_executor = (_ThreadPoolExecutor(max_workers=_BG_GROUND_CONCURRENCY,
+                                        thread_name_prefix="bg-ground")
+                    if _BG_GROUND_CONCURRENCY > 0 else None)
+
 # Hybrid per-component sourcing (data-driven policy). Separately guarded so a
 # failure here never disables the core research path; predict falls back to
 # pure-memory scores if it is unavailable or disabled.
@@ -991,6 +1007,45 @@ def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict
                   "capped_genre_peers": [], "cohort_mean_d_wa": None,
                   "note": "no changes"}
     _repred.record_report(token, report)
+
+
+def _submit_background_ground(title: str, author: str, genre: str, user_id: str) -> None:
+    """Enqueue after-save grounding for one saved rec onto the dedicated grounding
+    executor (bounded width = rate-limit politeness). Non-blocking best-effort: a
+    disabled feature, missing deps, or a full/rejected submit just leaves the rec
+    memory-scored (the user can still refine it manually). Never raises into the
+    request path."""
+    if _ground_executor is None or _repred is None or _rp is None:
+        return
+    try:
+        _ground_executor.submit(_run_background_ground, title, author, genre, user_id)
+    except Exception:
+        pass
+
+
+def _run_background_ground(title: str, author: str, genre: str, user_id: str) -> None:
+    """Grounding-executor worker: upgrade one saved rec's stored scores from memory
+    to the grounded prediction, using the tenant's CACHED engine + per-run statics
+    (so no rebuild per book). Writes are serialized on _repred_lock against other
+    background writers (repredict / other groundings) so the SQLite writer never
+    contends. The lock is threaded into ground_saved_rec and held ONLY around its
+    write — never around the slow web_search — so the executor's 3 workers still
+    ground in parallel. Fully best-effort — a failure just leaves the rec
+    memory-scored."""
+    try:
+        engine = _get_engine(user_id)
+        books_e = engine[0]
+        corr_pool = _correction_pool(user_id, books_e)
+        pairs, corr_models = _corr_statics(user_id, corr_pool)
+        res = _repred.ground_saved_rec(
+            title, author, genre,
+            get_engine=lambda: (corr_pool,) + tuple(engine[1:]),
+            corr_models=corr_models, pairs=pairs, user_id=user_id,
+            write_lock=_repred_lock)
+        if res and res.get("changed"):
+            print(f"  (background-ground '{title}': WA {res.get('old_wa')}→{res.get('new_wa')})")
+    except Exception as exc:
+        print(f"  (background-ground failed for '{title}': {exc})")
 
 
 @app.get("/api/repredict/recent")
@@ -3076,6 +3131,14 @@ def save_recommendation(req: SaveRecommendationRequest,
     if not ok:
         msg = out.replace("✗", "").strip()
         raise HTTPException(status_code=422, detail=msg or "Could not save recommendation.")
+
+    # Ground the saved rec in the BACKGROUND (off this response): run the deferred
+    # web_search server-side and upgrade its stored scores from memory to the
+    # calibrated grounded prediction. Non-blocking + best-effort — the save returns
+    # now; the upgrade lands async and shows on the next fetch. A no-op (cache hit,
+    # already grounded) for a book the client already refined. Bounded width keeps
+    # it polite to the rate limiter (see _ground_executor).
+    _submit_background_ground(req.title, req.author, req.genre, user_id)
     return {"ok": True, "message": out.replace("✓", "").strip()}
 
 

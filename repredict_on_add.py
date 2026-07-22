@@ -502,6 +502,125 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
         return None
 
 
+# ---------------------------------------------------------------------------
+# After-save background grounding: upgrade ONE saved recommendation's stored
+# scores from memory to the calibrated grounded prediction.
+# ---------------------------------------------------------------------------
+# The Discover→save flow scores candidates with fast memory scores and grounds
+# them CLIENT-side (progressively, top-K eager). Books past the eager set, or
+# added via manual/series paths, are saved memory-only — and client grounding
+# stops if the tab closes. This runs the deferred web_search SERVER-side after a
+# save, so a memory-scored rec is upgraded to the grounded prediction without the
+# user waiting and without depending on the browser. It reuses the exact predict
+# path (fresh grounding → the validated author+genre correction) and writes
+# through db_write.update_recommendation_scores — no engine math reimplemented,
+# no schema, tenant-scoped. Idempotent: an already-grounded book re-grounds from
+# cache (no API call) and the no-change guard below skips the write. It logs NO
+# delta_log row — the rec is unread, so the genuine predicted-vs-actual row is
+# still captured later by _maybe_log_delta at read time, and it will then read
+# THIS upgraded (grounded) prediction as the frozen forecast.
+def ground_saved_rec(title, author, genre, *, get_engine, cache=None, web="auto",
+                     corr_models="auto", pairs=None, user_id=None, dry_run=False,
+                     verbose=False, write_lock=None):
+    """Ground one saved recommendation and overwrite its stored scores with the
+    grounded prediction (memory → hybrid). Best-effort, tenant-scoped; never
+    raises. Returns a small report dict, or None when it could not run (rec gone,
+    uncached-and-unresearchable, engine failure).
+
+    Call AFTER the rec row is committed. `get_engine` yields the predict_engine
+    8-tuple for `user_id` (the backend passes its cached per-tenant engine);
+    `pairs`/`corr_models` are the per-run statics (the backend passes its cached
+    ones). `web` is the grounded researcher ("auto" builds the shared one).
+    `write_lock`, if given, is held ONLY around the db_write call — never around
+    the slow web_search — so concurrent background groundings still run in
+    parallel while their quick writes serialize (the backend passes _repred_lock
+    so grounding writes don't contend with repredict writes on SQLite)."""
+    user_id = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = get_engine()
+        if cache is None:
+            cache = rp.load_cache()
+        if web == "auto":
+            try:
+                web = hybrid._shared_web()
+            except Exception:
+                web = None
+        if web is None:
+            return None                    # no grounding available → nothing to do
+        if corr_models == "auto":
+            try:
+                corr_models = rp.build_corr_models(books, cache, pairs=pairs)
+            except Exception:
+                corr_models = None
+
+        # Current stored scores (tenant-scoped, active rec only).
+        con = db_backend.connect(db_write.DB)
+        con.row_factory = sqlite3.Row
+        try:
+            cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
+            row = con.execute(
+                f"SELECT genre, author, words, {cols} FROM recommendations "
+                f"WHERE LOWER(title)=LOWER(?) AND COALESCE(done,0)=0 AND user_id=? "
+                f"ORDER BY id DESC LIMIT 1",
+                (title, user_id)).fetchone()
+        finally:
+            con.close()
+        if row is None:
+            return None                    # rec deleted/finished before this ran
+        genre = row["genre"] or genre
+        author = row["author"] or author
+        old = {c: row[c] for c in db_write.FICTION_COMPONENTS}
+        old_complete = all(v is not None for v in old.values())
+        try:
+            old_wa = rp._wa_from_components(old, genre, gw, gcw) if old_complete else None
+        except Exception:
+            old_wa = None
+
+        # Fresh grounding: memory scores (cached or researched) with the policy's
+        # grounded components overridden from a live web_search. web_cache_only is
+        # False here (this IS the deferred web call) and research is allowed.
+        raw, conf, src = _raw_scores_for(
+            title, author, genre, cache, web,
+            web_cache_only=False, allow_research=True)
+        if raw is None:
+            return {"changed": False, "skipped": src}
+        try:
+            rp.save_cache(cache)           # persist any newly-researched memory vector
+        except Exception:
+            pass
+
+        res = rp.correct_and_predict(
+            title, author, genre, raw, conf, resid_sd,
+            books, gw, gcw, cache, corr_models=corr_models, pairs=pairs)
+        new = {c: _clamp(v) for c, v in res["scores"].items()}
+        new_wa = rp._wa_from_components(new, genre, gw, gcw)
+
+        # No-op guard: an already-grounded rec re-grounds to (near-)identical
+        # scores → skip the write rather than churn the row and its delta history.
+        if old_complete and all(
+                abs(float(old[c]) - new[c]) < 1e-6 for c in db_write.FICTION_COMPONENTS):
+            if verbose:
+                print(f"  ground '{title}': already grounded (no change)")
+            return {"changed": False, "source": src,
+                    "old_wa": round(old_wa, 4) if old_wa is not None else None,
+                    "new_wa": round(new_wa, 4)}
+
+        if not dry_run:
+            import contextlib as _contextlib
+            with (write_lock if write_lock is not None else _contextlib.nullcontext()):
+                db_write.update_recommendation_scores(title, new, user_id=user_id)
+        if verbose:
+            print(f"  ground '{title}' [{src}]: WA "
+                  f"{round(old_wa, 3) if old_wa is not None else '—'}→{round(new_wa, 3)}")
+        return {"changed": True, "source": src,
+                "old_wa": round(old_wa, 4) if old_wa is not None else None,
+                "new_wa": round(new_wa, 4)}
+    except Exception as exc:
+        if verbose:
+            print(f"  (background-ground skipped for '{title}': {exc})")
+        return None
+
+
 def _print_report(rep):
     t = rep["trigger"]
     g = rep["genre_gate"]
