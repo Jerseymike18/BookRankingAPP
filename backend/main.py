@@ -33,6 +33,7 @@ import json
 import re
 import sqlite3
 import datetime
+import logging
 import db_backend
 import uuid
 import threading
@@ -450,6 +451,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+log = logging.getLogger("reading_ledger")
+
+
+def _server_error(exc: Exception, context: str = "") -> HTTPException:
+    """Log an unexpected exception (full traceback, server-side only) and return a
+    generic 500 — so raw exception text / stack traces never reach the client.
+    Use for the `except Exception` fallbacks; keep raising `ValidationError` as a
+    422 with its own (safe, user-facing) message."""
+    log.exception("Unhandled error%s", f" in {context}" if context else "")
+    return HTTPException(status_code=500, detail="Internal server error.")
+
+
 
 def _clean(val):
     """Convert NaN/inf to None so JSON serialization doesn't fail."""
@@ -841,7 +854,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if "✗" in out:
         msg = out.replace("✗", "").strip()
@@ -1022,7 +1035,7 @@ def edit_rating(title: str, req: EditRatingRequest,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if "✗" in out:
         msg = out.replace("✗", "").strip()
@@ -1061,7 +1074,7 @@ def _update_metadata(current_title: str, table: str,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     if not report.get("ok"):
         raise HTTPException(status_code=422,
                             detail=report.get("error") or "Could not update metadata.")
@@ -1160,7 +1173,7 @@ def lookup_book(req: LookupRequest,
     except FileNotFoundError:
         raise HTTPException(status_code=503, detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Could not initialise LLM client: {e}")
+        raise _server_error(e, "lookup: LLM client init")
 
     con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
@@ -1188,7 +1201,7 @@ def lookup_book(req: LookupRequest,
             "source": "llm",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Look-up failed: {e}")
+        raise _server_error(e, "lookup")
 
 
 @app.get("/api/tiers")
@@ -1274,7 +1287,7 @@ def delete_book(title: str, user_id: str = Depends(auth.get_current_user_id)):
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if "✗" in out:
         msg = out.replace("✗", "").strip()
@@ -1292,7 +1305,7 @@ def delete_recommendation(title: str,
         with contextlib.redirect_stdout(buf):
             ok = db_write.delete_recommendation(title, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         msg = out.replace("✗", "").strip()
@@ -1359,7 +1372,7 @@ def update_queue(req: UpdateQueueRequest,
         with contextlib.redirect_stdout(buf):
             db_write.update_queue(req.titles, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
 
 
@@ -1437,7 +1450,7 @@ Rules:
         raw = msg.content[0].text.strip()
         data = _rl._extract_json(raw)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
+        raise _server_error(e, "LLM call failed")
 
     if data.get("ambiguous"):
         return {
@@ -1519,7 +1532,7 @@ Rules:
             with contextlib.redirect_stdout(buf2):
                 db_write.update_queue(new_queue, user_id=user_id)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Queue update failed: {e}")
+            raise _server_error(e, "Queue update failed")
 
     summary_parts = []
     total = len(already_read) + len(already_tbr) + len(newly_added)
@@ -1652,7 +1665,7 @@ def predict_instant(title: str, author: str, genre: str,
     try:
         data = _get_engine(user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
+        raise _server_error(e, "Engine build failed")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
     g_info = ginfo.get(genre, {})
     if genre not in {row for row in books_e["Genre"].unique()}:
@@ -1660,7 +1673,7 @@ def predict_instant(title: str, author: str, genre: str,
     try:
         p = pe.predict(title, author, genre, data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
+        raise _server_error(e, "Prediction failed")
     resp = {
         "title": title, "author": author, "genre": genre,
         "wa_final": round(p["wa_final"], 4),
@@ -1729,12 +1742,12 @@ def predict_research(req: ResearchRequest,
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Client error: {e}")
+        raise HTTPException(status_code=503, detail="The prediction service is temporarily unavailable.")
 
     try:
         data = _get_engine(user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
+        raise _server_error(e, "Engine build failed")
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
 
     con = db_backend.connect(db_write.DB)
@@ -1749,7 +1762,7 @@ def predict_research(req: ResearchRequest,
         )
         _rp.save_cache(cache)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Research failed: {e}")
+        raise _server_error(e, "Research failed")
 
     eff_genre = req.genre or det_genre
     if eff_genre is None:
@@ -1788,7 +1801,7 @@ def predict_research(req: ResearchRequest,
             rank_pool=books_e,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Correction failed: {e}")
+        raise _server_error(e, "Correction failed")
 
     # Category averages from corrected components (for display)
     cat_comps = books_e.attrs["category_components"]
@@ -1883,7 +1896,7 @@ def discover_candidates(req: DiscoverRequest,
             tbr_books=tbr_books, n=req.max_candidates, client=client,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
+        raise _server_error(e, "Candidate generation failed")
 
     candidates = result["candidates"]
     # Flag which are already in cache (free to score)
@@ -1928,11 +1941,11 @@ def generate_recommendation_meta(req: GenerateMetaRequest,
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Client error: {e}")
+        raise HTTPException(status_code=503, detail="The prediction service is temporarily unavailable.")
     try:
         blurb, keywords = _rp.generate_blurb_keywords(req.title, req.author, req.genre, client)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
+        raise _server_error(e, "Generation failed")
     if not blurb and not keywords:
         raise HTTPException(status_code=422,
                             detail="Model returned nothing usable for this book — try again.")
@@ -1942,7 +1955,7 @@ def generate_recommendation_meta(req: GenerateMetaRequest,
             db_write.set_recommendation_meta(req.title, blurb or None, keywords or None,
                                              user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     return {"ok": True, "blurb": blurb or "", "keywords": keywords or ""}
 
 
@@ -2132,7 +2145,7 @@ def set_year_read(req: SetYearRequest,
         with contextlib.redirect_stdout(buf):
             ok = db_write.set_year_read(req.title, req.year, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
@@ -2512,7 +2525,7 @@ def add_nf_book(req: NonfictionAddRequest,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not add book.")
@@ -2535,7 +2548,7 @@ def edit_nf_scores(title: str, req: NonfictionScoresRequest,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update scores.")
@@ -2578,7 +2591,7 @@ def delete_nf_book(title: str,
         with contextlib.redirect_stdout(buf):
             ok = db_write.delete_nonfiction_book(title, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not delete book.")
@@ -2595,7 +2608,7 @@ def set_nf_year(req: SetYearRequest,
         with contextlib.redirect_stdout(buf):
             ok = db_write.set_nonfiction_year_read(req.title, req.year, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not set year.")
@@ -2626,7 +2639,7 @@ def predict_nf_research(req: NonfictionResearchRequest,
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Research failed: {e}")
+        raise _server_error(e, "Research failed")
     cat_components = data[0].attrs["category_components"]
     grouped = {
         cat: {c: _clean(round(float(r["scores"][c]), 2))
@@ -2663,14 +2676,14 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest,
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Client error: {e}")
+        raise HTTPException(status_code=503, detail="The prediction service is temporarily unavailable.")
     request = (req.request or "").strip()
     if not request:
         raise HTTPException(status_code=422, detail="Enter a request.")
     try:
         cands = _nr.discover_nonfiction_candidates(request, n=req.n or 8, client=client)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Candidate generation failed: {e}")
+        raise _server_error(e, "Candidate generation failed")
     con = db_backend.connect(db_write.DB)
     have = {r[0].strip().lower() for r in con.execute(
         "SELECT title FROM nonfiction_books WHERE user_id=?", (user_id,)) if r[0]}
@@ -2757,7 +2770,7 @@ def add_nf_recommendation(req: NonfictionRecRequest,
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not save.")
@@ -2773,7 +2786,7 @@ def delete_nf_recommendation(title: str,
         with contextlib.redirect_stdout(buf):
             ok = db_write.delete_nonfiction_recommendation(title, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not delete.")
@@ -2793,7 +2806,7 @@ def set_nf_done(title: str, req: NfDoneRequest,
         with contextlib.redirect_stdout(buf):
             ok = db_write.set_nonfiction_done(title, req.done, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not update.")
@@ -2820,7 +2833,7 @@ def update_nf_queue(req: UpdateQueueRequest,
         with contextlib.redirect_stdout(buf):
             db_write.update_nonfiction_queue(req.titles, user_id=user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     return {"ok": True, "message": buf.getvalue().strip().replace("✓", "").strip()}
 
 
@@ -2999,7 +3012,7 @@ def save_recommendation(req: SaveRecommendationRequest,
                 user_id=user_id,
             )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise _server_error(e)
     out = buf.getvalue().strip()
     if not ok:
         msg = out.replace("✗", "").strip()
@@ -3087,8 +3100,7 @@ def run_walkforward_validation(user_id: str = Depends(auth.get_current_user_id))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500,
-                            detail=f"Walk-forward validation failed: {e}")
+        raise _server_error(e, "walk-forward validation")
     return result
 
 
@@ -3106,7 +3118,7 @@ def get_researcher_comparison(user_id: str = Depends(auth.get_current_user_id)):
         with open(path) as f:
             return json.load(f)
     except (OSError, json.JSONDecodeError) as e:
-        raise HTTPException(status_code=500, detail=f"Could not read comparison: {e}")
+        raise _server_error(e, "Could not read comparison")
 
 
 @app.get("/api/track-record")
@@ -3152,7 +3164,7 @@ def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
     try:
         books, gw, gcw, _coeffs, r2, resid_sd, _ginfo, _upstream = _get_engine(user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Engine build failed: {e}")
+        raise _server_error(e, "Engine build failed")
     borrowed = _uid(user_id) != SEED_USER_ID and len(books) < MIN_OWN_FIT
     return ep.build_engine_parameters(
         books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS,
