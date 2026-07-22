@@ -92,14 +92,22 @@ WB_COMPONENTS = {"Depth2", "Integration", "Originality"}
 # plus ~2-3 server searches). Used only for the pre-spend estimate.
 EST_COST_PER_WEB_BOOK = 0.12
 
-# STEP 3 — cap on web_search server calls per book during grounded retrieval.
-# Per-book review retrieval (this book's Goodreads rating + recurring praise /
-# criticism) needs only a couple of searches; 3 bounds latency without starving
-# it. Researcher-local (see WebGroundedResearcher.search_tool) so Discover's
-# series enumeration keeps rp.WEB_SEARCH_TOOL's higher budget. Cached books are
-# unaffected (the cache short-circuits before any search), so on a warm sample
-# this is provably MAE-neutral; its effect on LIVE retrieval needs a live A/B.
-SEARCH_MAX_USES = 3
+# Cap on web_search server calls per book during grounded retrieval. Per-book
+# review retrieval (this book's Goodreads rating + recurring praise / criticism)
+# needs only ONE good search; the extra searches added latency (each is a server
+# round trip) without improving THIS reader's scores. Researcher-local (see
+# WebGroundedResearcher.search_tool) so Discover's series enumeration keeps
+# rp.WEB_SEARCH_TOOL's higher budget (max_uses=5), which pages a series list.
+#
+# LOWERED 3 -> 1 after a LIVE A/B (2026-07-21, blind seed-42 32-book sample,
+# hybrid vs the agentic 3-search baseline): WA MAE 0.801 vs 0.826 — max_uses=1
+# HOLDS accuracy (Δ-0.025, slightly better; gate was ≤+0.05), so for this
+# reader one Goodreads search captures the consensus and more only adds noise.
+# It also cuts the search round trips that dominate the grounded call. This
+# affects only FRESH groundings; already-cached books keep their 3-search scores
+# (the cache is never auto-purged, per CLAUDE.md), so it's forward-only — no
+# served prediction changes today. Revert to 3 to restore the prior breadth.
+SEARCH_MAX_USES = 1
 
 # STEP 4 — staged model routing. The grounded path has two stages with different
 # needs: RETRIEVAL (search Goodreads, summarise what readers report) is cheap
