@@ -34,6 +34,8 @@ import re
 import sqlite3
 import datetime
 import logging
+import time
+from collections import defaultdict, deque
 import db_backend
 import uuid
 import threading
@@ -45,7 +47,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -462,6 +464,53 @@ def _server_error(exc: Exception, context: str = "") -> HTTPException:
     log.exception("Unhandled error%s", f" in {context}" if context else "")
     return HTTPException(status_code=500, detail="Internal server error.")
 
+
+# ── Rate limiting ────────────────────────────────────────────────────────────
+# A minimal in-memory sliding-window limiter (no new dependency; matches the
+# stdlib-only ethos of signup.py). It protects the money/abuse-sensitive routes:
+# unauthenticated sign-up (invite-code brute force) and the LLM-backed endpoints
+# (each grounded call spends Anthropic credits). State is per-process, so it fits
+# the single-worker Railway deploy and resets on restart — good enough as an abuse
+# brake, not a distributed quota. Keyed by client IP (X-Forwarded-For first hop,
+# since we sit behind Railway's proxy).
+_RATE_LIMIT_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "1").strip() != "0"
+_rl_lock = threading.Lock()
+_rl_hits: dict = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float) -> None:
+    """Allow at most `max_calls` in the last `window_s` seconds per (bucket, IP);
+    raise 429 with Retry-After otherwise. No-op when RATE_LIMIT_ENABLED=0."""
+    if not _RATE_LIMIT_ENABLED:
+        return
+    key = f"{bucket}:{_client_ip(request)}"
+    now = time.monotonic()
+    with _rl_lock:
+        dq = _rl_hits[key]
+        cutoff = now - window_s
+        while dq and dq[0] <= cutoff:
+            dq.popleft()
+        if len(dq) >= max_calls:
+            retry = int(window_s - (now - dq[0])) + 1
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests — please slow down and try again shortly.",
+                headers={"Retry-After": str(retry)},
+            )
+        dq.append(now)
+
+
+# Per-route budgets. LLM routes are generous enough for a real session (predicting
+# a series fans out client-side into several calls) but cap runaway/abusive loops.
+_RL_LLM = dict(max_calls=40, window_s=60.0)
+_RL_SIGNUP = dict(max_calls=5, window_s=300.0)
 
 
 def _clean(val):
@@ -1148,7 +1197,7 @@ def _lookup_from_prediction(title: str, user_id: str) -> Optional[dict]:
 
 
 @app.post("/api/lookup")
-def lookup_book(req: LookupRequest,
+def lookup_book(req: LookupRequest, request: Request,
                 user_id: str = Depends(auth.get_current_user_id)):
     """
     Title-only metadata lookup. If the title has already been predicted (it is in
@@ -1164,6 +1213,9 @@ def lookup_book(req: LookupRequest,
     from_pred = _lookup_from_prediction(title, user_id)
     if from_pred is not None:
         return from_pred
+
+    # Only the LLM path is metered — cached lookups above are free.
+    _rate_limit(request, "llm", **_RL_LLM)
 
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
@@ -1325,13 +1377,15 @@ class SignupRequest(BaseModel):
 
 
 @app.post("/api/signup")
-def signup(req: SignupRequest):
+def signup(req: SignupRequest, request: Request):
     """Invite-code-gated account creation (hosted multi-user). PUBLIC/global —
     the caller isn't authenticated yet, so no Depends(get_current_user_id); the
     invite code is the gate and it (plus the service-role key) lives only on the
     server (see signup.py). 404 when sign-up isn't configured (local/static)."""
     if not signup_mod.SIGNUP_ENABLED:
         raise HTTPException(status_code=404, detail="Sign-up is not enabled here.")
+    # Rate-limit before the invite-code check so the code can't be brute-forced.
+    _rate_limit(request, "signup", **_RL_SIGNUP)
     if not signup_mod.check_invite_code(req.invite_code):
         raise HTTPException(status_code=403, detail="Invalid invite code.")
     email = (req.email or "").strip().lower()
@@ -1725,7 +1779,7 @@ class ResearchRequest(BaseModel):
 
 
 @app.post("/api/predict/research")
-def predict_research(req: ResearchRequest,
+def predict_research(req: ResearchRequest, request: Request,
                      user_id: str = Depends(auth.get_current_user_id),
                      user_md: dict = Depends(auth.get_current_user_metadata)):
     """
@@ -1733,6 +1787,7 @@ def predict_research(req: ResearchRequest,
     author+genre correct → WA roll-up. One LLM API call (or cache hit).
     Returns corrected components, WA, CI, rank, grounding signals.
     """
+    _rate_limit(request, "llm", **_RL_LLM)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
 
@@ -1868,9 +1923,10 @@ class DiscoverRequest(BaseModel):
 
 
 @app.post("/api/discover/candidates")
-def discover_candidates(req: DiscoverRequest,
+def discover_candidates(req: DiscoverRequest, request: Request,
                         user_id: str = Depends(auth.get_current_user_id)):
     """Generate candidate book titles for a free-text request (1 API call)."""
+    _rate_limit(request, "llm", **_RL_LLM)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
     try:
@@ -1930,9 +1986,10 @@ class GenerateMetaRequest(BaseModel):
 
 
 @app.post("/api/recommendations/generate-meta")
-def generate_recommendation_meta(req: GenerateMetaRequest,
+def generate_recommendation_meta(req: GenerateMetaRequest, request: Request,
                                  user_id: str = Depends(auth.get_current_user_id)):
     """Generate blurb + keywords for a recommendation that was added without research."""
+    _rate_limit(request, "llm", **_RL_LLM)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
     try:
@@ -2623,13 +2680,14 @@ class NonfictionResearchRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/predict/research")
-def predict_nf_research(req: NonfictionResearchRequest,
+def predict_nf_research(req: NonfictionResearchRequest, request: Request,
                         user_id: str = Depends(auth.get_current_user_id)):
     """Grounded nonfiction prediction: one LLM call scores the 8 components, then
     they roll up through the SAME nonfiction math (category averages, Quality-lean
     WA, Total Average) and are ranked by Total Average against the rated nonfiction
     books. Always low-confidence at n=6. No TBR save (there is no nonfiction
     recommendations table)."""
+    _rate_limit(request, "llm", **_RL_LLM)
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
     try:
@@ -2664,10 +2722,11 @@ class NonfictionDiscoverRequest(BaseModel):
 
 
 @app.post("/api/nonfiction/discover/candidates")
-def discover_nf_candidates(req: NonfictionDiscoverRequest,
+def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
                            user_id: str = Depends(auth.get_current_user_id)):
     """Brainstorm nonfiction candidates for a free-text request (one cheap Sonnet
     call), excluding books already in your nonfiction library or TBR."""
+    _rate_limit(request, "llm", **_RL_LLM)
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
     try:
