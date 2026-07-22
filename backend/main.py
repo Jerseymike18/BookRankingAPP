@@ -1425,6 +1425,54 @@ def health():
     return {"ok": True}
 
 
+def _resolve_version() -> dict:
+    """Build identity of the running backend, resolved ONCE at process start.
+
+    Source order: Railway injects the deployed commit at build time
+    (RAILWAY_GIT_COMMIT_SHA / RAILWAY_GIT_BRANCH) — the authoritative hosted
+    value; local dev falls back to reading git HEAD; else 'unknown'. Cheap and
+    side-effect-free at import (one git call only when the env var is absent)."""
+    sha = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "").strip()
+    branch = os.environ.get("RAILWAY_GIT_BRANCH", "").strip()
+    source = "railway"
+    if not sha:
+        source = "git"
+        try:
+            import subprocess
+            sha = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT,
+                stderr=subprocess.DEVNULL, timeout=5).decode().strip()
+            if not branch:
+                branch = subprocess.check_output(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=PROJECT_ROOT,
+                    stderr=subprocess.DEVNULL, timeout=5).decode().strip()
+        except Exception:
+            sha, source = "", "unknown"
+    return {
+        "commit": sha or "unknown",
+        "short": sha[:7] if sha else "unknown",
+        "branch": branch or "unknown",
+        "source": source,
+    }
+
+
+_VERSION = _resolve_version()
+
+
+@app.get("/api/version")
+def version():
+    """Deployed backend build identity — the git commit SHA the running process
+    was built from, so a deploy is verifiable with one curl:
+    `GET /api/version` → {"short": "<sha7>", "commit": ..., "branch": ..., "source": ...}.
+
+    PUBLIC/unauthenticated by design: a build id is less revealing than the
+    already-public /openapi.json, and deploy verification must work without a
+    token. Resolved once at process start (see _resolve_version), so this is a
+    constant-time dict return — no git call per request. NOT snapshotted to the
+    static showcase (it's a live-backend deploy marker, meaningless there)."""
+    return _VERSION
+
+
 class SignupRequest(BaseModel):
     email: str
     password: str
