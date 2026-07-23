@@ -245,6 +245,17 @@ def render_markdown(folds, skips, meta):
         + [["_naive (predict mean WA)_", _fmt(ov["naive_meanWA"])]]))
     L.append("")
 
+    # 1b. Rank correlation (Phase 1.1) — predicted vs actual WA, pooled over folds.
+    rk = {v: wf.variant_metrics(folds, v) for v in VARIANTS}
+    L.append("## Rank correlation — predicted vs actual WA  (held-out folds)\n")
+    L.append(_table(
+        ["variant", "Spearman ρ", "Kendall τ", "n"],
+        [[VARIANT_LABEL[v], _fmt(rk[v]["spearman"]), _fmt(rk[v]["kendall"]), rk[v]["n"]]
+         for v in VARIANTS]))
+    L.append("\n_The product ranks books, so order-preservation (ρ, τ) is a first-class "
+             "adoption metric alongside MAE — a biased-but-monotone model can still rank "
+             "well. All later phase decisions weigh MAE and rank correlation together._\n")
+
     # 2. By genre
     L.append("## WA MAE by genre  (raw → honest → leaky; Δ = honest−raw)\n")
     grows = sorted(mae_by_key(folds, lambda f: f["genre"]),

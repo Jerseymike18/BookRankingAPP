@@ -56,14 +56,27 @@ PHASE-0 NOTES (leakage + architecture facts this harness relies on)
     served density-bucketed conformal interval (that needs a full-LOO residual
     table and is out of scope here).
 
+SPLIT MODES (Phase 1.2)
+-----------------------
+Reading order is the DB read_seq (native; supersedes the hand-edited, drift-prone
+Excel Timeline). Three fold-split modes, all keeping the walk-forward past-only
+pool and differing only in which earlier books are allowed in it:
+  time    -- every earlier book (the original baseline; default).
+  author  -- earlier books minus the target's author (cold-start-by-author).
+  series  -- earlier books minus the target's series ('Standalone' is not a group).
+
 HOW TO RUN
 ----------
-    python3 walkforward.py                 # run all folds + write report
-    python3 walkforward.py --report-only   # rebuild report from existing folds
-    python3 walkforward.py --check-determinism   # prove two runs are identical
-    python3 walkforward.py --burn-in 15    # min pool size before evaluating
+    python3 walkforward.py                    # time mode: folds + report (+ rank metrics)
+    python3 walkforward.py --split-mode author  # one grouped mode -> validation/splits/author/
+    python3 walkforward.py --all-splits       # every mode + validation/walkforward_splits.md
+    python3 walkforward.py --report-only      # rebuild report from existing folds
+    python3 walkforward.py --check-determinism  # prove two runs are identical
+    python3 walkforward.py --burn-in 15       # min TRAINING-POOL size before evaluating
 
-Artifacts land in validation/ (NOT a static-snapshot input -- see README).
+Artifacts land in validation/ (NOT a static-snapshot input -- see README). Grouped
+modes write under validation/splits/<mode>/; the time mode keeps the canonical
+filenames that track_record.py reads.
 """
 
 import argparse
@@ -76,6 +89,7 @@ import subprocess
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 # Read-only engine + the exact live-Predict glue. Importing research_predict
 # pulls in `anthropic`, but NO client is constructed and NO network call is made
@@ -98,6 +112,23 @@ BURN_IN_DEFAULT = 15                 # min training-pool size before we evaluate
 ROLL_WINDOW = 15                     # rolling-MAE window (folds)
 NOMINAL_COVERAGE = 0.90              # +/-1.645*resid_sd is a 90% normal interval
 VARIANTS = ("raw", "honest", "leaky")
+
+# Split modes (brief Phase 1.2). ALL three keep the walk-forward "no future
+# books" honesty -- the training pool is always positions strictly earlier in
+# reading order. They differ only in which earlier books are ALLOWED in the pool:
+#   time   -- every earlier book (the original walk-forward baseline; default).
+#   author -- earlier books MINUS any by the target's author (cold-start-by-author:
+#             "predict this book as if I'd never read this author").
+#   series -- earlier books MINUS any in the target's series. "Standalone" and
+#             empty series are NOT a group (a standalone has no series-mates to
+#             memorise), so a standalone target's pool equals the time pool.
+# Holding the temporal structure fixed and varying ONLY the grouping means the
+# MAE delta is attributable to same-author/same-series memorisation, not to a
+# different train/test regime.
+SPLIT_MODES = ("time", "author", "series")
+SPLITS_DIR = os.path.join(OUT_DIR, "splits")   # grouped-mode artifacts (isolated
+#   from the canonical time-mode files that track_record.py reads)
+SPLITS_TABLE_FILE = "walkforward_splits.md"
 
 # Verbatim into the results metadata (brief Phase 0.2). "neutralised" == a
 # past-only pool filter removes the future-information leak for that input.
@@ -192,101 +223,83 @@ def _active_correction_version(db_path):
 
 
 # ---------------------------------------------------------------------------
-# Ordering (Timeline read order + place-last for un-timelined books)
+# Ordering (native DB read_seq — supersedes the now-stale Excel Timeline)
 # ---------------------------------------------------------------------------
-def _timeline_order(xlsx_path):
-    """Extract (read_number, title) pairs from the Timeline sheet's per-book
-    table (the sub-table with #, Book, Author, ... columns). We trust Timeline
-    ONLY for order; all book metadata comes from the DB (source of truth)."""
-    from openpyxl import load_workbook
-    wb = load_workbook(xlsx_path, read_only=True, data_only=True)
-    ws = wb["Timeline"]
-    rows = list(ws.iter_rows(values_only=True))
-
-    # Header row = the one that carries an 'Author' label (only the per-book
-    # table has it). Locate #/Book relative to Author within that row.
-    hdr_idx = next((i for i, r in enumerate(rows)
-                    if any(str(c).strip() == "Author" for c in r if c is not None)), None)
-    if hdr_idx is None:
-        raise RuntimeError("Timeline: could not find the per-book header row.")
-    hdr = [str(c).strip() if c is not None else "" for c in rows[hdr_idx]]
-    auth_col = hdr.index("Author")
-    book_col = max(i for i, v in enumerate(hdr) if v == "Book" and i < auth_col)
-    num_col = max(i for i, v in enumerate(hdr) if v == "#" and i < book_col)
-
-    out = []
-    for r in rows[hdr_idx + 1:]:
-        title = r[book_col] if book_col < len(r) else None
-        if title in (None, ""):
-            continue
-        num = r[num_col] if num_col < len(r) else None
-        out.append((num, str(title).strip()))
+# The reading order used to come from the workbook's Timeline sheet, but that
+# sheet is edited by hand and had drifted behind books.db (it missed the 4
+# most-recently-logged reads, which were then wrongly "placed last"). The DB now
+# carries a native, clean read_seq (an integer reading-order rank, higher = more
+# recent; set on add and editable via db_write.set_read_seq) for every book, so
+# we order by it directly. This removes the openpyxl dependency AND the drift.
+def _db_order_map(db_path):
+    """Read {title: (read_seq, series_number)} from books.db (read-only). Both
+    columns live in the DB but db_loader's frame surfaces neither."""
+    out = {}
+    try:
+        uri = "file:" + os.path.abspath(db_path) + "?mode=ro"
+        con = db_backend.connect(uri, uri=True)
+        for t, seq, sn in con.execute(
+                "SELECT title, read_seq, series_number FROM books WHERE user_id=?",
+                (db_backend.DEFAULT_USER_ID,)):
+            out[str(t).strip()] = (seq, sn)
+        con.close()
+    except Exception:
+        pass
     return out
 
 
-def build_order(books, xlsx_path):
+def build_order(books, xlsx_path=None, db_path=None):
     """Return (ordered_positions, skips).
 
-    ordered_positions: list of dicts, one per rated fiction book, in read order,
-    each carrying position (1-based) + DB metadata. Fiction books present in the
-    Timeline come first in Timeline order (renumbered 1..K after dropping the
-    interleaved nonfiction rows); the owner-approved rule for rated books ABSENT
-    from the Timeline (recent additions with no recorded order) is to place them
-    LAST, ordered by (year_read, title) for determinism.
+    ordered_positions: one dict per rated fiction book, in reading order, each
+    carrying a 1-based position + DB metadata (author/genre/series/series_number/
+    year_read/read_seq). Order is the DB read_seq ascending (oldest first); any
+    book with a null read_seq (none under current data) sorts last by title, for
+    determinism. skips is always [] (every book has a position now).
 
-    skips: books that cannot be placed (should be empty under current data)."""
+    `xlsx_path` is accepted and IGNORED — kept only so older experiment callers
+    that pass a workbook path positionally keep working. Order comes from
+    read_seq, which supersedes the Excel Timeline."""
+    db_path = db_path or db_loader.DB
+    meta = _db_order_map(db_path)
     db_by_title = {row["Book"]: row for _, row in books.iterrows()}
-    db_titles = set(db_by_title)
 
-    timeline = _timeline_order(xlsx_path)
-    # Timeline order, keeping only rated FICTION titles (nonfiction rows in the
-    # sheet simply don't match the fiction `books` table and are dropped).
-    seen = set()
-    ordered_titles = []
-    for _num, title in sorted(timeline, key=lambda t: (t[0] is None, t[0])):
-        if title in db_titles and title not in seen:
-            seen.add(title)
-            ordered_titles.append(title)
-
-    # Place-last: rated fiction books absent from the Timeline, by (year_read, title).
-    missing = sorted(
-        (t for t in db_titles if t not in seen),
-        key=lambda t: (db_by_title[t]["Year"] if db_by_title[t]["Year"] is not None
-                       else 9999, t))
+    def _key(t):
+        seq = meta.get(t, (None, None))[0]
+        return (seq is None, seq if seq is not None else 0, t)
 
     positions = []
-    for pos, title in enumerate(ordered_titles + missing, start=1):
+    for pos, title in enumerate(sorted(db_by_title, key=_key), start=1):
         row = db_by_title[title]
+        seq, sn = meta.get(title, (None, None))
         positions.append({
             "position": pos,
             "title": title,
             "author": row["Author"],
             "genre": row["Genre"],
-            "series": row["Series"] or None,
-            "series_number": _series_number(title, books),
+            "series": (row["Series"] or None),
+            "series_number": sn,
             "year_read": int(row["Year"]) if row["Year"] is not None else None,
-            "in_timeline": title in seen,
+            "read_seq": int(seq) if seq is not None else None,
         })
     return positions, []
 
 
-def _series_number(title, books):
-    """series_number lives in the DB but db_loader does not surface it; read it
-    straight from books.db (read-only) once, cached on the function."""
-    cache = getattr(_series_number, "_cache", None)
-    if cache is None:
-        cache = {}
-        try:
-            uri = "file:" + os.path.abspath(db_loader.DB) + "?mode=ro"
-            con = db_backend.connect(uri, uri=True)
-            for t, n in con.execute("SELECT title, series_number FROM books WHERE user_id=?",
-                                    (db_backend.DEFAULT_USER_ID,)):
-                cache[str(t).strip()] = n
-            con.close()
-        except Exception:
-            pass
-        _series_number._cache = cache
-    return cache.get(title)
+def _pool_titles(order, idx, split_mode):
+    """Training-pool titles for the fold at order[idx], under `split_mode`.
+
+    Always past-only (positions strictly earlier than the target's) — the
+    walk-forward invariant. Grouped modes then drop same-group earlier books.
+    'Standalone'/empty series is not a group (see SPLIT_MODES)."""
+    target = order[idx]
+    past = order[:idx]                      # positions 1..idx == strictly earlier
+    if split_mode == "author":
+        past = [e for e in past if e["author"] != target["author"]]
+    elif split_mode == "series":
+        s = (target["series"] or "").strip()
+        if s and s.lower() != "standalone":
+            past = [e for e in past if (e["series"] or "").strip() != s]
+    return [e["title"] for e in past]
 
 
 # ---------------------------------------------------------------------------
@@ -352,9 +365,17 @@ def _variant_corrected(title, author, genre, raw_scores, conf, books_train,
     return rec
 
 
-def run_folds(books, gw, gcw, cache, order, burn_in):
-    """Walk the reading order, predicting each book at position t (> burn_in)
-    from the past-only pool. Returns (fold_records, skip_records)."""
+def run_folds(books, gw, gcw, cache, order, burn_in, split_mode="time"):
+    """Walk the reading order, predicting each book from its past-only pool under
+    `split_mode` (see SPLIT_MODES). A fold is evaluated iff its training pool
+    holds >= burn_in books; else it is skipped POOL_LT_BURN_IN. For split_mode
+    'time' this pool-size gate is identical to the old pos<=burn_in gate (pool ==
+    pos-1), so the time baseline is unchanged in structure. Returns (folds, skips).
+
+    The 'raw' variant is pool-independent (research vector -> WA), so its WA is
+    identical across split modes — a built-in sanity check. Only honest (pool
+    correction) and leaky (full-library correction) move with the pool. leaky is
+    the fixed 'today's config' reference and is the SAME in every mode."""
     # LEAKY config is the SAME for every fold ("today's engine"): full-library
     # smoothing models + resid_sd, computed once. correct_and_predict excludes
     # the target row from the correction training internally.
@@ -364,37 +385,38 @@ def run_folds(books, gw, gcw, cache, order, burn_in):
     folds, skips = [], []
     title_to_row = {row["Book"]: row for _, row in books.iterrows()}
 
-    for entry in order:
+    for idx, entry in enumerate(order):
         pos = entry["position"]
         title = entry["title"]
 
         if title not in cache or not isinstance(cache[title].get("scores"), dict):
             skips.append({"skip": True, "position": pos, "title": title,
-                          "reason": "SKIPPED_NO_CACHE"})
-            continue
-        if pos <= burn_in:
-            skips.append({"skip": True, "position": pos, "title": title,
-                          "reason": "BURN_IN"})
+                          "reason": "SKIPPED_NO_CACHE", "split_mode": split_mode})
             continue
 
         raw_scores = {c: float(cache[title]["scores"][c])
                       for c in LIVE if c in cache[title]["scores"]}
         if len(raw_scores) != len(LIVE):
             skips.append({"skip": True, "position": pos, "title": title,
-                          "reason": "SKIPPED_NO_CACHE"})
+                          "reason": "SKIPPED_NO_CACHE", "split_mode": split_mode})
             continue
-        conf = cache[title].get("conf", "?")
 
+        # Past-only pool under this split mode (grouped modes drop same-group).
+        pool_titles = _pool_titles(order, idx, split_mode)
+        books_pool = books[books["Book"].isin(pool_titles)]
+        if len(books_pool) < burn_in:
+            skips.append({"skip": True, "position": pos, "title": title,
+                          "reason": "POOL_LT_BURN_IN", "pool_size": int(len(books_pool)),
+                          "split_mode": split_mode})
+            continue
+
+        conf = cache[title].get("conf", "?")
         row = title_to_row[title]
         actual_wa = float(row["WA"])
         actual_components = {c: (float(row[c]) if row[c] is not None
                                  and not (isinstance(row[c], float) and np.isnan(row[c]))
                                  else None) for c in LIVE}
         author, genre = entry["author"], entry["genre"]
-
-        # Past-only pool = books at strictly-earlier reading positions.
-        pool_titles = [e["title"] for e in order if e["position"] < pos]
-        books_pool = books[books["Book"].isin(pool_titles)]
 
         resid_sd_pool = pe.fit_regression(books_pool)[2]
         corr_models_pool = rp.build_corr_models(books_pool, cache)
@@ -415,7 +437,8 @@ def run_folds(books, gw, gcw, cache, order, burn_in):
         folds.append({
             "position": pos, "title": title, "author": author, "genre": genre,
             "series": entry["series"], "series_number": entry["series_number"],
-            "year_read": entry["year_read"], "in_timeline": entry["in_timeline"],
+            "year_read": entry["year_read"], "read_seq": entry.get("read_seq"),
+            "split_mode": split_mode,
             "pool_size": int(len(books_pool)), "cache_key": title,
             "actual_wa": _r(actual_wa), "actual_components": _rd(actual_components),
             "variants": variants,
@@ -438,7 +461,8 @@ def _serialise_folds(folds, skips):
     return "\n".join(lines) + "\n"
 
 
-def write_artifacts(folds, skips, books, cache, order, burn_in, out_dir):
+def write_artifacts(folds, skips, books, cache, order, burn_in, out_dir,
+                    split_mode="time"):
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, FOLDS_FILE), "w") as fh:
         fh.write(_serialise_folds(folds, skips))
@@ -452,6 +476,8 @@ def write_artifacts(folds, skips, books, cache, order, burn_in, out_dir):
         "git_head": _git_head(),
         "engine_hash": _engine_hash(),
         "correction_version_active": _active_correction_version(db_loader.DB),
+        "split_mode": split_mode,
+        "order_source": "read_seq",
         "burn_in": burn_in,
         "n_books_total": len(order),
         "n_folds_evaluated": len(folds),
@@ -470,7 +496,9 @@ def write_artifacts(folds, skips, books, cache, order, burn_in, out_dir):
         "caveats": [
             "research-cache vectors embed post-publication reception (hindsight) -- accepted",
             "leaky variant's correction saw future books -- labeled leaky, not a knowable-then number",
-            "3 rated books absent from Timeline are placed last by (year_read, title) per owner decision",
+            "reading order is the DB read_seq (native, supersedes the now-stale Excel Timeline)",
+            "grouped split modes (author/series) drop same-group earlier books from the pool; a "
+            "fold whose grouped pool < burn_in is skipped POOL_LT_BURN_IN",
         ],
     }
     with open(os.path.join(out_dir, META_FILE), "w") as fh:
@@ -504,25 +532,26 @@ def _load_inputs():
     return books, gw, gcw, cache
 
 
-def do_run(burn_in, out_dir, xlsx_path):
+def do_run(burn_in, out_dir, split_mode="time"):
     _install_no_api_guard()
     books, gw, gcw, cache = _load_inputs()
-    order, _ = build_order(books, xlsx_path)
-    folds, skips = run_folds(books, gw, gcw, cache, order, burn_in)
-    meta = write_artifacts(folds, skips, books, cache, order, burn_in, out_dir)
-    print(f"Walk-forward: {meta['n_folds_evaluated']} folds evaluated, "
+    order, _ = build_order(books)
+    folds, skips = run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode)
+    meta = write_artifacts(folds, skips, books, cache, order, burn_in, out_dir,
+                           split_mode=split_mode)
+    print(f"Walk-forward [{split_mode}]: {meta['n_folds_evaluated']} folds evaluated, "
           f"{meta['n_skipped']} skipped ({meta['skip_reasons']}).")
     print(f"  wrote {os.path.join(out_dir, FOLDS_FILE)}")
     print(f"  wrote {os.path.join(out_dir, META_FILE)}")
     return folds, skips
 
 
-def do_check_determinism(burn_in, xlsx_path):
+def do_check_determinism(burn_in, split_mode="time"):
     _install_no_api_guard()
     books, gw, gcw, cache = _load_inputs()
-    order, _ = build_order(books, xlsx_path)
-    a = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in))
-    b = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in))
+    order, _ = build_order(books)
+    a = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode))
+    b = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode))
     ha, hb = hashlib.sha256(a.encode()).hexdigest(), hashlib.sha256(b.encode()).hexdigest()
     print(f"run A sha256: {ha}")
     print(f"run B sha256: {hb}")
@@ -533,15 +562,124 @@ def do_check_determinism(burn_in, xlsx_path):
     return False
 
 
+# ---------------------------------------------------------------------------
+# Rank metrics (Phase 1.1) + split-mode comparison table (Phase 1.3)
+# ---------------------------------------------------------------------------
+def variant_metrics(folds, variant):
+    """Pooled out-of-fold WA MAE + rank correlation (Spearman rho, Kendall tau)
+    of predicted vs actual WA for one variant over `folds`. The product ranks
+    books, so a biased-but-order-preserving model can beat a lower-MAE noisier
+    one — rank correlation is a first-class adoption metric alongside MAE."""
+    pred = [f["variants"][variant]["wa"] for f in folds]
+    act = [f["actual_wa"] for f in folds]
+    ae = [f["variants"][variant]["wa_abs_error"] for f in folds
+          if f["variants"][variant]["wa_abs_error"] is not None]
+    n = len(folds)
+    mae = (sum(ae) / len(ae)) if ae else None
+    rho = float(stats.spearmanr(pred, act)[0]) if n >= 3 else None
+    tau = float(stats.kendalltau(pred, act)[0]) if n >= 3 else None
+    return {"n": n, "mae": mae, "spearman": rho, "kendall": tau}
+
+
+def _fmt_metric(x, p=3):
+    return " - " if x is None else f"{x:.{p}f}"
+
+
+def _md_table(headers, rows):
+    out = ["| " + " | ".join(headers) + " |",
+           "| " + " | ".join("---" for _ in headers) + " |"]
+    for r in rows:
+        out.append("| " + " | ".join(str(c) for c in r) + " |")
+    return "\n".join(out)
+
+
+def _render_splits_table(results, burn_in):
+    """results: {split_mode: folds}. Emits the Phase-1 baseline comparison."""
+    L = ["# Walk-Forward — Split-Mode Baseline (Phase 1)\n"]
+    L.append(f"Reading order = DB `read_seq` · burn-in {burn_in} · "
+             f"engine `{_engine_hash()}` · git `{(_git_head() or '')[:12]}`.\n")
+    L.append("All modes keep the walk-forward past-only pool; grouped modes additionally "
+             "drop same-author / same-series earlier books. **raw** is pool-independent "
+             "(WA identical in every mode) and **leaky** is the fixed full-library "
+             "reference (identical in every mode) — the **honest** rows carry the signal.\n")
+
+    hm = {mode: variant_metrics(results[mode], "honest") for mode in SPLIT_MODES}
+    L.append("## Honest variant by split mode  (the walk-forward baseline)\n")
+    L.append(_md_table(
+        ["split mode", "n folds", "WA MAE", "Spearman ρ", "Kendall τ"],
+        [[mode, hm[mode]["n"], _fmt_metric(hm[mode]["mae"]),
+          _fmt_metric(hm[mode]["spearman"]), _fmt_metric(hm[mode]["kendall"])]
+         for mode in SPLIT_MODES]))
+    L.append("")
+
+    L.append("## All variants × split mode  (WA MAE / ρ / τ)\n")
+    rows = []
+    for v in VARIANTS:
+        for mode in SPLIT_MODES:
+            m = variant_metrics(results[mode], v)
+            rows.append([v, mode, m["n"], _fmt_metric(m["mae"]),
+                         _fmt_metric(m["spearman"]), _fmt_metric(m["kendall"])])
+    L.append(_md_table(["variant", "split mode", "n", "WA MAE", "ρ", "τ"], rows))
+    L.append("")
+
+    # Common-subset: books scored in EVERY mode, so the honest-MAE delta is
+    # attributable to grouping, not to a different fold set (grouped modes skip
+    # more folds when the grouped pool falls under burn-in).
+    common = set.intersection(*[{f["title"] for f in results[m]} for m in SPLIT_MODES])
+    L.append(f"## Honest variant on the common fold subset  (n={len(common)}; "
+             "identical books scored in every mode)\n")
+    crows = []
+    for mode in SPLIT_MODES:
+        sub = [f for f in results[mode] if f["title"] in common]
+        m = variant_metrics(sub, "honest")
+        crows.append([mode, m["n"], _fmt_metric(m["mae"]),
+                      _fmt_metric(m["spearman"]), _fmt_metric(m["kendall"])])
+    L.append(_md_table(["split mode", "n", "WA MAE", "Spearman ρ", "Kendall τ"], crows))
+    L.append("\n_The common-subset table is the clean apples-to-apples read: identical "
+             "books, only the training-pool grouping differs._")
+    return "\n".join(L) + "\n"
+
+
+def do_all_splits(burn_in):
+    """Run every split mode, write per-mode artifacts (time -> the canonical
+    validation/ files; author/series -> validation/splits/<mode>/), build the
+    standard report for the canonical time run, and write the comparison table."""
+    _install_no_api_guard()
+    books, gw, gcw, cache = _load_inputs()
+    order, _ = build_order(books)
+    results = {}
+    for mode in SPLIT_MODES:
+        out_dir = OUT_DIR if mode == "time" else os.path.join(SPLITS_DIR, mode)
+        folds, skips = run_folds(books, gw, gcw, cache, order, burn_in, split_mode=mode)
+        write_artifacts(folds, skips, books, cache, order, burn_in, out_dir, split_mode=mode)
+        results[mode] = folds
+        sr = {}
+        for s in skips:
+            sr[s["reason"]] = sr.get(s["reason"], 0) + 1
+        print(f"[{mode}] {len(folds)} folds evaluated, {len(skips)} skipped ({sr}) -> {out_dir}")
+        if mode == "time":
+            _maybe_build_report(out_dir, required=False)
+    md = _render_splits_table(results, burn_in)
+    with open(os.path.join(OUT_DIR, SPLITS_TABLE_FILE), "w") as fh:
+        fh.write(md)
+    print("\n" + md)
+    print(f"  wrote {os.path.join(OUT_DIR, SPLITS_TABLE_FILE)}")
+    return results
+
+
 def main():
     ap = argparse.ArgumentParser(
         description="Chronological walk-forward backtest of the researched "
                     "prediction engine (zero-spend, read-only).")
     ap.add_argument("--burn-in", type=int, default=BURN_IN_DEFAULT,
                     help=f"min training-pool size before evaluating (default {BURN_IN_DEFAULT}).")
-    ap.add_argument("--out-dir", default=OUT_DIR, help="artifact directory.")
-    ap.add_argument("--xlsx", default=os.path.join(ROOT, "BookRankingsNew.xlsx"),
-                    help="workbook holding the Timeline read order.")
+    ap.add_argument("--out-dir", default=OUT_DIR, help="artifact directory (time mode).")
+    ap.add_argument("--split-mode", choices=SPLIT_MODES, default="time",
+                    help="fold split: time (default walk-forward), author, or series.")
+    ap.add_argument("--all-splits", action="store_true",
+                    help=f"run every split mode + write the comparison table ({SPLITS_TABLE_FILE}).")
+    ap.add_argument("--xlsx", default=None,
+                    help="(deprecated, ignored) reading order now comes from the DB read_seq.")
     ap.add_argument("--report-only", action="store_true",
                     help="rebuild the report from an existing folds artifact.")
     ap.add_argument("--check-determinism", action="store_true",
@@ -549,14 +687,20 @@ def main():
     args = ap.parse_args()
 
     if args.check_determinism:
-        raise SystemExit(0 if do_check_determinism(args.burn_in, args.xlsx) else 1)
+        raise SystemExit(0 if do_check_determinism(args.burn_in, args.split_mode) else 1)
 
     if args.report_only:
         _maybe_build_report(args.out_dir, required=True)
         return
 
-    do_run(args.burn_in, args.out_dir, args.xlsx)
-    _maybe_build_report(args.out_dir, required=False)
+    if args.all_splits:
+        do_all_splits(args.burn_in)
+        return
+
+    out_dir = (args.out_dir if args.split_mode == "time"
+               else os.path.join(SPLITS_DIR, args.split_mode))
+    do_run(args.burn_in, out_dir, args.split_mode)
+    _maybe_build_report(out_dir, required=False)
 
 
 def _maybe_build_report(out_dir, required):

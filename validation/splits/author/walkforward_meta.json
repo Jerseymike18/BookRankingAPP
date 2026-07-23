@@ -28,7 +28,7 @@
     "version": "v2_opus_retired_2026-07-05"
   },
   "engine_hash": "sha256:681f0e6a4fd83f53",
-  "generated_at": "2026-07-23T09:28:03-04:00",
+  "generated_at": "2026-07-23T09:28:09-04:00",
   "git_head": "9d8640c025d13673df0d073476f066c7d6998239",
   "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
   "leakage_inventory": {
@@ -41,15 +41,15 @@
     "resid_sd_for_interval": "neutralised in honest (pool), LEAKY in leaky (full library)"
   },
   "n_books_total": 131,
-  "n_folds_evaluated": 116,
+  "n_folds_evaluated": 110,
   "n_in_cache": 131,
-  "n_skipped": 15,
+  "n_skipped": 21,
   "nominal_interval_coverage": 0.9,
   "order_source": "read_seq",
   "skip_reasons": {
-    "POOL_LT_BURN_IN": 15
+    "POOL_LT_BURN_IN": 21
   },
-  "split_mode": "time",
+  "split_mode": "author",
   "variants": {
     "honest": "smooth + author_genre correction fit on PAST-ONLY pool (the walk-forward baseline)",
     "leaky": "smooth + author_genre correction fit on FULL library (today's config; leaky)",
