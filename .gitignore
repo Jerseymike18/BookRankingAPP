@@ -33,3 +33,6 @@ books.db.bak.*
 .venv-tabpfn/
 # TabPFN-2.5 cold-start-prior venv (analysis-only; belongs to the experiment branch)
 .venv-tabpfn25/
+# Phase-2.1 blind re-ratings: local isolated capture DB. The durable, committed
+# record is validation/retest_ratings.json (JSON mirror) + retest_noise_floor.md.
+validation/retest_ratings.db

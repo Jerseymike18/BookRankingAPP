@@ -483,6 +483,86 @@ def _next_read_seq(con, uid):
 
 
 # ---------------------------------------------------------------------------
+# WRITE (analysis, ISOLATED): test–retest noise-floor blind re-ratings (Phase 2.1)
+# ---------------------------------------------------------------------------
+# Michael re-rates a stratified sample of books he finished 12+ months ago, BLIND
+# (never shown the originals); the gap between original and re-rating is the
+# instrument's irreducible noise floor — the number every later adoption decision
+# is measured against.
+#
+# Isolation is BY CONSTRUCTION and load-bearing: these rows live in a SEPARATE
+# SQLite file (validation/retest_ratings.db), NEVER in books.db, so no engine /
+# loader / prediction path can read them (a leaked or fabricated floor would
+# silently invalidate the whole roadmap). Writes still go through this module.
+# Local-analysis only; always plain sqlite (never the Postgres proxy).
+RETEST_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "validation", "retest_ratings.db")
+
+
+def _retest_connect():
+    os.makedirs(os.path.dirname(RETEST_DB), exist_ok=True)
+    con = sqlite3.connect(RETEST_DB)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS retest_ratings (user_id TEXT, title TEXT, "
+        "rated_at TEXT, " + ", ".join(f'"{c}" REAL' for c in FICTION_COMPONENTS)
+        + ", PRIMARY KEY (user_id, title))")
+    return con
+
+
+def add_retest_rating(title, scores, user_id=None):
+    """Record ONE blind test–retest re-rating (14 components) into the isolated
+    retest DB. Validates 0-10 + completeness exactly like a real rating; upserts
+    (re-rating a title replaces its prior blind row). Returns True/False.
+    NEVER touches books.db, so it can never leak into the prediction path."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        _validate_scores(scores, require_all=True)
+    except ValidationError as e:
+        print(f"  ✗ {e}")
+        return False
+    con = _retest_connect()
+    try:
+        cols = ["user_id", "title", "rated_at"] + FICTION_COMPONENTS
+        vals = [uid, title,
+                dt.datetime.now().astimezone().isoformat(timespec="seconds")] + \
+               [None if scores.get(c) is None else float(scores.get(c))
+                for c in FICTION_COMPONENTS]
+        con.execute("DELETE FROM retest_ratings WHERE user_id=? AND title=?", (uid, title))
+        ph = ",".join("?" for _ in cols)
+        con.execute(f'INSERT INTO retest_ratings ({",".join(chr(34)+c+chr(34) for c in cols)}) '
+                    f'VALUES ({ph})', vals)
+        con.commit()
+        return True
+    finally:
+        con.close()
+
+
+def get_retest_ratings(user_id=None):
+    """Read back all blind re-ratings for a tenant: {title: {comp: value|None,
+    "rated_at": iso}}. Read-only; {} if the file/table is absent."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if not os.path.exists(RETEST_DB):
+        return {}
+    con = sqlite3.connect(RETEST_DB)
+    try:
+        cols = ["rated_at"] + FICTION_COMPONENTS
+        rows = con.execute(
+            f'SELECT title, {",".join(chr(34)+c+chr(34) for c in cols)} '
+            f'FROM retest_ratings WHERE user_id=?', (uid,)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        con.close()
+    out = {}
+    for r in rows:
+        d = {"rated_at": r[1]}
+        for c, v in zip(FICTION_COMPONENTS, r[2:]):
+            d[c] = v
+        out[r[0]] = d
+    return out
+
+
+# ---------------------------------------------------------------------------
 # WRITE: add a book
 # ---------------------------------------------------------------------------
 def add_book(title, genre, author, scores, series=None, series_number=None,
