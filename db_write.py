@@ -563,6 +563,57 @@ def get_retest_ratings(user_id=None):
 
 
 # ---------------------------------------------------------------------------
+# WRITE (analysis, ISOLATED): per-book descriptive text cache (Phase 3 Branch A)
+# ---------------------------------------------------------------------------
+# Premise/themes/tone text for each book, embedded downstream to test whether text
+# features improve component estimation. Cached through this module per the brief,
+# but in a SEPARATE file (validation/book_text.db), never books.db — it is an
+# experiment INPUT, not part of the fixed schema or the served prediction path.
+BOOK_TEXT_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "validation", "book_text.db")
+
+
+def _book_text_connect():
+    os.makedirs(os.path.dirname(BOOK_TEXT_DB), exist_ok=True)
+    con = sqlite3.connect(BOOK_TEXT_DB)
+    con.execute("CREATE TABLE IF NOT EXISTS book_text (user_id TEXT, title TEXT, "
+                "source TEXT, text TEXT, fetched_at TEXT, PRIMARY KEY (user_id, title))")
+    return con
+
+
+def put_book_text(title, text, source="llm", user_id=None):
+    """Cache one book's descriptive text (upsert). Returns True."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    con = _book_text_connect()
+    try:
+        con.execute("DELETE FROM book_text WHERE user_id=? AND title=?", (uid, title))
+        con.execute("INSERT INTO book_text (user_id, title, source, text, fetched_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (uid, title, source, text,
+                     dt.datetime.now().astimezone().isoformat(timespec="seconds")))
+        con.commit()
+        return True
+    finally:
+        con.close()
+
+
+def get_book_text(user_id=None):
+    """Return {title: text} for a tenant (read-only; {} if absent)."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if not os.path.exists(BOOK_TEXT_DB):
+        return {}
+    con = sqlite3.connect(BOOK_TEXT_DB)
+    try:
+        rows = con.execute("SELECT title, text FROM book_text WHERE user_id=?",
+                           (uid,)).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        con.close()
+    return {t: x for t, x in rows}
+
+
+# ---------------------------------------------------------------------------
 # WRITE: add a book
 # ---------------------------------------------------------------------------
 def add_book(title, genre, author, scores, series=None, series_number=None,

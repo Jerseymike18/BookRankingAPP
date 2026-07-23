@@ -36,3 +36,6 @@ books.db.bak.*
 # Phase-2.1 blind re-ratings: local isolated capture DB. The durable, committed
 # record is validation/retest_ratings.json (JSON mirror) + retest_noise_floor.md.
 validation/retest_ratings.db
+# Phase-3 Branch A: local isolated text cache. Durable committed record is
+# validation/book_descriptions.json (mirror) + book_embeddings.npy.
+validation/book_text.db
