@@ -37,8 +37,9 @@ ROLL_WINDOW = wf.ROLL_WINDOW
 NOMINAL = wf.NOMINAL_COVERAGE
 # The brief's "CURRENT-CORRECTIONS" variant == our leaky (today's config).
 VARIANT_LABEL = {"raw": "raw (no correction)",
-                 "honest": "honest (walk-forward)",
-                 "leaky": "leaky (today's config)"}
+                 "honest": "honest — memory-only (pre-refine)",
+                 "leaky": "leaky (today's config)",
+                 "hybrid": "hybrid (LIVE served)"}
 
 
 # ---------------------------------------------------------------------------
@@ -233,9 +234,11 @@ def render_markdown(folds, skips, meta):
              f"{meta.get('n_folds_evaluated')} folds over {meta.get('n_books_total')} books "
              f"(burn-in {meta.get('burn_in')}) · skipped {meta.get('skip_reasons')}.\n")
     L.append("Variants: **raw** = grounded research → WA, no correction · "
-             "**honest** = author+genre correction fit on the *past-only pool* "
-             "(the walk-forward baseline) · **leaky** = correction fit on the "
-             "*full library* (today's config; saw future books).\n")
+             "**honest** = *memory-only* vector, author+genre correction fit on the "
+             "*past-only pool* (the pre-refine state) · **leaky** = correction fit on the "
+             "*full library* (today's config; saw future books) · **hybrid** = the "
+             "**LIVE served** input — memory correction (as honest) on the hybrid vector "
+             "(memory + web-grounded overrides), i.e. what the app actually serves.\n")
 
     # 1. Overall
     L.append("## Overall WA MAE\n")

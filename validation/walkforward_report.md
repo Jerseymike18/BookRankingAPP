@@ -1,16 +1,17 @@
 # Walk-Forward Backtest — Report
 
-Engine `sha256:681f0e6a4fd83f53` · git `9d8640c025d1` · 116 folds over 131 books (burn-in 15) · skipped {'POOL_LT_BURN_IN': 15}.
+Engine `sha256:681f0e6a4fd83f53` · git `7b0d70a2c450` · 116 folds over 131 books (burn-in 15) · skipped {'POOL_LT_BURN_IN': 15}.
 
-Variants: **raw** = grounded research → WA, no correction · **honest** = author+genre correction fit on the *past-only pool* (the walk-forward baseline) · **leaky** = correction fit on the *full library* (today's config; saw future books).
+Variants: **raw** = grounded research → WA, no correction · **honest** = *memory-only* vector, author+genre correction fit on the *past-only pool* (the pre-refine state) · **leaky** = correction fit on the *full library* (today's config; saw future books) · **hybrid** = the **LIVE served** input — memory correction (as honest) on the hybrid vector (memory + web-grounded overrides), i.e. what the app actually serves.
 
 ## Overall WA MAE
 
 | variant | WA MAE |
 | --- | --- |
 | raw (no correction) | 0.826 |
-| honest (walk-forward) | 0.628 |
+| honest — memory-only (pre-refine) | 0.628 |
 | leaky (today's config) | 0.585 |
+| hybrid (LIVE served) | 0.589 |
 | _naive (predict mean WA)_ | 0.913 |
 
 ## Rank correlation — predicted vs actual WA  (held-out folds)
@@ -18,8 +19,9 @@ Variants: **raw** = grounded research → WA, no correction · **honest** = auth
 | variant | Spearman ρ | Kendall τ | n |
 | --- | --- | --- | --- |
 | raw (no correction) | 0.437 | 0.296 | 116 |
-| honest (walk-forward) | 0.690 | 0.505 | 116 |
+| honest — memory-only (pre-refine) | 0.690 | 0.505 | 116 |
 | leaky (today's config) | 0.773 | 0.580 | 116 |
+| hybrid (LIVE served) | 0.738 | 0.551 | 116 |
 
 _The product ranks books, so order-preservation (ρ, τ) is a first-class adoption metric alongside MAE — a biased-but-monotone model can still rank well. All later phase decisions weigh MAE and rank correlation together._
 
@@ -79,8 +81,9 @@ Full per-fold series in `walkforward_rolling_mae.json`. Endpoints:
 | variant | coverage | n | vs nominal |
 | --- | --- | --- | --- |
 | raw (no correction) | 17.2% | 116 | -72.8% |
-| honest (walk-forward) | 36.2% | 116 | -53.8% |
+| honest — memory-only (pre-refine) | 36.2% | 116 | -53.8% |
 | leaky (today's config) | 33.6% | 116 | -56.4% |
+| hybrid (LIVE served) | 33.6% | 116 | -56.4% |
 
 **Caveat — this is the point-engine's `±1.645·resid_sd` band, and it is overconfident by design.** `resid_sd`≈0.13 is the residual of the near-perfect WA-from-category-averages regression (WA is essentially a deterministic roll-up of the category averages), so the band is only ±0.21 WA — not a real prediction interval for researched components. The **calibrated** interval the app actually serves is the density-bucketed conformal table in `calibration/residuals.json`:
 

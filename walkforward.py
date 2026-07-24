@@ -111,7 +111,8 @@ ROLLING_FILE = "walkforward_rolling_mae.json"
 BURN_IN_DEFAULT = 15                 # min training-pool size before we evaluate
 ROLL_WINDOW = 15                     # rolling-MAE window (folds)
 NOMINAL_COVERAGE = 0.90              # +/-1.645*resid_sd is a 90% normal interval
-VARIANTS = ("raw", "honest", "leaky")
+VARIANTS = ("raw", "honest", "leaky", "hybrid")
+GROUNDED_CACHE = "web_grounded_cache.json"   # the 2nd research method (web-grounded)
 
 # Split modes (brief Phase 1.2). ALL three keep the walk-forward "no future
 # books" honesty -- the training pool is always positions strictly earlier in
@@ -365,7 +366,37 @@ def _variant_corrected(title, author, genre, raw_scores, conf, books_train,
     return rec
 
 
-def run_folds(books, gw, gcw, cache, order, burn_in, split_mode="time"):
+def _load_hybrid_targets(cache, root=ROOT):
+    """Build the LIVE hybrid research vector per book: the memory (richer) vector
+    with the policy's grounded components overridden by the web-grounded cache —
+    exactly what the app serves after the background grounded-upgrade
+    (hybrid_researcher.apply_grounded_overrides). This is the SERVED-settled input
+    the reader ultimately sees; the memory-only vector is the pre-refine state.
+    Returns {title: {14 comps}}; a book absent from the grounded cache keeps its
+    memory vector (no override), mirroring the live per-component fallback."""
+    try:
+        import hybrid_researcher as _hyb
+        gcomps = set(_hyb.grounded_components())
+    except Exception:      # keep the harness runnable if the module is unavailable
+        gcomps = {"Depth", "Depth2", "Ending", "Insights", "Integration", "Originality"}
+    try:
+        with open(os.path.join(root, GROUNDED_CACHE)) as fh:
+            grounded = json.load(fh)
+    except (OSError, ValueError):
+        grounded = {}
+    out = {}
+    for t, entry in cache.items():
+        sc = entry.get("scores") if isinstance(entry, dict) else None
+        if not isinstance(sc, dict) or not all(c in sc for c in LIVE):
+            continue
+        gsc = (grounded.get(t) or {}).get("scores", {}) or {}
+        out[t] = {c: (float(gsc[c]) if (c in gcomps and c in gsc) else float(sc[c]))
+                  for c in LIVE}
+    return out
+
+
+def run_folds(books, gw, gcw, cache, order, burn_in, split_mode="time",
+              hybrid_targets=None):
     """Walk the reading order, predicting each book from its past-only pool under
     `split_mode` (see SPLIT_MODES). A fold is evaluated iff its training pool
     holds >= burn_in books; else it is skipped POOL_LT_BURN_IN. For split_mode
@@ -421,6 +452,15 @@ def run_folds(books, gw, gcw, cache, order, burn_in, split_mode="time"):
         resid_sd_pool = pe.fit_regression(books_pool)[2]
         corr_models_pool = rp.build_corr_models(books_pool, cache)
 
+        # The 'hybrid' variant is the LIVE SERVED input: memory correction +
+        # smoothing (identical to honest) applied to the HYBRID target vector
+        # (memory + the policy's grounded overrides). ONLY the target vector differs
+        # from honest — exactly how backend/main.py serves the grounded prediction
+        # (memory cache/corr, hybridised scores). This is the app's real accuracy;
+        # honest is the pre-refine (memory-only) state.
+        hyb_scores = raw_scores
+        if hybrid_targets and title in hybrid_targets:
+            hyb_scores = {c: float(hybrid_targets[title][c]) for c in LIVE}
         variants = {
             "raw": _variant_raw(raw_scores, genre, gw, gcw, resid_sd_pool,
                                 actual_components, actual_wa),
@@ -431,6 +471,10 @@ def run_folds(books, gw, gcw, cache, order, burn_in, split_mode="time"):
             "leaky": _variant_corrected(
                 title, author, genre, raw_scores, conf, books,
                 resid_sd_full, corr_models_full, gw, gcw, cache,
+                actual_components, actual_wa),
+            "hybrid": _variant_corrected(
+                title, author, genre, hyb_scores, conf, books_pool,
+                resid_sd_pool, corr_models_pool, gw, gcw, cache,
                 actual_components, actual_wa),
         }
 
@@ -487,8 +531,9 @@ def write_artifacts(folds, skips, books, cache, order, burn_in, out_dir,
         "components": LIVE,
         "variants": {
             "raw": "research vector -> WA (no smoothing, no correction); pool-independent",
-            "honest": "smooth + author_genre correction fit on PAST-ONLY pool (the walk-forward baseline)",
+            "honest": "MEMORY-only vector, smooth + author_genre correction fit on PAST-ONLY pool (pre-refine state)",
             "leaky": "smooth + author_genre correction fit on FULL library (today's config; leaky)",
+            "hybrid": "LIVE SERVED input: memory correction (as honest) on the HYBRID vector (memory + web-grounded overrides) -- what the app serves after the grounded-upgrade",
         },
         "nominal_interval_coverage": NOMINAL_COVERAGE,
         "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
@@ -529,14 +574,16 @@ def load_folds(out_dir):
 def _load_inputs():
     books, gw, gcw = db_loader.load_from_db()
     cache = rp.load_cache()
-    return books, gw, gcw, cache
+    hybrid_targets = _load_hybrid_targets(cache)
+    return books, gw, gcw, cache, hybrid_targets
 
 
 def do_run(burn_in, out_dir, split_mode="time"):
     _install_no_api_guard()
-    books, gw, gcw, cache = _load_inputs()
+    books, gw, gcw, cache, hyb = _load_inputs()
     order, _ = build_order(books)
-    folds, skips = run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode)
+    folds, skips = run_folds(books, gw, gcw, cache, order, burn_in,
+                             split_mode=split_mode, hybrid_targets=hyb)
     meta = write_artifacts(folds, skips, books, cache, order, burn_in, out_dir,
                            split_mode=split_mode)
     print(f"Walk-forward [{split_mode}]: {meta['n_folds_evaluated']} folds evaluated, "
@@ -548,10 +595,12 @@ def do_run(burn_in, out_dir, split_mode="time"):
 
 def do_check_determinism(burn_in, split_mode="time"):
     _install_no_api_guard()
-    books, gw, gcw, cache = _load_inputs()
+    books, gw, gcw, cache, hyb = _load_inputs()
     order, _ = build_order(books)
-    a = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode))
-    b = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in, split_mode=split_mode))
+    a = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in,
+                                    split_mode=split_mode, hybrid_targets=hyb))
+    b = _serialise_folds(*run_folds(books, gw, gcw, cache, order, burn_in,
+                                    split_mode=split_mode, hybrid_targets=hyb))
     ha, hb = hashlib.sha256(a.encode()).hexdigest(), hashlib.sha256(b.encode()).hexdigest()
     print(f"run A sha256: {ha}")
     print(f"run B sha256: {hb}")
@@ -603,12 +652,18 @@ def _render_splits_table(results, burn_in):
              "(WA identical in every mode) and **leaky** is the fixed full-library "
              "reference (identical in every mode) — the **honest** rows carry the signal.\n")
 
+    hy = {mode: variant_metrics(results[mode], "hybrid") for mode in SPLIT_MODES}
     hm = {mode: variant_metrics(results[mode], "honest") for mode in SPLIT_MODES}
-    L.append("## Honest variant by split mode  (the walk-forward baseline)\n")
+    L.append("## Live-served accuracy (hybrid) by split mode  — THE REAL BASELINE\n")
+    L.append("The app serves the hybrid vector (memory + web-grounded overrides) after "
+             "the background grounded-upgrade, so this is what a reader actually gets. "
+             "`honest` below is the memory-only pre-refine state (what earlier reports "
+             "called the baseline; it understates live accuracy).\n")
     L.append(_md_table(
-        ["split mode", "n folds", "WA MAE", "Spearman ρ", "Kendall τ"],
-        [[mode, hm[mode]["n"], _fmt_metric(hm[mode]["mae"]),
-          _fmt_metric(hm[mode]["spearman"]), _fmt_metric(hm[mode]["kendall"])]
+        ["split mode", "n folds", "hybrid WA MAE", "ρ", "τ", "honest (memory) MAE"],
+        [[mode, hy[mode]["n"], _fmt_metric(hy[mode]["mae"]),
+          _fmt_metric(hy[mode]["spearman"]), _fmt_metric(hy[mode]["kendall"]),
+          _fmt_metric(hm[mode]["mae"])]
          for mode in SPLIT_MODES]))
     L.append("")
 
@@ -645,12 +700,13 @@ def do_all_splits(burn_in):
     validation/ files; author/series -> validation/splits/<mode>/), build the
     standard report for the canonical time run, and write the comparison table."""
     _install_no_api_guard()
-    books, gw, gcw, cache = _load_inputs()
+    books, gw, gcw, cache, hyb = _load_inputs()
     order, _ = build_order(books)
     results = {}
     for mode in SPLIT_MODES:
         out_dir = OUT_DIR if mode == "time" else os.path.join(SPLITS_DIR, mode)
-        folds, skips = run_folds(books, gw, gcw, cache, order, burn_in, split_mode=mode)
+        folds, skips = run_folds(books, gw, gcw, cache, order, burn_in,
+                                 split_mode=mode, hybrid_targets=hyb)
         write_artifacts(folds, skips, books, cache, order, burn_in, out_dir, split_mode=mode)
         results[mode] = folds
         sr = {}

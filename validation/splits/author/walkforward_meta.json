@@ -28,8 +28,8 @@
     "version": "v2_opus_retired_2026-07-05"
   },
   "engine_hash": "sha256:681f0e6a4fd83f53",
-  "generated_at": "2026-07-23T09:28:09-04:00",
-  "git_head": "9d8640c025d13673df0d073476f066c7d6998239",
+  "generated_at": "2026-07-24T13:03:15-04:00",
+  "git_head": "7b0d70a2c4509fb62be6d63de8c80153d975585f",
   "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
   "leakage_inventory": {
     "author_genre_correction_pairs": "neutralised in honest (pool), LEAKY in leaky (full library)",
@@ -51,7 +51,8 @@
   },
   "split_mode": "author",
   "variants": {
-    "honest": "smooth + author_genre correction fit on PAST-ONLY pool (the walk-forward baseline)",
+    "honest": "MEMORY-only vector, smooth + author_genre correction fit on PAST-ONLY pool (pre-refine state)",
+    "hybrid": "LIVE SERVED input: memory correction (as honest) on the HYBRID vector (memory + web-grounded overrides) -- what the app serves after the grounded-upgrade",
     "leaky": "smooth + author_genre correction fit on FULL library (today's config; leaky)",
     "raw": "research vector -> WA (no smoothing, no correction); pool-independent"
   }
