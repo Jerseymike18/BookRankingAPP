@@ -20,11 +20,14 @@ harness output instead of hardcoding figures that could silently go stale.
 Consumed by backend ``GET /api/track-record`` and snapshotted (deterministically)
 to ``frontend/public/data/track-record.json`` by ``scripts/export_static_data.py``.
 
-The PUBLIC page shows the **honest** walk-forward variant (author+genre correction
-fit on the past-only pool — the "what was knowable then" number). The **raw**
-(no-correction) and **naive** (predict-the-mean) figures are included as honest
-baselines. The **leaky** variant (correction fit on the full library) is
-deliberately excluded — its correction saw future books.
+The PUBLIC page shows the **served** walk-forward accuracy: the honest (no-leak,
+past-only correction) number for what the app actually serves after the grounded
+upgrade — the **hybrid** research vector (memory + web-grounded overrides). The
+**raw** (no-correction) and **naive** (predict-the-mean) figures are honest
+baselines. The **leaky** variant (correction fit on the full library) and the
+memory-only **honest** variant (the pre-refine state) are not surfaced. Payload
+keys keep the ``honest_*`` names (the frontend contract) — the value is still the
+honest, no-leakage walk-forward MAE, now of the served hybrid prediction.
 """
 
 import json
@@ -39,17 +42,22 @@ _META = os.path.join(_VALID_DIR, "walkforward_meta.json")
 _ROLLING = os.path.join(_VALID_DIR, "walkforward_rolling_mae.json")
 _RESIDUALS = os.path.join(ROOT, "calibration", "residuals.json")
 
-# The non-leaky variant surfaced publicly.
-HEADLINE_VARIANT = "honest"
+# The variant surfaced publicly: the LIVE-served hybrid (memory + web-grounded
+# overrides), graded the honest no-leak way (past-only correction). Was "honest"
+# (memory-only) until 2026-07-24 — that understated live accuracy by ~0.05. The
+# ``honest_*`` payload keys are kept (frontend contract); it is still the honest,
+# no-leakage walk-forward MAE, now of the served prediction.
+HEADLINE_VARIANT = "hybrid"
 
 _CAVEATS = [
     "Chronological walk-forward: every book is predicted using only the books "
-    "read before it (Timeline order), so no future information leaks into a "
+    "read before it (reading order), so no future information leaks into a "
     "prediction. This is the honest “what was knowable then” accuracy, "
     "not a leave-one-out fit that trains on future books.",
-    "The 'honest' variant is shown. A 'leaky' variant that fits its correction "
-    "on the full library (today's config) scores marginally better but saw "
-    "future books, so it is excluded here.",
+    "The number reflects what the app actually serves — the hybrid research "
+    "vector (memory + web-grounded), graded the honest no-leak way. A 'leaky' "
+    "variant (correction fit on the full library) scores marginally better but "
+    "saw future books, so it is excluded here.",
     "The grounded-research vectors embed post-publication reception (reviews, "
     "reputation) — an accepted hindsight caveat: the harness measures the "
     "engine's math, holding the researched inputs fixed.",
@@ -93,7 +101,7 @@ def _served_coverage(evaluated):
         return None
     hits = tot = 0
     for f in evaluated:
-        h = f["variants"]["honest"]
+        h = f["variants"][HEADLINE_VARIANT]
         n_author = h.get("n_author")
         if n_author is None:
             continue
@@ -124,7 +132,7 @@ def build_track_record():
         return None
 
     # ── Headline: honest (star) + raw / naive baselines (leaky excluded) ──
-    honest_errs = [f["variants"]["honest"]["wa_abs_error"] for f in evaluated]
+    honest_errs = [f["variants"][HEADLINE_VARIANT]["wa_abs_error"] for f in evaluated]
     raw_errs = [f["variants"]["raw"]["wa_abs_error"] for f in evaluated]
     mu = _mean([f["actual_wa"] for f in evaluated])
     naive = _mean([abs(f["actual_wa"] - mu) for f in evaluated])
@@ -141,7 +149,7 @@ def build_track_record():
     # ── Fold-level (honest): predicted vs actual for the scatter ──
     fold_rows = []
     for f in evaluated:
-        h = f["variants"]["honest"]
+        h = f["variants"][HEADLINE_VARIANT]
         fold_rows.append({
             "position": f["position"],
             "title": f["title"],
@@ -165,7 +173,8 @@ def build_track_record():
             "title": s["title"],
             "pool_size": s["pool_size"],
             "window_n": s["window_n"],
-            "honest_rolling_mae": round(s["honest_rolling_mae"], 4),
+            "honest_rolling_mae": round(
+                s.get(HEADLINE_VARIANT + "_rolling_mae", s["honest_rolling_mae"]), 4),
         }
         for s in rolling.get("series", [])
     ]
@@ -176,7 +185,7 @@ def build_track_record():
     by_genre_raw = {}
     for f in evaluated:
         g = f["genre"]
-        by_genre_honest.setdefault(g, []).append(f["variants"]["honest"]["wa_abs_error"])
+        by_genre_honest.setdefault(g, []).append(f["variants"][HEADLINE_VARIANT]["wa_abs_error"])
         by_genre_raw.setdefault(g, []).append(f["variants"]["raw"]["wa_abs_error"])
     genre_rows = [
         {
@@ -191,7 +200,7 @@ def build_track_record():
 
     # ── Interval coverage: served conformal (kept) vs legacy resid_sd (removed) ──
     served = _served_coverage(evaluated)
-    resid_sd_cov = _mean([1.0 if f["variants"]["honest"]["ci_inside"] else 0.0 for f in evaluated])
+    resid_sd_cov = _mean([1.0 if f["variants"][HEADLINE_VARIANT]["ci_inside"] else 0.0 for f in evaluated])
     interval_coverage = {
         "served_conformal": {
             "label": "density-bucketed conformal band (served on Predict / Read-queue)",
