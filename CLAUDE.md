@@ -48,7 +48,7 @@ pipeline — see **Publishing** below and `README.md`.
    without an explicit schema-change task that goes through `db_write`.
 
 4. **`test_engine.py` must stay at a clean pass (every check PASSES, no `[FAIL]` lines —
-   currently 29/29).** The DB is the source of truth; the Excel workbook is import-only, so
+   currently 38/38).** The DB is the source of truth; the Excel workbook is import-only, so
    Excel/DB drift is expected and is printed as informational (not pass/fail). Any `[FAIL]`
    line means something broke — investigate before proceeding.
 
@@ -187,9 +187,11 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 ## Pages (frontend/app/)
 
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) · `stats` ·
-`analytics` · `calibration` · `track-record` · `methodology` · `delta-log`, plus the `/` home. Fiction and nonfiction otherwise
+`analytics` · `calibration` · `track-record` · `methodology` · `delta-log` · `weights`
+(per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth),
+plus the `/` home. Fiction and nonfiction otherwise
 split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
-`nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
+`nonfiction/{rankings, tier-list, series, reading, timeline}`, sharing view
 components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
 calls in `lib/api.ts` (static-mode via `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`;
 read-only gating in `lib/readonly.ts`.
