@@ -216,6 +216,14 @@ export interface NonfictionRecommendation {
   predicted_rank: number | null;
 }
 
+// Nonfiction read-queue payload — the not-done nonfiction TBR. Mirrors the fiction
+// ReadQueueResponse shape (recommendations + genres), but over nonfiction recs.
+// `genres` is currently always empty from the endpoint (filter derives from recs).
+export interface NonfictionReadQueueResponse {
+  recommendations: NonfictionRecommendation[];
+  genres: string[];
+}
+
 export interface ReadingStatsSummary {
   total_books: number;
   avg_wa: number | null;

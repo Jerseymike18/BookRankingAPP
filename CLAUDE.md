@@ -191,7 +191,7 @@ Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) �
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth),
 plus the `/` home. Fiction and nonfiction otherwise
 split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
-`nonfiction/{rankings, tier-list, series, reading, timeline}`, sharing view
+`nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
 components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
 calls in `lib/api.ts` (static-mode via `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`;
 read-only gating in `lib/readonly.ts`.

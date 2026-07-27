@@ -51,7 +51,7 @@ Consequences worth memorizing:
 - Nonfiction: `nonfiction_engine.py`, `nonfiction_research.py`.
 
 **Frontend (`frontend/`, Next.js 16 App Router — read `frontend/AGENTS.md`; it is NOT vanilla Next):**
-- `app/*` — pages (server components fetch via SSR). Top-level: `add-book`, `edit-ratings`, `predict`, `read-queue`, `stats`, `analytics`, `calibration`, `track-record`, `methodology`, `delta-log`, `weights`, `welcome`, `login`, home. Route groups `fiction/*` + `nonfiction/*` (rankings, tier-list, series, reading, timeline) share `components/views/*View.tsx` (kind-param). (Nonfiction has no read-queue *page*; the `/api/nonfiction/read-queue` endpoint + export exist for parity.)
+- `app/*` — pages (server components fetch via SSR). Top-level: `add-book`, `edit-ratings`, `predict`, `read-queue`, `stats`, `analytics`, `calibration`, `track-record`, `methodology`, `delta-log`, `weights`, `welcome`, `login`, home. Route groups `fiction/*` + `nonfiction/*` (rankings, tier-list, series, reading, timeline) share `components/views/*View.tsx` (kind-param). (Read-queue is bespoke, not a shared view: fiction's is the top-level `/read-queue`, nonfiction's is `/nonfiction/read-queue`.)
 - `lib/api.ts` — all backend calls; `STATIC` (bundle) vs live; `apiFetch(url, init, serverToken?)` attaches the Supabase token; `signUp()`.
 - `lib/supabase/{client,server}.ts`; `proxy.ts` (Next-16 middleware — session refresh + `/login` gate, no-op when Supabase env absent); `lib/readonly.ts`; `lib/types.ts`; `lib/slug.ts`; `components/Nav.tsx`.
 - Design tokens live in `app/globals.css` (the "Fable" system) — reuse existing primitives; **no new styles**.
