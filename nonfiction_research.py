@@ -111,13 +111,33 @@ def research_and_predict(title, author, genre="Nonfiction", data=None):
             "low_confidence": True}
 
 
-def discover_nonfiction_candidates(request, n=8, client=None, model=None):
+def discover_nonfiction_candidates(request, n=8, client=None, model=None,
+                                   avoid_titles=None):
     """Brainstorm real nonfiction book candidates for a free-text request. Uses
     the cheap DISCOVER_MODEL (Sonnet) — candidate generation gets no calibration
     benefit from Opus, mirroring the fiction Discover split. Returns a list of
-    {"title", "author"} dicts (deduped, capped at n)."""
+    {"title", "author"} dicts (deduped, capped at n).
+
+    ``avoid_titles``: iterable of titles already in the reader's library/TBR to
+    drop (the read/saved backstop, done HERE — not by the caller — so a
+    guaranteed single-book injection can bypass it; see below).
+
+    Guaranteed single-book injection (parity with the fiction Discover flow): if
+    the request NAMES one specific book, it is included as the FIRST candidate no
+    matter what — even if the model wouldn't surface it or it is already in the
+    library/TBR — deduped by lowercased title so a model duplicate collapses into
+    it. Costs one extra cheap classifier call (shared with fiction)."""
     client = client or rp.get_client()
     model = model or rp.DISCOVER_MODEL
+    avoid = {str(t).strip().lower() for t in (avoid_titles or ())}
+
+    out, seen = [], set()
+    # Explicit single-book request -> guarantee it, bypassing the avoid set.
+    cls = rp._classify_request(request, client, model)
+    if cls.get("is_single_book") and cls.get("title"):
+        seen.add(cls["title"].lower())
+        out.append({"title": cls["title"], "author": cls.get("author", "")})
+
     prompt = (
         f'Suggest {n} real, published NONFICTION books that match this request:\n'
         f'"{request}"\n\n'
@@ -129,14 +149,14 @@ def discover_nonfiction_candidates(request, n=8, client=None, model=None):
         model=model, max_tokens=900,
         messages=[{"role": "user", "content": prompt}])
     data = rl._extract_json(msg.content[0].text.strip())
-    out, seen = [], set()
     for c in (data if isinstance(data, list) else []):
         if not isinstance(c, dict):
             continue
         t = str(c.get("title") or "").strip()
         a = str(c.get("author") or "").strip()
-        if t and t.lower() not in seen:
-            seen.add(t.lower())
+        k = t.lower()
+        if t and k not in seen and k not in avoid:
+            seen.add(k)
             out.append({"title": t, "author": a})
     return out[:n]
 

@@ -2854,19 +2854,21 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
     request = (req.request or "").strip()
     if not request:
         raise HTTPException(status_code=422, detail="Enter a request.")
-    try:
-        cands = _nr.discover_nonfiction_candidates(request, n=req.n or 8, client=client)
-    except Exception as e:
-        raise _server_error(e, "Candidate generation failed")
     con = db_backend.connect(db_write.DB)
     have = {r[0].strip().lower() for r in con.execute(
         "SELECT title FROM nonfiction_books WHERE user_id=?", (user_id,)) if r[0]}
     have |= {r[0].strip().lower() for r in con.execute(
         "SELECT title FROM nonfiction_recommendations WHERE user_id=?", (user_id,)) if r[0]}
     con.close()
-    fresh = [c for c in cands if c["title"].strip().lower() not in have]
-    note = "" if fresh else "Every suggestion is already in your library or TBR — try a different request."
-    return {"candidates": fresh, "request": request, "note": note}
+    try:
+        # Avoidance moved INTO the generator so an explicit single-book request
+        # can be guaranteed as a candidate even when it's already in library/TBR.
+        cands = _nr.discover_nonfiction_candidates(
+            request, n=req.n or 8, client=client, avoid_titles=have)
+    except Exception as e:
+        raise _server_error(e, "Candidate generation failed")
+    note = "" if cands else "Every suggestion is already in your library or TBR — try a different request."
+    return {"candidates": cands, "request": request, "note": note}
 
 
 # ─── Nonfiction TBR (recommendations + read queue) ───────────────────────────
