@@ -103,4 +103,14 @@ then
   exit 1
 fi
 
+# Doc-drift audit (cheap: --no-run-tests skips the slow test_engine.py run). Blocks
+# a push whose CLAUDE.md / ARCHITECTURE.md claims have drifted from repo ground
+# truth. The FULL audit (incl. the test-gate count) is a manual / CI run.
+if ! python3 "$REPO_ROOT/scripts/lint_docs.py" --no-run-tests; then
+  echo "✗ pre-push: doc drift detected — push blocked." >&2
+  echo "  Fix: 'python3 scripts/lint_docs.py --fix' rewrites NUMERIC drift; edit the" >&2
+  echo "       page list in CLAUDE.md/ARCHITECTURE.md by hand for structural findings." >&2
+  exit 1
+fi
+
 exit 0

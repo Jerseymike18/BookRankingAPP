@@ -14,6 +14,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/hooks/_common.sh
 . "$HERE/_common.sh"
 
+# 0) Hard-constraint lint (CLAUDE.md HARD CONSTRAINTS) on the STAGED diff, BEFORE
+#    any snapshot work — so it runs on EVERY commit, not just data commits, and a
+#    violation blocks early. Fast: diff-scoped, no test run. (See lint_constraints.py.)
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 "$REPO_ROOT/scripts/lint_constraints.py"; then
+    echo "✗ pre-commit: hard-constraint lint FAILED — commit blocked." >&2
+    echo "  Each ERROR above prints its own fix. A SANCTIONED engine change is" >&2
+    echo "  allowed by adding 'engine-change: <reason>' to the commit message body" >&2
+    echo "  (or exporting LINT_CONSTRAINTS_ALLOW_ENGINE=1)." >&2
+    exit 1
+  fi
+fi
+
 # 1) Fast path: nothing data-affecting is staged → no Python, no export.
 if ! git -C "$REPO_ROOT" diff --cached --name-only -- | paths_have_data_input; then
   exit 0

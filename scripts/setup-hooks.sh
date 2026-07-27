@@ -15,11 +15,15 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 git -C "$REPO_ROOT" config core.hooksPath scripts/hooks
 chmod +x "$REPO_ROOT"/scripts/hooks/* \
          "$REPO_ROOT"/scripts/setup-hooks.sh \
-         "$REPO_ROOT"/scripts/publish.sh
+         "$REPO_ROOT"/scripts/publish.sh \
+         "$REPO_ROOT"/scripts/lint_docs.py \
+         "$REPO_ROOT"/scripts/lint_constraints.py
 
 echo "✓ Publish hooks active for this clone."
 echo "  core.hooksPath = $(git -C "$REPO_ROOT" config core.hooksPath)"
-echo "    • pre-commit — a data change auto-regenerates & stages the snapshot"
-echo "    • pre-push   — blocks any push whose snapshot is stale or invalid"
+echo "    • pre-commit — hard-constraint lint (lint_constraints.py), then a data"
+echo "                   change auto-regenerates & stages the snapshot"
+echo "    • pre-push   — blocks a stale/invalid snapshot, then a doc-drift audit"
+echo "                   (lint_docs.py --no-run-tests)"
 echo
 echo "  Publish from now on with just: git commit + git push  (or scripts/publish.sh)"
