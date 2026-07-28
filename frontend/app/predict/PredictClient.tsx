@@ -86,7 +86,13 @@ const SAVE_CONCURRENCY = 8;
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
 const CANDIDATE_COLS: ColDef<Candidate>[] = [
-  { key: "title",  label: "Title",  type: "string", getValue: (c) => c.title },
+  { key: "title",  label: "Title",  type: "string", getValue: (c) => c.title,
+    formatter: (v, c) => c.requested
+      ? <span>{v}{" "}<span
+          className="ml-1 px-1.5 py-0.5 rounded text-[0.65rem] font-semibold uppercase tracking-wide align-middle"
+          style={{ background: "var(--color-sage-light)", color: "var(--color-sage)" }}
+        >your pick</span></span>
+      : <>{v}</> },
   { key: "author", label: "Author", type: "string", getValue: (c) => c.author },
   { key: "genre",  label: "Genre",  type: "string", getValue: (c) => c.genre ?? "",
     formatter: (v) => v ? <span className="genre-chip">{v}</span> : <span style={{ color: "var(--color-faint)", fontSize: "0.75rem" }}>auto-detect</span> },
@@ -532,6 +538,7 @@ function DiscoverMode({
               dir: "asc",
             }}
             getRowKey={(c) => c.title}
+            pinFirst={(c) => !!c.requested}
           />
           <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
             {nCached} already researched (free) · {nNew} new (~1¢ and a few seconds each)

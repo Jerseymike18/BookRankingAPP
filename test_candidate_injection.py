@@ -148,6 +148,55 @@ def test_fiction_mood_request_untouched():
           "fiction: mood request unchanged (no injection)", f"titles={titles}")
 
 
+def test_fiction_injected_carries_metadata_and_pinned():
+    """Injected book carries author + genre metadata, is flagged requested=True,
+    and sits FIRST (pinned) in the returned list; other candidates have no flag."""
+    fake = FakeClient(
+        classify_json='{"category": "single", "title": "The Way of Kings", "author": "Brandon Sanderson", "genre": "Epic Fantasy"}',
+        proposer_json='{"candidates": [{"title": "Other", "author": "Q", "genre": "Mystery"}]}',
+    )
+    res = rp.generate_candidates("predict The Way of Kings", GENRES, [],
+                                 tbr_books=[], n=None, client=fake, model="t")
+    first = res["candidates"][0]
+    check(first["title"] == "The Way of Kings" and first.get("requested") is True,
+          "fiction: requested book is pinned FIRST + flagged requested",
+          f"first={first.get('title')!r} requested={first.get('requested')}")
+    check(first.get("author") == "Brandon Sanderson" and first.get("genre") == "Epic Fantasy",
+          "fiction: injected book carries author + genre metadata",
+          f"author={first.get('author')!r} genre={first.get('genre')!r}")
+    others = [c for c in res["candidates"] if not c.get("requested")]
+    check(all(not c.get("requested") for c in others),
+          "fiction: non-requested candidates are not flagged", f"n_others={len(others)}")
+
+
+def test_fiction_fuzzy_resolves_variant_to_canonical():
+    """A variant/partial title fuzzy-resolves to the rated library's canonical
+    entry, inheriting its exact title + author + genre."""
+    library = [("The Hobbit, or There and Back Again", "J.R.R. Tolkien", "Epic Fantasy"),
+               ("Dune", "Frank Herbert", "Science Fiction")]
+    fake = FakeClient(
+        classify_json='{"category": "single", "title": "the hobbit", "author": "", "genre": ""}',
+        proposer_json='{"candidates": []}',
+    )
+    res = rp.generate_candidates("predict the hobbit", GENRES, [], tbr_books=[],
+                                 n=None, client=fake, model="t", library=library)
+    first = res["candidates"][0]
+    ok = (first["title"] == "The Hobbit, or There and Back Again"
+          and first["author"] == "J.R.R. Tolkien"
+          and first["genre"] == "Epic Fantasy")
+    check(ok, "fiction: fuzzy-resolves a variant title to the canonical library entry",
+          f"resolved={first.get('title')!r} / {first.get('author')!r} / {first.get('genre')!r}")
+
+
+def test_fuzzy_does_not_overmatch():
+    """Guard: a shorter title must NOT resolve to a longer different book."""
+    library = [("Dune Messiah", "Frank Herbert", "Science Fiction")]
+    hit = rp._fuzzy_library_match("Dune", library)
+    check(hit is None, "fuzzy: 'Dune' does NOT resolve to 'Dune Messiah'", f"hit={hit}")
+    hit2 = rp._fuzzy_library_match("The Hobbit", library)
+    check(hit2 is None, "fuzzy: unrelated title returns no match", f"hit={hit2}")
+
+
 # ── Nonfiction: discover_nonfiction_candidates ───────────────────────────────
 def test_nonfiction_typed_title_in_library_appears():
     """User names a nonfiction book already in library/TBR → still appears."""
@@ -198,6 +247,9 @@ def main():
     test_fiction_typed_title_not_surfaced_appears()
     test_fiction_dedup_user_entry_wins()
     test_fiction_mood_request_untouched()
+    test_fiction_injected_carries_metadata_and_pinned()
+    test_fiction_fuzzy_resolves_variant_to_canonical()
+    test_fuzzy_does_not_overmatch()
     test_nonfiction_typed_title_in_library_appears()
     test_nonfiction_typed_title_not_surfaced_appears()
     test_nonfiction_mood_request_untouched()

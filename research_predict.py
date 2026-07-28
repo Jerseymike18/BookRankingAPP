@@ -836,20 +836,27 @@ def _coerce_series_number(raw):
     return int(f) if f.is_integer() else f
 
 
-def _classify_request(request, client, model):
+def _classify_request(request, client, model, genre_list=None):
     """Route a free-text Discover request into ONE intent and extract its fields.
 
     Three mutually-exclusive categories:
       - SERIES enumeration    -> is_series=True      (series_name/author/scope set)
-      - SINGLE specific book  -> is_single_book=True (title/author set)
+      - SINGLE specific book  -> is_single_book=True (title/author[/genre] set)
       - mood/theme/genre      -> both False (the normal generator handles it)
 
     Returns {"is_series": bool, "is_single_book": bool, "series_name": str,
-    "title": str, "author": str, "scope": "main"|"all"}. ``author`` is whichever
-    author the request named (series author OR book author). On any parse/LLM
-    failure everything is False, so the caller falls through to the mood/theme
-    generator — the safe default. One cheap classifier call (shared by the
-    fiction and nonfiction Discover flows)."""
+    "title": str, "author": str, "genre": str, "scope": "main"|"all"}. ``author``
+    is whichever author the request named (series author OR book author). ``genre``
+    is the model's best-fit genre for a SINGLE book, populated only when a
+    ``genre_list`` is supplied (fiction) — else "". On any parse/LLM failure
+    everything is False, so the caller falls through to the mood/theme generator —
+    the safe default. One cheap classifier call (shared by the fiction and
+    nonfiction Discover flows)."""
+    genre_instr, genre_field = "", ""
+    if genre_list:
+        genre_instr = ("; and genre — the single best-fit genre for that book, "
+                       f"copied EXACTLY from this list: {genre_list}")
+        genre_field = ', "genre": "..."'
     prompt = f'''You are routing a book request into EXACTLY ONE category and extracting its fields.
 
 Categories:
@@ -859,13 +866,13 @@ Categories:
 
 Extract:
 - SERIES -> series_name; author if one is named (else ""); scope: "main" = main-sequence novels only, "all" = every entry including novellas / .5 shorts. Default scope "main" unless it clearly asks for everything ("all books", "including novellas", "complete").
-- SINGLE -> title (the book's exact title); author if one is named (else "").
+- SINGLE -> title (the book's exact title); author if one is named (else ""){genre_instr}.
 - OTHER  -> nothing.
 
 REQUEST: {request}
 
 Respond with ONLY a JSON object — no prose, no markdown:
-{{"category": "series", "series_name": "...", "title": "...", "author": "...", "scope": "main"}}'''
+{{"category": "series", "series_name": "...", "title": "...", "author": "..."{genre_field}, "scope": "main"}}'''
     try:
         msg = client.messages.create(
             model=model, max_tokens=400,
@@ -873,7 +880,7 @@ Respond with ONLY a JSON object — no prose, no markdown:
         data = rl._extract_json(msg.content[0].text.strip())
     except Exception:
         return {"is_series": False, "is_single_book": False, "series_name": "",
-                "title": "", "author": "", "scope": "main"}
+                "title": "", "author": "", "genre": "", "scope": "main"}
     category = str(data.get("category", "") or "").strip().lower()
     series_name = str(data.get("series_name", "") or "").strip()
     title = str(data.get("title", "") or "").strip()
@@ -884,8 +891,54 @@ Respond with ONLY a JSON object — no prose, no markdown:
         "series_name": series_name,
         "title": title,
         "author": str(data.get("author", "") or "").strip(),
+        "genre": str(data.get("genre", "") or "").strip(),
         "scope": scope if scope in ("main", "all") else "main",
     }
+
+
+def _fuzzy_library_match(title, library, cutoff=0.86):
+    """Resolve `title` to a rated-library entry, tolerating spelling variance.
+
+    `library` is an iterable of (title, author, genre) — extra/short tuples are
+    tolerated. Returns the matched (title, author, genre) with the CANONICAL
+    library spelling/metadata, or None when nothing is close enough. Match order:
+      1. exact normalized title (case/whitespace-insensitive);
+      2. subtitle/series prefix — one title is the other plus a ",", ":" or " ("
+         marker ("The Hobbit" ~ "The Hobbit, or There and Back Again";
+         "The Way of Kings" ~ "The Way of Kings (The Stormlight Archive, #1)");
+      3. closest ``difflib`` ratio at/above `cutoff` (typos / minor variance).
+    Deliberately NO bare-substring matching, so "Dune" never resolves to "Dune
+    Messiah". Stdlib only — no new dependency."""
+    import difflib
+    norm = lambda s: " ".join(str(s or "").strip().lower().split())
+    target = norm(title)
+    if not target:
+        return None
+    entries = []
+    for item in library or ():
+        t = item[0] if len(item) > 0 else ""
+        a = item[1] if len(item) > 1 else ""
+        g = item[2] if len(item) > 2 else None
+        tn = norm(t)
+        if tn:
+            entries.append((t, a, g, tn))
+    # 1) exact normalized title
+    for t, a, g, tn in entries:
+        if tn == target:
+            return (t, a, g)
+    # 2) subtitle/series prefix (guarded so "Dune" != "Dune Messiah")
+    def _prefix_hit(short, long_):
+        if len(short) < 4 or not long_.startswith(short):
+            return False
+        rest = long_[len(short):]
+        return rest[:1] in (",", ":") or rest[:2] == " ("
+    for t, a, g, tn in entries:
+        if _prefix_hit(target, tn) or _prefix_hit(tn, target):
+            return (t, a, g)
+    # 3) difflib ratio (typos / minor variance)
+    by_norm = {tn: (t, a, g) for t, a, g, tn in entries}
+    m = difflib.get_close_matches(target, list(by_norm), n=1, cutoff=cutoff)
+    return by_norm[m[0]] if m else None
 
 
 def _web_search_json(prompt, client, model, max_continuations=4):
@@ -1003,7 +1056,8 @@ After searching, respond with ONLY a JSON object — no prose, no markdown:
 
 
 def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=None,
-                        client=None, model=DISCOVER_MODEL, key_path="apikey.txt"):
+                        client=None, model=DISCOVER_MODEL, key_path="apikey.txt",
+                        library=None):
     """Return a list of {"title","author","genre"} candidate books for `request`.
 
     - `n`: how many candidates to return. When None (the default), the model
@@ -1048,7 +1102,7 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=Non
     # Route single-series enumerations through the Goodreads-grounded path so
     # titles/ordinals come from search results, not model memory. Mood/theme/
     # genre requests fall through to the normal generator (no web search).
-    cls = _classify_request(request, client, model)
+    cls = _classify_request(request, client, model, genre_list=genre_list)
     if cls["is_series"] and cls["series_name"]:
         return _generate_series_candidates(
             request, cls["series_name"], cls["author"], cls["scope"],
@@ -1134,15 +1188,30 @@ Respond with ONLY a JSON object — no prose, no markdown:
     # what gets scored/ranked — even if the model wouldn't surface it, or it is
     # already read/saved. Deduped by the SAME lowercased-title key the pipeline
     # uses (seeding `seen` first, so a model duplicate collapses into this entry,
-    # which wins on author/genre). Deliberately NOT subject to `avoid_titles`:
-    # explicitly asking to predict a book you've already read is a valid override.
-    # genre=None -> the scoring step auto-detects it, exactly as it already does
-    # for any candidate whose genre falls outside the schema.
+    # which wins). Deliberately NOT subject to `avoid_titles`: explicitly asking
+    # to predict a book you've already read is a valid override.
+    #   • Carries the book's author + best-fit genre (metadata for the list).
+    #   • `requested=True` lets the UI pin it to the TOP of the candidate list.
+    #   • FUZZY FALLBACK: the title is resolved against your rated library, so a
+    #     slightly-off spelling ("the hobbit" -> "The Hobbit, or There and Back
+    #     Again") still lands on the real book and inherits its canonical author +
+    #     genre. No library hit -> the classifier's title/author/genre stand
+    #     (genre None -> the scoring step auto-detects, as for any candidate).
     forced = []
     if cls.get("is_single_book") and cls.get("title"):
-        seen.add(cls["title"].lower())
-        forced.append({"title": cls["title"], "author": cls.get("author", ""),
-                       "genre": None, "series": None, "series_number": None})
+        ft = cls["title"]
+        fa = cls.get("author", "") or ""
+        fg = cls.get("genre") or None
+        if fg and fg not in allowed_set:
+            fg = None
+        lib_hit = _fuzzy_library_match(ft, library) if library else None
+        if lib_hit:
+            ft = lib_hit[0] or ft                       # canonical library title
+            fa = (lib_hit[1] or "").strip() or fa       # canonical author
+            fg = (lib_hit[2] or "").strip() or fg       # canonical genre
+        seen.add(ft.lower())
+        forced.append({"title": ft, "author": fa, "genre": fg,
+                       "series": None, "series_number": None, "requested": True})
 
     # Inferred-count path: trust the model's read of the request; just guard
     # against a runaway list. No top-up retry — there's no fixed target to hit.
