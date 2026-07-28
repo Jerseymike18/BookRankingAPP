@@ -836,36 +836,53 @@ def _coerce_series_number(raw):
     return int(f) if f.is_integer() else f
 
 
-def _classify_series_request(request, client, model):
-    """Decide if `request` is a single-series enumeration, and its scope.
+def _classify_request(request, client, model):
+    """Route a free-text Discover request into ONE intent and extract its fields.
 
-    Returns {"is_series": bool, "series_name": str, "author": str,
-    "scope": "main"|"all"}. Mood/theme/genre requests classify is_series=False
-    (those use the normal generator and are NOT web-searched)."""
-    prompt = f'''You are routing a book request. Decide whether it asks to ENUMERATE the books of ONE specific named series (optionally by a named author) — e.g. "all books in The Stormlight Archive", "main books of The Bound and the Broken by Ryan Cahill", "Wheel of Time in order".
+    Three mutually-exclusive categories:
+      - SERIES enumeration    -> is_series=True      (series_name/author/scope set)
+      - SINGLE specific book  -> is_single_book=True (title/author set)
+      - mood/theme/genre      -> both False (the normal generator handles it)
 
-A request for a MOOD, THEME, GENRE, or general recommendation ("3 cozy mysteries", "something like Dune", "uplifting sci-fi") is NOT a series enumeration.
+    Returns {"is_series": bool, "is_single_book": bool, "series_name": str,
+    "title": str, "author": str, "scope": "main"|"all"}. ``author`` is whichever
+    author the request named (series author OR book author). On any parse/LLM
+    failure everything is False, so the caller falls through to the mood/theme
+    generator — the safe default. One cheap classifier call (shared by the
+    fiction and nonfiction Discover flows)."""
+    prompt = f'''You are routing a book request into EXACTLY ONE category and extracting its fields.
 
-If — and only if — it IS a series enumeration, extract the series name, the author if one is named (else ""), and the scope:
-- "main" -> only the main-sequence novels (exclude novellas / .5 entries)
-- "all"  -> every entry including novellas and short stories
-Default scope to "main" unless the request clearly asks for everything ("all books", "including novellas", "complete").
+Categories:
+- SERIES  — asks to ENUMERATE the books of ONE specific named series (optionally by a named author): "all books in The Stormlight Archive", "main books of The Bound and the Broken by Ryan Cahill", "Wheel of Time in order".
+- SINGLE  — names ONE specific book to predict/evaluate: "predict Dune by Frank Herbert", "where would The Hobbit land", "The Republic of Thieves by Scott Lynch".
+- OTHER   — a MOOD, THEME, GENRE, or general recommendation: "3 cozy mysteries", "uplifting sci-fi". NOTE: "something like Dune" is OTHER, not SINGLE — it asks for books RESEMBLING one, not that one book itself.
+
+Extract:
+- SERIES -> series_name; author if one is named (else ""); scope: "main" = main-sequence novels only, "all" = every entry including novellas / .5 shorts. Default scope "main" unless it clearly asks for everything ("all books", "including novellas", "complete").
+- SINGLE -> title (the book's exact title); author if one is named (else "").
+- OTHER  -> nothing.
 
 REQUEST: {request}
 
 Respond with ONLY a JSON object — no prose, no markdown:
-{{"is_series": true, "series_name": "...", "author": "...", "scope": "main"}}'''
+{{"category": "series", "series_name": "...", "title": "...", "author": "...", "scope": "main"}}'''
     try:
         msg = client.messages.create(
             model=model, max_tokens=400,
             messages=[{"role": "user", "content": prompt}])
         data = rl._extract_json(msg.content[0].text.strip())
     except Exception:
-        return {"is_series": False, "series_name": "", "author": "", "scope": "main"}
+        return {"is_series": False, "is_single_book": False, "series_name": "",
+                "title": "", "author": "", "scope": "main"}
+    category = str(data.get("category", "") or "").strip().lower()
+    series_name = str(data.get("series_name", "") or "").strip()
+    title = str(data.get("title", "") or "").strip()
     scope = str(data.get("scope", "main")).strip().lower()
     return {
-        "is_series": bool(data.get("is_series")),
-        "series_name": str(data.get("series_name", "") or "").strip(),
+        "is_series": category == "series" and bool(series_name),
+        "is_single_book": category == "single" and bool(title),
+        "series_name": series_name,
+        "title": title,
         "author": str(data.get("author", "") or "").strip(),
         "scope": scope if scope in ("main", "all") else "main",
     }
@@ -1031,7 +1048,7 @@ def generate_candidates(request, allowed_genres, read_books, tbr_books=(), n=Non
     # Route single-series enumerations through the Goodreads-grounded path so
     # titles/ordinals come from search results, not model memory. Mood/theme/
     # genre requests fall through to the normal generator (no web search).
-    cls = _classify_series_request(request, client, model)
+    cls = _classify_request(request, client, model)
     if cls["is_series"] and cls["series_name"]:
         return _generate_series_candidates(
             request, cls["series_name"], cls["author"], cls["scope"],
@@ -1112,13 +1129,28 @@ Respond with ONLY a JSON object — no prose, no markdown:
 
     seen = set()
 
+    # Guaranteed single-book injection. If the request NAMES one specific book,
+    # make it a first-class candidate up front so it can never be missing from
+    # what gets scored/ranked — even if the model wouldn't surface it, or it is
+    # already read/saved. Deduped by the SAME lowercased-title key the pipeline
+    # uses (seeding `seen` first, so a model duplicate collapses into this entry,
+    # which wins on author/genre). Deliberately NOT subject to `avoid_titles`:
+    # explicitly asking to predict a book you've already read is a valid override.
+    # genre=None -> the scoring step auto-detects it, exactly as it already does
+    # for any candidate whose genre falls outside the schema.
+    forced = []
+    if cls.get("is_single_book") and cls.get("title"):
+        seen.add(cls["title"].lower())
+        forced.append({"title": cls["title"], "author": cls.get("author", ""),
+                       "genre": None, "series": None, "series_number": None})
+
     # Inferred-count path: trust the model's read of the request; just guard
     # against a runaway list. No top-up retry — there's no fixed target to hit.
     if n is None:
-        out = _filter(_ask(None), seen)
+        out = forced + _filter(_ask(None), seen)
         return {"candidates": out[:DISCOVER_MAX], "note": "", "sources": []}
 
-    out = _filter(_ask(n), seen)
+    out = forced + _filter(_ask(n), seen)
 
     # Single top-up retry: if the first pass came back materially short (often
     # because the request overlaps the library and survivors got filtered), ask
