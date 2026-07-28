@@ -2060,11 +2060,16 @@ def discover_candidates(req: DiscoverRequest, request: Request,
     con.close()
 
     read_books = list(zip(books["Book"].tolist(), books["Author"].tolist()))
+    # Rated library WITH genre — lets a named single book be fuzzy-resolved to its
+    # canonical title/author/genre (spelling-variance fallback + metadata).
+    library = list(zip(books["Book"].tolist(), books["Author"].tolist(),
+                       books["Genre"].tolist()))
 
     try:
         result = _rp.generate_candidates(
             req.request.strip(), allowed_genres, read_books,
             tbr_books=tbr_books, n=req.max_candidates, client=client,
+            library=library,
         )
     except Exception as e:
         raise _server_error(e, "Candidate generation failed")

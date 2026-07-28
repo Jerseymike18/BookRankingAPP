@@ -157,6 +157,8 @@ export interface Candidate {
   series?: string | null;
   /** Goodreads ordinal — e.g. 1, or 0.5 for a novella. Null when standalone/unknown. */
   series_number?: number | null;
+  /** True for the exact book the reader named — injected + pinned to the top. */
+  requested?: boolean;
 }
 
 export interface DiscoverCandidatesResponse {
