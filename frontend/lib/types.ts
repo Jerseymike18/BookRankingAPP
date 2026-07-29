@@ -95,6 +95,9 @@ export interface ResearchResult {
   author: string;
   genre: string;
   wa: number;
+  /** Nonfiction's primary ranking score (the shared card leads with this for the
+   *  nonfiction track). Absent for fiction, which ranks by WA. */
+  total_average?: number;
   rank: number;
   total: number;
   n_genre: number;
@@ -135,17 +138,43 @@ export interface NonfictionPrediction {
   confidence: string;
   low_confidence: boolean;
   category_order: string[];
+  // Fiction-shaped parity fields (so the shared Predict card consumes this
+  // directly). Nonfiction has no web-grounding path and no residual table, so
+  // sourcing is always "memory", hybrid_available is false, and no interval is
+  // ever attached.
+  n_genre?: number;
+  n_author?: number;
+  from_cache?: boolean;
+  words?: number | null;
+  series?: string;
+  series_number?: number | null;
+  blurb?: string;
+  keywords?: string;
+  sourcing?: "memory" | "hybrid";
+  hybrid_available?: boolean;
+  genre_auto_detected?: boolean;
 }
 
 export interface NonfictionCandidate {
   title: string;
   author: string;
+  /** Always "Nonfiction" (the shared candidate table shows it as a genre chip). */
+  genre?: string | null;
+  /** True once this book has been researched (free to score) — cached/new column. */
+  cached?: boolean;
+  series?: string | null;
+  series_number?: number | null;
+  /** True for the exact book the reader named — pinned to the top of the table. */
+  requested?: boolean;
 }
 
 export interface NonfictionDiscoverResponse {
   candidates: NonfictionCandidate[];
   request: string;
   note?: string;
+  /** Always empty for nonfiction (no Goodreads series provenance); present for
+   *  shape-parity with the fiction DiscoverCandidatesResponse. */
+  sources?: string[];
 }
 
 export interface Candidate {

@@ -2903,22 +2903,33 @@ class NonfictionResearchRequest(BaseModel):
     title: str
     author: str
     genre: Optional[str] = None
+    # Explicit no-cache refresh (parity with the fiction ResearchRequest.force):
+    # skip both cache layers, re-research, and overwrite this one entry.
+    force: bool = False
 
 
 @app.post("/api/nonfiction/predict/research")
 def predict_nf_research(req: NonfictionResearchRequest, request: Request,
                         user_id: str = Depends(auth.get_current_user_id)):
-    """Grounded nonfiction prediction: one LLM call scores the 8 components, then
-    they roll up through the SAME nonfiction math (category averages, Quality-lean
-    WA, Total Average) and are ranked by Total Average against the rated nonfiction
-    books. Always low-confidence at n=6. No TBR save (there is no nonfiction
-    recommendations table)."""
+    """Grounded nonfiction prediction: one LLM call (or cache hit) scores the 12
+    components, then they roll up through the SAME nonfiction math (category
+    averages, Quality-lean WA, Total Average) and are ranked by Total Average
+    against the rated nonfiction books. Always low-confidence at n=6.
+
+    Returns the fiction-shaped superset the shared Predict UI consumes — grounding
+    counts, from_cache, and the (empty) blurb/series fields fiction carries. There
+    is NO served interval at all: nonfiction has no residual table, and the
+    regression guard forbids a variance-derived substitute (CLAUDE.md)."""
     _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
+    eff_genre = req.genre or "Nonfiction"
+    cache = _rp.load_cache(_nr.NF_CACHE)
     try:
         data = _get_nf_engine(user_id)
-        r = _nr.research_and_predict(req.title, req.author, req.genre or "Nonfiction", data=data)
+        r = _nr.research_and_predict(req.title, req.author, eff_genre,
+                                     data=data, cache=cache, force=req.force)
+        _rp.save_cache(cache, _nr.NF_CACHE)
     except FileNotFoundError:
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
@@ -2939,6 +2950,15 @@ def predict_nf_research(req: NonfictionResearchRequest, request: Request,
         "rank": r["rank"], "total": r["n"],
         "confidence": r["confidence"], "low_confidence": True,
         "category_order": list(NF_CAT_ORDER),
+        # Fiction-shaped parity fields (the shared card reads these). Nonfiction has
+        # no web-grounding path and no residual table, so sourcing is always memory,
+        # no hybrid upgrade is offered, and no interval is attached.
+        "n_genre": r["n_genre"], "n_author": r["n_author"],
+        "from_cache": r["from_cache"], "words": None,
+        "series": "", "series_number": None,
+        "blurb": "", "keywords": "",
+        "sourcing": "memory", "hybrid_available": False,
+        "genre_auto_detected": False,
     }
 
 
@@ -2978,8 +2998,15 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
             request, n=req.n or 8, client=client, avoid_titles=have)
     except Exception as e:
         raise _server_error(e, "Candidate generation failed")
+    # Flag which candidates are already researched (free to score), so the table
+    # shows cached/new like fiction. File cache only (cheap, no per-candidate DB
+    # round-trip) — the durable store is still consulted at score time, matching
+    # the fiction discover flow.
+    nf_cache = _rp.load_cache(_nr.NF_CACHE)
+    for c in cands:
+        c["cached"] = _rl.cache_lookup(nf_cache, c.get("title", "")) is not None
     note = "" if cands else "Every suggestion is already in your library or TBR — try a different request."
-    return {"candidates": cands, "request": request, "note": note}
+    return {"candidates": cands, "request": request, "note": note, "sources": []}
 
 
 # ─── Nonfiction TBR (recommendations + read queue) ───────────────────────────
@@ -3045,7 +3072,20 @@ class NonfictionRecRequest(BaseModel):
 @app.post("/api/nonfiction/recommendations")
 def add_nf_recommendation(req: NonfictionRecRequest,
                           user_id: str = Depends(auth.get_current_user_id)):
-    """Save a researched nonfiction book to the TBR."""
+    """Save a researched nonfiction book to the TBR. Generates a blurb + keywords at
+    save time when the client didn't supply them (deferred from scoring so the extra
+    LLM call is only paid for books actually kept — mirrors the fiction save path).
+    Best-effort: a failure falls back to empty and never blocks the save."""
+    blurb = (req.blurb or "").strip()
+    keywords = (req.keywords or "").strip()
+    if (not blurb or not keywords) and _rp is not None:
+        try:
+            b, k = _rp.generate_blurb_keywords(
+                req.title, req.author or "", req.genre or "Nonfiction", _rp.get_client())
+            blurb = blurb or b
+            keywords = keywords or k
+        except Exception:
+            pass  # keep whatever the request carried (possibly empty)
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -3053,7 +3093,7 @@ def add_nf_recommendation(req: NonfictionRecRequest,
                 title=req.title, author=req.author, genre=req.genre,
                 scores=req.scores, series=req.series,
                 series_number=req.series_number, words=req.words,
-                blurb=req.blurb, keywords=req.keywords, user_id=user_id)
+                blurb=blurb or None, keywords=keywords or None, user_id=user_id)
     except db_write.ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
