@@ -42,7 +42,11 @@ export interface ColDef<T> {
 export function useSortable<T>(
   data: T[],
   cols: ColDef<T>[],
-  defaultSort: SortState
+  defaultSort: SortState,
+  /** Rows matching this predicate are held at the TOP regardless of the active
+      sort (in their original order among themselves). Used to pin a requested
+      book to the top of the Discover candidate list. */
+  pinFirst?: (row: T) => boolean
 ): { sorted: T[]; sortState: SortState; handleSort: (key: string) => void } {
   const [sortState, setSortState] = useState<SortState>(defaultSort);
 
@@ -53,6 +57,11 @@ export function useSortable<T>(
     return [...data]
       .map((row, idx) => ({ row, idx }))
       .sort(({ row: a, idx: ai }, { row: b, idx: bi }) => {
+        if (pinFirst) {
+          const pa = pinFirst(a) ? 1 : 0;
+          const pb = pinFirst(b) ? 1 : 0;
+          if (pa !== pb) return pb - pa;            // pinned rows first
+        }
         const av = col.getValue(a);
         const bv = col.getValue(b);
         if (col.type === "numeric") {
@@ -72,7 +81,7 @@ export function useSortable<T>(
         }
       })
       .map(({ row }) => row);
-  }, [data, cols, sortState]);
+  }, [data, cols, sortState, pinFirst]);
 
   function handleSort(key: string) {
     const col = cols.find((c) => c.key === key);
@@ -129,6 +138,7 @@ export function SortableTable<T extends object>({
   emptyMessage = "No data.",
   tableStyle,
   scrollX = false,
+  pinFirst,
 }: {
   columns: ColDef<T>[];
   data: T[];
@@ -138,8 +148,10 @@ export function SortableTable<T extends object>({
   tableStyle?: React.CSSProperties;
   /** Allow horizontal scroll for wide tables instead of clipping (default: clip). */
   scrollX?: boolean;
+  /** Rows matching this predicate stay pinned to the top regardless of sort. */
+  pinFirst?: (row: T) => boolean;
 }) {
-  const { sorted, sortState, handleSort } = useSortable(data, columns, defaultSort);
+  const { sorted, sortState, handleSort } = useSortable(data, columns, defaultSort, pinFirst);
 
   return (
     <div
