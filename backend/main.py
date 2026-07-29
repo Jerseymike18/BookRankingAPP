@@ -63,6 +63,7 @@ import nonfiction_engine as nfe
 import auth
 import signup as signup_mod
 import track_record as tr
+import engine_validation as ev
 import engine_parameters as ep
 import delta_log_view
 import timeline_month
@@ -3457,17 +3458,85 @@ def get_researcher_comparison(user_id: str = Depends(auth.get_current_user_id)):
 
 
 @app.get("/api/track-record")
-def get_track_record():
-    """Public walk-forward track record: predicted-vs-actual accuracy, the
-    rolling-MAE "getting smarter" curve, MAE by genre, and served-interval
-    coverage — assembled from the committed validation/ artifacts.
+def get_track_record(user_id: str = Depends(auth.get_current_user_id)):
+    """Per-user Track Record: predicted-vs-actual for the books THIS reader has
+    finished, in reading order, plus the rolling-MAE curve, MAE by genre, and
+    served-band coverage — all computed from their own delta_log.
 
-    READ-ONLY: reads the committed walk-forward files (never runs the harness,
-    no API spend, no books.db dependency) and computes served-interval coverage
-    through the canonical `intervals` module. Returns 404 when the artifacts are
-    absent (allow_404 in the export → JSON null → the page shows a graceful
-    "not yet available" state). See track_record.py for the honest/leaky policy."""
-    payload = tr.build_track_record()
+    TENANT-SCOPED, READ-ONLY, zero-API. Fetches this user's delta_log rows,
+    reduces them to one authoritative row per genuinely-finished book via
+    delta_log_view.visible_rows (same helper /api/delta-log uses), enriches
+    each row's missing mechanism-metadata from any other row for the same
+    title (so the served-coverage/raw-baseline stats work on pre-metadata
+    live rows), and hands the deduped rows to track_record.build_track_record.
+    Returns 404 when the reader has fewer than track_record.MIN_TRACK_RECORD
+    finished predictions — the frontend renders a "not enough yet" state.
+
+    The engine-wide validation numbers (reference-library walk-forward MAE,
+    served-band coverage on the harness) moved to /api/engine-validation and
+    feed the Methodology page; the two payloads are decoupled by design so a
+    change to one can't silently redefine the other."""
+    con = db_backend.connect(db_write.DB)
+    try:
+        # Match /api/delta-log's read shape, plus the mechanism columns the
+        # per-user builder consumes (pred_genre/pred_author/corr_wa/n_author).
+        rows = con.execute(
+            "SELECT id, title, pred_wa, act_wa, pred_genre, pred_author, "
+            "corr_wa, n_author, n_genre, pred_words, tag, logged_at, user_id "
+            "FROM delta_log WHERE user_id=? ORDER BY id DESC",
+            (user_id,),
+        ).fetchall()
+        cols = ["id", "title", "pred_wa", "act_wa", "pred_genre", "pred_author",
+                "corr_wa", "n_author", "n_genre", "pred_words", "tag",
+                "logged_at", "user_id"]
+        entries = [dict(zip(cols, r)) for r in rows]
+
+        # Finished-books set + reading order (same encoding /api/delta-log uses
+        # at the query below), plus the genre/author/series/year fallback the
+        # builder uses when a delta_log row lacks pred_genre / pred_author.
+        finished, read_order, book_meta = set(), {}, {}
+        for (t, g, a, s, sn, yr, mo, seq) in con.execute(
+            "SELECT title, genre, author, series, series_number, year_read, "
+            "read_month, read_seq FROM books WHERE user_id=? AND status=?",
+            (user_id, "finished"),
+        ).fetchall():
+            key = (t or "").strip().lower()
+            finished.add(key)
+            book_meta[key] = {
+                "genre": g, "author": a, "series": s, "series_number": sn,
+                "year_read": yr,
+            }
+            if yr is not None:
+                read_order[key] = (int(yr) * 100 + (int(mo) if mo else 0)) * 1_000_000 \
+                    + (int(seq) if seq else 0)
+    finally:
+        con.close()
+
+    visible = delta_log_view.visible_rows(
+        entries, finished, db_write.DELTA_BACKFILL_MARKER, read_order=read_order)
+    visible = tr.enrich_missing_meta(visible, entries)
+
+    payload = tr.build_track_record(
+        visible, read_order, residuals=_RESIDUALS, book_meta=book_meta,
+    )
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(f"Track Record needs at least {tr.MIN_TRACK_RECORD} "
+                    "finished predictions to show meaningful accuracy."),
+        )
+    return payload
+
+
+@app.get("/api/engine-validation")
+def get_engine_validation():
+    """Engine-wide walk-forward validation (reference library). Global, not
+    tenant-scoped — this is the ENGINE's honest chronological accuracy,
+    consumed by the Methodology page. Reads the committed validation/
+    artifacts through engine_validation.build_engine_validation and computes
+    served-band coverage via the canonical intervals module. Returns 404 when
+    the artifacts haven't been generated yet (allow_404 in the export)."""
+    payload = ev.build_engine_validation()
     if payload is None:
         raise HTTPException(
             status_code=404,

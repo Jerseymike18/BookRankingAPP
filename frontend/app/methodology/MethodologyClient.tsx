@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import type { EngineParameters, TrackRecord } from "@/lib/types";
+import type { EngineParameters, EngineValidation } from "@/lib/types";
 
 /* ── formatting ─────────────────────────────────────────────────────────── */
 const f2 = (v: number) => v.toFixed(2);
@@ -334,10 +334,10 @@ function coldStartStatus(params: EngineParameters) {
 /* ── PLAIN-ENGLISH view ─────────────────────────────────────────────────── */
 function SimpleView({
   params,
-  track,
+  validation,
 }: {
   params: EngineParameters;
-  track: TrackRecord | null;
+  validation: EngineValidation | null;
 }) {
   const { schema, interval, models, library } = params;
   const cs = coldStartStatus(params);
@@ -463,19 +463,20 @@ function SimpleView({
       <Body>
         The engine is graded the honest way: replaying the reference library&rsquo;s reading history in order and
         predicting each book using only what was known <em>before</em>{" "}it was read.{" "}
-        {track ? (
+        {validation ? (
           <>
-            Across {track.headline.n_folds} books, the average miss is{" "}
-            <strong>{f2(track.headline.honest_wa_mae)}</strong>{" "}points on the 0&ndash;10 scale — better than research
-            alone ({f2(track.headline.raw_wa_mae)}) and much better than just guessing the average (
-            {f2(track.headline.naive_wa_mae)}).
+            Across {validation.headline.n_folds} books in the reference library, the average miss is{" "}
+            <strong>{f2(validation.headline.honest_wa_mae)}</strong>{" "}points on the 0&ndash;10 scale — better than research
+            alone ({f2(validation.headline.raw_wa_mae)}) and much better than just guessing the average (
+            {f2(validation.headline.naive_wa_mae)}).
           </>
         ) : (
-          <>The full book-by-book results live on the Track Record page.</>
+          <>The engine&rsquo;s walk-forward baseline lives in the validation section below.</>
         )}{" "}
-        See the <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
-        for every prediction vs. what actually happened — or switch to the <strong>Technical</strong>{" "}tab above for
-        the math.
+        See your own{" "}
+        <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
+        for every prediction the engine served you vs. the score you actually gave — or switch to the{" "}
+        <strong>Technical</strong>{" "}tab above for the math.
       </Body>
     </>
   );
@@ -484,18 +485,18 @@ function SimpleView({
 /* ── TECHNICAL view ─────────────────────────────────────────────────────── */
 function TechnicalView({
   params,
-  track,
+  validation,
 }: {
   params: EngineParameters;
-  track: TrackRecord | null;
+  validation: EngineValidation | null;
 }) {
-  const { schema, shrinkage, interval, regression, models, library } = params;
+  const { schema, shrinkage, interval, models, library } = params;
   const ka = shrinkage.k_author;
   const kg = shrinkage.k_genre;
   // Live worked shrink weights (not hardcoded — derived from the K constants).
   const wAuthor1 = 1 / (1 + ka); // one same-author book
   const wGenre10 = 10 / (10 + kg); // a 10-book genre
-  const served = track?.interval_coverage.served_conformal;
+  const served = validation?.served_coverage;
   const cs = coldStartStatus(params);
   const borrowed = library.model_source === "borrowed_seed";
 
@@ -731,24 +732,13 @@ function TechnicalView({
         so frontier books are never over-confident.
       </p>
 
-      <Callout>
-        <strong>The band it replaced.</strong> The old interval was{" "}
-        <TeX>{`\\pm 1.645\\,\\sigma_{\\text{resid}}`}</TeX>, where <TeX>{`\\sigma_{\\text{resid}}`}</TeX> came from the
-        regression of WA on its own category averages. That fit is nearly deterministic —{" "}
-        {regression.r2 != null && (
-          <>live <TeX>{`R^2 = ${f3(regression.r2)}`}</TeX>{regression.resid_sd != null && <>, <TeX>{`\\sigma_{\\text{resid}} = ${f3(regression.resid_sd)}`}</TeX></>} — </>
-        )}
-        so its residual is a <em>fit diagnostic</em>, not the error of predicting an unread book. Dressed up as a 90%
-        interval it covered only {track ? pct1(track.interval_coverage.legacy_resid_sd.measured ?? 0.31) : "≈31%"} of
-        real errors. It was removed from every served surface; the conformal band is the only interval the engine
-        serves.
-      </Callout>
       {served?.measured != null && (
         <Callout tone="sage">
           Measured on {served.n} held-out books in the walk-forward backtest, the served band covers{" "}
           <strong>{pct1(served.measured)}</strong> against its {pct1(served.nominal)} claim — essentially on target.
           Keeping the honest {pct1(interval.nominal)} level (rather than re-inflating to a nominal 90%) is a deliberate
-          choice. See the <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>.
+          choice. Your own coverage on your books lives on the{" "}
+          <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>.
         </Callout>
       )}
 
@@ -764,28 +754,29 @@ function TechnicalView({
         engine <em>would have said the day it was started</em>, training only on the books read before it. It&rsquo;s
         the &ldquo;what was knowable then&rdquo; accuracy — the honest baseline any future engine change must beat.
       </Body>
-      {track ? (
+      {validation ? (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
-            <Stat label="Honest MAE" value={f2(track.headline.honest_wa_mae)} note="corrected, no leakage" />
-            <Stat label="Raw MAE" value={f2(track.headline.raw_wa_mae)} note="research only" />
-            <Stat label="Naïve baseline" value={f2(track.headline.naive_wa_mae)} note="predict the mean" />
-            <Stat label="Books tested" value={String(track.headline.n_folds)} note={`burn-in ${track.headline.burn_in}`} />
+            <Stat label="Honest MAE" value={f2(validation.headline.honest_wa_mae)} note="corrected, no leakage" />
+            <Stat label="Raw MAE" value={f2(validation.headline.raw_wa_mae)} note="research only" />
+            <Stat label="Naïve baseline" value={f2(validation.headline.naive_wa_mae)} note="predict the mean" />
+            <Stat label="Books tested" value={String(validation.headline.n_folds)} note={`burn-in ${validation.headline.burn_in}`} />
           </div>
           <Body>
-            The honest, chronological error is <strong>{f2(track.headline.honest_wa_mae)}</strong> WA points across{" "}
-            {track.headline.n_folds} books — comfortably better than research-alone ({f2(track.headline.raw_wa_mae)}) and
-            than guessing the library mean ({f2(track.headline.naive_wa_mae)}). The{" "}
-            <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
-            page shows this book-by-book: predicted-vs-actual, the rolling &ldquo;getting smarter&rdquo; curve, and
-            error by genre.
+            The honest, chronological error is <strong>{f2(validation.headline.honest_wa_mae)}</strong> WA points across{" "}
+            {validation.headline.n_folds} reference-library books — comfortably better than research-alone (
+            {f2(validation.headline.raw_wa_mae)}) and than guessing the library mean ({f2(validation.headline.naive_wa_mae)}).
+            For <em>your own</em>{" "}predicted-vs-actual — every book you&rsquo;ve read, in order, with the score the engine
+            served you next to what you gave — see the{" "}
+            <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>.
           </Body>
         </>
       ) : (
         <Callout>
-          The walk-forward artifacts haven&rsquo;t been generated yet, so the live baselines aren&rsquo;t available here.
-          The <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
-          page carries the full breakdown once <span className="font-mono">walkforward.py</span> has run.
+          The walk-forward artifacts haven&rsquo;t been generated yet, so the reference-library baselines aren&rsquo;t
+          available here. Your own{" "}
+          <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
+          renders from your prediction log independently.
         </Callout>
       )}
 
@@ -793,8 +784,10 @@ function TechnicalView({
         Every number on this page — the {schema.n_components} components and your weights, the shrinkage constants{" "}
         (<TeX>{`K_{\\text{author}} = ${wt(ka)}`}</TeX>, <TeX>{`K_{\\text{genre}} = ${wt(kg)}`}</TeX>), the{" "}
         {pct1(interval.nominal)} interval level, your cold-start term, the models — is read live from your engine via{" "}
-        <span className="font-mono">/api/engine-parameters</span>. Validation figures are reused from the Track Record so
-        the two pages can&rsquo;t disagree. The prose is written by hand; the numbers are not.
+        <span className="font-mono">/api/engine-parameters</span>. The walk-forward validation numbers come from{" "}
+        <span className="font-mono">/api/engine-validation</span>; your personal predicted-vs-actual is on the{" "}
+        <Link href="/track-record" className="underline" style={{ color: "var(--color-sage)" }}>Track Record</Link>{" "}
+        page. The prose is written by hand; the numbers are not.
       </p>
     </>
   );
@@ -803,10 +796,10 @@ function TechnicalView({
 /* ── page ───────────────────────────────────────────────────────────────── */
 export default function MethodologyClient({
   params,
-  track,
+  validation,
 }: {
   params: EngineParameters;
-  track: TrackRecord | null;
+  validation: EngineValidation | null;
 }) {
   const [view, setView] = useState<View>("simple");
   const { schema } = params;
@@ -827,9 +820,9 @@ export default function MethodologyClient({
       <ViewTabs active={view} onChange={setView} />
 
       {view === "simple" ? (
-        <SimpleView params={params} track={track} />
+        <SimpleView params={params} validation={validation} />
       ) : (
-        <TechnicalView params={params} track={track} />
+        <TechnicalView params={params} validation={validation} />
       )}
     </div>
   );

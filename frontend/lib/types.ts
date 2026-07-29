@@ -471,29 +471,26 @@ export interface ResearcherComparison {
   neutral: string[];
 }
 
-// ── Public track record (walk-forward backtest) — see track_record.py ──
+// ── Personal Track Record (per-user delta_log grading) — see track_record.py ──
 export interface TrackRecordHeadline {
-  honest_wa_mae: number; // the non-leaky, "what was knowable then" number
-  raw_wa_mae: number; // grounded research → WA, no correction
-  naive_wa_mae: number; // predict every book at the mean WA
-  n_folds: number; // books actually scored (burn-in excluded)
-  n_books_total: number;
-  n_burn_in: number;
-  burn_in: number; // min training-pool size before a fold is evaluated
+  wa_mae: number;              // mean |pred_wa − act_wa| over the reader's finished predictions
+  raw_wa_mae: number | null;   // uncorrected research vector; null when too few rows carry corr_wa
+  naive_wa_mae: number;        // mean |act_wa − mean(act_wa)| — guessing the reader's average
+  n_books: number;             // finished + genuinely-predicted books this reader has
 }
 
 export interface TrackRecordFold {
-  position: number; // chronological read order
+  position: number;            // reading order, oldest → newest
   title: string;
   author: string;
   genre: string;
   series: string | null;
   series_number: number | null;
   actual_wa: number;
-  predicted_wa: number; // honest variant
-  signed_error: number; // predicted − actual
+  predicted_wa: number;        // frozen at forecast time
+  signed_error: number;        // predicted − actual
   abs_error: number;
-  pool_size: number; // books read before this one
+  pool_size: number;           // books read before this one (== position)
   year_read: number | null;
 }
 
@@ -501,7 +498,7 @@ export interface TrackRecordRollingPoint {
   position: number;
   title: string;
   pool_size: number;
-  window_n: number; // folds in the trailing window (< window during ramp-up)
+  window_n: number;            // rows in the trailing window (< window during ramp-up)
   honest_rolling_mae: number;
 }
 
@@ -509,22 +506,21 @@ export interface TrackRecordGenreRow {
   genre: string;
   n: number;
   honest_mae: number;
-  raw_mae: number;
+  raw_mae: number | null;      // null when this genre has no rows carrying corr_wa
 }
 
 export interface TrackRecordIntervalRow {
   label: string;
-  nominal: number; // claimed coverage level (0–1)
-  measured: number | null; // observed coverage on the honest folds
+  nominal: number;             // claimed coverage level (0–1)
+  measured: number | null;     // observed coverage on this reader's rows
   n: number | null;
 }
 
 export interface TrackRecord {
   available: boolean;
   provenance: {
-    git_head: string;
-    engine_hash: string;
-    backtest_generated_at: string;
+    data_source: "personal";
+    min_books: number;
   };
   headline: TrackRecordHeadline;
   folds: TrackRecordFold[];
@@ -532,9 +528,33 @@ export interface TrackRecord {
   mae_by_genre: TrackRecordGenreRow[];
   interval_coverage: {
     served_conformal: TrackRecordIntervalRow;
-    legacy_resid_sd: TrackRecordIntervalRow;
+    // legacy_resid_sd removed: the retired resid_sd band is not served, so
+    // its coverage is not shown. See MEMORY.md → project_track_record_page.md.
   };
   caveats: string[];
+}
+
+// ── Engine-wide walk-forward validation (reference library) — engine_validation.py ──
+export interface EngineValidation {
+  available: boolean;
+  provenance: {
+    git_head: string;
+    engine_hash: string;
+    backtest_generated_at: string;
+  };
+  headline: {
+    honest_wa_mae: number;
+    raw_wa_mae: number;
+    naive_wa_mae: number;
+    n_folds: number;
+    n_books_total: number;
+    burn_in: number;
+  };
+  served_coverage: {
+    nominal: number;             // 0.80 — the served conformal band's claim
+    measured: number | null;     // observed on the walk-forward folds
+    n: number | null;
+  };
 }
 
 /* ── Engine parameters (the public "How the Engine Works" page) ───────────────

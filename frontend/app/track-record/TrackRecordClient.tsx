@@ -78,8 +78,8 @@ function TipBox({ tip }: { tip: Tip | null }) {
   );
 }
 
-/* ── 1. Rolling-MAE curve — "the engine getting smarter as the library grew" ─ */
-function RollingChart({ series, lifetimeMae, burnIn }: { series: TrackRecordRollingPoint[]; lifetimeMae: number; burnIn: number }) {
+/* ── 1. Rolling-MAE curve — "the engine getting sharper on your books" ──── */
+function RollingChart({ series, lifetimeMae }: { series: TrackRecordRollingPoint[]; lifetimeMae: number }) {
   const { ref, tip, show, hide } = useChartTip();
   if (series.length < 2) return null;
   const W = 720, H = 320, padL = 44, padR = 18, padT = 16, padB = 42;
@@ -98,7 +98,7 @@ function RollingChart({ series, lifetimeMae, burnIn }: { series: TrackRecordRoll
 
   return (
     <div ref={ref} style={{ position: "relative" }} onMouseLeave={hide}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="Rolling prediction error as the library grew">
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }} role="img" aria-label="Rolling prediction error over your reading history">
         {yTicks.map((v, i) => (
           <g key={i}>
             <line x1={padL} y1={yOf(v)} x2={W - padR} y2={yOf(v)} stroke="var(--color-rule)" strokeWidth={1} />
@@ -108,7 +108,7 @@ function RollingChart({ series, lifetimeMae, burnIn }: { series: TrackRecordRoll
         {xTicks.map((v, i) => (
           <text key={i} x={xOf(v)} y={H - padB + 16} textAnchor="middle" fontSize={10} fill="var(--color-faint)">{v}</text>
         ))}
-        <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize={11} fill="var(--color-muted)">books the engine had already read →</text>
+        <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize={11} fill="var(--color-muted)">books you had already read →</text>
         <text x={-(padT + plotH / 2)} y={13} transform="rotate(-90)" textAnchor="middle" fontSize={11} fill="var(--color-muted)">rolling WA error ({series[series.length - 1].window_n}-book window)</text>
 
         {/* lifetime honest MAE reference */}
@@ -126,14 +126,14 @@ function RollingChart({ series, lifetimeMae, burnIn }: { series: TrackRecordRoll
         ))}
       </svg>
       <p className="text-xs mt-1" style={{ color: "var(--color-faint)" }}>
-        The window starts at {burnIn} books (a burn-in so the engine has something to learn from). Lower is better.
+        Each point is the trailing-window average error at that point in your reading history. Lower is better.
       </p>
       <TipBox tip={tip} />
     </div>
   );
 }
 
-/* ── 2. Predicted vs actual scatter (honest variant) ────────────────────── */
+/* ── 2. Predicted vs actual scatter ─────────────────────────────────────── */
 function PredScatter({ folds }: { folds: TrackRecordFold[] }) {
   const { ref, tip, show, hide } = useChartTip();
   const W = 560, H = 520, padL = 44, padR = 16, padT = 16, padB = 42;
@@ -161,7 +161,7 @@ function PredScatter({ folds }: { folds: TrackRecordFold[] }) {
         <line x1={xOf(lo)} y1={yOf(lo)} x2={xOf(hi)} y2={yOf(hi)} stroke="var(--color-ink)" strokeWidth={1} strokeDasharray="5 4" opacity={0.35} />
         <text x={xOf(hi) - 4} y={yOf(hi) + 14} textAnchor="end" fontSize={10} fill="var(--color-muted)" opacity={0.8}>perfect = on the line</text>
 
-        <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize={11} fill="var(--color-muted)">actual score I gave it →</text>
+        <text x={padL + plotW / 2} y={H - 4} textAnchor="middle" fontSize={11} fill="var(--color-muted)">the score you gave →</text>
         <text x={-(padT + plotH / 2)} y={13} transform="rotate(-90)" textAnchor="middle" fontSize={11} fill="var(--color-muted)">predicted score (before reading)</text>
 
         {folds.map((f, i) => (
@@ -179,14 +179,14 @@ function PredScatter({ folds }: { folds: TrackRecordFold[] }) {
         ))}
       </svg>
       <p className="text-xs mt-1 text-center" style={{ color: "var(--color-faint)" }}>
-        Each dot is one book. Green = close; terracotta = a bigger miss. Points below the line were over-predicted, above were under-predicted.
+        Each dot is one of your books. Green = close; terracotta = a bigger miss. Points below the line were over-predicted, above were under-predicted.
       </p>
       <TipBox tip={tip} />
     </div>
   );
 }
 
-/* ── 3. Interval coverage bars (nominal vs measured) ────────────────────── */
+/* ── 3. Interval coverage bar (served conformal only) ───────────────────── */
 function CoverageBar({ row, tone, verdict }: { row: TrackRecordIntervalRow; tone: string; verdict: string }) {
   if (row.measured == null) return null;
   const W = 560, H = 46, padL = 4, padR = 4, trackY = 14, trackH = 16;
@@ -218,7 +218,8 @@ function NotAvailable() {
     <main className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="font-display text-2xl font-semibold mb-1" style={{ color: "var(--color-ink)" }}>Track Record</h1>
       <div className="rounded-md border px-4 py-8 text-center text-sm mt-6" style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)", color: "var(--color-muted)" }}>
-        The walk-forward backtest hasn&apos;t been generated yet. Run <code className="font-mono">python3 walkforward.py</code> to produce the validation artifacts, then re-export the snapshot.
+        Your Track Record shows up once you&apos;ve predicted and then read a handful of books.
+        Come back after you&apos;ve rated a few more — every finished prediction adds a row here.
       </div>
     </main>
   );
@@ -228,106 +229,120 @@ function NotAvailable() {
 export default function TrackRecordClient({ data }: { data: TrackRecord | null }) {
   if (!data) return <NotAvailable />;
 
-  const { headline, folds, rolling, mae_by_genre, interval_coverage, caveats, provenance } = data;
+  const { headline, folds, rolling, mae_by_genre, interval_coverage, caveats } = data;
   const served = interval_coverage.served_conformal;
-  const legacy = interval_coverage.legacy_resid_sd;
   const improvePct = headline.naive_wa_mae > 0
-    ? Math.round(((headline.naive_wa_mae - headline.honest_wa_mae) / headline.naive_wa_mae) * 100)
+    ? Math.round(((headline.naive_wa_mae - headline.wa_mae) / headline.naive_wa_mae) * 100)
     : 0;
+  // Raw baseline + "Δ honest−raw" only render when there's a raw MAE to
+  // compare against — pre-mechanism-metadata rows lack corr_wa.
+  const hasRaw = headline.raw_wa_mae != null;
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="font-display text-2xl font-semibold mb-1" style={{ color: "var(--color-ink)" }}>Track Record</h1>
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
-        How well the engine predicts a book&apos;s score <em>before</em> I read it — measured honestly, on books it had never seen.
+        How well the engine predicted <em>your</em> books <em>before</em> you read them — the score it served, next to the score you actually gave.
       </p>
 
       {/* ── Headline ── */}
       <div className="rounded-lg border px-5 py-5" style={{ borderColor: "var(--color-rule)", background: "var(--color-sage-light)" }}>
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-display text-4xl font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>{f2(headline.honest_wa_mae)}</span>
+          <span className="font-display text-4xl font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>{f2(headline.wa_mae)}</span>
           <span className="text-sm" style={{ color: "var(--color-ink)" }}>average error (WA points, 0–10 scale)</span>
         </div>
         <p className="text-sm mt-2" style={{ color: "var(--color-ink)" }}>
-          Across {headline.n_folds} books, the engine&apos;s pre-read prediction landed within about <strong>{f2(headline.honest_wa_mae)}</strong> of the
-          score I actually gave — {improvePct}% better than guessing the library average.
+          Across {headline.n_books} of your books, the engine&apos;s pre-read prediction landed within about <strong>{f2(headline.wa_mae)}</strong> of
+          the score you actually gave — {improvePct}% better than just guessing your average.
         </p>
         <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
-          This is the <strong>honest, chronological</strong> number: each book was predicted using only the books I&apos;d read <em>before</em>{" "}it,
-          so no future ratings leak in. It&apos;s the &ldquo;what was knowable then&rdquo; accuracy, not a hindsight fit.
+          Each prediction is <strong>frozen at forecast time</strong>: it&apos;s the score the engine served the day you were considering the book,
+          not something recomputed later with the benefit of knowing your rating.
         </p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-        <Stat label="Honest MAE" value={f3(headline.honest_wa_mae)} note="corrected, no leakage" />
-        <Stat label="Raw MAE" value={f3(headline.raw_wa_mae)} note="research only, uncorrected" />
-        <Stat label="Naïve baseline" value={f3(headline.naive_wa_mae)} note="predict the mean" />
-        <Stat label="Books tested" value={String(headline.n_folds)} note={`of ${headline.n_books_total} (burn-in ${headline.burn_in})`} />
+        <Stat label="Your MAE" value={f3(headline.wa_mae)} note="corrected prediction" />
+        <Stat label="Raw MAE" value={hasRaw ? f3(headline.raw_wa_mae as number) : "—"} note={hasRaw ? "research only, uncorrected" : "not enough rows with correction"} />
+        <Stat label="Naïve baseline" value={f3(headline.naive_wa_mae)} note="predict your average" />
+        <Stat label="Your books" value={String(headline.n_books)} note="finished + predicted" />
       </div>
 
       {/* ── Rolling curve ── */}
-      <SectionHeader>Getting smarter as the library grew</SectionHeader>
+      <SectionHeader>Getting sharper as your library grew</SectionHeader>
       <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
-        Trailing-window prediction error over the reading history. As the engine accumulates more of my taste to reason from, recent error trends down.
+        Trailing-window prediction error across your reading history. As the engine has more of your ratings to reason from, recent error trends down.
       </p>
-      <RollingChart series={rolling.series} lifetimeMae={headline.honest_wa_mae} burnIn={headline.burn_in} />
+      <RollingChart series={rolling.series} lifetimeMae={headline.wa_mae} />
 
       {/* ── Scatter ── */}
       <SectionHeader>Predicted vs. actual</SectionHeader>
       <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
-        One point per book: what the engine predicted (before reading) against the score I ended up giving. The closer to the diagonal, the better the call.
+        One point per book: what the engine predicted for you (before reading) against the score you ended up giving. The closer to the diagonal, the better the call.
       </p>
       <PredScatter folds={folds} />
 
       {/* ── MAE by genre ── */}
       <SectionHeader>Where it&apos;s strong and weak (by genre)</SectionHeader>
       <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
-        Worst-predicted genres first — an honest look at where taste is hardest to pin down. Small-<em>n</em> genres are noisy.
+        Worst-predicted genres first — an honest look at where your taste is hardest to pin down. Small-<em>n</em> genres are noisy.
       </p>
       <div className="rounded-md border overflow-hidden text-sm" style={{ borderColor: "var(--color-rule)" }}>
         <table className="w-full">
           <thead>
             <tr style={{ background: "var(--color-surface)", borderBottom: "1px solid var(--color-rule)" }}>
-              {["Genre", "n", "Honest MAE", "Raw MAE", "Δ honest−raw"].map((h) => (
+              {(hasRaw
+                ? ["Genre", "n", "Your MAE", "Raw MAE", "Δ your−raw"]
+                : ["Genre", "n", "Your MAE"]
+              ).map((h) => (
                 <th key={h} className={`px-4 py-2 font-medium ${h === "Genre" ? "text-left" : "text-right"}`} style={{ color: "var(--color-muted)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {mae_by_genre.map((row: TrackRecordGenreRow, i) => {
-              const delta = row.honest_mae - row.raw_mae; // <0 = correction lowered error (report's Δ honest−raw)
+              const rawMae = row.raw_mae;
+              const delta = rawMae != null ? row.honest_mae - rawMae : null;
               return (
                 <tr key={row.genre} style={{ background: i % 2 === 0 ? "transparent" : "var(--color-surface)", borderTop: "1px solid var(--color-rule)" }}>
                   <td className="px-4 py-2" style={{ color: "var(--color-ink)" }}>{row.genre}</td>
                   <td className="px-4 py-2 text-right tabular-nums" style={{ color: "var(--color-muted)" }}>{row.n}</td>
                   <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-ink)" }}>{f3(row.honest_mae)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-muted)" }}>{f3(row.raw_mae)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "#C07C5A" }}>
-                    {delta > 0 ? "+" : ""}{f3(delta)}
-                  </td>
+                  {hasRaw && (
+                    <>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-muted)" }}>
+                        {rawMae != null ? f3(rawMae) : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: delta == null ? "var(--color-muted)" : Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "#C07C5A" }}>
+                        {delta == null ? "—" : (delta > 0 ? "+" : "") + f3(delta)}
+                      </td>
+                    </>
+                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-      <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
-        Δ honest−raw = the change in error from the author/genre bias-correction; negative (green) means the correction lowered error.
-      </p>
+      {hasRaw && (
+        <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
+          Δ your−raw = the change in error from the author/genre bias-correction; negative (green) means the correction lowered error on your books.
+        </p>
+      )}
 
       {/* ── Interval coverage ── */}
       <SectionHeader>Is the confidence band honest?</SectionHeader>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        A prediction interval should contain the true score as often as it claims to. The band shown on the Predict page claims 80% — and delivers.
+        The band shown on the Predict page claims to contain the true score 80% of the time. Here&apos;s how often it actually did, across your books.
       </p>
-      <div className="rounded-md border px-4 py-4 flex flex-col gap-5" style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}>
+      <div className="rounded-md border px-4 py-4" style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}>
         <CoverageBar row={served} tone="var(--color-sage)" verdict="on target ✓" />
-        <CoverageBar row={legacy} tone="#C07C5A" verdict="overconfident — removed ✗" />
       </div>
-      <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
-        The old band was a fit-diagnostic masquerading as a prediction interval; it claimed 90% but covered only {pct1(legacy.measured ?? 0)}.
-        It was replaced with a density-bucketed conformal band that covers {pct1(served.measured ?? 0)} against its 80% claim.
-      </p>
+      {served.measured != null && (
+        <p className="text-xs mt-2" style={{ color: "var(--color-muted)" }}>
+          Measured on {served.n ?? "—"} of your predictions: the density-bucketed conformal band covers {pct1(served.measured)} against its {pct1(served.nominal)} claim.
+        </p>
+      )}
 
       {/* ── Caveats ── */}
       <SectionHeader>Caveats</SectionHeader>
@@ -338,8 +353,7 @@ export default function TrackRecordClient({ data }: { data: TrackRecord | null }
       </ul>
 
       <p className="text-xs mt-8" style={{ color: "var(--color-faint)" }}>
-        Backtest at commit <span className="font-mono">{provenance.git_head}</span> · engine <span className="font-mono">{provenance.engine_hash}</span> · generated {provenance.backtest_generated_at}.
-        Reads committed validation artifacts; the harness is not re-run to serve this page.
+        Computed live from your prediction log ({headline.n_books} finished books). No walk-forward harness runs to serve this page.
       </p>
     </main>
   );

@@ -1,4 +1,4 @@
-import { fetchEngineParameters, fetchTrackRecord } from "@/lib/api";
+import { fetchEngineParameters, fetchEngineValidation } from "@/lib/api";
 import { getServerAccessToken } from "@/lib/supabase/server";
 import MethodologyClient from "./MethodologyClient";
 
@@ -12,12 +12,14 @@ export const metadata = {
 
 export default async function MethodologyPage() {
   const token = await getServerAccessToken();
-  // Engine parameters are always served (never 404). The track record is reused
-  // for the validation baselines so this page and /track-record can't disagree;
-  // it may be null until the walk-forward artifacts exist, handled in the client.
-  const [params, track] = await Promise.all([
+  // Engine parameters are always served (never 404). Engine validation is the
+  // engine-wide walk-forward baseline (reference library); it may be null
+  // until the walk-forward artifacts exist, handled in the client. This is
+  // decoupled from /track-record (personal, per-user) by design — the two
+  // pages describe different things and can't silently redefine each other.
+  const [params, validation] = await Promise.all([
     fetchEngineParameters(token),
-    fetchTrackRecord(token).catch(() => null),
+    fetchEngineValidation(token).catch(() => null),
   ]);
-  return <MethodologyClient params={params} track={track} />;
+  return <MethodologyClient params={params} validation={validation} />;
 }

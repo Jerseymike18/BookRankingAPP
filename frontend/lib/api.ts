@@ -23,6 +23,7 @@ import type {
   RepredictHandle,
   RepredictPoll,
   TrackRecord,
+  EngineValidation,
   EngineParameters,
   EffectiveWeights,
 } from "./types";
@@ -640,11 +641,23 @@ export async function fetchResearcherComparison(): Promise<ResearcherComparison 
   return res.json();
 }
 
-/** Public walk-forward track record, or null if the artifacts haven't been
- * produced yet (the snapshot stores JSON null; the endpoint 404s locally). */
+/** Personal Track Record — the reader's own predicted-vs-actual history from
+ * their delta_log. 404s (and returns null) when they have fewer than the
+ * builder's minimum finished predictions; the client renders an empty state. */
 export async function fetchTrackRecord(token?: ServerToken): Promise<TrackRecord | null> {
   if (STATIC) return getJSON<TrackRecord | null>("track-record.json");
   const res = await apiFetch(`${API}/api/track-record`, { cache: "no-store" }, token);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Engine-wide walk-forward validation (reference library). Feeds the
+ * Methodology page's "Does it actually work?" section. Null when the
+ * validation/ artifacts haven't been generated yet. */
+export async function fetchEngineValidation(token?: ServerToken): Promise<EngineValidation | null> {
+  if (STATIC) return getJSON<EngineValidation | null>("engine-validation.json");
+  const res = await apiFetch(`${API}/api/engine-validation`, { cache: "no-store" }, token);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();

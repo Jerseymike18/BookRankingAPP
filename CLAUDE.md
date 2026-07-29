@@ -241,17 +241,34 @@ engine features must beat, and the raw dataset for a future public track-record 
   the calibrated served conformal interval (the report scores that separately). See
   `validation/README.md`.
 - **`validation/` artifacts don't churn on data edits** — every *book-data* snapshot file is
-  derived from `books.db`, so editing ratings never restains these files. The one exception is
-  the track-record page below, whose snapshot derives from these artifacts (not `books.db`).
-- **Public track record.** `frontend/app/track-record/` (page + `TrackRecordClient.tsx`) is fed
-  by the read-only `GET /api/track-record` endpoint, which assembles a payload from the
-  committed `validation/` artifacts via `track_record.py` — predicted-vs-actual, the rolling-MAE
-  "getting smarter" curve, MAE by genre, and served-interval coverage. It reads only committed
-  files (**never runs the harness**, no `books.db`, no API spend) and computes served coverage
-  through the canonical `intervals` module, so nothing drifts. It shows the **honest** variant
-  (leaky excluded). Snapshotted deterministically to `track-record.json` (registered in
-  `SIMPLE_ENDPOINTS`, `allow_404`); it only changes when the harness output is regenerated and
-  committed. Fetch via `fetchTrackRecord()`; Nav link lives under "More".
+  derived from `books.db`, so editing ratings never restains these files. The Methodology
+  page's engine-validation payload derives from these artifacts (not `books.db`); the
+  per-user Track Record derives from each tenant's own `delta_log` and is unrelated to them.
+- **Personal Track Record.** `frontend/app/track-record/` (page + `TrackRecordClient.tsx`) is
+  fed by the **tenant-scoped** read-only `GET /api/track-record` endpoint (auth dep like every
+  data route). For each caller it fetches their own `delta_log`, dedups to one authoritative
+  row per genuinely-finished book via `delta_log_view.visible_rows` (Req1 finished-only + Req2
+  live>backfill>retro), enriches missing mechanism-metadata (`corr_wa`/`n_author`/`pred_genre`)
+  from other rows for the same title, and hands the deduped rows to
+  `track_record.build_track_record`. Returns 404 (→ "not enough yet" empty state) when the
+  reader has fewer than `track_record.MIN_TRACK_RECORD` (8) predicted+finished books.
+  Zero-API, zero-engine, zero-writes — pure function of stored per-user data. Served-band
+  coverage is computed via the canonical `intervals.interval_for(residuals, n_author)` per
+  row, so it can never drift from what Predict/Read-queue actually serve. The retired
+  `resid_sd` "old band" comparison is **removed** — the payload carries only
+  `interval_coverage.served_conformal`; nothing else. Snapshotted deterministically as the
+  default user (Michael) to `track-record.json` (`SIMPLE_ENDPOINTS`, `allow_404`); the
+  provenance carries `data_source: "personal"` and `min_books` — no HEAD/timestamps.
+  Fetch via `fetchTrackRecord()` (token threaded); Nav link under "More".
+- **Engine validation (walk-forward on the reference library).** `engine_validation.py` reads
+  the committed `validation/walkforward_*` artifacts and returns
+  `{headline, served_coverage, provenance}` — the honest chronological accuracy of the engine
+  on the reference library. Served by the unauthenticated `GET /api/engine-validation`
+  (global, not tenant-scoped) and snapshotted to `engine-validation.json` (`allow_404`,
+  deterministic per commit). Consumed only by the Methodology page. The retired legacy-band
+  coverage was dropped from this payload too; served coverage is computed through
+  `intervals.interval_for`. This is deliberately decoupled from `/api/track-record` (personal)
+  so a change to one payload can't silently redefine the other.
 - **Methodology page ("How the Engine Works").** `frontend/app/methodology/` (page +
   `MethodologyClient.tsx`) documents the engine *as it runs* — the 14-component weighted schema,
   empirical-Bayes shrinkage, the conformal 80% band, and walk-forward validation — in **two
@@ -268,9 +285,12 @@ engine features must beat, and the raw dataset for a future public track-record 
   every tenant, not just the seed. Math renders via **KaTeX** (the only frontend dep this added;
   client-side, static-safe). Snapshotted deterministically as the default user to
   `engine-parameters.json` (registered in `SIMPLE_ENDPOINTS`; no timestamps/HEAD in the payload).
-  Fetch via `fetchEngineParameters()` (token threaded); validation baselines are **reused** from
-  `track-record.json` (cross-linked, not duplicated — and framed as the *reference library's*
-  backtest, since it is) so the two pages can't disagree; Nav link under "More".
+  Fetch via `fetchEngineParameters()` (token threaded); validation baselines come from
+  `engine-validation.json` (the reference-library walk-forward, served separately by
+  `engine_validation.py`), NOT from the (now personal) track-record payload — the two are
+  decoupled by design so a change to one can't silently redefine the other. The Methodology
+  page cross-links to the personal Track Record for the reader's own predicted-vs-actual.
+  Nav link under "More".
   - **This is the anti-drift design, and the main maintenance risk.** The page's *numbers* are read
     live, so a future engine change (a weight, a `K` constant, the served model, the interval level) is
     reflected automatically — but only if it stays reachable through this endpoint. The page's
