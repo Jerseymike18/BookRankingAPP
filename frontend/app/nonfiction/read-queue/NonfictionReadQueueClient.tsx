@@ -3,18 +3,23 @@
 import React, { useState, useMemo, useRef } from "react";
 import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
 import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
-import { seriesLabel } from "@/lib/format";
+import { seriesLabel, componentLabel } from "@/lib/format";
 import { READONLY } from "@/lib/readonly";
 
-/* ── Nonfiction schema: 8 components across 3 categories (mirrors
+/* ── Nonfiction schema: 12 components across 5 categories (2026 redesign; mirrors
  *    nonfiction_engine.NONFICTION_CATEGORY_ORDER + the DB component→category map). ── */
 const NF_CATEGORIES: Record<string, string[]> = {
-  Quality:    ["Informativeness", "Argumentation", "Entertainment"],
-  Aesthetics: ["Prose", "Phraseology"],
-  Theme:      ["Insights", "Philosophizing", "Thought-Provokingness"],
+  Substance:  ["Informativeness", "Accuracy", "Originality"],
+  Reasoning:  ["Argumentation", "Evidence"],
+  Exposition: ["Clarity", "Structure"],
+  Aesthetics: ["Prose", "Voice"],
+  Impact:     ["Insights", "Thought-Provokingness", "Entertainment"],
 };
-const NF_CAT_ORDER = ["Quality", "Aesthetics", "Theme"] as const;
-const NF_CAT_ABBR: Record<string, string> = { Quality: "Qual", Aesthetics: "Aes", Theme: "Theme" };
+const NF_CAT_ORDER = ["Substance", "Reasoning", "Exposition", "Aesthetics", "Impact"] as const;
+const NF_CAT_ABBR: Record<string, string> = {
+  Substance: "Subst", Reasoning: "Reason", Exposition: "Expos",
+  Aesthetics: "Aes", Impact: "Impact",
+};
 
 // Destructive-action red — the same value the fiction Read-Queue page uses; there
 // is no design token for it (see globals.css). Kept identical for consistency.
@@ -49,7 +54,7 @@ function ComponentScores({ components }: { components: Record<string, number | n
                 const v = components[comp];
                 return (
                   <div key={comp} className="comp-tile">
-                    <span className="comp-label">{comp}</span>
+                    <span className="comp-label">{componentLabel(comp, "nonfiction")}</span>
                     <span className="comp-value">{v !== null && v !== undefined ? v.toFixed(1) : "—"}</span>
                   </div>
                 );
@@ -63,7 +68,8 @@ function ComponentScores({ components }: { components: Record<string, number | n
 }
 
 /* ── Sort types ───────────────────────────────────────────────────────── */
-type NfSortField = "total" | "wa" | "Quality" | "Aesthetics" | "Theme";
+type NfSortField = "total" | "wa" | "Substance" | "Reasoning"
+  | "Exposition" | "Aesthetics" | "Impact";
 type SortDir = "desc" | "asc";
 
 function sortValue(rec: NonfictionRecommendation, field: NfSortField): number {
@@ -548,7 +554,7 @@ export default function NonfictionReadQueueClient({
   const { recommendations } = data;
   const [deletedTitles, setDeletedTitles] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"list" | "queue">("list");
-  const [sortField, setSortField] = useState<NfSortField>("total");
+  const [sortField, setSortField] = useState<NfSortField>("wa");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
 

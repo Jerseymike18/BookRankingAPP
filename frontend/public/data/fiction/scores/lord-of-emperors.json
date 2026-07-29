@@ -1,0 +1,32 @@
+{
+  "author": "Guy Gavriel Kay",
+  "components": {
+    "Aesthetics": {
+      "Narration": 9.4,
+      "Prose": 9.3
+    },
+    "Character": {
+      "Depth": 8.5,
+      "Emotional Impact": 8.1,
+      "Motivations": 9.0
+    },
+    "Story": {
+      "Action": 6.3,
+      "Ending": 7.4,
+      "Entertainment": 7.8,
+      "Plot": 8.9
+    },
+    "Theme": {
+      "Insights": 8.9,
+      "Thought-Provokingness": 8.6
+    },
+    "Worldbuilding": {
+      "Depth2": 7.3,
+      "Integration": 6.5,
+      "Originality": 6.2
+    }
+  },
+  "genre": "Literary Fantasy",
+  "title": "Lord of Emperors",
+  "wa": 8.3673
+}

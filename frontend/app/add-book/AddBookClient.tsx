@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
+import { componentLabel } from "@/lib/format";
 
 function fmtDelta(d: number): string {
   return `${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
@@ -145,9 +146,11 @@ const COMPONENT_CATEGORIES_BY_KIND: Record<BookKind, Record<string, string[]>> =
     Worldbuilding: ["Depth2", "Integration", "Originality"],
   },
   nonfiction: {
-    Quality: ["Informativeness", "Argumentation", "Entertainment"],
-    Aesthetics: ["Prose", "Phraseology"],
-    Theme: ["Insights", "Philosophizing", "Thought-Provokingness"],
+    Substance: ["Informativeness", "Accuracy", "Originality"],
+    Reasoning: ["Argumentation", "Evidence"],
+    Exposition: ["Clarity", "Structure"],
+    Aesthetics: ["Prose", "Voice"],
+    Impact: ["Insights", "Thought-Provokingness", "Entertainment"],
   },
 };
 
@@ -200,10 +203,12 @@ function ScoreGrid({
   categories,
   scores,
   onChange,
+  kind,
 }: {
   categories: Record<string, string[]>;
   scores: Record<string, string>;
   onChange: (comp: string, val: string) => void;
+  kind: BookKind;
 }) {
   return (
     <div className="space-y-5">
@@ -220,7 +225,7 @@ function ScoreGrid({
             {comps.map((comp) => (
               <div key={comp}>
                 <label className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>
-                  {comp}
+                  {componentLabel(comp, kind)}
                 </label>
                 <input
                   type="number"
@@ -628,7 +633,7 @@ export default function AddBookClient({
           <h3 className="font-display font-semibold text-sm mb-4" style={{ color: "var(--color-ink)" }}>
             Component scores
           </h3>
-          <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} />
+          <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} kind={kind} />
         </div>
       </section>
 

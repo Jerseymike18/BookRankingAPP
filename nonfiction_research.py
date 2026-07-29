@@ -3,7 +3,7 @@ nonfiction_research.py
 =====================
 Grounded LLM scoring for NONFICTION, mirroring the fiction research layer's
 approach (research_layer.LLMResearcher) but with the nonfiction rubric and the
-8 nonfiction components. It REUSES the existing LLM plumbing rather than adding a
+12 nonfiction components. It REUSES the existing LLM plumbing rather than adding a
 new path:
 
   * client  : research_predict.get_client()   (anthropic.Anthropic from apikey.txt)
@@ -13,7 +13,7 @@ new path:
   * roll-up : nonfiction_engine.wa_from_components  (the SAME nonfiction math the
               rated books use, so a researched book is internally consistent)
 
-The researcher returns the 8 nonfiction component scores + a confidence flag; the
+The researcher returns the 12 nonfiction component scores + a confidence flag; the
 roll-up turns them into category averages, a Total Average, and a (Quality-leaning)
 WA. Nothing here writes to the DB — persisting a researched nonfiction book would
 go through db_write.add_nonfiction_book, exactly like the rated ones.
@@ -35,28 +35,36 @@ NONFICTION_RUBRIC = (
     + rl.RUBRIC
 )
 
-# The 8 nonfiction components, grouped by category, with definitions in the
-# reader's framework. (Entertainment/Prose/Insights/Thought-Provokingness share
-# NAMES with fiction but mean what they mean for nonfiction here.)
+# The 12 nonfiction components (2026 redesign — Brief 2), grouped by their five
+# categories, each defined in the reader's framework. Several share NAMES with
+# fiction (Entertainment/Prose/Insights/Thought-Provokingness) but mean what they
+# mean for nonfiction here. Keys are the DB column names; the UI shows Entertainment
+# as "Enjoyment" and Insights as "Insight". Order matches db_write.NONFICTION_COMPONENTS.
 NONFICTION_COMPONENT_DEFS = {
-    # QUALITY
-    "Informativeness": "How much substantive, accurate knowledge/information the book conveys.",
-    "Argumentation": "Rigor, clarity, and persuasiveness of its reasoning and use of evidence.",
-    "Entertainment": "Sheer readability — how engaging and enjoyable it is to read.",
-    # AESTHETICS
+    # SUBSTANCE — what it delivers, and how trustworthy
+    "Informativeness": "How much substantive, accurate knowledge the book conveys.",
+    "Accuracy": "Correctness, honesty, and sourcing — how much its claims can be trusted.",
+    "Originality": "Novelty of its ideas and framing versus rehashing well-known material.",
+    # REASONING — how it argues its case
+    "Argumentation": "Logical rigor and persuasiveness of the case it makes.",
+    "Evidence": "Quality, relevance, and integration of its evidence, data, and examples.",
+    # EXPOSITION — how it is built and explained
+    "Clarity": "How clearly it explains — accessibility of difficult material.",
+    "Structure": "Organization and coherence of the whole; how well it builds.",
+    # AESTHETICS — how it reads
     "Prose": "Sentence-level writing quality.",
-    "Phraseology": "Craft and memorability of its phrasing / turns of phrase.",
-    # THEME
-    "Insights": "Quality and originality of its ideas and observations.",
-    "Philosophizing": "Depth of its conceptual / philosophical engagement.",
-    "Thought-Provokingness": "How much it makes the reader think.",
+    "Voice": "Distinctiveness and appeal of the authorial voice — personality, tone, wit.",
+    # IMPACT — what it leaves the reader with
+    "Insights": "Depth and quality of the understanding it produces.",
+    "Thought-Provokingness": "How much it makes the reader think or reframes their view.",
+    "Entertainment": "Sheer readability — how engaging and enjoyable it is to read.",
 }
 NONFICTION_COMPONENTS = list(NONFICTION_COMPONENT_DEFS)
 
 
 def research_nonfiction_components(title, author, genre="Nonfiction",
                                    client=None, model=None):
-    """Ask the LLM to score the 8 nonfiction components for one book, in the
+    """Ask the LLM to score the 12 nonfiction components for one book, in the
     rubric. Returns (scores_dict, confidence). Reuses get_client / MODEL /
     _extract_json — no new LLM path. Makes one API call."""
     client = client or rp.get_client()

@@ -3,9 +3,11 @@
   "last_read": {
     "author": "Friedrich Nietzsche",
     "category_avgs": {
-      "Aesthetics": 7.45,
-      "Quality": 4.13,
-      "Theme": 6.47
+      "Aesthetics": 6.8,
+      "Exposition": null,
+      "Impact": 5.95,
+      "Reasoning": 5.1,
+      "Substance": 3.7
     },
     "genre": "Nonfiction",
     "has_prediction": false,
@@ -14,8 +16,8 @@
     "series_number": null,
     "title": "Twilight of the Idols",
     "total": 6,
-    "total_average": 6.02,
-    "wa": 5.61
+    "total_average": 5.35,
+    "wa": 5.15
   },
   "reading_next": null
 }

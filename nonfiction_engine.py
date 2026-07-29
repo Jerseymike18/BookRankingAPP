@@ -3,8 +3,9 @@ nonfiction_engine.py
 ====================
 The nonfiction counterpart to the fiction engine (db_loader + views +
 predict_engine), kept in a SEPARATE module so the fiction engine is never
-touched. It mirrors that engine's structure, adapted to nonfiction's THREE
-categories (Quality / Aesthetics / Theme) instead of fiction's five.
+touched. It mirrors that engine's structure, adapted to nonfiction's FIVE
+purpose-built categories (Substance / Reasoning / Exposition / Aesthetics /
+Impact — the 2026 redesign, Brief 2) and its 12 weighted components.
 
 WHAT'S HERE
 -----------
@@ -29,11 +30,13 @@ WHAT'S HERE
   wa_from_components() / category_averages_from_components()
                              : public roll-up helpers (used by nonfiction_research).
 
-WEIGHTS: Total Average is the UNWEIGHTED mean of the three category averages
-(skipping any category with no scored components), exactly mirroring the fiction
-definition. WA is the genre-weighted average using nonfiction_genre_weights
-(category lean) and nonfiction_gcomp_weights (equal within-category), seeded by
-db_write.seed_nonfiction_weights. All reads only — writes go through db_write.
+WEIGHTS: WA is the genre-weighted average using nonfiction_genre_weights (the
+per-category lean) and nonfiction_gcomp_weights (the within-category component
+weights), seeded by db_write.seed_nonfiction_weights — and, post-redesign, the
+PRIMARY nonfiction ranking score (rank_table / predict sort by it, mirroring
+fiction). Total Average is the UNWEIGHTED mean of the (up to five) category
+averages, kept for the unweighted lens and still driving tier bands + series
+rollups. All reads only — writes go through db_write.
 """
 
 import sqlite3
@@ -45,8 +48,11 @@ import views as _fv  # fiction views — only its category-agnostic helpers are 
 
 DB = "books.db"
 
-# Nonfiction's three categories, in canonical display order.
-NONFICTION_CATEGORY_ORDER = ["Quality", "Aesthetics", "Theme"]
+# Nonfiction's five categories (2026 redesign — Brief 2), in canonical WA order.
+# The weights live in the DB (nonfiction_genre_weights wide category columns +
+# nonfiction_gcomp_weights within-category), discovered — never hardcoded here.
+NONFICTION_CATEGORY_ORDER = ["Substance", "Reasoning", "Exposition",
+                             "Aesthetics", "Impact"]
 # Books carry genre=NULL today; they fall back to this default weight profile.
 DEFAULT_GENRE = "Nonfiction"
 
@@ -94,8 +100,10 @@ def _weighted_cat_avg(comp_vals, genre, cat, gcw):
 
 def _wa(cat_avgs, cat_weights):
     """Weighted average across categories, renormalized over the categories that
-    have a (non-NaN) average. With all three present this is
-    0.45*Quality + 0.20*Aesthetics + 0.35*Theme."""
+    have a (non-NaN) average. With all five present this is
+    0.30*Substance + 0.15*Reasoning + 0.15*Exposition + 0.15*Aesthetics
+    + 0.25*Impact. cat_weights is keyed lowercase (the wide-table columns); the
+    lookup below lowercases each category name to match."""
     num, den = 0.0, 0.0
     for cat in NONFICTION_CATEGORY_ORDER:
         a = cat_avgs.get(cat)
@@ -126,9 +134,11 @@ def load_nonfiction_from_db(path=DB, user_id=None, weight_overrides=None):
     all_components = [c for comps in category_components.values() for c in comps]
 
     gw = {}
-    for genre, q, a, t in con.execute(
-            "SELECT genre,quality,aesthetics,theme FROM nonfiction_genre_weights"):
-        gw[genre] = {"quality": q, "aesthetics": a, "theme": t}
+    for genre, s, r, e, a, i in con.execute(
+            "SELECT genre,substance,reasoning,exposition,aesthetics,impact "
+            "FROM nonfiction_genre_weights"):
+        gw[genre] = {"substance": s, "reasoning": r, "exposition": e,
+                     "aesthetics": a, "impact": i}
 
     # Optional per-tenant overrides: overlay category weights (gw) and within-
     # category component weights (gcw) on the globals before any roll-up. No-op
@@ -224,11 +234,11 @@ def tier_counts(df_with_tier):
 
 
 def rank_table(books):
-    """Nonfiction ranked best-first by Total Average (the workbook's nonfiction
-    ranking; there is no nonfiction WA in the workbook). WA is kept as a column
-    for the weighted lens."""
+    """Nonfiction ranked best-first by WA (the weighted score — the primary
+    nonfiction ranking post-redesign, mirroring fiction). Total Average is kept as
+    a column for the unweighted lens (and still drives tier bands + series rollups)."""
     bt = add_total_average(books)
-    out = bt.sort_values("Total Average", ascending=False).reset_index(drop=True)
+    out = bt.sort_values("WA", ascending=False).reset_index(drop=True)
     out.insert(0, "Rank", range(1, len(out) + 1))
     return out
 
@@ -358,7 +368,7 @@ def predict_nonfiction(title, author, genre, data, z=1.645):
     SHAPE (estimate components -> category averages -> WA -> analog blend -> CI +
     rank) but does NOT fit a regression: with n=6 it blends the component-built
     estimate with the analog-source WA mean and uses the library's WA/Total-Average
-    spread for a deliberately WIDE 90% interval. Ranks by Total Average. Every
+    spread for a deliberately WIDE 90% interval. Ranks by WA. Every
     prediction is flagged low_confidence until the library grows.
 
     `data` is load_nonfiction_from_db()'s (books, gw, gcw)."""
@@ -382,14 +392,15 @@ def predict_nonfiction(title, author, genre, data, z=1.645):
     trust = n_src / (n_src + 8.0)                      # tiny n -> low trust
     wa_final = trust * wa_est + (1 - trust) * analog_mean
 
-    bt = add_total_average(books)
     wa_sd = float(books["WA"].std(ddof=1)) if n_books > 1 else 0.0
-    ta_sd = float(bt["Total Average"].std(ddof=1)) if n_books > 1 else 0.0
-    wa_half, ta_half = z * wa_sd, z * ta_sd
+    wa_half = z * wa_sd
 
-    rank = int((bt["Total Average"] > total_avg_est).sum() + 1)
-    rank_lo = int((bt["Total Average"] > total_avg_est + ta_half).sum() + 1)  # best rank #
-    rank_hi = int((bt["Total Average"] > total_avg_est - ta_half).sum() + 1)
+    # Rank by WA — the primary nonfiction ranking post-redesign (mirrors fiction).
+    # The band gives a best/worst rank window from the same +/- z*sd WA spread.
+    wa_all = books["WA"].dropna()
+    rank = int((wa_all > wa_final).sum() + 1)
+    rank_lo = int((wa_all > wa_final + wa_half).sum() + 1)   # best (lowest) rank #
+    rank_hi = int((wa_all > wa_final - wa_half).sum() + 1)
 
     return {
         "title": title, "author": author, "genre": genre,
@@ -426,7 +437,7 @@ def report(p):
     print(f"  PREDICTED WA              : {p['wa_final']:.2f}")
     print(f"  90% CI                    : [{p['wa_ci'][0]:.2f}, {p['wa_ci'][1]:.2f}]")
     print(f"  PREDICTED Total Average   : {p['total_avg_est']:.2f}")
-    print(f"  Predicted rank (by Total) : ~{p['rank']} of {p['n']}  "
+    print(f"  Predicted rank (by WA)    : ~{p['rank']} of {p['n']}  "
           f"(range {p['rank_range'][0]}–{p['rank_range'][1]})")
     print(f"\n  ** LOW CONFIDENCE — {p['note']} **")
 

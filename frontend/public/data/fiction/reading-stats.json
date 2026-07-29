@@ -56,6 +56,11 @@
       "books": 3
     },
     {
+      "author": "Guy Gavriel Kay",
+      "avg_wa": 8.31,
+      "books": 3
+    },
+    {
       "author": "Scott Lynch",
       "avg_wa": 7.06,
       "books": 3
@@ -76,11 +81,6 @@
       "books": 2
     },
     {
-      "author": "Guy Gavriel Kay",
-      "avg_wa": 8.27,
-      "books": 2
-    },
-    {
       "author": "Fyodor Dostoevsky",
       "avg_wa": 8.27,
       "books": 2
@@ -93,6 +93,11 @@
     {
       "author": "Evan Winter",
       "avg_wa": 7.05,
+      "books": 2
+    },
+    {
+      "author": "N.K. Jemisin",
+      "avg_wa": 6.9,
       "books": 2
     },
     {
@@ -183,11 +188,6 @@
     {
       "author": "Jules Verne",
       "avg_wa": 7.0,
-      "books": 1
-    },
-    {
-      "author": "N.K. Jemisin",
-      "avg_wa": 6.9,
       "books": 1
     },
     {
@@ -289,17 +289,17 @@
       "genre": "Science Fiction (Hard)"
     },
     {
-      "avg_total_average": 7.14,
-      "avg_wa": 7.1,
-      "avg_words": 99923.0,
-      "books": 13,
+      "avg_total_average": 7.21,
+      "avg_wa": 7.2,
+      "avg_words": 105286.0,
+      "books": 14,
       "genre": "Literary Fantasy"
     },
     {
-      "avg_total_average": 6.86,
+      "avg_total_average": 6.88,
       "avg_wa": 6.88,
-      "avg_words": 155417.0,
-      "books": 12,
+      "avg_words": 151923.0,
+      "books": 13,
       "genre": "Science Fantasy"
     },
     {
@@ -326,17 +326,17 @@
       "year": 2025
     },
     {
-      "avg_total_average": 7.47,
+      "avg_total_average": 7.48,
       "avg_wa": 7.64,
-      "avg_words": 187746.0,
-      "books": 56,
+      "avg_words": 186186.0,
+      "books": 58,
       "year": 2026
     }
   ],
   "summary": {
-    "avg_total_average": 7.34,
+    "avg_total_average": 7.35,
     "avg_wa": 7.57,
-    "avg_words": 197873.0,
-    "total_books": 129
+    "avg_words": 197027.0,
+    "total_books": 131
   }
 }

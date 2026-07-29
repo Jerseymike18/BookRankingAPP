@@ -45,7 +45,9 @@ NONFICTION_SPEC = {
     "gcomp_over": "nonfiction_gcomp_weight_overrides",
     "genre_tbl": "nonfiction_genre_weights",
     "gcomp_tbl": "nonfiction_gcomp_weights",
-    "gw_cols": [("Quality", "quality"), ("Aesthetics", "aesthetics"), ("Theme", "theme")],
+    "gw_cols": [("Substance", "substance"), ("Reasoning", "reasoning"),
+                ("Exposition", "exposition"), ("Aesthetics", "aesthetics"),
+                ("Impact", "impact")],
     "comp_order": db_write.NONFICTION_COMPONENTS,
     "gw_key": lambda c: c.lower(),
 }

@@ -81,13 +81,23 @@
       "series": "The First Law"
     },
     {
+      "adjusted_wa": 7.967,
+      "author": "Guy Gavriel Kay",
+      "avg_total_average": 8.18,
+      "avg_wa": 8.37,
+      "books": 1,
+      "genre": "Literary Fantasy",
+      "rank": 9,
+      "series": "The Sarantine Mosaic"
+    },
+    {
       "adjusted_wa": 7.919,
       "author": "James Islington",
       "avg_total_average": 7.96,
       "avg_wa": 8.11,
       "books": 2,
       "genre": "Epic Fantasy",
-      "rank": 9,
+      "rank": 10,
       "series": "The Hierarchy"
     },
     {
@@ -97,7 +107,7 @@
       "avg_wa": 7.79,
       "books": 7,
       "genre": "Science Fiction (Soft)",
-      "rank": 10,
+      "rank": 11,
       "series": "Sun Eater"
     },
     {
@@ -107,7 +117,7 @@
       "avg_wa": 7.47,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 11,
+      "rank": 12,
       "series": "Mistborn Era 1"
     },
     {
@@ -117,7 +127,7 @@
       "avg_wa": 7.36,
       "books": 8,
       "genre": "Science Fantasy",
-      "rank": 12,
+      "rank": 13,
       "series": "Dungeon Crawler Carl"
     },
     {
@@ -127,7 +137,7 @@
       "avg_wa": 7.7,
       "books": 1,
       "genre": "Literary Fantasy",
-      "rank": 13,
+      "rank": 14,
       "series": "Sarantine Mosaic"
     },
     {
@@ -137,7 +147,7 @@
       "avg_wa": 7.06,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 14,
+      "rank": 15,
       "series": "Gentleman Bastards"
     },
     {
@@ -147,8 +157,18 @@
       "avg_wa": 7.05,
       "books": 2,
       "genre": "Epic Fantasy",
-      "rank": 15,
+      "rank": 16,
       "series": "The Burning"
+    },
+    {
+      "adjusted_wa": 6.488,
+      "author": "N.K. Jemisin",
+      "avg_total_average": 7.07,
+      "avg_wa": 6.89,
+      "books": 1,
+      "genre": "Science Fantasy",
+      "rank": 17,
+      "series": "Broken Earth"
     },
     {
       "adjusted_wa": 6.286,
@@ -157,7 +177,7 @@
       "avg_wa": 6.69,
       "books": 1,
       "genre": "Epic Fantasy",
-      "rank": 16,
+      "rank": 18,
       "series": "The Kingkiller Chronicles"
     },
     {
@@ -167,7 +187,7 @@
       "avg_wa": 6.37,
       "books": 2,
       "genre": "Science Fantasy",
-      "rank": 17,
+      "rank": 19,
       "series": "The Broken Earth"
     },
     {
@@ -177,7 +197,7 @@
       "avg_wa": 5.95,
       "books": 3,
       "genre": "Science Fantasy",
-      "rank": 18,
+      "rank": 20,
       "series": "Thrawn Trilogy"
     },
     {
@@ -187,7 +207,7 @@
       "avg_wa": 5.81,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 19,
+      "rank": 21,
       "series": "Memory, Sorrow, Thorn"
     },
     {
@@ -197,7 +217,7 @@
       "avg_wa": 5.48,
       "books": 3,
       "genre": "Science Fiction (Hard)",
-      "rank": 20,
+      "rank": 22,
       "series": "Ender's Shadow"
     },
     {
@@ -207,7 +227,7 @@
       "avg_wa": 4.38,
       "books": 2,
       "genre": "Science Fiction (Soft)",
-      "rank": 21,
+      "rank": 23,
       "series": "Ready Player One"
     }
   ]

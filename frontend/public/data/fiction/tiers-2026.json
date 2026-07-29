@@ -571,6 +571,44 @@
       "year_read": 2026
     },
     {
+      "author": "Guy Gavriel Kay",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.4,
+          "Prose": 9.3
+        },
+        "Character": {
+          "Depth": 8.5,
+          "Emotional Impact": 8.1,
+          "Motivations": 9.0
+        },
+        "Story": {
+          "Action": 6.3,
+          "Ending": 7.4,
+          "Entertainment": 7.8,
+          "Plot": 8.9
+        },
+        "Theme": {
+          "Insights": 8.9,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 7.3,
+          "Integration": 6.5,
+          "Originality": 6.2
+        }
+      },
+      "genre": "Literary Fantasy",
+      "rank": 16,
+      "series": "The Sarantine Mosaic",
+      "series_number": 2,
+      "tier": "B",
+      "title": "Lord of Emperors",
+      "wa": 8.3673,
+      "words": 175000,
+      "year_read": 2026
+    },
+    {
       "author": "Steven Erikson",
       "components": {
         "Aesthetics": {
@@ -599,7 +637,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 16,
+      "rank": 17,
       "series": "Malazan: Book of the Fallen",
       "series_number": 4,
       "tier": "B",
@@ -637,7 +675,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 17,
+      "rank": 18,
       "series": "Malazan: Book of the Fallen",
       "series_number": 1,
       "tier": "B",
@@ -675,7 +713,7 @@
         }
       },
       "genre": "Russian Literature",
-      "rank": 18,
+      "rank": 19,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -713,7 +751,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 19,
+      "rank": 20,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -751,7 +789,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 20,
+      "rank": 21,
       "series": "The First Law",
       "series_number": 3,
       "tier": "B",
@@ -789,7 +827,7 @@
         }
       },
       "genre": "Russian Literature",
-      "rank": 21,
+      "rank": 22,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -827,7 +865,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 22,
+      "rank": 23,
       "series": "The First Law",
       "series_number": 1,
       "tier": "B",
@@ -865,7 +903,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 23,
+      "rank": 24,
       "series": "Lord of the Rings",
       "series_number": 1,
       "tier": "B",
@@ -903,7 +941,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 24,
+      "rank": 25,
       "series": "Dungeon Crawler Carl",
       "series_number": 7,
       "tier": "B",
@@ -941,7 +979,7 @@
         }
       },
       "genre": "Gothic Fiction",
-      "rank": 25,
+      "rank": 26,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -979,7 +1017,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 26,
+      "rank": 27,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -1017,7 +1055,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 27,
+      "rank": 28,
       "series": "The First Law",
       "series_number": 2,
       "tier": "B",
@@ -1055,7 +1093,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 28,
+      "rank": 29,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -1093,7 +1131,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 29,
+      "rank": 30,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1131,7 +1169,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 30,
+      "rank": 31,
       "series": "Dungeon Crawler Carl",
       "series_number": 5,
       "tier": "C",
@@ -1169,7 +1207,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 31,
+      "rank": 32,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1207,7 +1245,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 32,
+      "rank": 33,
       "series": "Hyperion Cantos",
       "series_number": 4,
       "tier": "C",
@@ -1245,7 +1283,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 33,
+      "rank": 34,
       "series": "Gentleman Bastards",
       "series_number": 1,
       "tier": "C",
@@ -1283,7 +1321,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 34,
+      "rank": 35,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1321,7 +1359,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 35,
+      "rank": 36,
       "series": "Hyperion Cantos",
       "series_number": 3,
       "tier": "C",
@@ -1359,7 +1397,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 36,
+      "rank": 37,
       "series": "Dungeon Crawler Carl",
       "series_number": 8,
       "tier": "C",
@@ -1397,7 +1435,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 37,
+      "rank": 38,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1435,7 +1473,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 38,
+      "rank": 39,
       "series": "Dungeon Crawler Carl",
       "series_number": 6,
       "tier": "C",
@@ -1473,7 +1511,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 39,
+      "rank": 40,
       "series": "Dungeon Crawler Carl",
       "series_number": 4,
       "tier": "C",
@@ -1511,7 +1549,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 40,
+      "rank": 41,
       "series": "The Burning",
       "series_number": 2,
       "tier": "C",
@@ -1549,7 +1587,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 41,
+      "rank": 42,
       "series": "Dungeon Crawler Carl",
       "series_number": 3,
       "tier": "C",
@@ -1587,7 +1625,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 42,
+      "rank": 43,
       "series": "Dungeon Crawler Carl",
       "series_number": 2,
       "tier": "C",
@@ -1625,7 +1663,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 43,
+      "rank": 44,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -1663,13 +1701,51 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 44,
+      "rank": 45,
       "series": "The Broken Earth",
       "series_number": 1,
       "tier": "D",
       "title": "The Fifth Season",
       "wa": 6.9027,
       "words": 105000,
+      "year_read": 2026
+    },
+    {
+      "author": "N.K. Jemisin",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.9,
+          "Prose": 6.5
+        },
+        "Character": {
+          "Depth": 7.6,
+          "Emotional Impact": 7.2,
+          "Motivations": 7.5
+        },
+        "Story": {
+          "Action": 6.5,
+          "Ending": 5.3,
+          "Entertainment": 6.0,
+          "Plot": 6.8
+        },
+        "Theme": {
+          "Insights": 6.9,
+          "Thought-Provokingness": 6.2
+        },
+        "Worldbuilding": {
+          "Depth2": 8.5,
+          "Integration": 8.0,
+          "Originality": 7.5
+        }
+      },
+      "genre": "Science Fantasy",
+      "rank": 46,
+      "series": "Broken Earth",
+      "series_number": 3,
+      "tier": "D",
+      "title": "The Stone Sky",
+      "wa": 6.8883,
+      "words": 110000,
       "year_read": 2026
     },
     {
@@ -1701,7 +1777,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 45,
+      "rank": 47,
       "series": "The Burning",
       "series_number": 1,
       "tier": "D",
@@ -1739,7 +1815,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 46,
+      "rank": 48,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -1777,7 +1853,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 47,
+      "rank": 49,
       "series": "Gentleman Bastards",
       "series_number": 3,
       "tier": "D",
@@ -1815,7 +1891,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 48,
+      "rank": 50,
       "series": "Gentleman Bastards",
       "series_number": 2,
       "tier": "D",
@@ -1853,7 +1929,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 49,
+      "rank": 51,
       "series": "The Kingkiller Chronicles",
       "series_number": 1,
       "tier": "D",
@@ -1891,7 +1967,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 50,
+      "rank": 52,
       "series": "Dungeon Crawler Carl",
       "series_number": 1,
       "tier": "D",
@@ -1929,7 +2005,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 51,
+      "rank": 53,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 3,
       "tier": "F",
@@ -1967,7 +2043,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 52,
+      "rank": 54,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2005,7 +2081,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 53,
+      "rank": 55,
       "series": "The Broken Earth",
       "series_number": 2,
       "tier": "F",
@@ -2043,7 +2119,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 54,
+      "rank": 56,
       "series": "Ready Player One",
       "series_number": 1,
       "tier": "F",
@@ -2081,7 +2157,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 55,
+      "rank": 57,
       "series": "Ready Player One",
       "series_number": 2,
       "tier": "F",
@@ -2119,7 +2195,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 56,
+      "rank": 58,
       "series": "Ender's Shadow",
       "series_number": 6,
       "tier": "F",
@@ -2138,9 +2214,9 @@
   ],
   "tier_counts": {
     "A": 8,
-    "B": 13,
+    "B": 14,
     "C": 14,
-    "D": 8,
+    "D": 9,
     "F": 6,
     "S": 5,
     "S+": 2

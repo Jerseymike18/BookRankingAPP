@@ -12,3 +12,18 @@ export function seriesLabel(
   if (seriesNumber == null) return name;
   return `${name} #${seriesNumber}`;
 }
+
+/**
+ * Display label for a component score. The 2026 nonfiction schema keeps stable
+ * DB / weight-table keys ("Entertainment", "Insights") but shows friendlier
+ * names in the UI ("Enjoyment", "Insight"). Fiction is unchanged. `kind` is a
+ * plain string so this stays dependency-free (a BookKind is assignable to it).
+ */
+const NF_COMPONENT_LABELS: Record<string, string> = {
+  Entertainment: "Enjoyment",
+  Insights: "Insight",
+};
+
+export function componentLabel(comp: string, kind: string = "fiction"): string {
+  return kind === "nonfiction" ? NF_COMPONENT_LABELS[comp] ?? comp : comp;
+}

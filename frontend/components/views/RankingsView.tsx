@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
 import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind } from "@/lib/types";
-import { seriesLabel } from "@/lib/format";
+import { seriesLabel, componentLabel } from "@/lib/format";
 import { READONLY } from "@/lib/readonly";
 import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -46,9 +46,11 @@ function flattenComponentsToStrings(components: CategoryComponents): Record<stri
 function ComponentGrid({
   components,
   categoryOrder,
+  kind,
 }: {
   components: CategoryComponents;
   categoryOrder: string[];
+  kind: BookKind;
 }) {
   return (
     <div className="mt-4 space-y-3">
@@ -66,7 +68,7 @@ function ComponentGrid({
             <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(5rem, 1fr))" }}>
               {Object.entries(comps).map(([comp, val]) => (
                 <div key={comp} className="comp-tile">
-                  <span className="comp-label">{comp}</span>
+                  <span className="comp-label">{componentLabel(comp, kind)}</span>
                   <span className="comp-value">
                     {val !== null ? val.toFixed(1) : "—"}
                   </span>
@@ -122,11 +124,13 @@ function ScoreGrid({
   categoryOrder,
   scores,
   onChange,
+  kind,
 }: {
   components: CategoryComponents;
   categoryOrder: string[];
   scores: Record<string, string>;
   onChange: (comp: string, val: string) => void;
+  kind: BookKind;
 }) {
   return (
     <div className="space-y-5">
@@ -151,7 +155,7 @@ function ScoreGrid({
                     className="block text-xs mb-1"
                     style={{ color: "var(--color-muted)" }}
                   >
-                    {comp}
+                    {componentLabel(comp, kind)}
                   </label>
                   <input
                     type="number"
@@ -558,7 +562,7 @@ function BookExpandedPanel({
       {/* ── View mode: read-only scores + action buttons ── */}
       {mode === "view" && (
         <>
-          <ComponentGrid components={book.components} categoryOrder={categoryOrder} />
+          <ComponentGrid components={book.components} categoryOrder={categoryOrder} kind={kind} />
           {!READONLY && (
           <div className="flex gap-3 mt-5">
             <button
@@ -602,6 +606,7 @@ function BookExpandedPanel({
             components={book.components}
             categoryOrder={categoryOrder}
             scores={scores}
+            kind={kind}
             onChange={(comp, val) =>
               setScores((prev) => ({ ...prev, [comp]: val }))
             }
@@ -678,26 +683,27 @@ function BookExpandedPanel({
 
 /* ── Column definitions ───────────────────────────────────────────────── */
 
-// Short column headers per category (fiction + nonfiction).
+// Short column headers per category (fiction + nonfiction 2026 redesign).
 const CAT_ABBREV: Record<string, string> = {
   Story: "Story", Character: "Char", Aesthetics: "Aes", Theme: "Theme",
-  Worldbuilding: "WB", Quality: "Qual", Phraseology: "Phra",
+  Worldbuilding: "WB",
+  Substance: "Subst", Reasoning: "Reason", Exposition: "Expos", Impact: "Impact",
 };
 
-// The primary ranking score: fiction sorts/colours by WA, nonfiction by Total
-// Average (the workbook's nonfiction ranking; WA is shown but secondary).
-function primaryScore(b: Book, kind: BookKind): number {
-  return kind === "nonfiction" ? (b.total_average ?? 0) : b.wa;
+// The primary ranking score is WA (the weighted score) for BOTH tracks — nonfiction
+// now ranks by WA too (2026 redesign). Total Average is secondary and still drives
+// tier bands + series rollups.
+function primaryScore(b: Book, _kind: BookKind): number {
+  return b.wa ?? 0;
 }
 
-// Columns are built from the response's category_order (5 for fiction, 3 for
-// nonfiction) so the same table serves both types.
+// Columns are built from the response's category_order (5 for fiction, 5 for
+// nonfiction) so the same table serves both types; both lead with WA.
 function buildCols(kind: BookKind, categoryOrder: string[]): ColDef<Book>[] {
   return [
     { key: "title", label: "Book", type: "string", getValue: (b) => b.title, align: "left" },
     {
-      key: kind === "nonfiction" ? "total_average" : "wa",
-      label: kind === "nonfiction" ? "Total" : "WA",
+      key: "wa", label: "WA",
       type: "numeric", getValue: (b) => primaryScore(b, kind), align: "right",
     },
     ...categoryOrder.map((cat): ColDef<Book> => ({
@@ -756,7 +762,7 @@ export default function RankingsView({
 }) {
   const { books, genres, category_order } = data;
   const router = useRouter();
-  const primaryKey = kind === "nonfiction" ? "total_average" : "wa";
+  const primaryKey = "wa";  // both tracks rank by WA (nonfiction 2026 redesign)
   const cols = useMemo(() => buildCols(kind, category_order), [kind, category_order]);
 
   const [yearTab, setYearTab] = useState<YearTab>("all");

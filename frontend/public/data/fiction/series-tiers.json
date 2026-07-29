@@ -81,6 +81,16 @@
       "tier": "B"
     },
     {
+      "adjusted_wa": 7.967,
+      "author": "Guy Gavriel Kay",
+      "avg_total_average": 8.18,
+      "avg_wa": 8.37,
+      "books": 1,
+      "genre": "Literary Fantasy",
+      "series": "The Sarantine Mosaic",
+      "tier": "B"
+    },
+    {
       "adjusted_wa": 7.919,
       "author": "James Islington",
       "avg_total_average": 7.96,
@@ -151,6 +161,16 @@
       "tier": "C"
     },
     {
+      "adjusted_wa": 6.488,
+      "author": "N.K. Jemisin",
+      "avg_total_average": 7.07,
+      "avg_wa": 6.89,
+      "books": 1,
+      "genre": "Science Fantasy",
+      "series": "Broken Earth",
+      "tier": "C"
+    },
+    {
       "adjusted_wa": 6.286,
       "author": "Patrick Rothfuss",
       "avg_total_average": 6.83,
@@ -158,7 +178,7 @@
       "books": 1,
       "genre": "Epic Fantasy",
       "series": "The Kingkiller Chronicles",
-      "tier": "C"
+      "tier": "D"
     },
     {
       "adjusted_wa": 6.183,
@@ -213,9 +233,9 @@
   ],
   "tier_counts": {
     "A": 3,
-    "B": 5,
+    "B": 6,
     "C": 5,
-    "D": 3,
+    "D": 4,
     "F": 2,
     "S": 2,
     "S+": 1

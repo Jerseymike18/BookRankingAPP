@@ -332,21 +332,21 @@
       "year": 2026
     },
     {
-      "aesthetics": 6.0,
-      "authors": 2,
-      "avg_total_average": 6.89,
-      "avg_wa": 6.79,
-      "avg_words": 190000.0,
-      "books": 2,
-      "character": 7.03,
-      "genres": 2,
+      "aesthetics": 7.14,
+      "authors": 4,
+      "avg_total_average": 7.26,
+      "avg_wa": 7.21,
+      "avg_words": 166250.0,
+      "books": 4,
+      "character": 7.51,
+      "genres": 3,
       "month": 7,
-      "story": 6.1,
-      "theme": 7.73,
-      "top_book": "The Rise of Endymion",
-      "top_wa": 7.73,
-      "total_words": 380000,
-      "worldbuilding": 7.62,
+      "story": 6.49,
+      "theme": 7.69,
+      "top_book": "Lord of Emperors",
+      "top_wa": 8.37,
+      "total_words": 665000,
+      "worldbuilding": 7.48,
       "year": 2026
     }
   ],
@@ -363,14 +363,14 @@
       "year": 2025
     },
     {
-      "aesthetics": 7.62,
+      "aesthetics": 7.64,
       "avg_wa": 7.64,
-      "avg_words": 187746.0,
-      "books": 56,
-      "character": 7.54,
-      "story": 7.57,
-      "theme": 7.63,
-      "worldbuilding": 6.99,
+      "avg_words": 186186.0,
+      "books": 58,
+      "character": 7.56,
+      "story": 7.55,
+      "theme": 7.64,
+      "worldbuilding": 7.0,
       "year": 2026
     }
   ]

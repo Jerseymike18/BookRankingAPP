@@ -1,0 +1,32 @@
+{
+  "author": "N.K. Jemisin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 7.9,
+      "Prose": 6.5
+    },
+    "Character": {
+      "Depth": 7.6,
+      "Emotional Impact": 7.2,
+      "Motivations": 7.5
+    },
+    "Story": {
+      "Action": 6.5,
+      "Ending": 5.3,
+      "Entertainment": 6.0,
+      "Plot": 6.8
+    },
+    "Theme": {
+      "Insights": 6.9,
+      "Thought-Provokingness": 6.2
+    },
+    "Worldbuilding": {
+      "Depth2": 8.5,
+      "Integration": 8.0,
+      "Originality": 7.5
+    }
+  },
+  "genre": "Science Fantasy",
+  "title": "The Stone Sky",
+  "wa": 6.8883
+}

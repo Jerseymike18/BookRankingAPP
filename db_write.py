@@ -1542,17 +1542,57 @@ def show_queue():
 # can never desync. WA is left NULL: it needs nonfiction genre weights, which
 # don't exist yet and are owned by the separate nonfiction-engine work.
 
+# Nonfiction scoring schema (2026 redesign — Brief 2). 12 components across 5
+# purpose-built, weighted categories; nonfiction now ranks by WA (mirroring
+# fiction). DB column names stay stable where a concept carried over: the UI
+# shows "Entertainment" as Enjoyment and "Insights" as Insight, but the column /
+# weight-table keys keep the old names (no migration). Philosophizing and
+# Phraseology are RETIRED — their columns stay dormant (dropped from the weight
+# tables, so the schema-discovering engine simply never reads them). Order here
+# is the canonical display order (user_weights.comp_order sorts by it).
 NONFICTION_COMPONENTS = [
-    "Informativeness", "Argumentation", "Entertainment",    # Quality
-    "Prose", "Phraseology",                                 # Aesthetics
-    "Insights", "Philosophizing", "Thought-Provokingness",  # Theme
+    "Informativeness", "Accuracy", "Originality",           # Substance
+    "Argumentation", "Evidence",                            # Reasoning
+    "Clarity", "Structure",                                 # Exposition
+    "Prose", "Voice",                                       # Aesthetics
+    "Insights", "Thought-Provokingness", "Entertainment",   # Impact
 ]
 
-# Which raw components roll into each category average.
+# Which raw components roll into each category average, in canonical order.
 NONFICTION_CATEGORIES = {
-    "Quality":    ["Informativeness", "Argumentation", "Entertainment"],
-    "Aesthetics": ["Prose", "Phraseology"],
-    "Theme":      ["Insights", "Philosophizing", "Thought-Provokingness"],
+    "Substance":  ["Informativeness", "Accuracy", "Originality"],
+    "Reasoning":  ["Argumentation", "Evidence"],
+    "Exposition": ["Clarity", "Structure"],
+    "Aesthetics": ["Prose", "Voice"],
+    "Impact":     ["Insights", "Thought-Provokingness", "Entertainment"],
+}
+
+# The six components the 2026 redesign ADDS — the ALTER-if-missing migration adds
+# a REAL column for each to nonfiction_books + nonfiction_recommendations.
+NONFICTION_NEW_COMPONENTS_2026 = [
+    "Accuracy", "Originality", "Evidence", "Clarity", "Structure", "Voice",
+]
+
+# Nonfiction categories in canonical WA order, each paired with its lowercase
+# column in the wide nonfiction_genre_weights table (mirrors fiction genre_weights).
+NONFICTION_CATEGORY_COLUMNS = [
+    ("Substance", "substance"), ("Reasoning", "reasoning"),
+    ("Exposition", "exposition"), ("Aesthetics", "aesthetics"), ("Impact", "impact"),
+]
+
+# Owner-approved starting weights (signed 2026-07-27; friendly 0.05 grid). Category
+# weights sum to 1.0; each within-category group sums to 1.0. Retune anytime by
+# calling seed_nonfiction_weights() with new dicts — the engine reads these live.
+NONFICTION_DEFAULT_CATEGORY_WEIGHTS = {
+    "Substance": 0.30, "Reasoning": 0.15, "Exposition": 0.15,
+    "Aesthetics": 0.15, "Impact": 0.25,
+}
+NONFICTION_DEFAULT_COMPONENT_WEIGHTS = {
+    "Substance":  {"Informativeness": 0.40, "Accuracy": 0.30, "Originality": 0.30},
+    "Reasoning":  {"Argumentation": 0.55, "Evidence": 0.45},
+    "Exposition": {"Clarity": 0.55, "Structure": 0.45},
+    "Aesthetics": {"Prose": 0.65, "Voice": 0.35},
+    "Impact":     {"Insights": 0.40, "Thought-Provokingness": 0.35, "Entertainment": 0.25},
 }
 
 
@@ -1593,7 +1633,8 @@ def _ensure_nonfiction_schema():
     con.execute('''
         CREATE TABLE IF NOT EXISTS nonfiction_genre_weights (
             genre TEXT PRIMARY KEY,
-            quality REAL, aesthetics REAL, theme REAL
+            substance REAL, reasoning REAL, exposition REAL,
+            aesthetics REAL, impact REAL
         )
     ''')
     con.execute('''
@@ -1658,6 +1699,56 @@ def _ensure_nonfiction_schema():
     con.close()
 
 
+def _ensure_nonfiction_redesign_2026():
+    """2026 nonfiction schema redesign (Brief 2), idempotent + additive (safe on
+    SQLite and Postgres, and on the live multi-tenant DB):
+      1. add the six new component columns (Accuracy, Originality, Evidence,
+         Clarity, Structure, Voice) to nonfiction_books + nonfiction_recommendations;
+      2. widen the global nonfiction_genre_weights table from the old 3-category
+         (quality/aesthetics/theme) shape to the 5-category shape by ADDING the
+         four missing category columns (substance/reasoning/exposition/impact).
+    No drops, no data loss: existing rows keep every value; the old quality/theme
+    category columns and the retired Philosophizing/Phraseology component columns
+    simply go dormant (unread by the schema-discovering engine). Component data on
+    existing rows stays NULL until backfilled; global weights are (re)seeded by
+    _ensure_nonfiction_seed below."""
+    con = _connect()
+    for tbl in ("nonfiction_books", "nonfiction_recommendations"):
+        cols = set(db_backend.table_columns(con, tbl))
+        if not cols:
+            continue  # table not created yet
+        for comp in NONFICTION_NEW_COMPONENTS_2026:
+            if comp not in cols:
+                con.execute(f'ALTER TABLE {tbl} ADD COLUMN "{comp}" REAL')
+    gcols = set(db_backend.table_columns(con, "nonfiction_genre_weights"))
+    if gcols:
+        for _, col in NONFICTION_CATEGORY_COLUMNS:
+            if col not in gcols:
+                con.execute(f"ALTER TABLE nonfiction_genre_weights ADD COLUMN {col} REAL")
+    con.commit()
+    con.close()
+
+
+def _ensure_nonfiction_seed():
+    """Guarantee the global nonfiction weight prior exists in the new 5-category
+    shape. Seeds the owner-approved defaults when the 'Nonfiction' genre row is
+    absent OR predates the redesign (its `substance` weight is still NULL after the
+    additive migration). Idempotent: once seeded with non-null category weights it
+    is never overwritten, so an owner retune via seed_nonfiction_weights() sticks.
+    This makes a deploy self-healing — the shared prior can't go missing."""
+    con = _connect()
+    try:
+        row = con.execute(
+            "SELECT substance FROM nonfiction_genre_weights WHERE genre=?",
+            ("Nonfiction",)).fetchone()
+    except Exception:
+        row = None
+    finally:
+        con.close()
+    if row is None or row[0] is None:
+        seed_nonfiction_weights()
+
+
 def _valid_nonfiction_genres(con, uid=None):
     """Global nonfiction genres, plus the user's own custom genres when uid is
     given (see _valid_genres). Byte-identical when uid is None or has none."""
@@ -1684,23 +1775,20 @@ def _validate_nonfiction_scores(scores, require_all=True):
 
 
 def _nonfiction_averages(scores):
-    """Recompute the three category averages + Total Average from component
-    scores. Each category average is the unweighted mean of its present
-    components; Total Average is the unweighted mean of the present category
-    averages (mirrors the fiction Total Average convention and the workbook).
-    Returns {avg_column_name: value_or_None}."""
-    cat_avg = {}
+    """Recompute Total Average from component scores: the unweighted mean of the
+    present category means (each category mean = the unweighted mean of its present
+    components), over the five nonfiction categories. Mirrors the fiction Total
+    Average convention. WA — the weighted, now-primary ranking score — is computed
+    live by the nonfiction engine from the weight tables, never stored here. The old
+    per-category average columns (Quality/Aesthetics/Theme Average) are dormant post
+    redesign and no longer written. Returns {"Total Average": value_or_None}."""
+    cat_means = []
     for cat, comps in NONFICTION_CATEGORIES.items():
         vals = [float(scores[c]) for c in comps if scores.get(c) is not None]
-        cat_avg[cat] = (sum(vals) / len(vals)) if vals else None
-    present = [v for v in cat_avg.values() if v is not None]
-    total = (sum(present) / len(present)) if present else None
-    return {
-        "Quality Average":    cat_avg["Quality"],
-        "Aesthetics Average": cat_avg["Aesthetics"],
-        "Theme Average":      cat_avg["Theme"],
-        "Total Average":      total,
-    }
+        if vals:
+            cat_means.append(sum(vals) / len(vals))
+    total = (sum(cat_means) / len(cat_means)) if cat_means else None
+    return {"Total Average": total}
 
 
 def add_nonfiction_book(title, author=None, genre=None, scores=None,
@@ -1742,15 +1830,13 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
         cols = (["title", "genre", "author", "series", "series_number",
                  "words", "year_read", "read_month", "read_seq", "status", "user_id"]
                 + NONFICTION_COMPONENTS
-                + ["Quality Average", "Aesthetics Average",
-                   "Theme Average", "Total Average"])
+                + ["Total Average"])
         vals = ([title, genre, author, series,
                  int(series_number) if series_number else None,
                  words, year_read, int(read_month) if read_month is not None else None,
                  _next_read_seq(con, uid), status, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS]
-                + [avgs["Quality Average"], avgs["Aesthetics Average"],
-                   avgs["Theme Average"], avgs["Total Average"]])
+                + [avgs["Total Average"]])
         ph = ",".join("?" for _ in cols)
         con.execute(f'INSERT INTO nonfiction_books '
                     f'({",".join(chr(34)+c+chr(34) for c in cols)}) '
@@ -1791,11 +1877,9 @@ def change_nonfiction_rating(title, new_scores, user_id=None):
             f'FROM nonfiction_books WHERE user_id=? AND title=?', (uid, title))
         full = dict(zip(NONFICTION_COMPONENTS, cur.fetchone()))
         avgs = _nonfiction_averages(full)
-        con.execute('UPDATE nonfiction_books SET "Quality Average"=?, '
-                    '"Aesthetics Average"=?, "Theme Average"=?, '
-                    '"Total Average"=? WHERE user_id=? AND title=?',
-                    [avgs["Quality Average"], avgs["Aesthetics Average"],
-                     avgs["Theme Average"], avgs["Total Average"], uid, title])
+        con.execute('UPDATE nonfiction_books SET "Total Average"=? '
+                    'WHERE user_id=? AND title=?',
+                    [avgs["Total Average"], uid, title])
         con.commit()
         changed = ", ".join(f"{c}={v}" for c, v in new_scores.items())
         print(f"  ✓ Updated nonfiction '{title}': {changed}")
@@ -1947,47 +2031,53 @@ def list_nonfiction_books(limit=50):
     con.close()
 
 
-def seed_nonfiction_weights(quality=0.45, aesthetics=0.20, theme=0.35,
+def seed_nonfiction_weights(category_weights=None, component_weights=None,
                             genre="Nonfiction"):
-    """Seed (or replace) the nonfiction weight tables with one default genre
-    profile, used for every nonfiction book until a finer nonfiction genre
-    taxonomy exists. The category weights (quality/aesthetics/theme) set how the
-    nonfiction WA leans across the three categories and must sum to 1.0. Within
-    each category the components are EQUAL-weighted, reproducing the workbook's
-    plain-AVERAGE category means (so WA differs from Total Average only by the
-    category lean). Retune anytime by calling again with new category weights —
-    the nonfiction engine reads these tables live, so WA updates on next load.
-    Returns True on success, False otherwise.
+    """Seed (or replace) the global nonfiction weight tables for one genre with the
+    2026 five-category / twelve-component weighted schema (Brief 2). `category_weights`
+    is {Category: weight} over the five nonfiction categories (Substance / Reasoning /
+    Exposition / Aesthetics / Impact) and must sum to 1.0; `component_weights` is
+    {Category: {component: weight}} with each within-category group summing to 1.0.
+    Both default to the owner-approved friendly (0.05-grid) vectors defined above.
 
-    Default Quality 0.45 / Aesthetics 0.20 / Theme 0.35 was chosen by the owner
-    (the workbook defines no nonfiction weighting — it ranks nonfiction by the
-    unweighted Total Average)."""
-    cat_w = {"Quality": float(quality), "Aesthetics": float(aesthetics),
-             "Theme": float(theme)}
+    Writes the wide nonfiction_genre_weights row (one lowercase column per category)
+    and the long nonfiction_gcomp_weights rows. The nonfiction engine reads these
+    live, so WA — the primary nonfiction ranking score post-redesign — updates on
+    next load. Retune anytime by calling again with new dicts. Returns True/False."""
+    cat_w = dict(category_weights or NONFICTION_DEFAULT_CATEGORY_WEIGHTS)
+    comp_w = {c: dict(g) for c, g in
+              (component_weights or NONFICTION_DEFAULT_COMPONENT_WEIGHTS).items()}
     con = _connect()
     try:
         for k, v in cat_w.items():
-            if not (0 <= v <= 1):
-                raise ValidationError(f"{k} weight {v} is out of range (0-1).")
+            if not (0 <= float(v) <= 1):
+                raise ValidationError(f"Category weight {k}={v} is out of range (0-1).")
         if abs(sum(cat_w.values()) - 1.0) > 1e-6:
             raise ValidationError(
                 f"Category weights must sum to 1.0 (got {sum(cat_w.values()):.4f}).")
+        for cat, comps in comp_w.items():
+            s = sum(float(w) for w in comps.values())
+            if abs(s - 1.0) > 1e-6:
+                raise ValidationError(
+                    f"{cat} component weights must sum to 1.0 (got {s:.4f}).")
         _backup_once()
         con.execute("DELETE FROM nonfiction_genre_weights WHERE genre=?", (genre,))
         con.execute("DELETE FROM nonfiction_gcomp_weights WHERE genre=?", (genre,))
-        con.execute("INSERT INTO nonfiction_genre_weights "
-                    "(genre,quality,aesthetics,theme) VALUES (?,?,?,?)",
-                    (genre, cat_w["Quality"], cat_w["Aesthetics"], cat_w["Theme"]))
-        for cat, comps in NONFICTION_CATEGORIES.items():
-            w = 1.0 / len(comps)
-            for comp in comps:
+        cat_cols = [col for _, col in NONFICTION_CATEGORY_COLUMNS]
+        ph = ",".join("?" for _ in range(len(cat_cols) + 1))
+        con.execute(
+            f"INSERT INTO nonfiction_genre_weights (genre,{','.join(cat_cols)}) "
+            f"VALUES ({ph})",
+            [genre] + [float(cat_w[cap]) for cap, _ in NONFICTION_CATEGORY_COLUMNS])
+        for cat, comps in comp_w.items():
+            for comp, w in comps.items():
                 con.execute("INSERT INTO nonfiction_gcomp_weights "
                             "(genre,category,component,weight) VALUES (?,?,?,?)",
-                            (genre, cat, comp, w))
+                            (genre, cat, comp, float(w)))
         con.commit()
-        print(f"  ✓ Seeded nonfiction weights for '{genre}': "
-              f"Quality {cat_w['Quality']:.2f} / Aesthetics {cat_w['Aesthetics']:.2f}"
-              f" / Theme {cat_w['Theme']:.2f} (components equal-weighted in-category).")
+        lean = " / ".join(f"{cap} {cat_w[cap]:.2f}"
+                          for cap, _ in NONFICTION_CATEGORY_COLUMNS)
+        print(f"  ✓ Seeded nonfiction weights for '{genre}': {lean}.")
         return True
     except ValidationError as e:
         con.rollback()
@@ -2534,6 +2624,13 @@ def update_book_metadata(current_title, table, fields, allow_new_genre=False, us
 # Create the nonfiction tables on import (idempotent), same discipline as the
 # fiction schema-ensure calls near the top of this module.
 _ensure_nonfiction_schema()
+
+# 2026 nonfiction schema redesign (Brief 2): add the six new component columns and
+# widen the category-weight table (additive), then (re)seed the shared weight prior
+# if it is missing/pre-redesign. Idempotent, so a deploy self-heals. Runs after the
+# nonfiction schema exists (above).
+_ensure_nonfiction_redesign_2026()
+_ensure_nonfiction_seed()
 
 # read_month spans BOTH the fiction (books) and nonfiction (nonfiction_books)
 # tables, so it must run after the nonfiction schema exists (above).

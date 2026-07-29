@@ -10,30 +10,30 @@
     },
     "genre": "Science Fiction (Soft)",
     "has_prediction": true,
-    "rank": 91,
+    "rank": 92,
     "series": "Broken Earth",
     "series_number": 3,
     "title": "The Stone Sky",
-    "total": 129,
+    "total": 131,
     "wa": 7.16
   },
   "last_read": {
-    "author": "N. K. Jemisin",
+    "author": "Guy Gavriel Kay",
     "category_avgs": {
-      "Aesthetics": 5.75,
-      "Character": 6.92,
-      "Story": 4.42,
-      "Theme": 6.65,
-      "Worldbuilding": 7.43
+      "Aesthetics": 9.34,
+      "Character": 8.41,
+      "Story": 7.92,
+      "Theme": 8.75,
+      "Worldbuilding": 6.96
     },
-    "genre": "Science Fantasy",
+    "genre": "Literary Fantasy",
     "has_prediction": false,
-    "rank": 119,
-    "series": "The Broken Earth",
+    "rank": 36,
+    "series": "The Sarantine Mosaic",
     "series_number": 2,
-    "title": "The Obelisk Gate",
-    "total": 129,
-    "wa": 5.84
+    "title": "Lord of Emperors",
+    "total": 131,
+    "wa": 8.37
   },
   "reading_next": {
     "author": "Guy Gavriel Kay",
@@ -46,11 +46,11 @@
     },
     "genre": "Literary Fantasy",
     "has_prediction": true,
-    "rank": 43,
+    "rank": 44,
     "series": "The Sarantine Mosaic",
     "series_number": 2,
     "title": "Lord of Emperors",
-    "total": 129,
+    "total": 131,
     "wa": 8.17
   }
 }
