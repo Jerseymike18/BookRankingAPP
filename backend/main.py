@@ -35,7 +35,7 @@ import sqlite3
 import datetime
 import logging
 import time
-from collections import defaultdict, deque
+from collections import defaultdict, deque, OrderedDict
 import db_backend
 import uuid
 import threading
@@ -165,8 +165,62 @@ UPSIDE_FRAC = 0.45
 # user dev (AUTH_ENABLED off) uses the one DEFAULT_USER_ID key, so its behavior
 # is unchanged. Endpoints pass the token-derived user_id; a missing one falls
 # back to the default so not-yet-threaded call sites stay correct locally.
-_engine_cache: dict = {}
-_nf_engine_cache: dict = {}
+_TENANT_CACHE_MAX = int(os.environ.get("TENANT_CACHE_MAX", "256"))
+
+
+class _LRUCache:
+    """Thread-safe, size-capped LRU exposing the dict subset the cache sites use:
+    c[k], c[k]=v, c.get(k), c.pop(k, default), k in c, len(c). Evicts the least-
+    recently-used entry past `maxsize`. Its lock guards ONLY the tiny dict ops,
+    never the expensive value construction (callers build values outside the
+    cache) — so it adds no contention to engine builds and cannot deadlock on the
+    seed-model recursion inside _build_engine_for."""
+
+    def __init__(self, maxsize: int):
+        self._d = OrderedDict()
+        self._max = max(1, maxsize)
+        self._lock = threading.Lock()
+
+    def get(self, key, default=None):
+        with self._lock:
+            if key not in self._d:
+                return default
+            self._d.move_to_end(key)
+            return self._d[key]
+
+    def __getitem__(self, key):
+        with self._lock:
+            self._d.move_to_end(key)
+            return self._d[key]
+
+    def __setitem__(self, key, value):
+        with self._lock:
+            self._d[key] = value
+            self._d.move_to_end(key)
+            while len(self._d) > self._max:
+                self._d.popitem(last=False)   # evict least-recently-used
+
+    def pop(self, key, default=None):
+        with self._lock:
+            return self._d.pop(key, default)
+
+    def __contains__(self, key):
+        with self._lock:
+            return key in self._d
+
+    def __len__(self):
+        with self._lock:
+            return len(self._d)
+
+
+# Capped so total memory can't grow without bound as the tenant count rises (each
+# engine tuple holds a books DataFrame + a fitted regression). Eviction is always
+# safe — every value is a pure function of committed DB state, so a miss rebuilds
+# the identical object. The monotonic _engine_epoch token (defined below) is
+# deliberately NOT capped: it must never reset, or _corr_statics staleness
+# detection could be fooled.
+_engine_cache = _LRUCache(_TENANT_CACHE_MAX)
+_nf_engine_cache = _LRUCache(_TENANT_CACHE_MAX)
 
 
 def _uid(user_id):
@@ -416,8 +470,8 @@ def _correction_pool(user_id, books_e):
 # engine epoch, research-cache mtime) — the seed epoch matters because a
 # cold-start tenant's correction pool borrows the seed's books. Same inputs →
 # same pairs/models; a stale key just recomputes. Latency only.
-_corr_statics_cache: dict = {}   # uid -> (key, pairs, corr_models)
-_engine_epoch: dict = {}         # uid -> int, bumped by _invalidate_engine
+_corr_statics_cache = _LRUCache(_TENANT_CACHE_MAX)   # uid -> (key, pairs, corr_models)
+_engine_epoch: dict = {}         # uid -> int, bumped by _invalidate_engine (NOT capped)
 
 
 def _research_cache_mtime() -> float:
@@ -455,7 +509,18 @@ async def lifespan(app_: FastAPI):
     yield
 
 
-app = FastAPI(title="Reading Ledger API", version="1.0", lifespan=lifespan)
+# API docs (/docs, /redoc, /openapi.json) disclose the full endpoint schema. Keep
+# them on for local dev, but OFF on the hosted app (AUTH_ENABLED=1) so an
+# unauthenticated caller can't enumerate the API. EXPOSE_DOCS=1 forces them back on
+# (e.g. to debug a deploy). Deploy verification uses the token-free /api/version
+# route, which is unaffected by this.
+_EXPOSE_DOCS = (not auth.AUTH_ENABLED) or os.environ.get("EXPOSE_DOCS", "0").strip() == "1"
+app = FastAPI(
+    title="Reading Ledger API", version="1.0", lifespan=lifespan,
+    docs_url="/docs" if _EXPOSE_DOCS else None,
+    redoc_url="/redoc" if _EXPOSE_DOCS else None,
+    openapi_url="/openapi.json" if _EXPOSE_DOCS else None,
+)
 
 # Safe defaults: localhost only. Override via env vars only for deliberate,
 # network-aware deployments that have also added authentication.
@@ -499,26 +564,49 @@ def _server_error(exc: Exception, context: str = "") -> HTTPException:
 # unauthenticated sign-up (invite-code brute force) and the LLM-backed endpoints
 # (each grounded call spends Anthropic credits). State is per-process, so it fits
 # the single-worker Railway deploy and resets on restart — good enough as an abuse
-# brake, not a distributed quota. Keyed by client IP (X-Forwarded-For first hop,
-# since we sit behind Railway's proxy).
+# brake, not a distributed quota.
+#
+# KEYING (the load-bearing security detail):
+#   * LLM routes are auth-gated, so every caller is a known tenant — we key by the
+#     verified user_id (token `sub`). A per-tenant budget cannot be evaded by
+#     rotating source IPs and isolates one heavy user from everyone else.
+#   * Sign-up is pre-auth (no user_id yet) — we key by the real client IP.
+#   * The real client IP behind Railway's Envoy edge is X-Envoy-External-Address (a
+#     single value the edge controls), NOT the left-most X-Forwarded-For hop: the
+#     edge APPENDS the true IP to the RIGHT of any client-supplied XFF, so the
+#     left-most hop is attacker-controlled. Keying on it would let a spoofed,
+#     rotating XFF bypass the limit entirely (see _client_ip).
 _RATE_LIMIT_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "1").strip() != "0"
 _rl_lock = threading.Lock()
 _rl_hits: dict = defaultdict(deque)
+_rl_calls = 0  # opportunistic-GC tick counter (see _rate_limit)
 
 
 def _client_ip(request: Request) -> str:
+    """Best-effort real client IP behind Railway's Envoy edge proxy.
+
+    Trust order: X-Envoy-External-Address (edge-set, single trusted value) →
+    the RIGHT-most X-Forwarded-For hop (the one the edge appended; left-most hops
+    are client-supplied and spoofable) → the socket peer (local dev, no proxy)."""
+    envoy = request.headers.get("x-envoy-external-address", "").strip()
+    if envoy:
+        return envoy
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "?"
 
 
-def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float) -> None:
-    """Allow at most `max_calls` in the last `window_s` seconds per (bucket, IP);
-    raise 429 with Retry-After otherwise. No-op when RATE_LIMIT_ENABLED=0."""
+def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
+                user_id: Optional[str] = None) -> None:
+    """Allow at most `max_calls` in the last `window_s` seconds per (bucket,
+    principal); raise 429 with Retry-After otherwise. No-op when
+    RATE_LIMIT_ENABLED=0. The principal is the verified `user_id` when supplied
+    (auth-gated routes) else the real client IP (pre-auth routes like sign-up)."""
     if not _RATE_LIMIT_ENABLED:
         return
-    key = f"{bucket}:{_client_ip(request)}"
+    principal = f"user:{user_id}" if user_id else f"ip:{_client_ip(request)}"
+    key = f"{bucket}:{principal}"
     now = time.monotonic()
     with _rl_lock:
         dq = _rl_hits[key]
@@ -533,12 +621,30 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float) 
                 headers={"Retry-After": str(retry)},
             )
         dq.append(now)
+        # Opportunistic GC so keys for IPs/tenants that never return don't
+        # accumulate forever. Every _RL_GC_EVERY calls, drop entries older than
+        # the LARGEST window (safe for every bucket) and delete now-empty keys.
+        global _rl_calls
+        _rl_calls += 1
+        if _rl_calls % _RL_GC_EVERY == 0:
+            dead = now - _RL_MAX_WINDOW
+            for k in list(_rl_hits.keys()):
+                d = _rl_hits[k]
+                while d and d[0] <= dead:
+                    d.popleft()
+                if not d:
+                    del _rl_hits[k]
 
 
 # Per-route budgets. LLM routes are generous enough for a real session (predicting
 # a series fans out client-side into several calls) but cap runaway/abusive loops.
 _RL_LLM = dict(max_calls=40, window_s=60.0)
 _RL_SIGNUP = dict(max_calls=5, window_s=300.0)
+# GC tuning: sweep every N limiter calls; never prune an entry younger than the
+# largest window (else a sweep triggered by a short-window bucket would wrongly
+# expire a long-window bucket's entries).
+_RL_GC_EVERY = 500
+_RL_MAX_WINDOW = max(_RL_LLM["window_s"], _RL_SIGNUP["window_s"])
 
 
 def _clean(val):
@@ -1282,7 +1388,7 @@ def lookup_book(req: LookupRequest, request: Request,
         return from_pred
 
     # Only the LLM path is metered — cached lookups above are free.
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
 
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
@@ -1902,7 +2008,7 @@ def predict_research(req: ResearchRequest, request: Request,
     author+genre correct → WA roll-up. One LLM API call (or cache hit).
     Returns corrected components, WA, CI, rank, grounding signals.
     """
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
 
@@ -2041,7 +2147,7 @@ class DiscoverRequest(BaseModel):
 def discover_candidates(req: DiscoverRequest, request: Request,
                         user_id: str = Depends(auth.get_current_user_id)):
     """Generate candidate book titles for a free-text request (1 API call)."""
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
     try:
@@ -2109,7 +2215,7 @@ class GenerateMetaRequest(BaseModel):
 def generate_recommendation_meta(req: GenerateMetaRequest, request: Request,
                                  user_id: str = Depends(auth.get_current_user_id)):
     """Generate blurb + keywords for a recommendation that was added without research."""
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _rp is None:
         raise HTTPException(status_code=500, detail="research_predict not available")
     try:
@@ -2807,7 +2913,7 @@ def predict_nf_research(req: NonfictionResearchRequest, request: Request,
     WA, Total Average) and are ranked by Total Average against the rated nonfiction
     books. Always low-confidence at n=6. No TBR save (there is no nonfiction
     recommendations table)."""
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
     try:
@@ -2846,7 +2952,7 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
                            user_id: str = Depends(auth.get_current_user_id)):
     """Brainstorm nonfiction candidates for a free-text request (one cheap Sonnet
     call), excluding books already in your nonfiction library or TBR."""
-    _rate_limit(request, "llm", **_RL_LLM)
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
     if _nr is None:
         raise HTTPException(status_code=500, detail="nonfiction_research not available")
     try:
