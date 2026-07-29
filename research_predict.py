@@ -846,7 +846,9 @@ def _classify_request(request, client, model, genre_list=None):
 
     Returns {"is_series": bool, "is_single_book": bool, "series_name": str,
     "title": str, "author": str, "genre": str, "scope": "main"|"all"}. ``author``
-    is whichever author the request named (series author OR book author). ``genre``
+    is the named series author for SERIES; for SINGLE it is the book's ACTUAL
+    author, filled from the model's own knowledge (not only when the request names
+    one), so the injected candidate shows an author like every other. ``genre``
     is the model's best-fit genre for a SINGLE book, populated only when a
     ``genre_list`` is supplied (fiction) — else "". On any parse/LLM failure
     everything is False, so the caller falls through to the mood/theme generator —
@@ -866,7 +868,7 @@ Categories:
 
 Extract:
 - SERIES -> series_name; author if one is named (else ""); scope: "main" = main-sequence novels only, "all" = every entry including novellas / .5 shorts. Default scope "main" unless it clearly asks for everything ("all books", "including novellas", "complete").
-- SINGLE -> title (the book's exact title); author if one is named (else ""){genre_instr}.
+- SINGLE -> title (the book's exact title); author — the book's ACTUAL author, which you MUST provide from your own knowledge even when the request doesn't name one (leave "" only if you genuinely don't know it){genre_instr}.
 - OTHER  -> nothing.
 
 REQUEST: {request}
