@@ -38,15 +38,24 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
 
-  // The fiction views moved under /fiction/* when the app was split into
-  // Fiction / Nonfiction sections. Keep the old top-level paths working.
+  // The Fiction / Nonfiction section split was collapsed into an in-page
+  // Fiction / Nonfiction / All toggle on each view (2026 nav redesign). The old
+  // per-type paths now redirect to the single canonical route, seeding the
+  // toggle via ?type=. Read Queue is de-duplicated to one route (under Reading);
+  // the old `/nonfiction/read-queue` folds in with ?type=nonfiction.
   async redirects() {
     return [
-      { source: "/rankings", destination: "/fiction/rankings", permanent: false },
-      { source: "/tier-list", destination: "/fiction/tier-list", permanent: false },
-      { source: "/series", destination: "/fiction/series", permanent: false },
-      { source: "/timeline", destination: "/fiction/timeline", permanent: false },
-      { source: "/reading", destination: "/fiction/reading", permanent: false },
+      { source: "/fiction/rankings", destination: "/rankings?type=fiction", permanent: false },
+      { source: "/nonfiction/rankings", destination: "/rankings?type=nonfiction", permanent: false },
+      { source: "/fiction/tier-list", destination: "/tier-list?type=fiction", permanent: false },
+      { source: "/nonfiction/tier-list", destination: "/tier-list?type=nonfiction", permanent: false },
+      { source: "/fiction/series", destination: "/series?type=fiction", permanent: false },
+      { source: "/nonfiction/series", destination: "/series?type=nonfiction", permanent: false },
+      { source: "/fiction/timeline", destination: "/timeline?type=fiction", permanent: false },
+      { source: "/nonfiction/timeline", destination: "/timeline?type=nonfiction", permanent: false },
+      { source: "/fiction/reading", destination: "/reading?type=fiction", permanent: false },
+      { source: "/nonfiction/reading", destination: "/reading?type=nonfiction", permanent: false },
+      { source: "/nonfiction/read-queue", destination: "/read-queue?type=nonfiction", permanent: false },
     ];
   },
 };

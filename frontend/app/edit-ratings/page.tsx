@@ -8,5 +8,5 @@ export default function EditRatingsPage() {
   if (READONLY) {
     return <ComingSoon title="Edit Ratings" subtitle="Not available on the read-only public site." />;
   }
-  redirect("/fiction/rankings");
+  redirect("/rankings?type=fiction");
 }

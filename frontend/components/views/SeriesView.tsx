@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
+import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 
@@ -192,9 +193,9 @@ function TiersTab({ data, emptyMsg }: { data: SeriesTiersResponse; emptyMsg: str
   );
 }
 
-/* ── Main export ──────────────────────────────────────────────────────────── */
+/* ── Single-track series view ─────────────────────────────────────────────── */
 
-export default function SeriesView({
+function SeriesSingle({
   seriesData,
   tiersData,
   kind = "fiction",
@@ -230,6 +231,35 @@ export default function SeriesView({
       ) : (
         <TiersTab data={tiersData} emptyMsg={emptyMsg} />
       )}
+    </div>
+  );
+}
+
+/* ── Series view (wrapper) ────────────────────────────────────────────────
+   Fiction / Nonfiction toggle only — no "All". The headline number is Adjusted
+   WA (WA-scaled) and the tier tab is banded within a single track, so the two
+   tracks can't share one ordering. Default is Fiction (seeded from ?type=). */
+
+export default function SeriesView({
+  fiction,
+  nonfiction,
+  initialType = "fiction",
+}: {
+  fiction: { seriesData: SeriesResponse; tiersData: SeriesTiersResponse };
+  nonfiction: { seriesData: SeriesResponse; tiersData: SeriesTiersResponse };
+  initialType?: TypeScope;
+}) {
+  const [type, setType] = useState<TypeScope>(initialType === "nonfiction" ? "nonfiction" : "fiction");
+  const isNon = type === "nonfiction";
+  const active = isNon ? nonfiction : fiction;
+  return (
+    <div>
+      <TypeToggle value={isNon ? "nonfiction" : "fiction"} onChange={setType} includeAll={false} />
+      <SeriesSingle
+        seriesData={active.seriesData}
+        tiersData={active.tiersData}
+        kind={isNon ? "nonfiction" : "fiction"}
+      />
     </div>
   );
 }
