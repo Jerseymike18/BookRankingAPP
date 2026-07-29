@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   predictResearch,
   discoverCandidates,
@@ -14,12 +14,12 @@ import type {
   Candidate,
   ScoredCandidate,
   NonfictionPrediction,
-  NonfictionCandidate,
   BookKind,
 } from "@/lib/types";
 
-/** Flatten a grouped-by-category prediction's components into a flat score map. */
-function flattenNfScores(components: NonfictionPrediction["components"]): Record<string, number> {
+/** Flatten a scored book's grouped-by-category components into the flat score map
+ *  the save endpoints expect. Shared by the fiction and nonfiction save paths. */
+function flattenScores(components: ScoredCandidate["components"]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const cat of Object.values(components)) {
     for (const [c, v] of Object.entries(cat)) if (v != null) out[c] = v;
@@ -276,11 +276,8 @@ function InfoBox({ message }: { message: string }) {
    DISCOVER MODE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function DiscoverMode({
-  categoryOrder,
-}: {
-  categoryOrder: string[];
-}) {
+function PredictFlow({ config }: { config: PredictFlowConfig }) {
+  const { categoryOrder } = config;
   const [request, setRequest] = useState("");
 
   // Step 1: generate candidates
@@ -316,7 +313,7 @@ function DiscoverMode({
     setRemoved(new Set());
     setSaveResults({});
     try {
-      const result = await discoverCandidates(request.trim());
+      const result = await config.discover(request.trim());
       setCandidates(result.candidates);
       setRequestLabel(result.request);
       setGenNote(result.note ?? "");
@@ -340,7 +337,7 @@ function DiscoverMode({
       const c = candidates[i];
       setScoringIdx(i);
       try {
-        const res = await predictResearch(c.title, c.author, c.genre ?? undefined);
+        const res = await config.score(c);
         results.push(res);
       } catch (e: unknown) {
         results.push({
@@ -358,13 +355,16 @@ function DiscoverMode({
     }
     setScoringIdx(null);
     setScoringDone(true);
-    // Eager pass: grounded-refine only the top few by predicted WA; the rest refine
-    // on demand (per card, or "Refine all") so a large run doesn't fire N slow calls.
-    const eager = [...results]
-      .filter((r) => !r.error)
-      .sort((a, b) => b.wa - a.wa)
-      .slice(0, EAGER_REFINE_K);
-    void refineSet(eager);
+    // Eager pass (fiction only — nonfiction has no grounded upgrade): grounded-refine
+    // only the top few by predicted score; the rest refine on demand (per card, or
+    // "Refine all") so a large run doesn't fire N slow calls.
+    if (config.refine) {
+      const eager = [...results]
+        .filter((r) => !r.error)
+        .sort((a, b) => config.primaryScore(b) - config.primaryScore(a))
+        .slice(0, EAGER_REFINE_K);
+      void refineSet(eager);
+    }
   }
 
   // Progressive grounded (hybrid) refine: re-score the given candidates with the
@@ -375,6 +375,8 @@ function DiscoverMode({
   // immediately; grounded scores stream in and the list re-sorts. Functional
   // setState updaters compose safely under interleaving.
   async function refineSet(targets: ScoredCandidate[]) {
+    const refine = config.refine;
+    if (!refine) return;   // nonfiction has no grounded-refine path
     const todo = targets.filter(
       (r) => !r.error && r.hybrid_available && r.sourcing !== "hybrid"
         && !refiningTitles.has(r.title),
@@ -387,7 +389,7 @@ function DiscoverMode({
     });
     await mapPool(todo, REFINE_CONCURRENCY, async (r) => {
       try {
-        const g = await predictResearch(r.title, r.author, r.genre, true);
+        const g = await refine(r);
         setScored((prev) => prev.map((x) => (x.title === r.title ? { ...g } : x)));
       } catch {
         // keep the memory result if the grounded refine fails
@@ -414,7 +416,9 @@ function DiscoverMode({
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
   const nNew = (candidates?.length ?? 0) - nCached;
-  const okScored = scored.filter((r) => !r.error).sort((a, b) => b.wa - a.wa);
+  const okScored = scored
+    .filter((r) => !r.error)
+    .sort((a, b) => config.primaryScore(b) - config.primaryScore(a));
   const failedScored = scored.filter((r) => !!r.error);
   // Opt-out save model: every scored book is queued to save UNLESS the reader
   // removed it with the ✕. `kept` is what's shown + saved; `savable` also excludes
@@ -448,22 +452,8 @@ function DiscoverMode({
     const targets = savable;
     const newResults: Record<string, string> = {};
     await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
-      const flatScores: Record<string, number> = {};
-      for (const comps of Object.values(r.components)) {
-        for (const [comp, val] of Object.entries(comps)) {
-          if (val !== null) flatScores[comp] = val;
-        }
-      }
       try {
-        const res = await saveRecommendation({
-          title: r.title, genre: r.genre, author: r.author,
-          scores: flatScores,
-          words: r.words ?? undefined,
-          series: r.series || undefined,
-          series_number: r.series_number ?? undefined,
-          blurb: r.blurb || undefined,
-          keywords: r.keywords || undefined,
-        });
+        const res = await config.save(r);
         newResults[r.title] = res.message || "Saved.";
       } catch (e: unknown) {
         newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
@@ -482,25 +472,20 @@ function DiscoverMode({
           className="font-display font-semibold text-base mb-1"
           style={{ color: "var(--color-ink)" }}
         >
-          What are you in the mood for?
+          {config.requestTitle}
         </h2>
         <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Ask in plain language. The LLM proposes candidates — avoiding what you&apos;ve already
-          read — then your engine scores and ranks each one.
+          {config.requestHelp}
         </p>
         <textarea
           className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 resize-none"
           style={{ ...inputStyle, minHeight: "4rem" }}
           value={request}
           onChange={(e) => setRequest(e.target.value)}
-          placeholder={
-            "e.g. recommend 5 epic fantasy books · something like Toll the Hounds " +
-            "but in a different genre · underrated sci-fi from the 2010s"
-          }
+          placeholder={config.placeholder}
         />
         <p className="text-xs mt-2 mb-3" style={{ color: "var(--color-faint)" }}>
-          State how many you want in your request (e.g. “the 5 main books of …”, “a few
-          cozy mysteries”) — or name a single book to predict it directly.
+          {config.countHint}
         </p>
         <div className="flex items-center gap-4 mt-3">
           <SageButton
@@ -541,7 +526,7 @@ function DiscoverMode({
             pinFirst={(c) => !!c.requested}
           />
           <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
-            {nCached} already researched (free) · {nNew} new (~1¢ and a few seconds each)
+            {nCached} already researched (free) · {nNew} new ({config.newCostHint})
           </p>
           {genSources.length > 0 && (
             <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
@@ -595,11 +580,12 @@ function DiscoverMode({
             className="font-display font-semibold text-lg"
             style={{ color: "var(--color-ink)" }}
           >
-            Discovered books — ranked by your predicted WA
+            Discovered books — ranked by your predicted {config.primaryLabel}
           </h2>
           <p className="text-xs -mt-2" style={{ color: "var(--color-muted)" }}>
-            Grounding is the primary reliability signal. Strong = many genre books or ≥1 by
-            this author. Model self-confidence shown separately as a secondary note.
+            {config.showGroundingBadge
+              ? "Grounding is the primary reliability signal. Strong = many genre books or ≥1 by this author. Model self-confidence shown separately as a secondary note."
+              : "Low-confidence estimates — the rated nonfiction library is still small. Treat these as rough until it grows."}
           </p>
 
           {(refiningCount > 0 || unrefined.length > 0) && (
@@ -641,11 +627,13 @@ function DiscoverMode({
               key={r.title}
               result={r}
               rank={i + 1}
+              primaryScore={config.primaryScore(r)}
+              showGroundingBadge={config.showGroundingBadge}
               categoryOrder={r.category_order?.length ? r.category_order : categoryOrder}
               onRemove={() => removeBook(r.title)}
               saveMsg={saveResults[r.title]}
               refining={refiningTitles.has(r.title)}
-              onRefine={() => refineOne(r.title)}
+              onRefine={config.refine ? () => refineOne(r.title) : undefined}
             />
           ))}
 
@@ -663,7 +651,7 @@ function DiscoverMode({
             <div className="flex items-center gap-3 pt-2 flex-wrap">
               <p className="text-sm" style={{ color: "var(--color-muted)" }}>
                 {savable.length > 0
-                  ? `${savable.length} book${savable.length > 1 ? "s" : ""} will be saved to your recommendations (TBR) — remove any you don't want with ✕`
+                  ? `${savable.length} book${savable.length > 1 ? "s" : ""} will be saved to your ${config.savedNoun} — remove any you don't want with ✕`
                   : kept.length > 0
                     ? "All saved."
                     : "Every book removed — nothing to save."}
@@ -680,7 +668,7 @@ function DiscoverMode({
               )}
               {savable.length > 0 && (
                 <SageButton onClick={handleSave} disabled={saving}>
-                  {saving ? "Saving…" : `Save ${savable.length} to recommendations`}
+                  {saving ? "Saving…" : `Save ${savable.length} to ${config.saveButtonNoun}`}
                 </SageButton>
               )}
             </div>
@@ -695,6 +683,8 @@ function DiscoverMode({
 function ScoredCard({
   result,
   rank,
+  primaryScore,
+  showGroundingBadge,
   categoryOrder,
   onRemove,
   saveMsg,
@@ -703,6 +693,12 @@ function ScoredCard({
 }: {
   result: ScoredCandidate;
   rank: number;
+  /** The value shown in the badge + used for ranking: WA (fiction) or Total
+   *  Average (nonfiction). */
+  primaryScore: number;
+  /** Fiction shows the grounding badge; nonfiction shows the honest low-confidence
+   *  note instead (no grounding/interval signal is available for it). */
+  showGroundingBadge: boolean;
   categoryOrder: string[];
   onRemove: () => void;
   saveMsg?: string;
@@ -732,7 +728,7 @@ function ScoredCard({
           className="wa-badge flex-shrink-0"
           style={{ width: "2.5rem", height: "2.5rem", fontSize: "0.75rem" }}
         >
-          {result.wa.toFixed(2)}
+          {primaryScore.toFixed(2)}
         </div>
         <div className="flex-1 min-w-0">
           <p
@@ -823,8 +819,19 @@ function ScoredCard({
             )}
           </div>
 
-          {/* PRIMARY: grounding */}
-          <GroundingBadge nGenre={result.n_genre} nAuthor={result.n_author} />
+          {/* PRIMARY reliability: the grounding badge (fiction) or the honest
+              low-confidence note (nonfiction — no grounding/interval available). */}
+          {showGroundingBadge ? (
+            <GroundingBadge nGenre={result.n_genre} nAuthor={result.n_author} />
+          ) : (
+            <InfoBox
+              message={
+                `Low confidence — only ${result.total} nonfiction book` +
+                `${result.total === 1 ? "" : "s"} rated, so this leans on priors. ` +
+                `Treat as a rough estimate until the library grows.`
+              }
+            />
+          )}
 
           {/* Empirical 80% interval from LOO residuals at this data density.
               Secondary to grounding, per the display decision. */}
@@ -845,7 +852,8 @@ function ScoredCard({
           )}
 
           <p className="text-xs" style={{ color: "var(--color-faint)" }}>
-            Model self-confidence: {result.conf} — less reliable than the grounding signal above.
+            Model self-confidence: {result.conf}
+            {showGroundingBadge && " — less reliable than the grounding signal above."}
           </p>
 
           <ComponentGrid components={result.components} categoryOrder={categoryOrder} />
@@ -886,272 +894,144 @@ function ScoredCard({
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   NONFICTION PREDICT MODE — name a book, grounded LLM scores it, rolled up
-   through the nonfiction engine and ranked by Total Average. No TBR save
-   (there is no nonfiction recommendations table).
+   PER-KIND CONFIG — fiction and nonfiction share ONE flow component (PredictFlow);
+   only these config objects differ. Fiction reproduces the original behaviour
+   exactly (WA primary, grounded eager-refine, conformal interval when present).
+   Nonfiction ranks by Total Average, has no grounded-refine and no residual
+   interval, and shows the honest low-confidence note instead of a grounding badge.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function NonfictionPredictMode() {
-  const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<NonfictionPrediction | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  async function run() {
-    if (!title.trim() || !author.trim()) {
-      setError("Enter a title and author.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    setSaved(null);
-    setSaveError(null);
-    try {
-      setResult(await predictNonfiction(title.trim(), author.trim()));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Prediction failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function saveToTbr() {
-    if (!result) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const r = await saveNonfictionRecommendation({
-        title: result.title, author: result.author, scores: flattenNfScores(result.components),
-      });
-      setSaved(r.message || "Saved to your nonfiction TBR.");
-    } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Could not save.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <Card>
-        <h2 className="font-display font-semibold text-base mb-1" style={{ color: "var(--color-ink)" }}>
-          Predict a nonfiction book
-        </h2>
-        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Name a book — one grounded LLM call scores the 8 nonfiction components, then your engine
-          rolls them up to a Quality-lean WA and ranks by Total Average against your rated nonfiction.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-48">
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Sapiens"
-              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle} />
-          </div>
-          <div className="flex-1 min-w-40">
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Author</label>
-            <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="e.g. Yuval Noah Harari"
-              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle} />
-          </div>
-          <div className="flex items-end">
-            <SageButton onClick={run} disabled={loading}>{loading ? "Researching…" : "Research & predict"}</SageButton>
-          </div>
-        </div>
-      </Card>
-
-      {error && <ErrorBox message={error} />}
-
-      {result && (
-        <Card>
-          <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
-            <div>
-              <p className="font-display font-bold text-lg leading-tight" style={{ color: "var(--color-ink)" }}>{result.title}</p>
-              <p className="text-sm" style={{ color: "var(--color-muted)" }}>{result.author} · Nonfiction · confidence {result.confidence}</p>
-            </div>
-            <span className="wa-badge">{result.total_average.toFixed(2)}</span>
-          </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-1 mb-4 text-sm">
-            <span style={{ color: "var(--color-muted)" }}>Total Average <b style={{ color: "var(--color-sage)" }}>{result.total_average.toFixed(2)}</b></span>
-            <span style={{ color: "var(--color-muted)" }}>WA <b style={{ color: "var(--color-ink)" }}>{result.wa.toFixed(2)}</b></span>
-            <span style={{ color: "var(--color-muted)" }}>Predicted rank <b style={{ color: "var(--color-ink)" }}>~{result.rank} of {result.total}</b></span>
-          </div>
-          <ComponentGrid components={result.components} categoryOrder={result.category_order} />
-          <div className="mt-4">
-            <InfoBox message={`Low confidence — only ${result.total} nonfiction books rated, so this leans on priors. Treat as a rough estimate until the library grows.`} />
-          </div>
-          <div className="mt-4 flex items-center gap-3 flex-wrap">
-            {saved ? (
-              <span className="text-sm font-medium" style={{ color: "var(--color-sage)" }}>✓ {saved}</span>
-            ) : (
-              <SageButton onClick={saveToTbr} disabled={saving}>{saving ? "Saving…" : "Save to TBR"}</SageButton>
-            )}
-            {saveError && <span className="text-sm" style={{ color: "#B91C1C" }}>{saveError}</span>}
-          </div>
-        </Card>
-      )}
-    </div>
-  );
+interface PredictFlowConfig {
+  categoryOrder: string[];
+  /** Badge label + heading noun: "WA" (fiction) or "Total Average" (nonfiction). */
+  primaryLabel: string;
+  /** The score a card leads with and the ranked list sorts by. */
+  primaryScore: (r: ScoredCandidate) => number;
+  /** Fiction shows the grounding badge; nonfiction shows the low-confidence note. */
+  showGroundingBadge: boolean;
+  requestTitle: string;
+  requestHelp: string;
+  placeholder: string;
+  countHint: string;
+  /** Per-new-candidate cost phrase in the candidate-table footer. */
+  newCostHint: string;
+  savedNoun: string;       // "…will be saved to your {savedNoun}"
+  saveButtonNoun: string;  // "Save N to {saveButtonNoun}"
+  discover: (request: string) => Promise<{
+    candidates: Candidate[]; request: string; note?: string; sources?: string[];
+  }>;
+  score: (c: Candidate) => Promise<ScoredCandidate>;
+  save: (r: ScoredCandidate) => Promise<{ message?: string }>;
+  /** Grounded (hybrid) re-score. Fiction only — when omitted the eager pass, the
+   *  per-card Refine button, and the refine banner all disable themselves. */
+  refine?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   NONFICTION DISCOVER — brainstorm candidates (cheap), research each (Opus),
-   save keepers to the nonfiction TBR.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-function CandidateCard({ candidate }: { candidate: NonfictionCandidate }) {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<NonfictionPrediction | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  async function research() {
-    setLoading(true);
-    setError(null);
-    try {
-      setResult(await predictNonfiction(candidate.title, candidate.author));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Research failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function save() {
-    if (!result) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await saveNonfictionRecommendation({
-        title: result.title, author: result.author, scores: flattenNfScores(result.components),
-      });
-      setSaved(true);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not save.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-display font-semibold text-sm" style={{ color: "var(--color-ink)" }}>{candidate.title}</p>
-          <p className="text-xs" style={{ color: "var(--color-muted)" }}>{candidate.author}</p>
-        </div>
-        {!result && <SageButton onClick={research} disabled={loading}>{loading ? "Researching…" : "Research & score"}</SageButton>}
-      </div>
-      {error && <div className="mt-3"><ErrorBox message={error} /></div>}
-      {result && (
-        <div className="mt-3">
-          <div className="flex flex-wrap gap-x-6 gap-y-1 mb-3 text-sm">
-            <span style={{ color: "var(--color-muted)" }}>Total Average <b style={{ color: "var(--color-sage)" }}>{result.total_average.toFixed(2)}</b></span>
-            <span style={{ color: "var(--color-muted)" }}>WA <b style={{ color: "var(--color-ink)" }}>{result.wa.toFixed(2)}</b></span>
-            <span style={{ color: "var(--color-muted)" }}>rank <b style={{ color: "var(--color-ink)" }}>~{result.rank} of {result.total}</b></span>
-            <span style={{ color: "var(--color-faint)" }}>confidence {result.confidence}</span>
-          </div>
-          <ComponentGrid components={result.components} categoryOrder={result.category_order} />
-          <div className="mt-3">
-            {saved ? (
-              <span className="text-sm font-medium" style={{ color: "var(--color-sage)" }}>✓ Saved to TBR</span>
-            ) : (
-              <SageButton onClick={save} disabled={saving}>{saving ? "Saving…" : "Save to TBR"}</SageButton>
-            )}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
+/** Adapt a nonfiction prediction into the fiction-shaped ScoredCandidate the shared
+ *  card consumes. Nonfiction carries no conformal interval and no hybrid upgrade,
+ *  so those fields stay absent and the card degrades gracefully (no interval row,
+ *  no Refine affordance). */
+function nfToScored(p: NonfictionPrediction): ScoredCandidate {
+  return {
+    title: p.title, author: p.author, genre: p.genre,
+    wa: p.wa, total_average: p.total_average,
+    rank: p.rank, total: p.total,
+    n_genre: p.n_genre ?? 0, n_author: p.n_author ?? 0,
+    conf: p.confidence, from_cache: p.from_cache ?? false,
+    words: p.words ?? null, series: p.series ?? "", series_number: p.series_number ?? null,
+    blurb: p.blurb ?? "", keywords: p.keywords ?? "",
+    components: p.components, category_order: p.category_order,
+    genre_auto_detected: p.genre_auto_detected ?? false,
+    sourcing: p.sourcing ?? "memory",
+    hybrid_available: p.hybrid_available ?? false,
+  };
 }
 
-function NonfictionDiscoverMode() {
-  const [request, setRequest] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [candidates, setCandidates] = useState<NonfictionCandidate[] | null>(null);
-  const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  async function find() {
-    if (!request.trim()) {
-      setError("Enter a request.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setCandidates(null);
-    setNote("");
-    try {
-      const r = await discoverNonfictionCandidates(request.trim());
-      setCandidates(r.candidates);
-      setNote(r.note ?? "");
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Discover failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <Card>
-        <h2 className="font-display font-semibold text-base mb-1" style={{ color: "var(--color-ink)" }}>Discover nonfiction</h2>
-        <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Describe what you want — one cheap call brainstorms real nonfiction books (excluding ones
-          already in your library or TBR). Research each to score it, then save the keepers.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <div className="flex-1 min-w-64">
-            <input
-              type="text"
-              value={request}
-              onChange={(e) => setRequest(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") find(); }}
-              placeholder="e.g. books on behavioral economics and decision-making"
-              className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
-              style={inputStyle}
-            />
-          </div>
-          <div className="flex items-end"><SageButton onClick={find} disabled={loading}>{loading ? "Finding…" : "Find books"}</SageButton></div>
-        </div>
-      </Card>
-      {error && <ErrorBox message={error} />}
-      {note && <InfoBox message={note} />}
-      {candidates && candidates.length === 0 && !note && (
-        <InfoBox message="No candidates came back — try rephrasing the request." />
-      )}
-      {candidates && candidates.map((c) => <CandidateCard key={`${c.title}::${c.author}`} candidate={c} />)}
-    </div>
-  );
+function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
+  return {
+    categoryOrder,
+    primaryLabel: "WA",
+    primaryScore: (r) => r.wa,
+    showGroundingBadge: true,
+    requestTitle: "What are you in the mood for?",
+    requestHelp:
+      "Ask in plain language. The LLM proposes candidates — avoiding what you've " +
+      "already read — then your engine scores and ranks each one.",
+    placeholder:
+      "e.g. recommend 5 epic fantasy books · something like Toll the Hounds " +
+      "but in a different genre · underrated sci-fi from the 2010s",
+    countHint:
+      "State how many you want in your request (e.g. “the 5 main books of …”, “a few " +
+      "cozy mysteries”) — or name a single book to predict it directly.",
+    newCostHint: "~1¢ and a few seconds each",
+    savedNoun: "recommendations (TBR)",
+    saveButtonNoun: "recommendations",
+    discover: (request) => discoverCandidates(request),
+    score: (c) => predictResearch(c.title, c.author, c.genre ?? undefined),
+    refine: (r) => predictResearch(r.title, r.author, r.genre, true),
+    save: (r) =>
+      saveRecommendation({
+        title: r.title, genre: r.genre, author: r.author,
+        scores: flattenScores(r.components),
+        words: r.words ?? undefined,
+        series: r.series || undefined,
+        series_number: r.series_number ?? undefined,
+        blurb: r.blurb || undefined,
+        keywords: r.keywords || undefined,
+      }),
+  };
 }
 
-function NonfictionMode() {
-  const [sub, setSub] = useState<"discover" | "named">("discover");
-  return (
-    <div>
-      <div className="flex gap-1 mb-6 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-        {([["discover", "Discover"], ["named", "Name a book"]] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setSub(id)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{
-              background: sub === id ? "var(--color-surface)" : "transparent",
-              color: sub === id ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: sub === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      {sub === "discover" ? <NonfictionDiscoverMode /> : <NonfictionPredictMode />}
-    </div>
-  );
+function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
+  return {
+    categoryOrder,
+    primaryLabel: "Total Average",
+    primaryScore: (r) => r.total_average ?? 0,
+    showGroundingBadge: false,
+    requestTitle: "What are you in the mood for?",
+    requestHelp:
+      "Ask in plain language. The LLM proposes real nonfiction books — avoiding what " +
+      "you've already read — then your engine scores and ranks each one.",
+    placeholder:
+      "e.g. 5 books on behavioral economics · something like Sapiens but on economics · " +
+      "underrated popular science from the 2010s",
+    countHint:
+      "State how many you want in your request (e.g. “5 books on stoicism”, “a few " +
+      "history books”) — or name a single book to predict it directly.",
+    newCostHint: "one Opus call each",
+    savedNoun: "nonfiction TBR",
+    saveButtonNoun: "nonfiction TBR",
+    discover: async (request) => {
+      const r = await discoverNonfictionCandidates(request);
+      return {
+        candidates: r.candidates.map((c) => ({
+          title: c.title,
+          author: c.author,
+          genre: c.genre ?? "Nonfiction",
+          cached: c.cached ?? false,
+          series: c.series ?? null,
+          series_number: c.series_number ?? null,
+          requested: c.requested ?? false,
+        })),
+        request: r.request,
+        note: r.note,
+        sources: r.sources ?? [],
+      };
+    },
+    score: async (c) =>
+      nfToScored(await predictNonfiction(c.title, c.author, c.genre ?? undefined)),
+    // no refine — nonfiction has no grounded-refine path
+    save: (r) =>
+      saveNonfictionRecommendation({
+        title: r.title, author: r.author, genre: r.genre,
+        scores: flattenScores(r.components),
+        words: r.words ?? undefined,
+        series: r.series || undefined,
+        series_number: r.series_number ?? undefined,
+        blurb: r.blurb || undefined,
+        keywords: r.keywords || undefined,
+      }),
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1160,10 +1040,17 @@ function NonfictionMode() {
 
 export default function PredictClient({
   categoryOrder,
+  nonfictionCategoryOrder,
 }: {
   categoryOrder: string[];
+  nonfictionCategoryOrder: string[];
 }) {
   const [kind, setKind] = useState<BookKind>("fiction");
+  const fictionConfig = useMemo(() => makeFictionConfig(categoryOrder), [categoryOrder]);
+  const nonfictionConfig = useMemo(
+    () => makeNonfictionConfig(nonfictionCategoryOrder),
+    [nonfictionCategoryOrder],
+  );
   return (
     <div>
       {/* Page header */}
@@ -1176,7 +1063,7 @@ export default function PredictClient({
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
           {kind === "nonfiction"
-            ? "Discover nonfiction books — or name one — then let your engine predict where they land."
+            ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
             : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."}
         </p>
       </div>
@@ -1199,7 +1086,9 @@ export default function PredictClient({
         ))}
       </div>
 
-      {kind === "fiction" ? <DiscoverMode categoryOrder={categoryOrder} /> : <NonfictionMode />}
+      {/* key={kind} remounts the flow when the toggle flips, so fiction results
+          never leak into the nonfiction view (and vice-versa). */}
+      <PredictFlow key={kind} config={kind === "fiction" ? fictionConfig : nonfictionConfig} />
     </div>
   );
 }

@@ -13,6 +13,14 @@ export default async function PredictPage() {
   if (READONLY) {
     return <ComingSoon title="Predict" subtitle="Not available on the read-only public site." />;
   }
-  const data = await fetchBooks("fiction", token);
-  return <PredictClient categoryOrder={data.category_order} />;
+  const [data, nfData] = await Promise.all([
+    fetchBooks("fiction", token),
+    fetchBooks("nonfiction", token),
+  ]);
+  return (
+    <PredictClient
+      categoryOrder={data.category_order}
+      nonfictionCategoryOrder={nfData.category_order}
+    />
+  );
 }
