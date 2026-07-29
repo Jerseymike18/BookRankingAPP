@@ -17,7 +17,7 @@
     },
     {
       "author": "Augustine",
-      "avg_wa": 7.21,
+      "avg_wa": 7.38,
       "books": 1
     },
     {
@@ -34,8 +34,8 @@
   "by_genre": [],
   "per_year": [
     {
-      "avg_total_average": 7.43,
-      "avg_wa": 7.43,
+      "avg_total_average": 7.48,
+      "avg_wa": 7.48,
       "avg_words": null,
       "books": 3,
       "year": 2025
@@ -49,8 +49,8 @@
     }
   ],
   "summary": {
-    "avg_total_average": 7.21,
-    "avg_wa": 7.15,
+    "avg_total_average": 7.23,
+    "avg_wa": 7.18,
     "avg_words": null,
     "total_books": 6
   }
