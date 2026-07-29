@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { TiersResponse, TierBook, BookKind } from "@/lib/types";
 import { TierLadder, type TierItem } from "@/components/TierLadder";
+import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -41,9 +42,9 @@ function SubTabs({
   );
 }
 
-/* ── Main TierList view ───────────────────────────────────────────────────── */
+/* ── Single-track tier list ───────────────────────────────────────────────── */
 
-export default function TierListView({
+function TierListSingle({
   allData,
   byYear,
   kind = "fiction",
@@ -124,6 +125,35 @@ export default function TierListView({
       )}
 
       <TierLadder tierOrder={tier_order} itemsByTier={itemsByTier} />
+    </div>
+  );
+}
+
+/* ── TierList view (wrapper) ──────────────────────────────────────────────
+   Fiction / Nonfiction toggle only — no "All". Tier bands are computed within
+   a single track (fiction banded by WA percentiles per-year cohort, nonfiction
+   by Total Average), so a merged S–F ladder has no single well-defined basis.
+   Default is Fiction (seeded from ?type= on a redirect). */
+
+export default function TierListView({
+  fiction,
+  nonfiction,
+  initialType = "fiction",
+}: {
+  fiction: { allData: TiersResponse; byYear: Record<number, TiersResponse> };
+  nonfiction: { allData: TiersResponse };
+  initialType?: TypeScope;
+}) {
+  const [type, setType] = useState<TypeScope>(initialType === "nonfiction" ? "nonfiction" : "fiction");
+  const isNon = type === "nonfiction";
+  return (
+    <div>
+      <TypeToggle value={type} onChange={setType} includeAll={false} />
+      {isNon ? (
+        <TierListSingle allData={nonfiction.allData} byYear={{}} kind="nonfiction" />
+      ) : (
+        <TierListSingle allData={fiction.allData} byYear={fiction.byYear} kind="fiction" />
+      )}
     </div>
   );
 }

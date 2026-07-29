@@ -4,11 +4,12 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
 import type { BookMetadataPayload } from "@/lib/api";
-import type { BooksResponse, Book, CategoryComponents, BookKind } from "@/lib/types";
+import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { READONLY } from "@/lib/readonly";
-import { useSortable, SortableTh } from "@/components/SortableTable";
+import { useSortable, SortableTable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
+import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -751,9 +752,13 @@ function SubTabs({
   );
 }
 
-/* ── Main rankings view ───────────────────────────────────────────────── */
+/* ── Per-type rankings (full table, one track) ────────────────────────────
+   The original single-track rankings view: genre + search filters, year tabs
+   (fiction), and the sortable table with the expand-to-edit panel. Unchanged
+   apart from dropping its own <h1> — the wrapper below now owns the page title
+   and the type toggle. */
 
-export default function RankingsView({
+function PerTypeRankings({
   data,
   kind = "fiction",
 }: {
@@ -823,18 +828,10 @@ export default function RankingsView({
 
   return (
     <div>
-      {/* Page header */}
-      <div className="mb-6">
-        <h1
-          className="font-display text-3xl font-bold leading-tight"
-          style={{ color: "var(--color-ink)" }}
-        >
-          Rankings
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {books.length} books rated · click a column header to sort · click a row to expand scores
-        </p>
-      </div>
+      {/* Filters summary — the page title + type toggle live in the wrapper. */}
+      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
+        {books.length} books rated · click a column header to sort · click a row to expand scores
+      </p>
 
       {/* Year sub-tabs (fiction only — nonfiction books have no year tabs) */}
       {kind === "fiction" && yearTabs.length > 0 && (
@@ -1060,6 +1057,83 @@ export default function RankingsView({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/* ── Combined (All) ranking — cross-type, by Total Average ─────────────────
+   Fiction and nonfiction WA use different formulas and scales, so the only
+   meaningful cross-type ordering is Total Average (the unweighted mean of the
+   category averages — the same 0–10 basis for both tracks). This reads the
+   backend-computed `combined_ranking` (the same payload the Stats page uses);
+   no derived math is reimplemented here. Columns are reduced because the two
+   tracks' per-category sets differ. */
+
+const COMBINED_COLS: ColDef<CombinedRankRow>[] = [
+  { key: "rank", label: "#", type: "numeric", getValue: (r) => r.rank, align: "left", autoRank: true, sortable: false },
+  { key: "title", label: "Book", type: "string", getValue: (r) => r.title, align: "left" },
+  { key: "author", label: "Author", type: "string", getValue: (r) => r.author, align: "left" },
+  {
+    key: "type", label: "Type", type: "string", getValue: (r) => r.type, align: "left",
+    formatter: (v) => (v === "nonfiction" ? "Nonfiction" : "Fiction"),
+  },
+  {
+    key: "total_average", label: "Total Avg", type: "numeric",
+    getValue: (r) => r.total_average ?? 0,
+    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
+  },
+  { key: "genre", label: "Genre", type: "string", getValue: (r) => r.genre, align: "left" },
+];
+
+function CombinedRankings({ rows }: { rows: CombinedRankRow[] }) {
+  return (
+    <div>
+      <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
+        {rows.length} books · fiction + nonfiction ranked by Total Average, the only score on the
+        same 0–10 scale for both tracks. Pick a single type to rank by WA with full category detail.
+      </p>
+      <SortableTable
+        columns={COMBINED_COLS}
+        data={rows}
+        defaultSort={{ key: "total_average", dir: "desc" }}
+        getRowKey={(r) => `${r.type}:${r.title}`}
+      />
+    </div>
+  );
+}
+
+/* ── Rankings view (wrapper) ──────────────────────────────────────────────
+   Owns the page title and the Fiction / Nonfiction / All type toggle. "All"
+   shows the cross-type Total-Average ranking; a single type shows the full
+   per-track table. Default is All (seeded from ?type= on a redirect). */
+
+export default function RankingsView({
+  fiction,
+  nonfiction,
+  combined,
+  initialType = "all",
+}: {
+  fiction: BooksResponse;
+  nonfiction: BooksResponse;
+  combined: CombinedRankRow[];
+  initialType?: TypeScope;
+}) {
+  const [type, setType] = useState<TypeScope>(initialType);
+  const isNon = type === "nonfiction";
+  return (
+    <div>
+      <h1
+        className="font-display text-3xl font-bold leading-tight mb-4"
+        style={{ color: "var(--color-ink)" }}
+      >
+        Rankings
+      </h1>
+      <TypeToggle value={type} onChange={setType} includeAll />
+      {type === "all" ? (
+        <CombinedRankings rows={combined} />
+      ) : (
+        <PerTypeRankings data={isNon ? nonfiction : fiction} kind={isNon ? "nonfiction" : "fiction"} />
+      )}
     </div>
   );
 }
