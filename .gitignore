@@ -39,3 +39,9 @@ validation/retest_ratings.db
 # Phase-3 Branch A: local isolated text cache. Durable committed record is
 # validation/book_descriptions.json (mirror) + book_embeddings.npy.
 validation/book_text.db
+
+# Claude Code local state — machine-specific settings (settings.local.json),
+# the preview launch config (launch.json), and transient agent worktrees under
+# .claude/worktrees/. None of it is shared; a stray worktree here was a source of
+# working-tree noise. Ignore the whole dir so it can't commingle into commits.
+.claude/
