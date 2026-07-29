@@ -61,6 +61,14 @@ NONFICTION_COMPONENT_DEFS = {
 }
 NONFICTION_COMPONENTS = list(NONFICTION_COMPONENT_DEFS)
 
+# Title-keyed research cache for nonfiction, mirroring the fiction richer-prompt
+# cache (rp.CACHE) but in its OWN namespace so the two never collide. Reuses the
+# fiction cache plumbing verbatim: rp.load_cache / rp.save_cache for the JSON file
+# (the warm seed) and rp.db_cache_get / rp.db_cache_put for the durable DB store
+# (survives Railway redeploys). Same standing rule as fiction: entries are never
+# auto-invalidated on a model switch — only an explicit force=True re-researches.
+NF_CACHE = "nonfiction_research_cache.json"
+
 
 def research_nonfiction_components(title, author, genre="Nonfiction",
                                    client=None, model=None):
@@ -93,6 +101,36 @@ book is to you. No prose, no markdown, just the JSON. Example shape:
     return scores, confidence
 
 
+def research_nonfiction_book(title, author, genre="Nonfiction", client=None,
+                             cache=None, force=False):
+    """Cached wrapper around research_nonfiction_components — the nonfiction analog
+    of research_predict.research_book. Returns (scores, confidence, from_cache).
+
+    On a miss it researches (one Opus call) and stores the entry in BOTH the given
+    in-memory `cache` (which the caller persists to the JSON file) and the durable
+    DB store, so a book scored once is free forever after — matching the fiction
+    Discover flow's cached/new behaviour. `force=True` skips both cache layers and
+    overwrites this one entry (a targeted refresh, never a purge)."""
+    client = client or rp.get_client()
+    if cache is None:
+        cache = {}
+    if not force:
+        # Exact-then-normalized file lookup, then the durable DB store on a file
+        # miss (warming the in-memory cache so the rest of this process reuses it).
+        e = rl.cache_lookup(cache, title)
+        if e is None:
+            e = rp.db_cache_get(NF_CACHE, title)
+            if e is not None:
+                cache[title] = e
+        if e is not None and "scores" in e:
+            return e["scores"], e.get("conf", "unknown"), True
+    scores, conf = research_nonfiction_components(title, author, genre, client=client)
+    entry = {"scores": scores, "conf": conf}
+    cache[title] = entry
+    rp.db_cache_put(NF_CACHE, title, entry)
+    return scores, conf, False
+
+
 def researched_nonfiction_wa(scores, data, genre="Nonfiction"):
     """Roll researched components up to (wa, total_average, category_averages)
     via the SAME nonfiction math the rated books use. `data` is
@@ -104,18 +142,30 @@ def researched_nonfiction_wa(scores, data, genre="Nonfiction"):
     return wa, total, cat_avgs
 
 
-def research_and_predict(title, author, genre="Nonfiction", data=None):
-    """Convenience: research the components, roll them up to WA/Total Average, and
-    report the predicted rank by Total Average. Makes one API call."""
+def research_and_predict(title, author, genre="Nonfiction", data=None,
+                         cache=None, client=None, force=False):
+    """Convenience: research the components (cached), roll them up to WA/Total
+    Average, and report the predicted rank by Total Average. One API call on a
+    cache miss, free on a hit.
+
+    Returns the roll-up plus `from_cache` and the grounding counts `n_author` /
+    `n_genre` (same-author / same-genre books in the rated nonfiction library) —
+    the fields the shared Predict UI expects. Pass `cache` (a dict from
+    rp.load_cache(NF_CACHE)) so the caller can persist file writes; when omitted an
+    ephemeral cache is used (the durable DB store still records the entry)."""
     data = data or ne.load_nonfiction_from_db()
     books = data[0]
-    scores, conf = research_nonfiction_components(title, author, genre)
+    scores, conf, from_cache = research_nonfiction_book(
+        title, author, genre, client=client, cache=cache, force=force)
     wa, total, cat_avgs = researched_nonfiction_wa(scores, data, genre)
     bt = ne.add_total_average(books)
     rank = int((bt["Total Average"] > total).sum() + 1)
+    n_author = int((books["Author"] == author).sum())
+    n_genre = int((books["Genre"] == genre).sum())
     return {"title": title, "author": author, "genre": genre,
             "scores": scores, "confidence": conf, "cat_avgs": cat_avgs,
             "wa": wa, "total_average": total, "rank": rank, "n": int(len(books)),
+            "from_cache": from_cache, "n_author": n_author, "n_genre": n_genre,
             "low_confidence": True}
 
 
@@ -140,11 +190,14 @@ def discover_nonfiction_candidates(request, n=8, client=None, model=None,
     avoid = {str(t).strip().lower() for t in (avoid_titles or ())}
 
     out, seen = [], set()
-    # Explicit single-book request -> guarantee it, bypassing the avoid set.
+    # Explicit single-book request -> guarantee it, bypassing the avoid set. Flag it
+    # `requested` so the UI pins it to the TOP of the candidate table (parity with
+    # the fiction generate_candidates "your pick").
     cls = rp._classify_request(request, client, model)
     if cls.get("is_single_book") and cls.get("title"):
         seen.add(cls["title"].lower())
-        out.append({"title": cls["title"], "author": cls.get("author", "")})
+        out.append({"title": cls["title"], "author": cls.get("author", ""),
+                    "genre": "Nonfiction", "requested": True})
 
     prompt = (
         f'Suggest {n} real, published NONFICTION books that match this request:\n'
@@ -165,7 +218,8 @@ def discover_nonfiction_candidates(request, n=8, client=None, model=None,
         k = t.lower()
         if t and k not in seen and k not in avoid:
             seen.add(k)
-            out.append({"title": t, "author": a})
+            out.append({"title": t, "author": a, "genre": "Nonfiction",
+                        "requested": False})
     return out[:n]
 
 
