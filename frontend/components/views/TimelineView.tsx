@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { TimelineResponse, TimelineRow, TimelineMonthRow, BookKind } from "@/lib/types";
+import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -332,7 +334,7 @@ function MonthlyTable({ months, categories }: { months: TimelineMonthRow[]; cate
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-export default function TimelineView({
+function TimelineSingle({
   data,
   kind = "fiction",
 }: {
@@ -429,6 +431,31 @@ export default function TimelineView({
           books have a read month.
         </p>
       )}
+    </div>
+  );
+}
+
+/* ── Timeline view (wrapper) ──────────────────────────────────────────────
+   Fiction / Nonfiction toggle only — no "All". The per-year / per-month tables
+   and charts use each track's own category schema and WA scale, and there is
+   no combined-timeline endpoint, so a merged view would mix scales or require
+   reimplementing the backend aggregation. Default is Fiction (from ?type=). */
+
+export default function TimelineView({
+  fiction,
+  nonfiction,
+  initialType = "fiction",
+}: {
+  fiction: TimelineResponse;
+  nonfiction: TimelineResponse;
+  initialType?: TypeScope;
+}) {
+  const [type, setType] = useState<TypeScope>(initialType === "nonfiction" ? "nonfiction" : "fiction");
+  const isNon = type === "nonfiction";
+  return (
+    <div>
+      <TypeToggle value={isNon ? "nonfiction" : "fiction"} onChange={setType} includeAll={false} />
+      <TimelineSingle data={isNon ? nonfiction : fiction} kind={isNon ? "nonfiction" : "fiction"} />
     </div>
   );
 }

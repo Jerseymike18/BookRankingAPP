@@ -27,30 +27,36 @@ type NavGroup =
   | { label: string; items: NavItem[] }            // dropdown section
   | { label: string; href: string };               // top-level direct link
 
-// Predict and Add a Book are write/compute flows — dropped on a read-only
-// deploy. Read Queue stays (it renders view-only). Their pages also guard
-// themselves so a direct URL shows the read-only notice.
-const PREDICTION_ITEMS: NavItem[] = READONLY
-  ? [{ href: "/read-queue", label: "Read Queue" }]
-  : [
-      { href: "/predict", label: "Predict" },
-      { href: "/read-queue", label: "Read Queue" },
-      { href: "/add-book", label: "Add a Book" },
-    ];
+// Explore — read-only-safe analytical views. Each of Tier List / Series /
+// Timeline carries its own in-page Fiction / Nonfiction toggle; Stats renders
+// combined + per-type, so it needs none.
+const EXPLORE_ITEMS: NavItem[] = [
+  { href: "/tier-list", label: "Tier List" },
+  { href: "/series", label: "Series" },
+  { href: "/timeline", label: "Timeline" },
+  { href: "/stats", label: "Stats" },
+];
 
-// "For Nerds" — the how-it-works and deep-diagnostics pages. All render read-only,
-// so they stay available on the public showcase too (not READONLY-gated).
+// Reading — the currently-reading view, the single de-duplicated Read Queue, and
+// (write-only) Add a Book. Currently Reading + Read Queue render view-only, so
+// they stay on the read-only build; Add a Book is dropped there (self-guards too).
+const READING_ITEMS: NavItem[] = [
+  { href: "/reading", label: "Currently Reading" },
+  { href: "/read-queue", label: "Read Queue" },
+  ...(READONLY ? [] : [{ href: "/add-book", label: "Add a Book" }]),
+];
+
+// "For Nerds" — how-it-works + deep diagnostics. Methodology / Track Record /
+// Calibration / Taste Lab all render read-only, so they stay on the public
+// showcase; the per-user / first-run features (Genre Weights, Tutorial) are
+// dropped there (each page self-guards with ComingSoon). Tutorial keeps a home
+// here now that it no longer has its own permanent nav slot. Delta Log is
+// intentionally gone from the nav entirely (the DeltaTracker layer is retired).
 const NERD_ITEMS: NavItem[] = [
   { href: "/methodology", label: "Methodology" },
   { href: "/track-record", label: "Track Record" },
   { href: "/calibration", label: "Calibration" },
-];
-
-const MORE_ITEMS: NavItem[] = [
   { href: "/analytics", label: "Taste Lab" },
-  { href: "/delta-log", label: "Delta Log" },
-  // Live-backend / per-user features — hidden on the read-only public build (each
-  // page also self-guards with ComingSoon).
   ...(READONLY
     ? []
     : [
@@ -60,40 +66,15 @@ const MORE_ITEMS: NavItem[] = [
 ];
 
 const sections: NavGroup[] = [
-  { label: "Stats", href: "/stats" },
-  {
-    label: "Fiction",
-    items: [
-      { href: "/fiction/rankings", label: "Rankings" },
-      { href: "/fiction/tier-list", label: "Tier List" },
-      { href: "/fiction/series", label: "Series" },
-      { href: "/fiction/timeline", label: "Timeline" },
-      { href: "/fiction/reading", label: "Reading" },
-    ],
-  },
-  {
-    label: "Nonfiction",
-    items: [
-      { href: "/nonfiction/rankings", label: "Rankings" },
-      { href: "/nonfiction/tier-list", label: "Tier List" },
-      { href: "/nonfiction/series", label: "Series" },
-      { href: "/nonfiction/timeline", label: "Timeline" },
-      { href: "/nonfiction/reading", label: "Reading" },
-      { href: "/nonfiction/read-queue", label: "Read Queue" },
-    ],
-  },
-  {
-    label: "Predictions",
-    items: PREDICTION_ITEMS,
-  },
-  {
-    label: "More",
-    items: MORE_ITEMS,
-  },
-  {
-    label: "For Nerds",
-    items: NERD_ITEMS,
-  },
+  // Rankings is the primary destination — a direct link; the Fiction /
+  // Nonfiction / All split lives in an in-page toggle on the page itself.
+  { label: "Rankings", href: "/rankings" },
+  { label: "Explore", items: EXPLORE_ITEMS },
+  { label: "Reading", items: READING_ITEMS },
+  // Predict is the primary write/compute action — a top-level link, dropped on
+  // the read-only build (the page also self-guards).
+  ...(READONLY ? [] : [{ label: "Predict", href: "/predict" }]),
+  { label: "For Nerds", items: NERD_ITEMS },
 ];
 
 function isDropdown(s: NavGroup): s is { label: string; items: NavItem[] } {

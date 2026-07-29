@@ -6,6 +6,7 @@ import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { seriesLabel } from "@/lib/format";
 import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
+import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -347,7 +348,7 @@ function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: Book
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-export default function ReadingView({
+function ReadingSingle({
   stats,
   status,
   kind = "fiction",
@@ -381,6 +382,34 @@ export default function ReadingView({
         <StatsTab stats={stats} kind={kind} books={books} />
       ) : (
         <StatusTab status={status} kind={kind} />
+      )}
+    </div>
+  );
+}
+
+/* ── Reading view (wrapper) ───────────────────────────────────────────────
+   Fiction / Nonfiction toggle only — no "All". Reading status (last read /
+   currently reading / reading next) is a per-track slot, and the combined
+   view lives on the Stats page. Default is Fiction (seeded from ?type=). */
+
+export default function ReadingView({
+  fiction,
+  nonfiction,
+  initialType = "fiction",
+}: {
+  fiction: { stats: ReadingStatsResponse; status: ReadingStatusResponse; books?: Book[] };
+  nonfiction: { stats: ReadingStatsResponse; status: ReadingStatusResponse };
+  initialType?: TypeScope;
+}) {
+  const [type, setType] = useState<TypeScope>(initialType === "nonfiction" ? "nonfiction" : "fiction");
+  const isNon = type === "nonfiction";
+  return (
+    <div>
+      <TypeToggle value={isNon ? "nonfiction" : "fiction"} onChange={setType} includeAll={false} />
+      {isNon ? (
+        <ReadingSingle stats={nonfiction.stats} status={nonfiction.status} kind="nonfiction" />
+      ) : (
+        <ReadingSingle stats={fiction.stats} status={fiction.status} kind="fiction" books={fiction.books} />
       )}
     </div>
   );
