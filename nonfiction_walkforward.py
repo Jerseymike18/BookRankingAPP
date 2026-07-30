@@ -31,11 +31,15 @@ import pandas as pd
 import nonfiction_engine as ne
 
 
-def leave_one_out(path="books.db", z=1.645):
+def leave_one_out(path="books.db", z=1.645, data=None):
     """One fold per finished nonfiction book: predict it from the other n-1 via the
     analog path, compare to its own rated WA / Total Average, and check whether the
-    actual WA falls inside the served +/- z*sd band. Returns a per-book DataFrame."""
-    books, gw, gcw = ne.load_nonfiction_from_db(path)
+    actual WA falls inside the served +/- z*sd band. Returns a per-book DataFrame.
+
+    ``data``: an optional preloaded (books, gw, gcw) tuple (e.g. a tenant's own
+    engine from the serving path) — when given, `path` is ignored. Falls back to
+    loading the default library from `path`."""
+    books, gw, gcw = data if data is not None else ne.load_nonfiction_from_db(path)
     cat_components = books.attrs.get("category_components", {})
     all_components = books.attrs.get("all_components", [])
 
@@ -72,6 +76,25 @@ def leave_one_out(path="books.db", z=1.645):
     out.attrs["components"] = list(all_components)
     out.attrs["categories"] = list(cat_components.keys())
     return out
+
+
+def interval_half_width(data=None, coverage=0.80, path="books.db"):
+    """DIRECTIONAL served-interval half-width for nonfiction: the empirical
+    ``coverage``-quantile of the leave-one-out |WA error| over the rated nonfiction
+    library. Returns (half_width, n_residuals), or (None, n) when n < 2.
+
+    This is a CONFORMAL (empirical-quantile) width, NOT a ±z·sd band, so it respects
+    the served-interval regression guard (CLAUDE.md: the conformal band is the only
+    served interval). It is deliberately NON-authoritative at n≈6 — it cannot be
+    coverage-validated, so the caller labels the served band "directional". Pure
+    math, zero API (leave_one_out never researches). Pass ``data`` = a preloaded
+    (books, gw, gcw) tuple to scope it to one tenant's own library."""
+    res = leave_one_out(path=path, data=data)
+    errs = res["err_WA"].abs().dropna().to_numpy()
+    n = int(errs.size)
+    if n < 2:
+        return None, n
+    return float(np.quantile(errs, coverage)), n
 
 
 def report(path="books.db"):

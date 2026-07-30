@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
 import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
 import { seriesLabel, componentLabel } from "@/lib/format";
@@ -21,6 +21,19 @@ const NF_CAT_ABBR: Record<string, string> = {
   Aesthetics: "Aes", Impact: "Impact",
 };
 
+/* ── Mood engine: 6 nonfiction moods, each a subset of the 12 components.
+ *    Parallels the fiction Read-Queue mood engine (ReadQueueClient MOOD_COMPONENTS),
+ *    but mapped to nonfiction's rubric. Dialing a mood up re-ranks the to-read list. ── */
+const NF_MOOD_COMPONENTS: Record<string, string[]> = {
+  Informative:         ["Informativeness", "Accuracy", "Evidence"],
+  Rigorous:            ["Argumentation", "Evidence", "Accuracy"],
+  "Thought-Provoking": ["Insights", "Thought-Provokingness", "Originality"],
+  Accessible:          ["Clarity", "Structure"],
+  "Well-Written":      ["Prose", "Voice"],
+  Entertaining:        ["Entertainment", "Voice"],
+};
+const NF_MOOD_NAMES = Object.keys(NF_MOOD_COMPONENTS);
+
 // Destructive-action red — the same value the fiction Read-Queue page uses; there
 // is no design token for it (see globals.css). Kept identical for consistency.
 const DANGER = "#c0392b";
@@ -31,6 +44,76 @@ function formatWords(words: number | null): string | null {
   if (words >= 1_000_000) return `${(words / 1_000_000).toFixed(1)}M`;
   if (words >= 1_000) return `${Math.round(words / 1_000)}K`;
   return `${words}`;
+}
+
+/** The directional prediction range "6.2–9.5", or null when no interval is present. */
+function formatInterval(rec: NonfictionRecommendation): string | null {
+  if (rec.wa_low == null || rec.wa_high == null) return null;
+  return `${rec.wa_low.toFixed(1)}–${rec.wa_high.toFixed(1)}`;
+}
+
+/** Weighted mean of a book's component scores over the active mood components
+ *  (weights from the mood sliders). Null when no mood is dialed up. Mirrors the
+ *  fiction moodScoreFor. */
+function moodScoreFor(rec: NonfictionRecommendation, active: Record<string, number>): number | null {
+  let num = 0;
+  let den = 0;
+  for (const [comp, wt] of Object.entries(active)) {
+    const v = rec.components[comp];
+    if (v !== null && v !== undefined && !Number.isNaN(v)) {
+      num += v * wt;
+      den += wt;
+    }
+  }
+  return den > 0 ? num / den : null;
+}
+
+/* ── Mood control (±, 0–5) — mirrors the fiction MoodInput ─────────────── */
+function MoodInput({ name, value, onChange }: { name: string; value: number; onChange: (v: number) => void }) {
+  const comps = NF_MOOD_COMPONENTS[name];
+  const active = value > 0;
+  return (
+    <div
+      className="rounded-xl p-3 flex flex-col gap-2"
+      style={{
+        background: active ? "var(--color-sage-light)" : "var(--color-surface)",
+        border: `1px solid ${active ? "var(--color-sage)" : "var(--color-rule)"}`,
+        transition: "background 150ms, border-color 150ms",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold leading-tight" style={{ color: active ? "var(--color-sage)" : "var(--color-ink)", fontFamily: "var(--font-display)" }}>
+          {name}
+        </span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => onChange(Math.max(0, value - 1))}
+            disabled={value === 0}
+            className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold leading-none disabled:opacity-30"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}
+            aria-label={`Decrease ${name}`}
+          >
+            −
+          </button>
+          <span className="w-5 text-center text-sm font-bold tabular-nums" style={{ color: active ? "var(--color-sage)" : "var(--color-muted)", fontFamily: "var(--font-display)" }}>
+            {value}
+          </span>
+          <button
+            onClick={() => onChange(Math.min(5, value + 1))}
+            disabled={value === 5}
+            className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold leading-none disabled:opacity-30"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}
+            aria-label={`Increase ${name}`}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      <p className="text-xs leading-tight" style={{ color: "var(--color-muted)" }}>
+        {comps.map((c) => componentLabel(c, "nonfiction")).join(" · ")}
+      </p>
+    </div>
+  );
 }
 
 /* ── Component scores (grouped by the 3 nonfiction categories) ─────────── */
@@ -68,13 +151,16 @@ function ComponentScores({ components }: { components: Record<string, number | n
 }
 
 /* ── Sort types ───────────────────────────────────────────────────────── */
-type NfSortField = "total" | "wa" | "Substance" | "Reasoning"
+type NfSortField = "mood" | "wa" | "upside" | "Substance" | "Reasoning"
   | "Exposition" | "Aesthetics" | "Impact";
 type SortDir = "desc" | "asc";
 
-function sortValue(rec: NonfictionRecommendation, field: NfSortField): number {
-  if (field === "total") return rec.total_average ?? -Infinity;
+function sortValue(rec: NonfictionRecommendation, moodScore: number | null, field: NfSortField): number {
+  if (field === "mood") return moodScore ?? -Infinity;
   if (field === "wa") return rec.wa ?? -Infinity;
+  // Upside = a realistic good outcome (~76th pct), not the range ceiling; falls
+  // back to the point WA. Mirrors the fiction read-queue upside sort.
+  if (field === "upside") return rec.upside ?? rec.wa ?? -Infinity;
   return (rec.category_avgs ?? {})[field] ?? 0;
 }
 
@@ -104,7 +190,7 @@ function SortHeader({
 }
 
 /* ── Expandable row panel ─────────────────────────────────────────────── */
-function RecExpandedPanel({ rec, onDelete }: { rec: NonfictionRecommendation; onDelete: () => void }) {
+function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecommendation; moodScore?: number | null; onDelete: () => void }) {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -113,11 +199,20 @@ function RecExpandedPanel({ rec, onDelete }: { rec: NonfictionRecommendation; on
     <div className="px-5 py-4 space-y-4" style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}>
       {/* Stats row */}
       <div className="flex flex-wrap gap-4 text-sm" style={{ color: "var(--color-muted)" }}>
-        {rec.total_average != null && (
-          <span>Total Avg: <strong style={{ color: "var(--color-ink)" }}>{rec.total_average.toFixed(2)}</strong></span>
-        )}
         {rec.wa != null && (
           <span>Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong></span>
+        )}
+        {formatInterval(rec) && (
+          <span>
+            Range: <strong style={{ color: "var(--color-ink)" }}>{formatInterval(rec)}</strong>
+            {rec.interval_label ? <span style={{ color: "var(--color-faint)" }}> ({rec.interval_label})</span> : null}
+          </span>
+        )}
+        {rec.upside != null && (
+          <span>Upside: <strong style={{ color: "var(--color-ink)" }}>{rec.upside.toFixed(2)}</strong></span>
+        )}
+        {moodScore != null && (
+          <span>Mood score: <strong style={{ color: "var(--color-sage)" }}>{moodScore.toFixed(2)}</strong></span>
         )}
         {rec.predicted_rank != null && (
           <span>Predicted rank: <strong style={{ color: "var(--color-ink)" }}>#{rec.predicted_rank}</strong></span>
@@ -242,8 +337,11 @@ function QueueExpandedPanel({ rec }: { rec: NonfictionRecommendation }) {
   return (
     <div className="px-5 py-4 space-y-4" style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}>
       <div className="flex flex-wrap gap-4 text-sm" style={{ color: "var(--color-muted)" }}>
-        {rec.total_average != null && (
-          <span>Total Avg: <strong style={{ color: "var(--color-ink)" }}>{rec.total_average.toFixed(2)}</strong></span>
+        {rec.wa != null && (
+          <span>Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong></span>
+        )}
+        {formatInterval(rec) && (
+          <span>Range: <strong style={{ color: "var(--color-ink)" }}>{formatInterval(rec)}</strong></span>
         )}
         {rec.predicted_rank != null && (
           <span>Predicted rank: <strong style={{ color: "var(--color-ink)" }}>#{rec.predicted_rank}</strong></span>
@@ -327,11 +425,11 @@ function QueueCard({
           </div>
         )}
 
-        {/* Total Avg inline (collapsed) */}
-        {rec && !isExpanded && rec.total_average != null && (
+        {/* Predicted WA inline (collapsed) */}
+        {rec && !isExpanded && rec.wa != null && (
           <div className="hidden sm:flex flex-col items-end flex-shrink-0 ml-1">
-            <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>{rec.total_average.toFixed(2)}</span>
-            <span className="text-xs" style={{ color: "var(--color-faint)" }}>total avg</span>
+            <span className="text-xs font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>{rec.wa.toFixed(2)}</span>
+            <span className="text-xs" style={{ color: "var(--color-faint)" }}>pred WA</span>
           </div>
         )}
 
@@ -554,9 +652,32 @@ export default function NonfictionReadQueueClient({
   const { recommendations } = data;
   const [deletedTitles, setDeletedTitles] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"list" | "queue">("list");
-  const [sortField, setSortField] = useState<NfSortField>("wa");
+  const [sortField, setSortField] = useState<NfSortField>("mood");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
+
+  /* Mood weights (0–5 each). Dial a mood up and the to-read list re-ranks to match;
+     all at 0 falls back to predicted-rank (WA) order. Mirrors the fiction read-queue. */
+  const [moodWeights, setMoodWeights] = useState<Record<string, number>>(
+    () => Object.fromEntries(NF_MOOD_NAMES.map((m) => [m, 0])),
+  );
+  const setMood = useCallback((name: string, v: number) => {
+    setMoodWeights((prev) => ({ ...prev, [name]: v }));
+  }, []);
+  const resetMoods = useCallback(() => {
+    setMoodWeights(Object.fromEntries(NF_MOOD_NAMES.map((m) => [m, 0])));
+  }, []);
+  // Aggregate the dialed moods down to per-component weights.
+  const active = useMemo(() => {
+    const impl: Record<string, number> = {};
+    for (const [mood, comps] of Object.entries(NF_MOOD_COMPONENTS)) {
+      const w = moodWeights[mood] ?? 0;
+      if (w <= 0) continue;
+      for (const c of comps) impl[c] = (impl[c] ?? 0) + w;
+    }
+    return impl;
+  }, [moodWeights]);
+  const hasMoods = Object.keys(active).length > 0;
 
   /* Filters */
   const [fGenre, setFGenre] = useState("All genres");
@@ -581,13 +702,20 @@ export default function NonfictionReadQueueClient({
     if (fType !== "Any") list = list.filter((r) => (fType === "Series" ? r.series.length > 0 : r.series.length === 0));
     if (fAuthor.trim()) { const q = fAuthor.trim().toLowerCase(); list = list.filter((r) => r.author.toLowerCase().includes(q)); }
     if (fKeyword.trim()) { const q = fKeyword.trim().toLowerCase(); list = list.filter((r) => r.keywords.toLowerCase().includes(q)); }
-    return list;
-  }, [recommendations, deletedTitles, fGenre, fLength, fType, fAuthor, fKeyword]);
+    // Attach a mood score (null when no mood is active) so sort + render can use it.
+    return list.map((r) => ({ rec: r, moodScore: hasMoods ? moodScoreFor(r, active) : null }));
+  }, [recommendations, deletedTitles, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
 
   const sortedResults = useMemo(() => {
     const mult = sortDir === "desc" ? -1 : 1;
-    return [...results].sort((a, b) => mult * (sortValue(a, sortField) - sortValue(b, sortField)));
-  }, [results, sortField, sortDir]);
+    return [...results].sort((a, b) => {
+      // Mood sort with no moods dialed up falls back to predicted-rank (WA) order.
+      if (sortField === "mood" && !hasMoods) {
+        return (a.rec.predicted_rank ?? Infinity) - (b.rec.predicted_rank ?? Infinity);
+      }
+      return mult * (sortValue(a.rec, a.moodScore, sortField) - sortValue(b.rec, b.moodScore, sortField));
+    });
+  }, [results, sortField, sortDir, hasMoods]);
 
   function handleSortClick(field: NfSortField) {
     if (field === sortField) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -632,6 +760,26 @@ export default function NonfictionReadQueueClient({
         </div>
       ) : tab === "list" ? (
         <>
+          {/* Mood — dial a mood up to re-rank the to-read list (mirrors fiction). */}
+          <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="font-display font-semibold text-lg" style={{ color: "var(--color-ink)" }}>Mood</h2>
+              {hasMoods && (
+                <button onClick={resetMoods} className="text-xs px-2 py-1 rounded-lg" style={{ color: "var(--color-muted)", background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}>
+                  Reset all
+                </button>
+              )}
+            </div>
+            <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
+              Dial up the moods you want — the list re-ranks to match. All at 0 falls back to predicted-rank order.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {NF_MOOD_NAMES.map((name) => (
+                <MoodInput key={name} name={name} value={moodWeights[name] ?? 0} onChange={(v) => setMood(name, v)} />
+              ))}
+            </div>
+          </section>
+
           {/* Filters */}
           <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
             <h2 className="font-display font-semibold text-lg mb-4" style={{ color: "var(--color-ink)" }}>Filters</h2>
@@ -668,7 +816,9 @@ export default function NonfictionReadQueueClient({
                 </div>
               </div>
               <span className="text-xs" style={{ color: "var(--color-muted)" }}>
-                click a column header to sort · click a row to expand
+                click a column header to sort · click a row to expand ·{" "}
+                <span title="A good outcome — roughly the 76th percentile, one you'd beat about 1 in 4 reads (not the range ceiling). Sorting by Upside surfaces under-rated picks.">Upside ≈ 76th-pct</span> ·{" "}
+                <span title="Small-sample directional band from the nonfiction leave-one-out residuals — the same width for every book and NOT yet calibrated (n≈6).">range is directional</span>
               </span>
             </div>
 
@@ -681,8 +831,11 @@ export default function NonfictionReadQueueClient({
                     <tr style={{ background: "var(--color-surface)" }}>
                       <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}>#</th>
                       <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}>Book</th>
-                      <SortHeader field="total" label="Total Avg" active={sortField === "total"} dir={sortDir} onClick={() => handleSortClick("total")} />
+                      {hasMoods && (
+                        <SortHeader field="mood" label="Mood" active={sortField === "mood"} dir={sortDir} onClick={() => handleSortClick("mood")} />
+                      )}
                       <SortHeader field="wa" label="Pred WA" active={sortField === "wa"} dir={sortDir} onClick={() => handleSortClick("wa")} />
+                      <SortHeader field="upside" label="Upside" active={sortField === "upside"} dir={sortDir} onClick={() => handleSortClick("upside")} />
                       {NF_CAT_ORDER.map((cat) => (
                         <SortHeader key={cat} field={cat} label={NF_CAT_ABBR[cat]} active={sortField === cat} dir={sortDir} onClick={() => handleSortClick(cat)} />
                       ))}
@@ -690,10 +843,10 @@ export default function NonfictionReadQueueClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedResults.map((rec, i) => {
+                    {sortedResults.map(({ rec, moodScore }, i) => {
                       const isExpanded = expandedTitle === rec.title;
                       const avgs = rec.category_avgs ?? {};
-                      const colCount = 5 + NF_CAT_ORDER.length;
+                      const colCount = 5 + NF_CAT_ORDER.length + (hasMoods ? 1 : 0);
                       return (
                         <React.Fragment key={rec.title}>
                           <tr
@@ -710,11 +863,19 @@ export default function NonfictionReadQueueClient({
                                 {rec.words ? <span style={{ color: "var(--color-faint)" }}> · {formatWords(rec.words)} words</span> : null}
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "total" ? "var(--color-sage)" : "var(--color-ink)", background: sortField === "total" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
-                              {rec.total_average != null ? rec.total_average.toFixed(2) : "—"}
+                            {hasMoods && (
+                              <td className="px-3 py-3 text-right font-semibold" style={{ color: sortField === "mood" ? "var(--color-sage)" : (moodScore !== null ? "var(--color-ink)" : "var(--color-faint)"), background: sortField === "mood" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                                {moodScore !== null ? moodScore.toFixed(2) : "—"}
+                              </td>
+                            )}
+                            <td className="px-3 py-3 text-right" style={{ color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortField === "wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                              <div>{rec.wa != null ? rec.wa.toFixed(2) : "—"}</div>
+                              {formatInterval(rec) && (
+                                <div className="text-xs" style={{ color: "var(--color-faint)" }}>{formatInterval(rec)}</div>
+                              )}
                             </td>
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "wa" ? "var(--color-sage)" : "var(--color-muted)", background: sortField === "wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
-                              {rec.wa != null ? rec.wa.toFixed(2) : "—"}
+                            <td className="px-3 py-3 text-right" style={{ color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"), background: sortField === "upside" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                              {rec.upside != null ? rec.upside.toFixed(2) : "—"}
                             </td>
                             {NF_CAT_ORDER.map((cat) => {
                               const val = avgs[cat] ?? 0;
@@ -732,6 +893,7 @@ export default function NonfictionReadQueueClient({
                               <td colSpan={colCount} style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}>
                                 <RecExpandedPanel
                                   rec={rec}
+                                  moodScore={moodScore}
                                   onDelete={() => {
                                     setDeletedTitles((prev) => new Set([...prev, rec.title]));
                                     setExpandedTitle(null);

@@ -75,10 +75,12 @@ try:
     import research_predict as _rp
     import research_layer as _rl
     import nonfiction_research as _nr
+    import nonfiction_walkforward as _nfw  # read-only LOO helper (nonfiction interval)
 except ImportError:
     _rp = None  # server starts fine; LLM endpoints return 503
     _rl = None
     _nr = None
+    _nfw = None
 
 # repredict_on_add pulls in the LLM research path (rp + hybrid); guarded the same
 # way so the server still starts when those deps are absent (feature just no-ops).
@@ -3043,10 +3045,24 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
 @app.get("/api/nonfiction/read-queue")
 def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Not-done nonfiction recommendations with components, category averages,
-    Total Average / WA (computed on read), and predicted rank by Total Average."""
+    predicted WA (computed on read), predicted rank by WA, and a DIRECTIONAL
+    prediction interval + upside (mirrors the fiction read-queue). The interval is a
+    small-sample CONFORMAL band (empirical P80 of the nonfiction leave-one-out |WA
+    error|), NOT a ±sd band, and is labeled directional — nonfiction has too few
+    rated books to calibrate it. Omitted when the library is too small to fit one."""
     books, gw, gcw = _get_nf_engine(user_id)
     bt = nfe.add_total_average(books)
-    rated_ta = bt["Total Average"].values
+    rated_wa = bt["WA"].values
+
+    # DIRECTIONAL served-interval half-width — one empirical-P80 width for the whole
+    # library (no author-density buckets at n≈6). Best-effort: any failure just omits
+    # the interval (a width is never invented). See nonfiction_walkforward.
+    hw, hw_n = None, 0
+    if _nfw is not None:
+        try:
+            hw, hw_n = _nfw.interval_half_width(data=(books, gw, gcw))
+        except Exception:
+            hw = None
 
     COMPONENTS = db_write.NONFICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -3065,7 +3081,7 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
         wa, cat_avgs = nfe.wa_from_components(comp_vals, genre or "Nonfiction", gw, gcw)
         present = [v for v in cat_avgs.values() if v == v]
         total = sum(present) / len(present) if present else float("nan")
-        result.append({
+        rec = {
             "title": (title or "").strip(),
             "author": (author or "").strip(),
             "genre": genre or "Nonfiction",
@@ -3079,10 +3095,18 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
             "category_avgs": {k: _clean(round(float(v), 4)) for k, v in cat_avgs.items()},
             "wa": _clean(round(float(wa), 4)) if wa == wa else None,
             "total_average": _clean(round(float(total), 4)) if total == total else None,
-            "predicted_rank": int((rated_ta > total).sum() + 1) if total == total else None,
-        })
-    result.sort(key=lambda b: (b["total_average"] is not None, b["total_average"] or 0.0),
-                reverse=True)
+            # Rank by WA (matches nfe.rank_table, the WA-primary nonfiction ranking).
+            "predicted_rank": int((rated_wa > wa).sum() + 1) if wa == wa else None,
+        }
+        # Directional interval + upside, centred on the predicted WA (0–10 clamped),
+        # only when a half-width was fit and the WA is real.
+        if hw is not None and wa == wa:
+            rec["wa_low"] = round(max(0.0, wa - hw), 4)
+            rec["wa_high"] = round(min(10.0, wa + hw), 4)
+            rec["upside"] = round(min(10.0, wa + UPSIDE_FRAC * hw), 4)
+            rec["interval_label"] = f"directional · n={hw_n}"
+        result.append(rec)
+    result.sort(key=lambda b: (b["wa"] is not None, b["wa"] or 0.0), reverse=True)
     return {"recommendations": result, "genres": []}
 
 
