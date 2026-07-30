@@ -186,15 +186,16 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 
 ## Pages (frontend/app/)
 
-Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` (fiction) · `stats` ·
+Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` ·
 `analytics` · `calibration` · `track-record` · `methodology` · `delta-log` · `weights`
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth),
-plus the `/` home. Fiction and nonfiction otherwise
-split into route groups: `fiction/{rankings, tier-list, series, reading, timeline}` and
-`nonfiction/{rankings, tier-list, series, reading, timeline, read-queue}`, sharing view
-components in `components/views/*View.tsx` (kind-param). Nav lives in `components/Nav.tsx`; API
-calls in `lib/api.ts` (static-mode via `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`;
-read-only gating in `lib/readonly.ts`.
+plus the `/` home. The former fiction/nonfiction route split was collapsed into a
+single set of top-level pages — `rankings`, `tier-list`, `series`, `reading`, and
+`timeline` — each with an in-page fiction/nonfiction type toggle that swaps the
+kind-parametrized view components in `components/views/*View.tsx`. Nav lives in
+`components/Nav.tsx`; API calls in `lib/api.ts` (static-mode via
+`NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
+`lib/readonly.ts`.
 
 ## Working rhythm
 
