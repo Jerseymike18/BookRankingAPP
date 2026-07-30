@@ -7,8 +7,8 @@
       "total_words": 25810553
     },
     "nonfiction": {
-      "avg_total_average": 7.21,
-      "avg_wa": 7.15,
+      "avg_total_average": 7.23,
+      "avg_wa": 7.18,
       "books": 6,
       "total_words": 0
     }
@@ -798,9 +798,18 @@
       "wa": 7.6313
     },
     {
+      "author": "Augustine",
+      "genre": "Nonfiction",
+      "rank": 88,
+      "title": "Confessions",
+      "total_average": 7.3958,
+      "type": "nonfiction",
+      "wa": 7.3782
+    },
+    {
       "author": "Tom Stoppard",
       "genre": "Classical Drama",
-      "rank": 88,
+      "rank": 89,
       "title": "Rosencrantz and Guildenstern are Dead",
       "total_average": 7.3792,
       "type": "fiction",
@@ -809,7 +818,7 @@
     {
       "author": "Robert Jordan",
       "genre": "Epic Fantasy",
-      "rank": 89,
+      "rank": 90,
       "title": "The Eye of the World",
       "total_average": 7.3538,
       "type": "fiction",
@@ -818,7 +827,7 @@
     {
       "author": "Matt Dinniman",
       "genre": "Science Fantasy",
-      "rank": 90,
+      "rank": 91,
       "title": "The Eye of the Bedlam Bride",
       "total_average": 7.3383,
       "type": "fiction",
@@ -827,7 +836,7 @@
     {
       "author": "Brandon Sanderson",
       "genre": "Literary Fantasy",
-      "rank": 91,
+      "rank": 92,
       "title": "Elantris",
       "total_average": 7.3117,
       "type": "fiction",
@@ -836,20 +845,11 @@
     {
       "author": "Jules Verne",
       "genre": "Science Fiction (Hard)",
-      "rank": 92,
+      "rank": 93,
       "title": "Twenty Thousand Leagues Under the Sea",
       "total_average": 7.2958,
       "type": "fiction",
       "wa": 6.9988
-    },
-    {
-      "author": "Augustine",
-      "genre": "Nonfiction",
-      "rank": 93,
-      "title": "Confessions",
-      "total_average": 7.2583,
-      "type": "nonfiction",
-      "wa": 7.2118
     },
     {
       "author": "Matt Dinniman",

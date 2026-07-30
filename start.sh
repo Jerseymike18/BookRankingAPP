@@ -20,7 +20,11 @@ python3 -m uvicorn backend.main:app --host "$API_HOST" --port $BACKEND_PORT --re
 BACKEND_PID=$!
 
 echo "▸ Starting Next.js frontend on :$FRONTEND_PORT …"
-(cd frontend && npm run dev) &
+# Point the browser at the backend over IPv4 (127.0.0.1). "localhost" resolves to
+# IPv6 ::1 first on macOS, where uvicorn (bound to 127.0.0.1 above) is NOT listening,
+# so client-side fetches to localhost:8000 fail with "Failed to fetch". Forcing
+# 127.0.0.1 here fixes writes without touching the loopback-only bind.
+(cd frontend && NEXT_PUBLIC_API_URL="http://127.0.0.1:$BACKEND_PORT" npm run dev) &
 FRONTEND_PID=$!
 
 # Silent auto-publish: book edits made in the app are committed + pushed to the
@@ -39,6 +43,21 @@ echo "  Frontend → http://localhost:$FRONTEND_PORT/rankings"
 echo "  API      → http://localhost:$BACKEND_PORT/api/books"
 echo ""
 echo "Press Ctrl-C to stop."
+
+# Open the app in your default browser once the frontend is actually responding
+# (Next needs a few seconds to compile first). macOS only (`open`); skips silently
+# elsewhere, and opt out with `OPEN=0 bash start.sh`.
+if [ "${OPEN:-1}" != "0" ] && command -v open >/dev/null 2>&1; then
+  (
+    for _ in $(seq 1 60); do
+      if curl -sf -o /dev/null "http://127.0.0.1:$FRONTEND_PORT" 2>/dev/null; then
+        open "http://localhost:$FRONTEND_PORT/"
+        break
+      fi
+      sleep 1
+    done
+  ) &
+fi
 
 cleanup() {
   kill "$BACKEND_PID" "$FRONTEND_PID" ${AUTO_PID:+"$AUTO_PID"} 2>/dev/null || true

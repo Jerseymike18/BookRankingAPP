@@ -28,8 +28,10 @@ rather than typing them into prose, so a future engine commit that changes a
 weight, a K constant, or the served model cannot silently make the page lie.
 The page's *concepts* are hand-written prose; only the drift-prone *numbers* come
 from here. The validation baselines (walk-forward MAE, measured interval
-coverage) are deliberately NOT duplicated here — the page reuses
-``track-record.json`` for those so the two public pages can never disagree.
+coverage) are deliberately NOT duplicated here — the Methodology page reads
+them separately from ``/api/engine-validation`` (reference-library walk-forward),
+which is decoupled from ``/api/track-record`` (now personal, per-user) by
+design so a change to one payload can't silently redefine the other.
 
 Consumed by backend ``GET /api/engine-parameters`` (tenant-scoped via the auth
 dependency) and snapshotted (deterministically, as the default user) to

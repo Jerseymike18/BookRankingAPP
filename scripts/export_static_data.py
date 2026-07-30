@@ -101,10 +101,19 @@ SIMPLE_ENDPOINTS: list[tuple[str, str, bool]] = [
     ("/api/delta-log", "delta-log.json", False),
     ("/api/calibration/health", "calibration-health.json", False),
     ("/api/calibration/researcher-comparison", "calibration-researcher-comparison.json", True),
-    # Public walk-forward track record. allow_404: absent until walkforward.py
-    # has produced validation/*; the endpoint reads only committed files (never
-    # runs the harness) and its payload is deterministic per commit.
+    # Personal (per-user) Track Record for the public showcase. Snapshot runs
+    # as the default user (AUTH_ENABLED off), so this is the seed user's
+    # predicted-vs-actual history from their own delta_log — no walk-forward
+    # artifact reads. allow_404: legitimately absent when a reader has fewer
+    # than track_record.MIN_TRACK_RECORD finished predictions (empty install).
+    # Deterministic (no timestamps/HEAD) — pure function of the DB.
     ("/api/track-record", "track-record.json", True),
+    # Engine-wide walk-forward validation (reference library). Feeds the
+    # Methodology page's "Does it actually work?" / "Validation" sections.
+    # allow_404: absent until walkforward.py has produced validation/*; the
+    # endpoint reads only committed files (never runs the harness) and its
+    # payload is deterministic per commit.
+    ("/api/engine-validation", "engine-validation.json", True),
     # Live engine parameters for the public "How the Engine Works" page: schema +
     # weights (books.db) and served shrinkage/interval/model constants (read off
     # the engine modules). Always builds from the DB, so it never legitimately

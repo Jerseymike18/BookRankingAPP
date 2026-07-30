@@ -142,7 +142,7 @@
         "Exposition": null,
         "Impact": 8.32,
         "Reasoning": 7.1,
-        "Substance": 5.9
+        "Substance": 6.3714
       },
       "components": {
         "Aesthetics": {
@@ -163,7 +163,7 @@
           "Evidence": null
         },
         "Substance": {
-          "Accuracy": null,
+          "Accuracy": 7.0,
           "Informativeness": 5.9,
           "Originality": null
         }
@@ -174,8 +174,8 @@
       "series_number": null,
       "tier": "C",
       "title": "Confessions",
-      "total_average": 7.2583,
-      "wa": 7.2118,
+      "total_average": 7.3958,
+      "wa": 7.3782,
       "words": null,
       "year": 2025,
       "year_read": 2025
