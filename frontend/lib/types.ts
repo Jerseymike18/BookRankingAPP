@@ -245,6 +245,13 @@ export interface NonfictionRecommendation {
   wa: number | null;
   total_average: number | null;
   predicted_rank: number | null;
+  // DIRECTIONAL 80% band + upside around the predicted WA (mirrors the fiction
+  // Recommendation fields). Small-sample conformal — labeled directional — and
+  // omitted when the nonfiction library is too small to fit one.
+  wa_low?: number;
+  wa_high?: number;
+  upside?: number;
+  interval_label?: string;
 }
 
 // Nonfiction read-queue payload — the not-done nonfiction TBR. Mirrors the fiction
