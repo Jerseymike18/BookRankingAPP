@@ -539,8 +539,8 @@
       "year_read": 2025
     },
     {
-      "abs_error": 0.2007,
-      "actual_wa": 8.4177,
+      "abs_error": 0.1647,
+      "actual_wa": 8.4537,
       "author": "Orson Scott Card",
       "genre": "Science Fiction (Hard)",
       "pool_size": 39,
@@ -548,7 +548,7 @@
       "predicted_wa": 8.6184,
       "series": "Ender's Game",
       "series_number": 1,
-      "signed_error": 0.2007,
+      "signed_error": 0.1647,
       "title": "Ender's Game",
       "year_read": 2025
     },
@@ -637,8 +637,8 @@
       "year_read": 2025
     },
     {
-      "abs_error": 0.5689,
-      "actual_wa": 9.2688,
+      "abs_error": 0.6291,
+      "actual_wa": 9.329,
       "author": "Michael Ende",
       "genre": "Literary Fantasy",
       "pool_size": 46,
@@ -646,7 +646,7 @@
       "predicted_wa": 8.6999,
       "series": "Standalone",
       "series_number": null,
-      "signed_error": -0.5689,
+      "signed_error": -0.6291,
       "title": "The Neverending Story",
       "year_read": 2025
     },
@@ -1071,8 +1071,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.4476,
-      "actual_wa": 9.3447,
+      "abs_error": 0.4262,
+      "actual_wa": 9.3233,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 77,
@@ -1080,13 +1080,13 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 2,
-      "signed_error": -0.4476,
+      "signed_error": -0.4262,
       "title": "Deadhouse Gates",
       "year_read": 2026
     },
     {
-      "abs_error": 0.377,
-      "actual_wa": 9.2741,
+      "abs_error": 0.3128,
+      "actual_wa": 9.2099,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 78,
@@ -1094,7 +1094,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 3,
-      "signed_error": -0.377,
+      "signed_error": -0.3128,
       "title": "Memories of Ice",
       "year_read": 2026
     },
@@ -1183,8 +1183,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.1643,
-      "actual_wa": 9.0614,
+      "abs_error": 0.2779,
+      "actual_wa": 9.1751,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 85,
@@ -1192,7 +1192,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 6,
-      "signed_error": -0.1643,
+      "signed_error": -0.2779,
       "title": "The Bonehunters",
       "year_read": 2026
     },
@@ -1253,8 +1253,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.8852,
-      "actual_wa": 9.7823,
+      "abs_error": 0.8604,
+      "actual_wa": 9.7576,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 90,
@@ -1262,7 +1262,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 8,
-      "signed_error": -0.8852,
+      "signed_error": -0.8604,
       "title": "Toll the Hounds",
       "year_read": 2026
     },
@@ -1281,8 +1281,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.6527,
-      "actual_wa": 8.0473,
+      "abs_error": 0.5972,
+      "actual_wa": 8.1028,
       "author": "Michael Ende",
       "genre": "Literary Fantasy",
       "pool_size": 92,
@@ -1290,7 +1290,7 @@
       "predicted_wa": 8.6999,
       "series": "Standalone",
       "series_number": null,
-      "signed_error": 0.6527,
+      "signed_error": 0.5972,
       "title": "Momo",
       "year_read": 2026
     },
@@ -1547,8 +1547,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.597,
-      "actual_wa": 8.971,
+      "abs_error": 0.5936,
+      "actual_wa": 8.9677,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 111,
@@ -1556,13 +1556,13 @@
       "predicted_wa": 8.374,
       "series": "Malazan: Book of the Fallen",
       "series_number": 9,
-      "signed_error": -0.597,
+      "signed_error": -0.5936,
       "title": "Dust of Dreams",
       "year_read": 2026
     },
     {
-      "abs_error": 0.1121,
-      "actual_wa": 9.542,
+      "abs_error": 0.1284,
+      "actual_wa": 9.5582,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 112,
@@ -1570,7 +1570,7 @@
       "predicted_wa": 9.4298,
       "series": "Malazan: Book of the Fallen",
       "series_number": 10,
-      "signed_error": -0.1121,
+      "signed_error": -0.1284,
       "title": "The Crippled God",
       "year_read": 2026
     },
@@ -1645,8 +1645,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.6165,
-      "actual_wa": 9.1914,
+      "abs_error": 0.666,
+      "actual_wa": 9.2409,
       "author": "Dan Simmons",
       "genre": "Science Fiction (Hard)",
       "pool_size": 118,
@@ -1654,7 +1654,7 @@
       "predicted_wa": 8.5749,
       "series": "Hyperion Cantos",
       "series_number": 1,
-      "signed_error": -0.6165,
+      "signed_error": -0.666,
       "title": "Hyperion",
       "year_read": 2026
     },
@@ -1687,8 +1687,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.1395,
-      "actual_wa": 9.3385,
+      "abs_error": 0.1837,
+      "actual_wa": 9.0153,
       "author": "Dan Simmons",
       "genre": "Science Fiction (Hard)",
       "pool_size": 121,
@@ -1696,7 +1696,7 @@
       "predicted_wa": 9.199,
       "series": "Hyperion Cantos",
       "series_number": 2,
-      "signed_error": -0.1395,
+      "signed_error": 0.1837,
       "title": "The Fall of Hyperion",
       "year_read": 2026
     },
@@ -1801,9 +1801,9 @@
   ],
   "headline": {
     "n_books": 128,
-    "naive_wa_mae": 0.9164,
-    "raw_wa_mae": 0.6476,
-    "wa_mae": 0.5308
+    "naive_wa_mae": 0.9157,
+    "raw_wa_mae": 0.6457,
+    "wa_mae": 0.5314
   },
   "interval_coverage": {
     "served_conformal": {
@@ -1822,15 +1822,15 @@
     },
     {
       "genre": "Science Fiction (Hard)",
-      "honest_mae": 0.716,
+      "honest_mae": 0.7198,
       "n": 15,
-      "raw_mae": 0.7458
+      "raw_mae": 0.7303
     },
     {
       "genre": "Literary Fantasy",
-      "honest_mae": 0.6615,
+      "honest_mae": 0.6619,
       "n": 13,
-      "raw_mae": 0.8379
+      "raw_mae": 0.8358
     },
     {
       "genre": "Science Fiction (Soft)",
@@ -1840,9 +1840,9 @@
     },
     {
       "genre": "Epic Fantasy",
-      "honest_mae": 0.5107,
+      "honest_mae": 0.511,
       "n": 53,
-      "raw_mae": 0.6195
+      "raw_mae": 0.6198
     },
     {
       "genre": "Classical Epic",

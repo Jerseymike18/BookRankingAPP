@@ -3544,6 +3544,30 @@ def get_track_record(user_id: str = Depends(auth.get_current_user_id)):
         entries, finished, db_write.DELTA_BACKFILL_MARKER, read_order=read_order)
     visible = tr.enrich_missing_meta(visible, entries)
 
+    # Attach each finished book's CURRENT WA to the meta the builder consumes.
+    # The engine's books DataFrame is recomputed live from the reader's current
+    # component ratings + weights, so this is what THEIR score is right now —
+    # not the delta_log's frozen act_wa (which drifts when they edit ratings
+    # after finishing the book). The builder prefers current_wa as "actual"
+    # and only falls back to act_wa when current_wa is missing.
+    try:
+        eng_books, _gw, _gcw, _c, _r2, _rsd, _gi, _up = _get_engine(user_id)
+        for _, row in eng_books.iterrows():
+            k = str(row.get("Book") or "").strip().lower()
+            if not k:
+                continue
+            try:
+                wa = float(row["WA"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            book_meta.setdefault(k, {})["current_wa"] = wa
+    except Exception:
+        # Never let an engine-build failure hide the Track Record; the builder
+        # transparently falls back to delta_log's frozen act_wa if current_wa
+        # is absent, so the page still renders (with slight staleness on
+        # books whose ratings were edited after finishing).
+        pass
+
     payload = tr.build_track_record(
         visible, read_order, residuals=_RESIDUALS, book_meta=book_meta,
     )

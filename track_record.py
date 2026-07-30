@@ -146,8 +146,14 @@ def build_track_record(rows, read_order, residuals=None,
       residuals: the loaded calibration/residuals.json (or None). Used to
         compute served-band coverage on this user's rows.
       book_meta: optional {normalized-title: {"genre", "author", "series",
-        "series_number", "year_read"}} from the tenant's books table, used
-        as a fallback when a delta_log row is missing pred_genre etc.
+        "series_number", "year_read", "current_wa"}} from the tenant's
+        books table + engine. ``current_wa`` is the book's WA recomputed
+        live from its current component ratings + weights — it PREFERS this
+        over the delta_log's frozen ``act_wa`` when present, so the "actual"
+        surfaced on the scatter/rolling curve reflects the reader's current
+        rating (they may have edited it after the book was first marked
+        finished). Other keys are used as fallbacks when a delta_log row
+        is missing pred_genre etc.
       min_books: threshold below which the endpoint reports "not enough
         yet" (returns None). Defaults to MIN_TRACK_RECORD.
 
@@ -161,16 +167,24 @@ def build_track_record(rows, read_order, residuals=None,
         return (t or "").strip().lower()
 
     # Keep only rows with a numeric pred/actual pair — those are the ones we
-    # can grade. Everything else falls out silently (no exceptions).
+    # can grade. Everything else falls out silently (no exceptions). The
+    # "actual" preferred is the reader's CURRENT WA (recomputed live from
+    # their current components + weights) — the delta_log's frozen act_wa
+    # is only used as a fallback for books whose current-WA lookup fails
+    # (e.g. a renamed/removed row still present in the log).
     cleaned = []
     for r in rows or []:
         try:
             pred = float(r["pred_wa"])
-            act = float(r["act_wa"])
         except (TypeError, ValueError, KeyError):
             continue
         key = _norm(r.get("title"))
         meta = book_meta.get(key, {})
+        cur = meta.get("current_wa")
+        try:
+            act = float(cur) if cur is not None else float(r["act_wa"])
+        except (TypeError, ValueError, KeyError):
+            continue
         cleaned.append({
             **r,
             "_key": key,
@@ -366,6 +380,18 @@ if __name__ == "__main__":  # quick manual smoke test against the seed user
             read_order[key] = (int(yr) * 100 + (int(mo) if mo else 0)) * 1_000_000 \
                 + (int(seq) if seq else 0)
     con.close()
+
+    # Current WA per finished book (from the engine, recomputed live) — the
+    # actual score the builder should show on the scatter.
+    import db_loader as _dl
+    books_df, _gw, _gcw = _dl.load_from_db("books.db", user_id=db_backend.DEFAULT_USER_ID)
+    for _, row in books_df.iterrows():
+        k = str(row.get("Book") or "").strip().lower()
+        try:
+            wa = float(row["WA"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        book_meta.setdefault(k, {})["current_wa"] = wa
 
     visible = delta_log_view.visible_rows(
         entries, finished, db_write.DELTA_BACKFILL_MARKER, read_order=read_order)
