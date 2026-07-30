@@ -291,8 +291,13 @@ def _get_engine(user_id=None) -> tuple:
 
 
 def _invalidate_engine(user_id=None) -> None:
+    # LAZY (P2): drop the tenant's cached engine + derived caches so the NEXT read
+    # rebuilds from the just-committed DB — instead of rebuilding synchronously in
+    # the write request path. A burst of writes then costs ONE rebuild (on the next
+    # read), not one per write. The rebuild is deterministic, so read-after-write is
+    # correct. Startup warms the seed explicitly via _get_engine() (see lifespan).
     uid = _uid(user_id)
-    _engine_cache[uid] = _build_engine_for(uid)
+    _engine_cache.pop(uid, None)
     _cold_term_cache.pop(uid, None)          # refit the cold-start term on next read
     _engine_epoch[uid] = _engine_epoch.get(uid, 0) + 1   # stale-keys _corr_statics
     _corr_statics_cache.pop(uid, None)
@@ -317,8 +322,9 @@ def _get_nf_engine(user_id=None) -> tuple:
 
 
 def _invalidate_nf_engine(user_id=None) -> None:
+    # LAZY (P2), mirroring _invalidate_engine: drop → rebuild on next nonfiction read.
     uid = _uid(user_id)
-    _nf_engine_cache[uid] = _load_nf(uid)
+    _nf_engine_cache.pop(uid, None)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -506,7 +512,7 @@ def _corr_statics(user_id, corr_pool):
 
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
-    _invalidate_engine()  # warm cache at startup
+    _get_engine()  # warm the seed engine at startup (build + cache; invalidate is now lazy)
     yield
 
 
