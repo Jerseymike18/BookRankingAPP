@@ -49,8 +49,8 @@ os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, AfterValidator
+from typing import Optional, Annotated
 
 import pandas as pd
 import db_loader
@@ -784,9 +784,10 @@ def get_books(user_id: str = Depends(auth.get_current_user_id)):
 
 
 @app.get("/api/genres")
-def get_genres():
-    """Distinct genres in the rated library."""
-    books = _get_engine()[0]
+def get_genres(user_id: str = Depends(auth.get_current_user_id)):
+    """Distinct genres in the CALLER's rated library. Auth-gated + tenant-scoped
+    (S2): it was unauthenticated and served the seed library's genres to anyone."""
+    books = _get_engine(user_id)[0]
     return sorted(books["Genre"].dropna().unique().tolist())
 
 
@@ -1330,9 +1331,30 @@ def edit_recommendation_metadata(title: str, req: BookMetadataRequest,
     return {"ok": True, "message": f"Updated metadata for “{title}”."}
 
 
+# ── Input hygiene for user-typed text bound for LLM prompts / cache keys (S3) ──
+# Strip control characters and cap length before a title/author/free-text query
+# reaches an LLM prompt or a cache key: this bounds the prompt-injection and
+# token-waste surface. NOT a complete injection defense on its own — the engine
+# also clamps its numeric outputs to [0,10] — but it removes the structural-break
+# vectors (newlines/control chars) and unbounded payloads. Idempotent: a normal
+# title, an accented or non-Latin title, and an author name are returned
+# unchanged; None is preserved for Optional fields. Applied at the Pydantic layer
+# (below) so every LLM-facing request is sanitized at parse time — no call site
+# can forget it. This normalizes inputs only; it never changes prediction math.
+def _sanitize_user_text(s, max_len=200):
+    if s is None:
+        return s
+    s = "".join(c if c.isprintable() else " " for c in str(s))
+    return " ".join(s.split())[:max_len]
+
+
+_CleanText = Annotated[str, AfterValidator(lambda v: _sanitize_user_text(v, 200))]
+_CleanQuery = Annotated[str, AfterValidator(lambda v: _sanitize_user_text(v, 500))]
+
+
 class LookupRequest(BaseModel):
-    title: str
-    author_hint: Optional[str] = None
+    title: _CleanText
+    author_hint: Optional[_CleanText] = None
 
 
 def _lookup_from_prediction(title: str, user_id: str) -> Optional[dict]:
@@ -1988,8 +2010,8 @@ def predict_instant(title: str, author: str, genre: str,
 
 
 class ResearchRequest(BaseModel):
-    title: str
-    author: str
+    title: _CleanText
+    author: _CleanText
     genre: Optional[str] = None   # None → auto-detect from the LLM
     grounded: bool = False        # False → fast memory scores; True → hybrid
                                   # (web-grounded) upgrade. Default is fast so the
@@ -2138,7 +2160,7 @@ def predict_research(req: ResearchRequest, request: Request,
 # ─────────────────────────────────────────────────────────────────────────────
 
 class DiscoverRequest(BaseModel):
-    request: str
+    request: _CleanQuery
     # Optional upper bound. When omitted, the LLM infers the count from the
     # request wording (e.g. "the 5 main books of X" → 5).
     max_candidates: Optional[int] = None
@@ -2207,8 +2229,8 @@ class SaveRecommendationRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class GenerateMetaRequest(BaseModel):
-    title: str
-    author: str
+    title: _CleanText
+    author: _CleanText
     genre: str
 
 
@@ -2901,8 +2923,8 @@ def set_nf_year(req: SetYearRequest,
 
 
 class NonfictionResearchRequest(BaseModel):
-    title: str
-    author: str
+    title: _CleanText
+    author: _CleanText
     genre: Optional[str] = None
     # Explicit no-cache refresh (parity with the fiction ResearchRequest.force):
     # skip both cache layers, re-research, and overwrite this one entry.
@@ -2964,7 +2986,7 @@ def predict_nf_research(req: NonfictionResearchRequest, request: Request,
 
 
 class NonfictionDiscoverRequest(BaseModel):
-    request: str
+    request: _CleanQuery
     n: Optional[int] = None
 
 
