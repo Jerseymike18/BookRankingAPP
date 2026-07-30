@@ -144,7 +144,13 @@ function PredScatter({ folds }: { folds: TrackRecordFold[] }) {
   const hi = Math.ceil(Math.max(...all) * 2) / 2;
   const xOf = (w: number) => padL + ((w - lo) / (hi - lo || 1)) * plotW;
   const yOf = (w: number) => padT + ((hi - w) / (hi - lo || 1)) * plotH;
-  const ticks = Array.from({ length: Math.round(hi - lo) + 1 }, (_, i) => lo + i).filter((v) => Number.isInteger(v));
+  // Integer tick labels inside [lo, hi]. Walking `lo + i` and then filtering
+  // isInteger dropped the whole tick set whenever lo landed on a half-integer
+  // (e.g. lo=2.5 → every generated tick was 2.5, 3.5, …); use ceil(lo) →
+  // floor(hi) so the tick set is always the integers actually inside the plot.
+  const tickLo = Math.ceil(lo);
+  const tickHi = Math.floor(hi);
+  const ticks = Array.from({ length: Math.max(0, tickHi - tickLo + 1) }, (_, i) => tickLo + i);
 
   return (
     <div ref={ref} style={{ position: "relative", maxWidth: 560, margin: "0 auto" }} onMouseLeave={hide}>
