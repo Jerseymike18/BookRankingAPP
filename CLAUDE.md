@@ -191,9 +191,18 @@ Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` 
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth) ·
 `directory` + `profile` + `u/[handle]` (public profiles — see below),
 plus the `/` home. The former fiction/nonfiction route split was collapsed into a
-single set of top-level pages — `rankings`, `tier-list`, `series`, `reading`, and
-`timeline` — each with an in-page fiction/nonfiction type toggle that swaps the
-kind-parametrized view components in `components/views/*View.tsx`. Nav lives in
+single set of top-level pages — `tier-list`, `series`, `reading`, and `timeline` —
+each with an in-page fiction/nonfiction type toggle that swaps the kind-parametrized
+view components in `components/views/*View.tsx`. **Rankings was merged into `stats`**
+(2026-07-31): `/stats` now leads with the summary dashboard (totals, tier distribution,
+books-per-year), then a "Rankings" section that embeds `RankingsView` (the same
+fiction/nonfiction/all toggle + full tables, including the cross-type leaderboard) via
+its `embedded` prop. `/rankings` — and the old `/fiction|/nonfiction/rankings` — now
+redirect to `/stats` (see `next.config.ts`), preserving `?type=`; `#rankings` jumps to
+the tables, and the top-level "Stats" nav link occupies the slot Rankings used to hold.
+The cross-type table ranks by **WA** (was Total Average); `StatsClient` renders its own
+copy only when `showRanking` is set — the merged page passes `false` so the leaderboard
+isn't duplicated, while the public-profile Stats tab keeps it. Nav lives in
 `components/Nav.tsx`; API calls in `lib/api.ts` (static-mode via
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
 `lib/readonly.ts`.
@@ -217,7 +226,9 @@ The intentional cross-tenant hole is exactly `_resolve_public_target` → 404 fo
 missing OR private handle (never confirms a private handle exists). Every route is
 auth-gated on the **viewer** + has its own viewer-keyed rate-limit bucket
 (`_RL_PROFILE`). The frontend reuses `RankingsView` / `TierListView` / the read-queue
-clients / `StatsClient` unchanged, forced read-only via `ReadOnlyProvider` +
+clients / `StatsClient` (`RankingsView` and `StatsClient` now take default-off
+`embedded` / `showRanking` props; the profile Stats tab's cross-type table sorts by
+WA), forced read-only via `ReadOnlyProvider` +
 `useReadOnly()` (`lib/readonly-context.tsx`) — a subtree override that ORs with the
 global `READONLY`, so every existing (unwrapped) page stays byte-identical.
 Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
