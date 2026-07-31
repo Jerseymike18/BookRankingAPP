@@ -1118,22 +1118,28 @@ export default function RankingsView({
   nonfiction,
   combined,
   initialType = "all",
+  embedded = false,
 }: {
   fiction: BooksResponse;
   nonfiction: BooksResponse;
   combined: CombinedRankRow[];
   initialType?: TypeScope;
+  // When true, drop the standalone "Rankings" <h1> — the host page (the merged
+  // /stats page) supplies its own section heading above this view.
+  embedded?: boolean;
 }) {
   const [type, setType] = useState<TypeScope>(initialType);
   const isNon = type === "nonfiction";
   return (
     <div>
-      <h1
-        className="font-display text-3xl font-bold leading-tight mb-4"
-        style={{ color: "var(--color-ink)" }}
-      >
-        Rankings
-      </h1>
+      {!embedded && (
+        <h1
+          className="font-display text-3xl font-bold leading-tight mb-4"
+          style={{ color: "var(--color-ink)" }}
+        >
+          Rankings
+        </h1>
+      )}
       <TypeToggle value={type} onChange={setType} includeAll />
       {type === "all" ? (
         <CombinedRankings rows={combined} />

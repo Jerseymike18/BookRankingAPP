@@ -45,8 +45,10 @@ const nextConfig: NextConfig = {
   // the old `/nonfiction/read-queue` folds in with ?type=nonfiction.
   async redirects() {
     return [
-      { source: "/fiction/rankings", destination: "/rankings?type=fiction", permanent: false },
-      { source: "/nonfiction/rankings", destination: "/rankings?type=nonfiction", permanent: false },
+      // Rankings folded into the merged Stats page; ?type= passes through.
+      { source: "/rankings", destination: "/stats", permanent: false },
+      { source: "/fiction/rankings", destination: "/stats?type=fiction", permanent: false },
+      { source: "/nonfiction/rankings", destination: "/stats?type=nonfiction", permanent: false },
       { source: "/fiction/tier-list", destination: "/tier-list?type=fiction", permanent: false },
       { source: "/nonfiction/tier-list", destination: "/tier-list?type=nonfiction", permanent: false },
       { source: "/fiction/series", destination: "/series?type=fiction", permanent: false },

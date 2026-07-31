@@ -28,13 +28,12 @@ type NavGroup =
   | { label: string; href: string };               // top-level direct link
 
 // Explore — read-only-safe analytical views. Each of Tier List / Series /
-// Timeline carries its own in-page Fiction / Nonfiction toggle; Stats renders
-// combined + per-type, so it needs none.
+// Timeline carries its own in-page Fiction / Nonfiction toggle. Stats — now the
+// merged Rankings + Stats page — is a top-level link below, not in this menu.
 const EXPLORE_ITEMS: NavItem[] = [
   { href: "/tier-list", label: "Tier List" },
   { href: "/series", label: "Series" },
   { href: "/timeline", label: "Timeline" },
-  { href: "/stats", label: "Stats" },
 ];
 
 // Reading — the currently-reading view, the single de-duplicated Read Queue, and
@@ -74,9 +73,11 @@ const COMMUNITY_ITEMS: NavItem[] = [
 ];
 
 const sections: NavGroup[] = [
-  // Rankings is the primary destination — a direct link; the Fiction /
-  // Nonfiction / All split lives in an in-page toggle on the page itself.
-  { label: "Rankings", href: "/rankings" },
+  // Stats is the primary destination — the merged Rankings + Stats page. It
+  // leads with the summary dashboard; the full Fiction / Nonfiction / All
+  // ranking tables (with the in-page type toggle) follow below. /rankings
+  // redirects here.
+  { label: "Stats", href: "/stats" },
   { label: "Explore", items: EXPLORE_ITEMS },
   { label: "Reading", items: READING_ITEMS },
   // Predict is the primary write/compute action — a top-level link, dropped on

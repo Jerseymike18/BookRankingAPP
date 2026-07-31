@@ -89,13 +89,22 @@ const RANK_COLS: ColDef<CombinedRankRow>[] = [
   { key: "author", label: "Author", type: "string", getValue: (r) => r.author, align: "left" },
   { key: "type", label: "Type", type: "string", getValue: (r) => r.type, align: "left",
     formatter: (v) => (v === "nonfiction" ? "Nonfiction" : "Fiction") },
+  { key: "wa", label: "WA", type: "numeric", getValue: (r) => r.wa ?? 0,
+    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
   { key: "total_average", label: "Total Avg", type: "numeric", getValue: (r) => r.total_average ?? 0,
     formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
-  { key: "wa", label: "WA", type: "numeric", getValue: (r) => r.wa ?? 0,
-    formatter: (v) => (v != null && v !== 0 ? Number(v).toFixed(2) : "—") },
 ];
 
-export default function StatsClient({ data }: { data: CombinedStatsResponse }) {
+export default function StatsClient({
+  data,
+  showRanking = true,
+}: {
+  data: CombinedStatsResponse;
+  // The cross-type "all books" table. On by default (the public-profile Stats
+  // tab keeps its own copy); the merged /stats page passes false because its
+  // Rankings section below already renders this leaderboard.
+  showRanking?: boolean;
+}) {
   const { totals, by_type, tier_distribution, per_year, combined_ranking } = data;
   const [typeFilter, setTypeFilter] = useState<"all" | BookKind>("all");
 
@@ -141,35 +150,41 @@ export default function StatsClient({ data }: { data: CombinedStatsResponse }) {
         </p>
       </div>
 
-      {/* Combined ranking by Total Average */}
-      <SectionHeading>All books · ranked by Total Average</SectionHeading>
-      <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
-        Total Average (the unweighted mean of category averages) is on the same 0–10 scale for both
-        types, so this cross-type ranking is by Total Average — not WA, whose formula and scale differ
-        between fiction and nonfiction.
-      </p>
-      <div className="flex gap-1 mb-4 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-        {TYPE_TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setTypeFilter(id)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{
-              background: typeFilter === id ? "var(--color-surface)" : "transparent",
-              color: typeFilter === id ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: typeFilter === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <SortableTable
-        columns={RANK_COLS}
-        data={ranking}
-        defaultSort={{ key: "total_average", dir: "desc" }}
-        getRowKey={(r) => `${r.type}:${r.title}`}
-      />
+      {/* Combined cross-type ranking (by WA). Suppressed on the merged /stats
+          page (showRanking={false}), where the Rankings section renders the same
+          leaderboard; shown standalone e.g. on the public-profile Stats tab. */}
+      {showRanking && (
+        <>
+          <SectionHeading>All books · ranked by WA</SectionHeading>
+          <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
+            Ranked by WA (the weighted score), which sits on the same 0–10 scale for both types.
+            Fiction and nonfiction weight their categories differently but share that basis; Total
+            Average is shown alongside.
+          </p>
+          <div className="flex gap-1 mb-4 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
+            {TYPE_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setTypeFilter(id)}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  background: typeFilter === id ? "var(--color-surface)" : "transparent",
+                  color: typeFilter === id ? "var(--color-sage)" : "var(--color-muted)",
+                  boxShadow: typeFilter === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <SortableTable
+            columns={RANK_COLS}
+            data={ranking}
+            defaultSort={{ key: "wa", dir: "desc" }}
+            getRowKey={(r) => `${r.type}:${r.title}`}
+          />
+        </>
+      )}
 
       {/* Books per year (combined) */}
       {per_year.length > 0 && (
