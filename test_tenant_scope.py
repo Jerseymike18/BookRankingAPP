@@ -88,6 +88,7 @@ def main():
     orig_cwd = os.getcwd()
     orig_db = db_write.DB
     orig_cold = bm.COLD_START_TERM_ENABLED
+    orig_rl = bm._RATE_LIMIT_ENABLED
     orig_get_client = _rp.get_client
     orig_research = _rp.research_book
     orig_load_cache = _rp.load_cache
@@ -113,6 +114,7 @@ def main():
                              allowed_genres=None, **kw:
                              (dict(SCORES), "test", "", "", genre, 100000, True))
         bm.COLD_START_TERM_ENABLED = False   # isolate the scope fix from the cold term
+        bm._RATE_LIMIT_ENABLED = False       # scope test drives the handler directly (no Request)
 
         def wipe():
             con = sqlite3.connect(tmpdb)
@@ -135,7 +137,9 @@ def main():
         def predict_as(uid, title="ZZScopeProbe", author="NobodyAuthor"):
             clear_caches()
             req = bm.ResearchRequest(title=title, author=author, genre=GENRE)
-            return bm.predict_research(req, user_id=uid, user_md={})
+            # request=None is safe: rate limiting is disabled above, so the handler
+            # never dereferences the FastAPI Request on this path.
+            return bm.predict_research(req, request=None, user_id=uid, user_md={})
 
         # ── Scenario ────────────────────────────────────────────────────────
         wipe()
@@ -173,6 +177,7 @@ def main():
         os.chdir(orig_cwd)
         db_write.DB = orig_db
         bm.COLD_START_TERM_ENABLED = orig_cold
+        bm._RATE_LIMIT_ENABLED = orig_rl
         _rp.get_client = orig_get_client
         _rp.research_book = orig_research
         _rp.load_cache = orig_load_cache
