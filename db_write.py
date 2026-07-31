@@ -34,6 +34,7 @@ functions from other scripts / the future website.
 """
 
 import os
+import re
 import json
 import math
 import shutil
@@ -295,6 +296,142 @@ def get_research_cache(cache_name, title_key):
         (cache_name, title_key)).fetchone()
     con.close()
     return json.loads(row[0]) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Public profiles (opt-in cross-user browse)
+# ---------------------------------------------------------------------------
+# A user CLAIMS a handle and chooses is_public; a public profile lets any signed-in
+# viewer read that user's rankings, reading queue, tier list and stats through the
+# read-only /api/users/{handle}/* routes. PRIVATE BY DEFAULT (is_public=0). This
+# table holds ONLY the handle / display-name / visibility metadata — never scores;
+# the viewed data is still read tenant-scoped from the owner's own rows, with the
+# owner's own weights. user_id is the PK, so a user has at most one profile; handle
+# is globally UNIQUE. There is no FK to auth.users (mirrors the *_weight_overrides
+# tables) so the DDL is portable across SQLite and Postgres.
+_profiles_ensured = False
+
+# Handles: lowercase a-z0-9_ , 3-30 chars. A small reserved set avoids handles that
+# would read as system/route names even though the frontend namespaces them under
+# /u/<handle> and the API under /api/users/<handle>.
+_HANDLE_RE = re.compile(r"^[a-z0-9_]{3,30}$")
+_RESERVED_HANDLES = {
+    "admin", "api", "directory", "profiles", "profile", "login", "logout",
+    "settings", "welcome", "me", "you", "u", "user", "users", "null", "undefined",
+}
+
+
+def _ensure_profiles():
+    global _profiles_ensured
+    if _profiles_ensured:
+        return
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS profiles (
+            user_id      TEXT NOT NULL PRIMARY KEY,
+            handle       TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            is_public    INTEGER NOT NULL DEFAULT 0,
+            created_at   TEXT,
+            updated_at   TEXT
+        )""")
+    con.commit()
+    con.close()
+    _profiles_ensured = True
+
+
+def _validate_handle(handle):
+    """Normalize + validate a handle. Returns the lowercased handle or raises
+    ValidationError. Pure (no DB) — uniqueness is checked separately in set_profile."""
+    h = str(handle or "").strip().lower()
+    if not _HANDLE_RE.match(h):
+        raise ValidationError(
+            "handle must be 3-30 characters of a-z, 0-9 or underscore")
+    if h in _RESERVED_HANDLES:
+        raise ValidationError(f"handle '{h}' is reserved")
+    return h
+
+
+def _profile_row(r):
+    if r is None:
+        return None
+    return {"user_id": r[0], "handle": r[1], "display_name": r[2],
+            "is_public": bool(r[3]), "created_at": r[4], "updated_at": r[5]}
+
+
+_PROFILE_COLS = "user_id,handle,display_name,is_public,created_at,updated_at"
+
+
+def get_profile_by_user(user_id):
+    """The caller's OWN profile dict, or None if they haven't claimed a handle."""
+    _ensure_profiles()
+    con = _connect()
+    r = con.execute(
+        f"SELECT {_PROFILE_COLS} FROM profiles WHERE user_id=?",
+        (user_id,)).fetchone()
+    con.close()
+    return _profile_row(r)
+
+
+def get_profile_by_handle(handle):
+    """Resolve a handle -> profile dict (of ANY visibility), or None. The caller is
+    responsible for enforcing is_public before serving another user's data — this
+    read deliberately does not gate, so the settings/own-profile path can find a
+    private profile too."""
+    _ensure_profiles()
+    h = str(handle or "").strip().lower()
+    con = _connect()
+    r = con.execute(
+        f"SELECT {_PROFILE_COLS} FROM profiles WHERE handle=?", (h,)).fetchone()
+    con.close()
+    return _profile_row(r)
+
+
+def list_public_profiles(limit=200, offset=0):
+    """Public-directory rows: every is_public=1 profile, handle-sorted. Read-only;
+    returns a list of profile dicts (metadata only — the caller enriches with book
+    counts etc. if the directory needs them)."""
+    _ensure_profiles()
+    con = _connect()
+    rows = con.execute(
+        f"SELECT {_PROFILE_COLS} FROM profiles WHERE is_public=1 "
+        "ORDER BY handle LIMIT ? OFFSET ?",
+        (int(limit), int(offset))).fetchall()
+    con.close()
+    return [_profile_row(r) for r in rows]
+
+
+def set_profile(user_id, handle, display_name=None, is_public=False):
+    """Claim/update the caller's public profile (upsert keyed on user_id — one
+    profile per user). Validates the handle and enforces GLOBAL handle uniqueness (a
+    handle owned by another user_id is refused). display_name is trimmed to 60 chars
+    (blank -> NULL). Returns the stored profile dict. Nothing commits on a validation
+    failure. This is a metadata write only — it never touches book scores."""
+    _ensure_profiles()
+    h = _validate_handle(handle)
+    dn = None if display_name is None else (str(display_name).strip()[:60] or None)
+    pub = 1 if is_public else 0
+    con = _connect()
+    try:
+        clash = con.execute(
+            "SELECT user_id FROM profiles WHERE handle=? AND user_id<>?",
+            (h, user_id)).fetchone()
+        if clash:
+            raise ValidationError(f"handle '{h}' is already taken")
+        _backup_once()
+        now = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        # created_at is intentionally left out of the UPDATE branch so it is
+        # preserved across edits; only updated_at moves.
+        con.execute(
+            f"INSERT INTO profiles ({_PROFILE_COLS}) VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT(user_id) DO UPDATE SET handle=excluded.handle, "
+            "display_name=excluded.display_name, is_public=excluded.is_public, "
+            "updated_at=excluded.updated_at",
+            (user_id, h, dn, pub, now, now))
+        con.commit()
+    finally:
+        con.close()
+    return get_profile_by_user(user_id)
 
 
 # ---------------------------------------------------------------------------

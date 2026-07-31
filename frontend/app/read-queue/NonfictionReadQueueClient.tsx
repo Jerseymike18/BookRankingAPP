@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useCallback } from "react";
 import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
 import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
 import { seriesLabel, componentLabel } from "@/lib/format";
-import { READONLY } from "@/lib/readonly";
+import { useReadOnly } from "@/lib/readonly-context";
 
 /* ── Nonfiction schema: 12 components across 5 categories (2026 redesign; mirrors
  *    nonfiction_engine.NONFICTION_CATEGORY_ORDER + the DB component→category map). ── */
@@ -191,6 +191,7 @@ function SortHeader({
 
 /* ── Expandable row panel ─────────────────────────────────────────────── */
 function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecommendation; moodScore?: number | null; onDelete: () => void }) {
+  const ro = useReadOnly();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -256,7 +257,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
       <ComponentScores components={rec.components} />
 
       {/* Remove (mutation — hidden on a read-only deploy) */}
-      {!READONLY && (
+      {!ro && (
         <div className="pt-2 border-t flex items-center gap-3" style={{ borderColor: "var(--color-rule)" }}>
           {!deleteConfirm ? (
             <button
@@ -649,6 +650,7 @@ export default function NonfictionReadQueueClient({
   data: NonfictionReadQueueResponse;
   initialQueue: string[];
 }) {
+  const ro = useReadOnly();
   const { recommendations } = data;
   const [deletedTitles, setDeletedTitles] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState<"list" | "queue">("list");
@@ -738,7 +740,7 @@ export default function NonfictionReadQueueClient({
 
       {/* Tab bar — the Queue tab is an editor, hidden on a read-only deploy. */}
       <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-        {(READONLY ? (["list"] as const) : (["list", "queue"] as const)).map((t) => (
+        {(ro ? (["list"] as const) : (["list", "queue"] as const)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -750,7 +752,7 @@ export default function NonfictionReadQueueClient({
         ))}
       </div>
 
-      {!READONLY && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
+      {!ro && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
       {tab === "list" && recommendations.length === 0 ? (
         <div className="text-center py-16 rounded-xl" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>

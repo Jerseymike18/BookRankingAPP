@@ -188,7 +188,8 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` ·
 `analytics` · `calibration` · `track-record` · `methodology` · `delta-log` · `weights`
-(per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth),
+(per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth) ·
+`directory` + `profile` + `u/[handle]` (public profiles — see below),
 plus the `/` home. The former fiction/nonfiction route split was collapsed into a
 single set of top-level pages — `rankings`, `tier-list`, `series`, `reading`, and
 `timeline` — each with an in-page fiction/nonfiction type toggle that swaps the
@@ -196,6 +197,30 @@ kind-parametrized view components in `components/views/*View.tsx`. Nav lives in
 `components/Nav.tsx`; API calls in `lib/api.ts` (static-mode via
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
 `lib/readonly.ts`.
+
+### Public profiles (opt-in cross-user browse)
+
+The one place the app reads **across the tenant boundary on purpose**: a signed-in
+viewer browses another reader's rankings / tier list / to-read queue / stats at
+`/u/<handle>`, discovered via `/directory`. Opt-in and **private by default** —
+claimed on `/profile`. Design (per the 2026-07-31 inspection): **app-layer only, no
+RLS** (the backend holds one pooled superuser DSN, so RLS would be bypassed anyway;
+tenant isolation is enforced by `WHERE user_id=?` everywhere). The identity/visibility
+metadata lives in a new `profiles` table (`user_id` PK, unique `handle`, `is_public`;
+self-healing migration + `db_write.set_profile`/`get_profile_by_handle`/
+`get_profile_by_user`/`list_public_profiles`). The cross-user endpoints
+(`GET /api/users/{handle}/{books,tiers,read-queue,stats}`, `GET /api/profiles/directory`,
+`GET/PUT /api/profile/me`) are **thin delegations** to the existing tenant-scoped
+handlers called with the *target's* `user_id` — so the viewer sees the owner's
+rankings on the **owner's own weights**, and no prediction math is reimplemented.
+The intentional cross-tenant hole is exactly `_resolve_public_target` → 404 for a
+missing OR private handle (never confirms a private handle exists). Every route is
+auth-gated on the **viewer** + has its own viewer-keyed rate-limit bucket
+(`_RL_PROFILE`). The frontend reuses `RankingsView` / `TierListView` / the read-queue
+clients / `StatsClient` unchanged, forced read-only via `ReadOnlyProvider` +
+`useReadOnly()` (`lib/readonly-context.tsx`) — a subtree override that ORs with the
+global `READONLY`, so every existing (unwrapped) page stays byte-identical.
+Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
 
 ## Working rhythm
 

@@ -207,6 +207,10 @@ class _LRUCache:
         with self._lock:
             return self._d.pop(key, default)
 
+    def clear(self):
+        with self._lock:
+            self._d.clear()
+
     def __contains__(self, key):
         with self._lock:
             return key in self._d
@@ -649,11 +653,17 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
 # a series fans out client-side into several calls) but cap runaway/abusive loops.
 _RL_LLM = dict(max_calls=40, window_s=60.0)
 _RL_SIGNUP = dict(max_calls=5, window_s=300.0)
+# Public-profile / cross-user browse (a NEW outside-facing read surface, so it
+# gets its own bucket even though the other data GETs are unthrottled). Keyed on
+# the VIEWER's user_id — a profile page load fans out into several endpoint calls,
+# so the budget is generous but caps a scraper enumerating other tenants.
+_RL_PROFILE = dict(max_calls=90, window_s=60.0)
 # GC tuning: sweep every N limiter calls; never prune an entry younger than the
 # largest window (else a sweep triggered by a short-window bucket would wrongly
 # expire a long-window bucket's entries).
 _RL_GC_EVERY = 500
-_RL_MAX_WINDOW = max(_RL_LLM["window_s"], _RL_SIGNUP["window_s"])
+_RL_MAX_WINDOW = max(_RL_LLM["window_s"], _RL_SIGNUP["window_s"],
+                     _RL_PROFILE["window_s"])
 
 
 def _clean(val):
@@ -3742,3 +3752,150 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
         "components": COMPS,
         "drift": drift,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC PROFILES — opt-in cross-user browse (rankings / queue / tiers / stats)
+# ─────────────────────────────────────────────────────────────────────────────
+# A deliberate, gated cross-tenant read path that coexists with the tenant
+# isolation enforced everywhere else. Every route here is AUTH-gated (the VIEWER
+# must be signed in — cross-user browse is a hosted-app feature, off the static
+# showcase). Identity has TWO parts on these routes: `viewer_id` from the verified
+# token (rate-limit principal + must-be-signed-in) and `target_uid` resolved from
+# the {handle}, gated by is_public. The intentional cross-tenant hole is EXACTLY
+# `_resolve_public_target` → target_uid: everything downstream reuses the existing
+# tenant-scoped handlers UNCHANGED, so a viewer sees the owner's own rankings
+# computed on the owner's OWN weights (never re-scored on the viewer's). No
+# prediction math is reimplemented; these are thin delegations.
+
+class ProfilePayload(BaseModel):
+    handle: str
+    display_name: Optional[str] = None
+    is_public: bool = False
+
+
+def _book_count(table: str, user_id: str) -> int:
+    """Cheap COUNT(*) for a tenant's rated library — used by the directory so it
+    doesn't have to warm every public tenant's full engine just to show a count.
+    `table` is a fixed literal ('books' / 'nonfiction_books'), never user input."""
+    con = db_backend.connect(db_write.DB)
+    try:
+        r = con.execute(
+            f"SELECT COUNT(*) FROM {table} WHERE user_id=?", (user_id,)).fetchone()
+    finally:
+        con.close()
+    return int(r[0]) if r and r[0] is not None else 0
+
+
+def _resolve_public_target(handle: str) -> str:
+    """Resolve a PUBLIC profile handle → its user_id, or raise 404. Returns 404
+    (never 403) for a missing OR private handle, so a private handle's existence is
+    never confirmed. This is the one intentional cross-tenant read; the caller has
+    already been authenticated + rate-limited as the viewer."""
+    prof = db_write.get_profile_by_handle(handle)
+    if prof is None or not prof["is_public"]:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    return prof["user_id"]
+
+
+def _cross_user_target(handle: str, request: Request, viewer_id: str) -> str:
+    """Rate-limit the VIEWER, then resolve the public target. Shared preamble for
+    every cross-user data route."""
+    _rate_limit(request, "profile", **_RL_PROFILE, user_id=viewer_id)
+    return _resolve_public_target(handle)
+
+
+# ── The viewer's OWN profile (settings: claim a handle, toggle public) ──
+@app.get("/api/profile/me")
+def get_my_profile(user_id: str = Depends(auth.get_current_user_id)):
+    """The caller's own profile ({handle, display_name, is_public, …}) or null if
+    they haven't claimed one yet."""
+    return db_write.get_profile_by_user(user_id)
+
+
+@app.put("/api/profile/me")
+def set_my_profile(payload: ProfilePayload,
+                   user_id: str = Depends(auth.get_current_user_id)):
+    """Claim/update the caller's public profile. Validates the handle + enforces
+    global uniqueness in db_write; a bad/taken handle → 400."""
+    try:
+        return db_write.set_profile(
+            user_id, payload.handle,
+            display_name=payload.display_name, is_public=payload.is_public)
+    except db_write.ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── Public directory (every is_public profile, with book counts) ──
+@app.get("/api/profiles/directory")
+def get_profiles_directory(request: Request,
+                           viewer_id: str = Depends(auth.get_current_user_id)):
+    """Browsable list of every public profile. Signed-in only; viewer-keyed rate
+    limit. Book counts come from a cheap COUNT (no engine warm-up per tenant)."""
+    _rate_limit(request, "profile", **_RL_PROFILE, user_id=viewer_id)
+    out = []
+    for p in db_write.list_public_profiles():
+        tuid = p["user_id"]
+        out.append({
+            "handle": p["handle"],
+            "display_name": p["display_name"],
+            "fiction_books": _book_count("books", tuid),
+            "nonfiction_books": _book_count("nonfiction_books", tuid),
+        })
+    return {"profiles": out}
+
+
+# ── One public profile's header (identity + counts) ──
+@app.get("/api/users/{handle}")
+def get_user_profile(handle: str, request: Request,
+                     viewer_id: str = Depends(auth.get_current_user_id)):
+    """Header for one public profile: handle, display name, and library sizes."""
+    tuid = _cross_user_target(handle, request, viewer_id)
+    prof = db_write.get_profile_by_handle(handle)
+    return {
+        "handle": prof["handle"],
+        "display_name": prof["display_name"],
+        "fiction_books": _book_count("books", tuid),
+        "nonfiction_books": _book_count("nonfiction_books", tuid),
+    }
+
+
+# ── Cross-user data: thin delegations to the existing tenant-scoped handlers,
+#    called with the TARGET's user_id. A `kind` query param selects the track. ──
+@app.get("/api/users/{handle}/books")
+def get_user_books(handle: str, request: Request, kind: str = "fiction",
+                   viewer_id: str = Depends(auth.get_current_user_id)):
+    tuid = _cross_user_target(handle, request, viewer_id)
+    return get_nf_books(user_id=tuid) if kind == "nonfiction" else get_books(user_id=tuid)
+
+
+@app.get("/api/users/{handle}/tiers")
+def get_user_tiers(handle: str, request: Request, kind: str = "fiction",
+                   year: Optional[int] = None,
+                   viewer_id: str = Depends(auth.get_current_user_id)):
+    tuid = _cross_user_target(handle, request, viewer_id)
+    if kind == "nonfiction":
+        return get_nf_tiers(user_id=tuid)   # nonfiction has no year filter
+    return get_tiers(year=year, user_id=tuid)
+
+
+@app.get("/api/users/{handle}/read-queue")
+def get_user_read_queue(handle: str, request: Request, kind: str = "fiction",
+                        viewer_id: str = Depends(auth.get_current_user_id)):
+    tuid = _cross_user_target(handle, request, viewer_id)
+    if kind == "nonfiction":
+        return get_nf_read_queue(user_id=tuid)
+    # user_md={}: the target's JWT preferences (word-count/fav-authors) aren't
+    # reachable cross-user. Data-rich targets use their FITTED cold-start term, so
+    # this is a no-op for them; a cold-start target just loses the preference nudge.
+    return get_read_queue(user_id=tuid, user_md={})
+
+
+@app.get("/api/users/{handle}/stats")
+def get_user_stats(handle: str, request: Request,
+                   viewer_id: str = Depends(auth.get_current_user_id)):
+    """Combined fiction+nonfiction stats for the target — the same payload the
+    owner's own /stats page uses (also carries combined_ranking for the profile's
+    'All' rankings toggle)."""
+    tuid = _cross_user_target(handle, request, viewer_id)
+    return get_combined_stats(user_id=tuid)
