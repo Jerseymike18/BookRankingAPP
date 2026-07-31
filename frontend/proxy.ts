@@ -49,11 +49,17 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login" || path.startsWith("/login/");
   const isWelcome = path === "/welcome" || path.startsWith("/welcome/");
+  // The public "Try it" prediction demo (app/try) is intentionally reachable
+  // WITHOUT an account — it's the one un-gated app route, so a resume/portfolio
+  // link works with no sign-up. It calls only the read-only, tenant-fixed
+  // /api/demo/predict endpoint. Exempt it from BOTH the login redirect and the
+  // onboarding redirect so it always renders regardless of auth state.
+  const isTry = path === "/try" || path.startsWith("/try/");
   // First-run signal: a Supabase user_metadata flag set when the tutorial is
   // completed (see app/welcome). Absent → treat as not-yet-onboarded.
   const onboarded = user?.user_metadata?.onboarded === true;
 
-  if (!user && !isLogin) {
+  if (!user && !isLogin && !isTry) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.search = "";
@@ -70,7 +76,8 @@ export async function proxy(request: NextRequest) {
 
   // Signed in but hasn't finished first-run setup → send to the tutorial. It is
   // exempt from this (so it can render), and completing it sets the flag above.
-  if (user && !onboarded && !isWelcome) {
+  // /try is exempt too, so the public demo always renders.
+  if (user && !onboarded && !isWelcome && !isTry) {
     const welcome = request.nextUrl.clone();
     welcome.pathname = "/welcome";
     welcome.search = "";

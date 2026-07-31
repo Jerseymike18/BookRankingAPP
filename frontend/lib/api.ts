@@ -356,6 +356,32 @@ export async function predictResearch(
   return data;
 }
 
+/** Public, UNAUTHENTICATED flagship-prediction demo (see app/try). Plain fetch —
+ *  no Supabase token, no assertWritable() — hitting the read-only /api/demo/predict
+ *  endpoint, which is tenant-fixed to the showcase library. A 429 (overall per-IP
+ *  throttle) or 5xx surfaces as a thrown Error; an out-of-budget uncached book comes
+ *  back as a normal 200 with available:false (NOT an error). */
+export async function demoPredict(
+  title: string,
+  author: string,
+  genre?: string
+): Promise<import("./types").DemoPrediction> {
+  const res = await fetch(`${API}/api/demo/predict`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, author, genre: genre ?? null }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      res.status === 429
+        ? "You're going a little fast — give it a few seconds and try again."
+        : data.detail ?? `Something went wrong (error ${res.status}).`
+    );
+  }
+  return data;
+}
+
 export async function predictNonfiction(
   title: string,
   author: string,

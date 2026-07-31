@@ -125,6 +125,20 @@ export interface ResearchResult {
   stale?: boolean;                   // table built by a different engine hash
 }
 
+/** Public /try demo prediction (unauthenticated). A success is a full
+ *  ResearchResult plus `available:true`; a book that isn't already analyzed AND
+ *  can't be predicted live right now (the live budget is spent) comes back as
+ *  `{ available:false, message }` so the client offers the always-free examples. */
+export type DemoPrediction =
+  | (ResearchResult & { available: true })
+  | {
+      available: false;
+      message: string;
+      title: string;
+      author: string;
+      genre: string | null;
+    };
+
 export interface NonfictionPrediction {
   title: string;
   author: string;

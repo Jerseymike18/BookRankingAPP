@@ -611,13 +611,19 @@ def _client_ip(request: Request) -> str:
 
 
 def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
-                user_id: Optional[str] = None) -> None:
+                user_id: Optional[str] = None, raise_on_limit: bool = True) -> bool:
     """Allow at most `max_calls` in the last `window_s` seconds per (bucket,
     principal); raise 429 with Retry-After otherwise. No-op when
     RATE_LIMIT_ENABLED=0. The principal is the verified `user_id` when supplied
-    (auth-gated routes) else the real client IP (pre-auth routes like sign-up)."""
+    (auth-gated routes) else the real client IP (pre-auth routes like sign-up).
+
+    Returns True when the call is within budget (and records it), False when it is
+    over budget. `raise_on_limit` (the default) turns an over-budget call into an
+    HTTP 429 — so every existing caller, which ignores the return value, is
+    unchanged. Pass raise_on_limit=False to gate a request GRACEFULLY (e.g. the
+    public demo falling back to a cached-only response instead of erroring)."""
     if not _RATE_LIMIT_ENABLED:
-        return
+        return True
     principal = f"user:{user_id}" if user_id else f"ip:{_client_ip(request)}"
     key = f"{bucket}:{principal}"
     now = time.monotonic()
@@ -627,6 +633,8 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
         while dq and dq[0] <= cutoff:
             dq.popleft()
         if len(dq) >= max_calls:
+            if not raise_on_limit:
+                return False
             retry = int(window_s - (now - dq[0])) + 1
             raise HTTPException(
                 status_code=429,
@@ -647,6 +655,7 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
                     d.popleft()
                 if not d:
                     del _rl_hits[k]
+    return True
 
 
 # Per-route budgets. LLM routes are generous enough for a real session (predicting
@@ -658,12 +667,25 @@ _RL_SIGNUP = dict(max_calls=5, window_s=300.0)
 # the VIEWER's user_id — a profile page load fans out into several endpoint calls,
 # so the budget is generous but caps a scraper enumerating other tenants.
 _RL_PROFILE = dict(max_calls=90, window_s=60.0)
+# Public "Try it" demo (UNAUTHENTICATED → keyed by client IP). A CACHED prediction
+# is engine-only (effectively free), so the overall per-IP bucket is generous; a
+# LIVE (cache-miss) prediction spends one Anthropic call, so it is gated TWICE — a
+# tight per-IP hourly bucket AND a single GLOBAL daily cap (one shared principal)
+# that bounds total spend no matter how many IPs appear. All three are env-tunable
+# without a code change; DEMO_LIVE_DAILY_CAP=0 disables the live path entirely.
+_RL_DEMO = dict(max_calls=int(os.environ.get("DEMO_RL_MAX", "30")), window_s=60.0)
+_RL_DEMO_LIVE = dict(
+    max_calls=int(os.environ.get("DEMO_LIVE_IP_PER_HOUR", "5")), window_s=3600.0)
+_DEMO_LIVE_DAILY_CAP = int(os.environ.get("DEMO_LIVE_DAILY_CAP", "50"))
+_DEMO_LIVE_WINDOW_S = 86400.0
+_DEMO_GLOBAL_PRINCIPAL = "demo:global"   # one shared bucket → a true global cap
 # GC tuning: sweep every N limiter calls; never prune an entry younger than the
 # largest window (else a sweep triggered by a short-window bucket would wrongly
 # expire a long-window bucket's entries).
 _RL_GC_EVERY = 500
 _RL_MAX_WINDOW = max(_RL_LLM["window_s"], _RL_SIGNUP["window_s"],
-                     _RL_PROFILE["window_s"])
+                     _RL_PROFILE["window_s"], _RL_DEMO["window_s"],
+                     _RL_DEMO_LIVE["window_s"], _DEMO_LIVE_WINDOW_S)
 
 
 def _clean(val):
@@ -2040,6 +2062,83 @@ class ResearchRequest(BaseModel):
                                   # cached entry (explicit refresh, never a purge).
 
 
+def _build_research_response(user_id, title, author, eff_genre, genre_auto_detected,
+                             scores, conf, blurb, keywords, words, from_cache,
+                             sourcing, hybrid_available, engine_data, cache, user_md):
+    """Shared assembly for a grounded-research prediction: correction → WA roll-up →
+    display components → conformal 80% interval. Called by BOTH the authenticated
+    /api/predict/research endpoint and the public /api/demo/predict endpoint, so the
+    two can never drift. Pure computation over the read-only engine — no LLM call, no
+    writes; the caller has already obtained `scores` (from the cache or a live
+    research call) and resolved `eff_genre`. `user_md` may be {} (the demo has no
+    per-user preferences), which just leaves the cold-start term off."""
+    books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = engine_data
+    try:
+        corr_pool = _correction_pool(user_id, books_e)   # borrow the seed's calibration if new
+        pairs, corr_models = _corr_statics(user_id, corr_pool)   # per-run statics, cached
+        res = _rp.correct_and_predict(
+            title, author, eff_genre, scores, conf, resid_sd,
+            corr_pool, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
+            corr_models=corr_models, words=words, pairs=pairs,
+            cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
+                                     user_md.get("fav_authors")),
+            # Rank / total / grounding counts scope to the tenant's OWN library
+            # (books_e), never the seed-borrowed correction pool (corr_pool). The
+            # correction VALUE still borrows the seed; only the display denominator
+            # changes — so a cold-start reader no longer sees "rank #2 of <seed>".
+            rank_pool=books_e,
+        )
+    except Exception as e:
+        raise _server_error(e, "Correction failed")
+
+    # Category averages from corrected components (for display)
+    cat_comps = books_e.attrs["category_components"]
+    components_by_cat: dict = {}
+    for cat, comps in cat_comps.items():
+        components_by_cat[cat] = {c: _clean(round(res["scores"].get(c, 0), 2)) for c in comps}
+
+    resp = {
+        "title": res["title"], "author": res["author"], "genre": res["genre"],
+        "wa": round(res["wa"], 4),
+        "rank": res["rank"], "total": res["total"],
+        "n_genre": res["n_genre"], "n_author": res["n_author"],
+        "conf": res["conf"],
+        "from_cache": from_cache,
+        "words": words,
+        "series": "",
+        "series_number": None,
+        "blurb": res.get("blurb", ""),
+        "keywords": res.get("keywords", ""),
+        "components": components_by_cat,
+        "category_order": list(cat_comps.keys()),
+        "genre_auto_detected": genre_auto_detected,
+        "sourcing": sourcing,
+        "hybrid_available": hybrid_available,
+    }
+    # Additive 80% conformal interval — the SAME density-bucketed table served by
+    # /api/predict/instant. n_author is recomputed from the library exactly as the
+    # instant path does, so bucketing can't drift from the LOO definition. The band
+    # is calibrated on the analog engine's LOO residuals and centred here on the
+    # research WA as an empirical error band at this data density (mildly
+    # conservative for the usually-tighter research prediction). Omitted entirely
+    # when no residual table is loaded — a width is never invented.
+    if _RESIDUALS is not None:
+        n_author = int((books_e["Author"] == res["author"]).sum())
+        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+        if iv is not None:
+            hw = iv["half_width"]
+            resp.update({
+                "wa_low": round(res["wa"] - hw, 4),
+                "wa_high": round(res["wa"] + hw, 4),
+                "bucket": iv["bucket"],
+                "bucket_label": iv["bucket_label"],
+                "pooled": iv["pooled"],
+                "calibrated_at": iv["calibrated_at"],
+                "stale": iv["stale"],
+            })
+    return resp
+
+
 @app.post("/api/predict/research")
 def predict_research(req: ResearchRequest, request: Request,
                      user_id: str = Depends(auth.get_current_user_id),
@@ -2062,10 +2161,9 @@ def predict_research(req: ResearchRequest, request: Request,
         raise HTTPException(status_code=503, detail="The prediction service is temporarily unavailable.")
 
     try:
-        data = _get_engine(user_id)
+        data = _get_engine(user_id)   # unpacked inside _build_research_response
     except Exception as e:
         raise _server_error(e, "Engine build failed")
-    books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = data
 
     con = db_backend.connect(db_write.DB)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
@@ -2102,74 +2200,150 @@ def predict_research(req: ResearchRequest, request: Request,
         except Exception:
             applied_grounded = False  # keep pure-memory scores if web fails
 
-    try:
-        corr_pool = _correction_pool(user_id, books_e)   # borrow the seed's calibration if new
-        pairs, corr_models = _corr_statics(user_id, corr_pool)   # per-run statics, cached
-        res = _rp.correct_and_predict(
-            req.title, req.author, eff_genre, scores, conf, resid_sd,
-            corr_pool, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
-            corr_models=corr_models, words=words, pairs=pairs,
-            cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
-                                     user_md.get("fav_authors")),
-            # Rank / total / grounding counts scope to the tenant's OWN library
-            # (books_e), never the seed-borrowed correction pool (corr_pool). The
-            # correction VALUE still borrows the seed; only the display denominator
-            # changes — so a cold-start reader no longer sees "rank #2 of <seed>".
-            rank_pool=books_e,
-        )
-    except Exception as e:
-        raise _server_error(e, "Correction failed")
-
-    # Category averages from corrected components (for display)
-    cat_comps = books_e.attrs["category_components"]
-    components_by_cat: dict = {}
-    for cat, comps in cat_comps.items():
-        components_by_cat[cat] = {c: _clean(round(res["scores"].get(c, 0), 2)) for c in comps}
-
     # NOTE: the rich house-style blurb and the series/ordinal lookup are NOT done
     # here — they each cost an extra LLM call, and scoring many discover candidates
     # would multiply that. Both are deferred to /api/recommendations (save time),
     # so they're only paid for books the reader actually keeps. The plain research
-    # blurb below is what's shown while browsing; save upgrades it.
-    resp = {
-        "title": res["title"], "author": res["author"], "genre": res["genre"],
-        "wa": round(res["wa"], 4),
-        "rank": res["rank"], "total": res["total"],
-        "n_genre": res["n_genre"], "n_author": res["n_author"],
-        "conf": res["conf"],
-        "from_cache": from_cache,
-        "words": words,
-        "series": "",
-        "series_number": None,
-        "blurb": res.get("blurb", ""),
-        "keywords": res.get("keywords", ""),
-        "components": components_by_cat,
-        "category_order": list(cat_comps.keys()),
-        "genre_auto_detected": req.genre is None,
-        "sourcing": "hybrid" if applied_grounded else "memory",
-        "hybrid_available": bool(grounding_on and not applied_grounded),
-    }
-    # Additive 80% conformal interval — the SAME density-bucketed table served by
-    # /api/predict/instant. n_author is recomputed from the library exactly as the
-    # instant path does, so bucketing can't drift from the LOO definition. The band
-    # is calibrated on the analog engine's LOO residuals and centred here on the
-    # research WA as an empirical error band at this data density (mildly
-    # conservative for the usually-tighter research prediction). Omitted entirely
-    # when no residual table is loaded — a width is never invented.
-    if _RESIDUALS is not None:
-        n_author = int((books_e["Author"] == res["author"]).sum())
-        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
-        if iv is not None:
-            hw = iv["half_width"]
-            resp.update({
-                "wa_low": round(res["wa"] - hw, 4),
-                "wa_high": round(res["wa"] + hw, 4),
-                "bucket": iv["bucket"],
-                "bucket_label": iv["bucket_label"],
-                "pooled": iv["pooled"],
-                "calibrated_at": iv["calibrated_at"],
-                "stale": iv["stale"],
-            })
+    # blurb carried through below is what's shown while browsing; save upgrades it.
+    return _build_research_response(
+        user_id, req.title, req.author, eff_genre, req.genre is None,
+        scores, conf, blurb, keywords, words, from_cache,
+        sourcing="hybrid" if applied_grounded else "memory",
+        hybrid_available=bool(grounding_on and not applied_grounded),
+        engine_data=data, cache=cache, user_md=user_md)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC "TRY IT" DEMO — the flagship prediction, demoable WITHOUT an account.
+# ─────────────────────────────────────────────────────────────────────────────
+# This is the ONE unauthenticated write-nothing prediction surface (see the /try
+# page). It is deliberately narrow and safe:
+#   * Tenant-FIXED to SEED_USER_ID (the public showcase library, Michael) — it can
+#     never read a private tenant, and takes no user_id from the caller.
+#   * Read-only — it predicts; it never writes any tenant table. (A live cache-miss
+#     persists the researched entry to the GLOBAL research_cache so the next visitor
+#     is free, exactly as the authed path does — that is the only side effect.)
+#   * Cost-bounded — a CACHED book is engine-only (free); a live cache-miss spends
+#     one Anthropic call and is gated by a tight per-IP hourly bucket AND a single
+#     global daily cap. When the live budget is spent it returns available=False and
+#     the client falls back to the always-free cached examples — it never errors out
+#     or silently burns credits.
+# It reuses _build_research_response, so its numbers are identical to the real app.
+
+class DemoPredictRequest(BaseModel):
+    title: _CleanText
+    author: _CleanText = ""       # optional — improves the author-analog signal
+    genre: Optional[str] = None   # None → auto-detect (cached genre or live)
+
+
+def _demo_unavailable(message: str, req: "DemoPredictRequest") -> dict:
+    """Graceful 200 the client renders as 'not in the demo set' (with example
+    chips) — used for an uncached book once the live budget is spent, or when a
+    genre can't be resolved. Never spends an Anthropic call."""
+    return {"available": False, "message": message,
+            "title": req.title, "author": req.author, "genre": req.genre}
+
+
+def _seed_library_genre(title: str) -> Optional[str]:
+    """Genre fallback for an OLDER cached entry that predates the stored `genre`
+    field (~128 of the 620 seed entries are score-only). Look the title up in the
+    SEED library — rated books, then TBR — so the demo auto-resolves a genre for a
+    famous title instead of asking a visitor to pick one. Read-only, tenant-fixed
+    to SEED_USER_ID, case-insensitive; None if not found. `tbl` is a fixed literal,
+    never user input (same pattern as _book_count)."""
+    con = db_backend.connect(db_write.DB)
+    try:
+        for tbl in ("books", "recommendations"):
+            r = con.execute(
+                f"SELECT genre FROM {tbl} WHERE lower(title)=lower(?) AND user_id=? "
+                f"AND genre IS NOT NULL LIMIT 1", (title, SEED_USER_ID)).fetchone()
+            if r and r[0]:
+                return r[0]
+    finally:
+        con.close()
+    return None
+
+
+@app.post("/api/demo/predict")
+def demo_predict(req: DemoPredictRequest, request: Request):
+    """PUBLIC, UNAUTHENTICATED flagship-prediction demo. See the section header
+    above for the safety envelope (tenant-fixed to the showcase library, read-only,
+    cost-capped)."""
+    _rate_limit(request, "demo", **_RL_DEMO, user_id=None)   # overall per-IP throttle
+    if _rp is None:
+        raise HTTPException(status_code=503, detail="Prediction service unavailable.")
+
+    uid = SEED_USER_ID
+    try:
+        engine_data = _get_engine(uid)
+    except Exception as e:
+        raise _server_error(e, "Engine build failed")
+
+    cache = _rp.load_cache()
+    # Already analyzed? file cache → durable store. A hit is engine-only (free).
+    entry = _rp.rl.cache_lookup(cache, req.title)
+    if entry is None:
+        entry = _rp.db_cache_get(_rp.CACHE, req.title)
+
+    if entry is not None:
+        # Older score-only entries carry no genre; recover it from the seed library
+        # so a famous title still resolves without a manual pick.
+        eff_genre = req.genre or entry.get("genre") or _seed_library_genre(req.title)
+        if eff_genre is None:
+            return _demo_unavailable(
+                "Couldn't determine a genre for that title — try one of the examples.", req)
+        resp = _build_research_response(
+            uid, req.title, req.author, eff_genre, req.genre is None,
+            entry["scores"], entry.get("conf", "?"),
+            entry.get("blurb", ""), entry.get("keywords", ""),
+            entry.get("words"), True,   # words as-stored; never estimate (no LLM)
+            sourcing="memory", hybrid_available=False,
+            engine_data=engine_data, cache=cache, user_md={})
+        resp["available"] = True
+        return resp
+
+    # Cache MISS → a live Anthropic call. Gate on the per-IP hourly bucket AND the
+    # single global daily cap; if either is spent, fall back gracefully (no call).
+    if not _rate_limit(request, "demo_live", **_RL_DEMO_LIVE, user_id=None,
+                       raise_on_limit=False):
+        return _demo_unavailable(
+            "You've reached the live-prediction limit for now — the example books "
+            "are instant, or try again a little later.", req)
+    if not _rate_limit(request, "demo_live_global", max_calls=_DEMO_LIVE_DAILY_CAP,
+                       window_s=_DEMO_LIVE_WINDOW_S, user_id=_DEMO_GLOBAL_PRINCIPAL,
+                       raise_on_limit=False):
+        return _demo_unavailable(
+            "The live demo has hit today's cap for brand-new titles. The example "
+            "books are instant — or check back tomorrow.", req)
+
+    try:
+        client = _rp.get_client()
+    except Exception:
+        return _demo_unavailable(
+            "Live prediction is temporarily unavailable — try an example book.", req)
+
+    con = db_backend.connect(db_write.DB)
+    allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
+    con.close()
+    try:
+        scores, conf, blurb, keywords, det_genre, words, from_cache = _rp.research_book(
+            req.title, req.author, req.genre, client, cache,
+            allowed_genres=allowed_genres, force=False,
+        )
+        _rp.save_cache(cache)   # persist for the next visitor (global cache; read-only re: tenants)
+    except Exception as e:
+        raise _server_error(e, "Research failed")
+
+    eff_genre = req.genre or det_genre
+    if eff_genre is None:
+        return _demo_unavailable(
+            "Couldn't determine a genre for that title — try one of the examples.", req)
+    resp = _build_research_response(
+        uid, req.title, req.author, eff_genre, req.genre is None,
+        scores, conf, blurb, keywords, words, from_cache,
+        sourcing="memory", hybrid_available=False,
+        engine_data=engine_data, cache=cache, user_md={})
+    resp["available"] = True
     return resp
 
 
