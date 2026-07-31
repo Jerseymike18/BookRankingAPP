@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getServerAccessToken } from "@/lib/supabase/server";
 import { fetchProfileDirectory } from "@/lib/api";
+import RefreshOnFocus from "./RefreshOnFocus";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function DirectoryPage() {
 
   return (
     <div>
+      {/* Re-fetch on tab focus so a just-published profile appears without a reload. */}
+      <RefreshOnFocus />
       <div className="mb-6">
         <h1
           className="font-display text-3xl font-bold leading-tight"
