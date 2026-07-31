@@ -1062,13 +1062,13 @@ function PerTypeRankings({
   );
 }
 
-/* ── Combined (All) ranking — cross-type, by Total Average ─────────────────
-   Fiction and nonfiction WA use different formulas and scales, so the only
-   meaningful cross-type ordering is Total Average (the unweighted mean of the
-   category averages — the same 0–10 basis for both tracks). This reads the
-   backend-computed `combined_ranking` (the same payload the Stats page uses);
-   no derived math is reimplemented here. Columns are reduced because the two
-   tracks' per-category sets differ. */
+/* ── Combined (All) ranking — cross-type, by WA ───────────────────────────
+   Fiction and nonfiction WA use different weights, but both land on the same
+   0–10 scale, so WA is a meaningful cross-type ordering — and it matches how
+   each single-track table sorts. Total Average is kept as a secondary column.
+   This reads the backend-computed `combined_ranking` (the same payload the
+   Stats page uses); no derived math is reimplemented here. Columns are reduced
+   because the two tracks' per-category sets differ. */
 
 const COMBINED_COLS: ColDef<CombinedRankRow>[] = [
   { key: "rank", label: "#", type: "numeric", getValue: (r) => r.rank, align: "left", autoRank: true, sortable: false },
@@ -1077,6 +1077,11 @@ const COMBINED_COLS: ColDef<CombinedRankRow>[] = [
   {
     key: "type", label: "Type", type: "string", getValue: (r) => r.type, align: "left",
     formatter: (v) => (v === "nonfiction" ? "Nonfiction" : "Fiction"),
+  },
+  {
+    key: "wa", label: "WA", type: "numeric",
+    getValue: (r) => r.wa ?? 0,
+    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
   },
   {
     key: "total_average", label: "Total Avg", type: "numeric",
@@ -1090,13 +1095,13 @@ function CombinedRankings({ rows }: { rows: CombinedRankRow[] }) {
   return (
     <div>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        {rows.length} books · fiction + nonfiction ranked by Total Average, the only score on the
-        same 0–10 scale for both tracks. Pick a single type to rank by WA with full category detail.
+        {rows.length} books · fiction + nonfiction ranked by WA, the weighted score (0–10 for both
+        tracks). Total Average is shown alongside. Pick a single type for full category detail.
       </p>
       <SortableTable
         columns={COMBINED_COLS}
         data={rows}
-        defaultSort={{ key: "total_average", dir: "desc" }}
+        defaultSort={{ key: "wa", dir: "desc" }}
         getRowKey={(r) => `${r.type}:${r.title}`}
       />
     </div>
