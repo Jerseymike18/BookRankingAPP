@@ -785,3 +785,27 @@ export interface EffectiveWeights {
   categories: string[]; // canonical category order
   genres: GenreWeights[];
 }
+
+/* ── Public profiles (opt-in cross-user browse) ── */
+
+/** The caller's OWN profile record (settings page). Null when unclaimed. */
+export interface Profile {
+  user_id: string;
+  handle: string;
+  display_name: string | null;
+  is_public: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** A public profile's header + library sizes (directory card + profile page). */
+export interface PublicProfile {
+  handle: string;
+  display_name: string | null;
+  fiction_books: number;
+  nonfiction_books: number;
+}
+
+export interface ProfileDirectory {
+  profiles: PublicProfile[];
+}

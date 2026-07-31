@@ -26,6 +26,9 @@ import type {
   EngineValidation,
   EngineParameters,
   EffectiveWeights,
+  Profile,
+  PublicProfile,
+  ProfileDirectory,
 } from "./types";
 import { slugify } from "./slug";
 import {
@@ -787,6 +790,113 @@ export async function fetchStats(token?: ServerToken): Promise<CombinedStatsResp
 export async function fetchDeltaLog(): Promise<DeltaLogResponse> {
   if (STATIC) return getJSON<DeltaLogResponse>("delta-log.json");
   const res = await apiFetch(`${API}/api/delta-log`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/* ── Public profiles (opt-in cross-user browse) ──────────────────────────────
+ * Hosted-app-only: these hit the live backend and have no static snapshot, so in
+ * a STATIC build they throw rather than silently 404. `handle`-scoped reads carry
+ * the viewer's token and surface a 404 (private/missing profile) as "not-found".
+ */
+
+/** A "profile not found" sentinel so callers (server pages) can map it to Next's
+ * notFound() instead of a 500. */
+export const PROFILE_NOT_FOUND = "profile-not-found";
+
+/** The caller's OWN profile (settings). Returns null when they haven't claimed a
+ * handle yet (the backend returns JSON null). */
+export async function fetchMyProfile(token?: ServerToken): Promise<Profile | null> {
+  if (STATIC) throw new Error("Profiles are unavailable on the static build");
+  const res = await apiFetch(`${API}/api/profile/me`, { cache: "no-store" }, token);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Claim/update the caller's public profile (handle + display name + visibility).
+ * A bad or already-taken handle surfaces the backend's 400 detail. */
+export async function saveMyProfile(payload: {
+  handle: string;
+  display_name?: string | null;
+  is_public: boolean;
+}): Promise<Profile> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/profile/me`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** The public directory — every opt-in-public profile with book counts. */
+export async function fetchProfileDirectory(token?: ServerToken): Promise<ProfileDirectory> {
+  if (STATIC) throw new Error("Profiles are unavailable on the static build");
+  const res = await apiFetch(`${API}/api/profiles/directory`, { cache: "no-store" }, token);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** One public profile's header (identity + library sizes). Throws
+ * PROFILE_NOT_FOUND on a missing/private handle. */
+export async function fetchUserProfile(handle: string, token?: ServerToken): Promise<PublicProfile> {
+  if (STATIC) throw new Error("Profiles are unavailable on the static build");
+  const res = await apiFetch(`${API}/api/users/${encodeURIComponent(handle)}`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A public profile's rankings (same shape as the owner's own /books). */
+export async function fetchUserBooks(handle: string, kind: BookKind, token?: ServerToken): Promise<BooksResponse> {
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/books?kind=${kind}`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A public profile's tier list for one track (fiction takes an optional year). */
+export async function fetchUserTiers(
+  handle: string, kind: BookKind, year?: number, token?: ServerToken,
+): Promise<TiersResponse> {
+  const q = new URLSearchParams({ kind });
+  if (kind === "fiction" && year != null) q.set("year", String(year));
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/tiers?${q}`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A public profile's fiction to-read queue (predictions included). */
+export async function fetchUserReadQueue(handle: string, token?: ServerToken): Promise<ReadQueueResponse> {
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/read-queue?kind=fiction`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A public profile's nonfiction to-read queue. */
+export async function fetchUserNonfictionReadQueue(
+  handle: string, token?: ServerToken,
+): Promise<NonfictionReadQueueResponse> {
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/read-queue?kind=nonfiction`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A public profile's combined fiction+nonfiction stats (also carries the
+ * cross-type combined_ranking the Rankings 'All' toggle needs). */
+export async function fetchUserStats(handle: string, token?: ServerToken): Promise<CombinedStatsResponse> {
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/stats`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }

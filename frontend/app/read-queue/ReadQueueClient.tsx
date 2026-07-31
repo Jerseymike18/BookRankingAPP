@@ -6,7 +6,7 @@ import type { ReadQueueResponse, Recommendation } from "@/lib/types";
 import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata } from "@/lib/api";
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
-import { READONLY } from "@/lib/readonly";
+import { useReadOnly } from "@/lib/readonly-context";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -173,6 +173,7 @@ function RecExpandedPanel({
   genres: string[];
   onDelete: () => void;
 }) {
+  const ro = useReadOnly();
   const router = useRouter();
   const [blurb, setBlurb] = useState(rec.blurb);
   const [keywords, setKeywords] = useState(rec.keywords);
@@ -325,7 +326,7 @@ function RecExpandedPanel({
       )}
 
       {/* Generate blurb & keywords (LLM spend — hidden on a read-only deploy) */}
-      {!READONLY && !blurb && !keywords && (
+      {!ro && !blurb && !keywords && (
         <div>
           <button
             onClick={handleGenerate}
@@ -349,7 +350,7 @@ function RecExpandedPanel({
       <ComponentScores components={rec.components} />
 
       {/* Edit metadata + remove (mutations — hidden on a read-only deploy) */}
-      {!READONLY && (
+      {!ro && (
       <div className="pt-2 border-t space-y-3" style={{ borderColor: "var(--color-rule)" }}>
         {editing && (
           <div className="space-y-2">
@@ -1090,6 +1091,7 @@ export default function ReadQueueClient({
   data: ReadQueueResponse;
   initialQueue: string[];
 }) {
+  const ro = useReadOnly();
   const { recommendations, genres } = data;
 
   const [deletedTitles, setDeletedTitles] = useState<Set<string>>(new Set());
@@ -1208,7 +1210,7 @@ export default function ReadQueueClient({
         className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
       >
-        {(READONLY ? (["mood"] as const) : (["mood", "queue"] as const)).map((t) => (
+        {(ro ? (["mood"] as const) : (["mood", "queue"] as const)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -1223,7 +1225,7 @@ export default function ReadQueueClient({
         ))}
       </div>
 
-      {!READONLY && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
+      {!ro && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
       {tab === "mood" && recommendations.length === 0 ? (
         <div

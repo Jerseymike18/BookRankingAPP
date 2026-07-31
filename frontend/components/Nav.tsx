@@ -65,6 +65,14 @@ const NERD_ITEMS: NavItem[] = [
       ]),
 ];
 
+// Community — public profiles. The Directory + a reader's own profile settings
+// both need the live backend + auth, so they're dropped on the read-only public
+// showcase (like Predict / Add a Book); on local dev + the hosted app they show.
+const COMMUNITY_ITEMS: NavItem[] = [
+  { href: "/directory", label: "Directory" },
+  { href: "/profile", label: "My Profile" },
+];
+
 const sections: NavGroup[] = [
   // Rankings is the primary destination — a direct link; the Fiction /
   // Nonfiction / All split lives in an in-page toggle on the page itself.
@@ -74,6 +82,7 @@ const sections: NavGroup[] = [
   // Predict is the primary write/compute action — a top-level link, dropped on
   // the read-only build (the page also self-guards).
   ...(READONLY ? [] : [{ label: "Predict", href: "/predict" }]),
+  ...(READONLY ? [] : [{ label: "Community", items: COMMUNITY_ITEMS }]),
   { label: "For Nerds", items: NERD_ITEMS },
 ];
 

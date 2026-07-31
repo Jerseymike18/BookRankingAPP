@@ -6,7 +6,7 @@ import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/
 import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
-import { READONLY } from "@/lib/readonly";
+import { useReadOnly } from "@/lib/readonly-context";
 import { useSortable, SortableTable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
@@ -400,6 +400,7 @@ function BookExpandedPanel({
   onRefresh: () => void;
   onClose: () => void;
 }) {
+  const ro = useReadOnly();
   const [mode, setMode] = useState<CardMode>("view");
   const [scores, setScores] = useState<Record<string, string>>({});
   const [metaForm, setMetaForm] = useState<MetaForm>(() => metaFormFromBook(book));
@@ -564,7 +565,7 @@ function BookExpandedPanel({
       {mode === "view" && (
         <>
           <ComponentGrid components={book.components} categoryOrder={categoryOrder} kind={kind} />
-          {!READONLY && (
+          {!ro && (
           <div className="flex gap-3 mt-5">
             <button
               onClick={enterEdit}
