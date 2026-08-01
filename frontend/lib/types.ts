@@ -832,6 +832,7 @@ export interface ProfileDirectory {
  * background classify. `goodreads_rating` (1–5) is a memory hint, never a score. */
 export interface ImportStagingRow {
   id: string;
+  batch_id: string | null;
   shelf: "read" | "to-read" | "currently-reading";
   kind: "fiction" | "nonfiction" | null;
   title: string;

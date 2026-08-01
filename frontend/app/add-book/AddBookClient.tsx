@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useRef } from "react";
 import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
@@ -446,6 +447,17 @@ export default function AddBookClient({
         </p>
       </div>
 
+      {/* Onboarding shortcut — bulk-import instead of adding one at a time. */}
+      <Link
+        href="/import"
+        className="block rounded-lg px-4 py-3 mb-6 text-sm no-underline transition-colors"
+        style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}
+      >
+        New here?{" "}
+        <span className="font-semibold">Import your Goodreads library</span>{" "}
+        to rank many books at once instead of adding them one by one →
+      </Link>
+
       {/* Fiction / Nonfiction toggle — drives the component set + target table */}
       <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
         {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
@@ -473,7 +485,7 @@ export default function AddBookClient({
           Look up book metadata
         </h2>
         <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-          Type a title and click Look up — the LLM will find the author, genre, word count, and series so you don't have to. Books you've already predicted are filled straight from that prediction, no LLM call.
+          Type a title and click Look up — the LLM will find the author, genre, word count, and series so you don&apos;t have to. Books you&apos;ve already predicted are filled straight from that prediction, no LLM call.
         </p>
 
         <div className="flex flex-wrap gap-3 mb-3">
