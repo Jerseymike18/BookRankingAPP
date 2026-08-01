@@ -37,6 +37,7 @@ import os
 import re
 import json
 import math
+import uuid
 import shutil
 import sqlite3
 import db_backend
@@ -561,6 +562,271 @@ def get_active_corrections():
     meta = {"version": rows[0][3], "source_tag": rows[0][4],
             "decision": rows[0][5], "n_books": rows[0][6], "created_at": rows[0][7]}
     return constants, float(rows[0][2]), meta
+
+
+# ---------------------------------------------------------------------------
+# Goodreads import staging (onboarding: import the metadata, then just rank)
+# ---------------------------------------------------------------------------
+# A per-user buffer for books pulled from a Goodreads export, holding enriched
+# METADATA ONLY (never component scores) between "uploaded a CSV" and "committed
+# into the library". It is BOTH the review buffer AND the read-shelf ranking
+# backlog: a to-read / currently-reading row drains to `recommendations` on
+# commit and is deleted here; a `read` row stays as the awaiting-rank backlog
+# until the user scores it, at which point add_book promotes it and the staging
+# row is deleted. Nothing derived lives here, so it can never desync the engine.
+# Portable DDL (SQLite + Postgres); tenant-isolated by user_id (app-layer, no
+# RLS — matches the *_weight_overrides / profiles tables). `id`/`batch_id` are
+# Python-side uuid4 hex so we sidestep the AUTOINCREMENT/SERIAL portability
+# split. Lazily ensured on first use (like profiles / research_cache).
+_IMPORT_SHELVES = {"read", "to-read", "currently-reading"}
+_IMPORT_STATES = {"pending_review", "confirmed", "skipped"}
+_STAGING_COLS = (
+    "id,user_id,source,batch_id,shelf,kind,title,author,genre,series,"
+    "series_number,words,year_read,read_month,goodreads_rating,goodreads_review,"
+    "state,enrich_state,created_at,updated_at")
+# Fields a review edit may change (shelf / source / provenance are immutable).
+_STAGING_EDITABLE = {
+    "kind", "title", "author", "genre", "series", "series_number",
+    "words", "year_read", "read_month", "state",
+}
+_STAGING_INT_COLS = ("series_number", "words", "year_read", "read_month")
+_import_staging_ensured = False
+
+
+def _int_or_none(v):
+    try:
+        return int(v) if v is not None and str(v).strip() != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _float_or_none(v):
+    try:
+        return float(v) if v is not None and str(v).strip() != "" else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _ensure_import_staging():
+    global _import_staging_ensured
+    if _import_staging_ensured:
+        return
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS import_staging (
+            id               TEXT NOT NULL PRIMARY KEY,
+            user_id          TEXT NOT NULL,
+            source           TEXT NOT NULL DEFAULT 'goodreads',
+            batch_id         TEXT,
+            shelf            TEXT NOT NULL,
+            kind             TEXT,
+            title            TEXT NOT NULL,
+            author           TEXT,
+            genre            TEXT,
+            series           TEXT,
+            series_number    INTEGER,
+            words            INTEGER,
+            year_read        INTEGER,
+            read_month       INTEGER,
+            goodreads_rating REAL,
+            goodreads_review TEXT,
+            state            TEXT NOT NULL DEFAULT 'pending_review',
+            enrich_state     TEXT NOT NULL DEFAULT 'pending',
+            created_at       TEXT,
+            updated_at       TEXT
+        )""")
+    con.commit()
+    con.close()
+    _import_staging_ensured = True
+
+
+def _staging_row(r):
+    """SELECT tuple (in _STAGING_COLS order) -> JSON-friendly dict, or None."""
+    if r is None:
+        return None
+    d = dict(zip(_STAGING_COLS.split(","), r))
+    for k in _STAGING_INT_COLS:
+        d[k] = int(d[k]) if d[k] is not None else None
+    d["goodreads_rating"] = (
+        float(d["goodreads_rating"]) if d["goodreads_rating"] is not None else None)
+    return d
+
+
+def stage_import_rows(user_id, rows, source="goodreads", batch_id=None):
+    """Bulk-insert parsed import rows into the per-user staging buffer.
+
+    Skips any row whose title already exists in this tenant's library (books /
+    recommendations / nonfiction_*) or already sits in staging — so a re-uploaded
+    export never double-stages (mirrors add_book's per-tenant dup discipline).
+    `rows` are dicts from goodreads_import.parse_goodreads_csv. Metadata-only: no
+    scores, and genre is NOT validated here (the user fixes it in review;
+    add_book / add_recommendation enforce it at promote time). Returns
+    {batch_id, staged, skipped_existing, skipped_bad}."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    bid = batch_id or uuid.uuid4().hex
+    con = _connect()
+    staged = skipped_existing = skipped_bad = 0
+    try:
+        # Titles already known to this tenant (case-insensitive), across every
+        # table an import could collide with, plus rows already staged.
+        existing = set()
+        for tbl in ("books", "recommendations", "nonfiction_books",
+                    "nonfiction_recommendations"):
+            try:
+                for (t,) in con.execute(
+                        f"SELECT title FROM {tbl} WHERE user_id=?", (uid,)):
+                    if t:
+                        existing.add(t.strip().lower())
+            except Exception:
+                pass  # a table may not exist yet on a fresh tenant / backend
+        for (t,) in con.execute(
+                "SELECT title FROM import_staging WHERE user_id=?", (uid,)):
+            if t:
+                existing.add(t.strip().lower())
+
+        _backup_once()
+        now = dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        placeholders = ",".join("?" for _ in _STAGING_COLS.split(","))
+        for row in rows or []:
+            title = (row.get("title") or "").strip()
+            shelf = (row.get("shelf") or "").strip()
+            if not title or shelf not in _IMPORT_SHELVES:
+                skipped_bad += 1
+                continue
+            key = title.lower()
+            if key in existing:
+                skipped_existing += 1
+                continue
+            existing.add(key)  # dedupe within this batch too
+            con.execute(
+                f"INSERT INTO import_staging ({_STAGING_COLS}) VALUES ({placeholders})",
+                (uuid.uuid4().hex, uid, source, bid, shelf, row.get("kind"),
+                 title, row.get("author"), row.get("genre"), row.get("series"),
+                 _int_or_none(row.get("series_number")), _int_or_none(row.get("words")),
+                 _int_or_none(row.get("year_read")), _int_or_none(row.get("read_month")),
+                 _float_or_none(row.get("goodreads_rating")), row.get("goodreads_review"),
+                 "pending_review", "pending", now, now))
+            staged += 1
+        con.commit()
+    finally:
+        con.close()
+    return {"batch_id": bid, "staged": staged,
+            "skipped_existing": skipped_existing, "skipped_bad": skipped_bad}
+
+
+def get_staging_rows(user_id, batch_id=None, shelf=None, state=None, limit=5000):
+    """The caller's staging rows (newest first), optionally filtered by batch /
+    shelf / state. Read-only; returns a list of row dicts."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    q = f"SELECT {_STAGING_COLS} FROM import_staging WHERE user_id=?"
+    args = [uid]
+    if batch_id:
+        q += " AND batch_id=?"
+        args.append(batch_id)
+    if shelf:
+        q += " AND shelf=?"
+        args.append(shelf)
+    if state:
+        q += " AND state=?"
+        args.append(state)
+    q += " ORDER BY created_at DESC, title ASC LIMIT ?"
+    args.append(int(limit))
+    con = _connect()
+    rows = con.execute(q, tuple(args)).fetchall()
+    con.close()
+    return [_staging_row(r) for r in rows]
+
+
+def get_staging_row(user_id, staging_id):
+    """One staging row (dict) for this tenant, or None."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    con = _connect()
+    r = con.execute(
+        f"SELECT {_STAGING_COLS} FROM import_staging WHERE user_id=? AND id=?",
+        (uid, staging_id)).fetchone()
+    con.close()
+    return _staging_row(r)
+
+
+def update_staging_row(user_id, staging_id, fields):
+    """Apply a review edit to one staging row (only _STAGING_EDITABLE keys; others
+    are ignored). Validates ranges (year 1900-2100, month 1-12), `state` in the
+    known set, and `kind` in {fiction, nonfiction, None}. Genre is NOT validated
+    against genre_weights here — the user is mid-triage; add_book enforces it at
+    promote. Returns the updated row dict, or None if no such row for this
+    tenant. Nothing commits on a validation failure."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if get_staging_row(uid, staging_id) is None:
+        return None
+    sets, args = [], []
+    for k, v in (fields or {}).items():
+        if k not in _STAGING_EDITABLE:
+            continue
+        if k == "state" and v is not None and v not in _IMPORT_STATES:
+            raise ValidationError(f"state must be one of {sorted(_IMPORT_STATES)}")
+        if k == "kind" and v not in (None, "fiction", "nonfiction"):
+            raise ValidationError("kind must be 'fiction', 'nonfiction' or null")
+        if k == "year_read" and v is not None and not (1900 <= int(v) <= 2100):
+            raise ValidationError(f"year {v} is out of range (1900-2100)")
+        if k == "read_month" and v is not None and not (1 <= int(v) <= 12):
+            raise ValidationError(f"month {v} is out of range (1-12)")
+        if k in _STAGING_INT_COLS:
+            v = _int_or_none(v)
+        sets.append(f"{k}=?")
+        args.append(v)
+    if sets:
+        sets.append("updated_at=?")
+        args.append(dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+        args += [uid, staging_id]
+        con = _connect()
+        try:
+            _backup_once()
+            con.execute(
+                f"UPDATE import_staging SET {','.join(sets)} WHERE user_id=? AND id=?",
+                tuple(args))
+            con.commit()
+        finally:
+            con.close()
+    return get_staging_row(uid, staging_id)
+
+
+def delete_staging_row(user_id, staging_id):
+    """Drop one staging row (a user discarding a book from the import). Returns
+    True if a row was removed, False if it wasn't this tenant's."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if get_staging_row(uid, staging_id) is None:
+        return False
+    con = _connect()
+    try:
+        _backup_once()
+        con.execute("DELETE FROM import_staging WHERE user_id=? AND id=?",
+                    (uid, staging_id))
+        con.commit()
+    finally:
+        con.close()
+    return True
+
+
+def clear_staging_batch(user_id, batch_id):
+    """Discard an entire import batch. Returns the count removed."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    n = len(get_staging_rows(uid, batch_id=batch_id, limit=10 ** 9))
+    if n:
+        con = _connect()
+        try:
+            _backup_once()
+            con.execute("DELETE FROM import_staging WHERE user_id=? AND batch_id=?",
+                        (uid, batch_id))
+            con.commit()
+        finally:
+            con.close()
+    return n
 
 
 _ensure_series_number()

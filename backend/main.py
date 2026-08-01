@@ -55,6 +55,7 @@ from typing import Optional, Annotated
 import pandas as pd
 import db_loader
 import db_write
+import goodreads_import
 import user_weights
 import predict_engine as pe
 import views as views_mod
@@ -667,6 +668,10 @@ _RL_SIGNUP = dict(max_calls=5, window_s=300.0)
 # the VIEWER's user_id — a profile page load fans out into several endpoint calls,
 # so the budget is generous but caps a scraper enumerating other tenants.
 _RL_PROFILE = dict(max_calls=90, window_s=60.0)
+# Goodreads import (onboarding). An upload parses a whole file; review edits are
+# light. Auth-gated + keyed on the caller's user_id; generous but caps a runaway
+# client or an abusive upload loop.
+_RL_IMPORT = dict(max_calls=60, window_s=60.0)
 # Public "Try it" demo (UNAUTHENTICATED → keyed by client IP). A CACHED prediction
 # is engine-only (effectively free), so the overall per-IP bucket is generous; a
 # LIVE (cache-miss) prediction spends one Anthropic call, so it is gated TWICE — a
@@ -684,7 +689,8 @@ _DEMO_GLOBAL_PRINCIPAL = "demo:global"   # one shared bucket → a true global c
 # expire a long-window bucket's entries).
 _RL_GC_EVERY = 500
 _RL_MAX_WINDOW = max(_RL_LLM["window_s"], _RL_SIGNUP["window_s"],
-                     _RL_PROFILE["window_s"], _RL_DEMO["window_s"],
+                     _RL_PROFILE["window_s"], _RL_IMPORT["window_s"],
+                     _RL_DEMO["window_s"],
                      _RL_DEMO_LIVE["window_s"], _DEMO_LIVE_WINDOW_S)
 
 
@@ -3998,6 +4004,116 @@ def set_my_profile(payload: ProfilePayload,
             display_name=payload.display_name, is_public=payload.is_public)
     except db_write.ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ───────────────────────────── Goodreads import ─────────────────────────────
+# Onboarding accelerator: a signed-in user uploads their Goodreads "Export
+# Library" CSV; we parse it (goodreads_import — pure, no DB) and stage the
+# metadata per-user (db_write import_staging). No component scores are created
+# here. Read-shelf books become a ranking backlog the user works through;
+# to-read books drain to recommendations at commit (a later phase). Every route
+# is auth-gated on the caller + keyed to its own rate-limit bucket; all staging
+# reads/writes are tenant-scoped by user_id in db_write.
+_MAX_CSV_CHARS = 8_000_000  # ~8 MB of text — a very large library export
+
+
+class GoodreadsImportRequest(BaseModel):
+    csv_text: str
+    filename: Optional[str] = None
+
+
+class StagingRowUpdate(BaseModel):
+    """A review edit. Only the fields the client actually sends are applied
+    (model_dump(exclude_unset=True)); an explicit null clears a field."""
+    kind: Optional[str] = None
+    title: Optional[_CleanText] = None
+    author: Optional[_CleanText] = None
+    genre: Optional[_CleanText] = None
+    series: Optional[_CleanText] = None
+    series_number: Optional[int] = None
+    words: Optional[int] = None
+    year_read: Optional[int] = None
+    read_month: Optional[int] = None
+    state: Optional[str] = None
+
+
+@app.post("/api/import/goodreads")
+def import_goodreads(payload: GoodreadsImportRequest, request: Request,
+                     user_id: str = Depends(auth.get_current_user_id)):
+    """Parse an uploaded Goodreads export CSV and stage its rows for review.
+    Returns the parse summary + how many rows were staged / skipped as duplicate."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    text = payload.csv_text or ""
+    if len(text) > _MAX_CSV_CHARS:
+        raise HTTPException(
+            status_code=413,
+            detail="CSV is too large — export a smaller library or split the file.")
+    try:
+        rows, summary = goodreads_import.parse_goodreads_csv(text)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Could not parse CSV: {e}")
+    if not rows:
+        raise HTTPException(
+            status_code=422,
+            detail="No importable rows found. Is this a Goodreads library export CSV?")
+    try:
+        result = db_write.stage_import_rows(user_id, rows, source="goodreads")
+    except Exception as e:
+        raise _server_error(e)
+    return {"ok": True, "parse": summary, **result}
+
+
+@app.get("/api/import/staging")
+def list_import_staging(request: Request,
+                        batch_id: Optional[str] = None,
+                        shelf: Optional[str] = None,
+                        state: Optional[str] = None,
+                        user_id: str = Depends(auth.get_current_user_id)):
+    """The caller's import-staging rows (review buffer + read-shelf ranking
+    backlog), with per-shelf counts. Filterable by batch / shelf / state."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    rows = db_write.get_staging_rows(
+        user_id, batch_id=batch_id, shelf=shelf, state=state)
+    counts = {}
+    for r in rows:
+        counts[r["shelf"]] = counts.get(r["shelf"], 0) + 1
+    return {"rows": rows, "count": len(rows), "by_shelf": counts}
+
+
+@app.put("/api/import/staging/{staging_id}")
+def update_import_staging(staging_id: str, payload: StagingRowUpdate, request: Request,
+                          user_id: str = Depends(auth.get_current_user_id)):
+    """Apply a review edit (genre / kind / series / …) to one staging row. Only
+    the provided fields change. 404 if the row isn't the caller's."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    fields = payload.model_dump(exclude_unset=True)
+    try:
+        row = db_write.update_staging_row(user_id, staging_id, fields)
+    except db_write.ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise _server_error(e)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Staging row not found.")
+    return row
+
+
+@app.delete("/api/import/staging/{staging_id}")
+def delete_import_staging(staging_id: str, request: Request,
+                          user_id: str = Depends(auth.get_current_user_id)):
+    """Drop one staging row (discard a book from the import)."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    if not db_write.delete_staging_row(user_id, staging_id):
+        raise HTTPException(status_code=404, detail="Staging row not found.")
+    return {"ok": True}
+
+
+@app.delete("/api/import/batch/{batch_id}")
+def delete_import_batch(batch_id: str, request: Request,
+                        user_id: str = Depends(auth.get_current_user_id)):
+    """Discard an entire import batch."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    return {"ok": True, "deleted": db_write.clear_staging_batch(user_id, batch_id)}
 
 
 # ── Public directory (every is_public profile, with book counts) ──
