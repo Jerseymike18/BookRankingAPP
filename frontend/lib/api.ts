@@ -29,6 +29,11 @@ import type {
   Profile,
   PublicProfile,
   ProfileDirectory,
+  ImportUploadResult,
+  ImportStagingResponse,
+  ImportStagingRow,
+  ImportStatus,
+  ImportCommitResult,
 } from "./types";
 import { slugify } from "./slug";
 import {
@@ -945,6 +950,100 @@ export async function saveRecommendation(payload: {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/* ── Goodreads import (onboarding) ────────────────────────────────────────── */
+
+/** Upload a Goodreads library-export CSV (read client-side as text). Parses +
+ * stages the rows and kicks the background kind/genre classifier. */
+export async function importGoodreads(
+  csvText: string,
+  filename?: string,
+): Promise<ImportUploadResult> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/import/goodreads`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ csv_text: csvText, filename }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** The caller's staging rows (review buffer + read-shelf backlog). */
+export async function fetchImportStaging(batchId?: string): Promise<ImportStagingResponse> {
+  const q = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";
+  const res = await apiFetch(`${API}/api/import/staging${q}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Cheap progress counts for polling while background enrichment runs. */
+export async function fetchImportStatus(batchId?: string): Promise<ImportStatus> {
+  const q = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";
+  const res = await apiFetch(`${API}/api/import/status${q}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Apply a review edit to one staging row (only the given fields change). */
+export async function updateImportStagingRow(
+  id: string,
+  patch: Partial<Pick<ImportStagingRow,
+    "kind" | "title" | "author" | "genre" | "series" | "series_number" |
+    "words" | "year_read" | "read_month" | "state">>,
+): Promise<ImportStagingRow> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/import/staging/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Drop one staging row (discard a book from the import). */
+export async function deleteImportStagingRow(id: string): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/import/staging/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Fan reviewed rows into the library: to-read + currently-reading become
+ * recommendations; read rows stay as the ranking backlog. */
+export async function commitImport(
+  batchId?: string,
+  ids?: string[],
+): Promise<ImportCommitResult> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/import/commit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ batch_id: batchId, ids }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Discard an entire import batch. */
+export async function deleteImportBatch(
+  batchId: string,
+): Promise<{ ok: boolean; deleted: number }> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/import/batch/${encodeURIComponent(batchId)}`, {
+    method: "DELETE",
+  });
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
 }

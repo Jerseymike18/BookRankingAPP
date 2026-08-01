@@ -823,3 +823,66 @@ export interface PublicProfile {
 export interface ProfileDirectory {
   profiles: PublicProfile[];
 }
+
+/* ── Goodreads import (onboarding) ────────────────────────────────────────── */
+
+/** One staged import row — enriched METADATA only, never scores. Mirrors
+ * db_write._staging_row. `shelf` routes it (read → ranking backlog; to-read /
+ * currently-reading → recommendation on commit); `enrich_state` tracks the
+ * background classify. `goodreads_rating` (1–5) is a memory hint, never a score. */
+export interface ImportStagingRow {
+  id: string;
+  shelf: "read" | "to-read" | "currently-reading";
+  kind: "fiction" | "nonfiction" | null;
+  title: string;
+  author: string | null;
+  genre: string | null;
+  series: string | null;
+  series_number: number | null;
+  words: number | null;
+  year_read: number | null;
+  read_month: number | null;
+  goodreads_rating: number | null;
+  goodreads_review: string | null;
+  state: string;
+  enrich_state: "pending" | "done" | "error" | string;
+}
+
+export interface ImportParseSummary {
+  total_data_rows: number;
+  kept: number;
+  dropped_no_title: number;
+  dropped_bad_shelf: number;
+  dropped_dupe_in_csv: number;
+  by_shelf: Record<string, number>;
+}
+
+export interface ImportUploadResult {
+  ok: boolean;
+  parse: ImportParseSummary;
+  enriching: boolean;
+  batch_id: string;
+  staged: number;
+  skipped_existing: number;
+  skipped_bad: number;
+}
+
+export interface ImportStagingResponse {
+  rows: ImportStagingRow[];
+  count: number;
+  by_shelf: Record<string, number>;
+  by_enrich: Record<string, number>;
+}
+
+export interface ImportStatus {
+  total: number;
+  by_state: Record<string, number>;
+  by_enrich: Record<string, number>;
+}
+
+export interface ImportCommitResult {
+  ok: boolean;
+  committed: number;
+  skipped: { id: string; title: string; reason: string }[];
+  backlog: number;
+}

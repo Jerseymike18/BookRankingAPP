@@ -42,7 +42,12 @@ const EXPLORE_ITEMS: NavItem[] = [
 const READING_ITEMS: NavItem[] = [
   { href: "/reading", label: "Currently Reading" },
   { href: "/read-queue", label: "Read Queue" },
-  ...(READONLY ? [] : [{ href: "/add-book", label: "Add a Book" }]),
+  ...(READONLY
+    ? []
+    : [
+        { href: "/add-book", label: "Add a Book" },
+        { href: "/import", label: "Import from Goodreads" },
+      ]),
 ];
 
 // "For Nerds" — how-it-works + deep diagnostics. Methodology / Track Record /
