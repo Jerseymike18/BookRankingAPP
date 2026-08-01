@@ -234,6 +234,7 @@ function RankCard({
   const [genre, setGenre] = useState<string>(row.genre ?? "");
   const [year, setYear] = useState<number>(row.year_read ?? new Date().getFullYear());
   const [month, setMonth] = useState<number>(row.read_month ?? new Date().getMonth() + 1);
+  const [words, setWords] = useState<number>(row.words ?? 0);
   const [scores, setScores] = useState<Record<string, string>>(defaultScores(kind));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,7 +271,7 @@ function RankCard({
         scores: parsed,
         series: row.series ?? undefined,
         series_number: row.series_number ?? undefined,
-        words: row.words ?? undefined,
+        words: words > 0 ? words : undefined,
         year_read: year,
         read_month: month,
       };
@@ -342,6 +343,13 @@ function RankCard({
             className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle}>
             {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Words (est.)</label>
+          <input type="number" min={0} step={1000} value={words || ""}
+            onChange={(e) => setWords(Math.round(parseFloat(e.target.value) || 0))}
+            placeholder="e.g. 150000"
+            className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2" style={inputStyle} />
         </div>
       </div>
 

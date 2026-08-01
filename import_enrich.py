@@ -38,20 +38,26 @@ def _canonical_genre(raw, pool):
 
 def _classify_prompt(title, author, fiction_genres, nonfiction_genres):
     return (
-        'You are classifying a book for a personal reading tracker. Decide whether '
-        'it is fiction or nonfiction, then pick the single best-fitting genre from '
-        'the matching list (choose one, VERBATIM from the list).\n\n'
+        'You are cataloguing a book for a personal reading tracker. Decide whether '
+        'it is fiction or nonfiction, pick the single best-fitting genre from the '
+        'matching list (choose one, VERBATIM from the list), and give your best '
+        'estimate of its total word count.\n\n'
         f'BOOK: "{title}"' + (f' by {author}' if author else '') + '\n\n'
         f'FICTION genres: {", ".join(fiction_genres) or "(none)"}\n'
         f'NONFICTION genres: {", ".join(nonfiction_genres) or "(none)"}\n\n'
         'Respond with ONLY this JSON, no prose or markdown:\n'
-        '{"kind": "fiction" | "nonfiction", "genre": "<one genre from the matching list>"}')
+        '{"kind": "fiction" | "nonfiction", "genre": "<one genre from the matching '
+        'list>", "words": <best integer estimate of the total word count, e.g. '
+        '150000, or null if unsure>}')
 
 
 def classify_book(title, author, fiction_genres, nonfiction_genres, client, model=None):
-    """One cheap LLM call -> {"kind": "fiction"|"nonfiction", "genre": <str|None>}.
-    Returns {} on any failure or unusable reply. `genre` is canonicalized to the
-    exact taxonomy spelling, or None when the model's pick isn't in the user's list."""
+    """One cheap LLM call -> {"kind": "fiction"|"nonfiction", "genre": <str|None>,
+    "words": <int|None>}. Returns {} on any failure or unusable reply. `genre` is
+    canonicalized to the exact taxonomy spelling (or None when the pick isn't in
+    the user's list); `words` is the model's estimate (or None), which the caller
+    prefers over the crude page-count heuristic. The user can still edit it — word
+    counts are treated as editable estimates everywhere in the app."""
     import research_predict as rp
     import research_layer as rl
     model = model or rp.DISCOVER_MODEL
@@ -71,7 +77,8 @@ def classify_book(title, author, fiction_genres, nonfiction_genres, client, mode
     if kind not in ("fiction", "nonfiction"):
         return {}
     pool = fic if kind == "fiction" else non
-    return {"kind": kind, "genre": _canonical_genre(data.get("genre"), pool)}
+    return {"kind": kind, "genre": _canonical_genre(data.get("genre"), pool),
+            "words": rp._coerce_words(data.get("words"))}
 
 
 def enrich_pending(user_id, batch_id=None, key_path="apikey.txt", concurrency=None,
@@ -117,7 +124,7 @@ def enrich_pending(user_id, batch_id=None, key_path="apikey.txt", concurrency=No
             if res.get("kind"):
                 db_write.set_staging_enrichment(
                     user_id, r["id"], kind=res["kind"], genre=res.get("genre"),
-                    enrich_state="done")
+                    words=res.get("words"), enrich_state="done")
                 return "classified"
             db_write.set_staging_enrichment(user_id, r["id"], enrich_state="error")
             return "errors"

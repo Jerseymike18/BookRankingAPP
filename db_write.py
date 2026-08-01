@@ -830,13 +830,15 @@ def clear_staging_batch(user_id, batch_id):
 
 
 def set_staging_enrichment(user_id, staging_id, *, kind=None, genre=None,
-                           enrich_state="done"):
-    """System write from the background classifier: set kind/genre + enrich_state
-    on one staging row. Kept SEPARATE from update_staging_row because enrich_state
-    is machine-owned (not in the user-editable set) — this is the enrichment pass
-    writing its result, not a user review edit. kind/genre are written only when
-    provided (a classify that got kind but no confident genre leaves genre as-is).
-    Validates kind + enrich_state. Returns the updated row dict, or None."""
+                           words=None, enrich_state="done"):
+    """System write from the background classifier: set kind/genre/words +
+    enrich_state on one staging row. Kept SEPARATE from update_staging_row because
+    enrich_state is machine-owned (not in the user-editable set) — this is the
+    enrichment pass writing its result, not a user review edit. kind/genre/words
+    are written only when provided (a classify that got kind but no confident genre
+    leaves genre as-is; a missing/invalid word estimate keeps the page-based
+    estimate rather than nulling it). Validates kind + enrich_state. Returns the
+    updated row dict, or None."""
     _ensure_import_staging()
     uid = user_id or db_backend.DEFAULT_USER_ID
     if enrich_state not in ("pending", "done", "error"):
@@ -853,6 +855,11 @@ def set_staging_enrichment(user_id, staging_id, *, kind=None, genre=None,
     if genre is not None:
         sets.append("genre=?")
         args.append(genre)
+    if words is not None:
+        w = _int_or_none(words)
+        if w is not None:
+            sets.append("words=?")
+            args.append(w)
     sets.append("updated_at=?")
     args.append(dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     args += [uid, staging_id]
