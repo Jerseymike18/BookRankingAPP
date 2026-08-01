@@ -4023,6 +4023,11 @@ class GoodreadsImportRequest(BaseModel):
     filename: Optional[str] = None
 
 
+class ImportCommitRequest(BaseModel):
+    batch_id: Optional[str] = None
+    ids: Optional[list[str]] = None
+
+
 class StagingRowUpdate(BaseModel):
     """A review edit. Only the fields the client actually sends are applied
     (model_dump(exclude_unset=True)); an explicit null clears a field."""
@@ -4097,6 +4102,24 @@ def import_status(request: Request, batch_id: Optional[str] = None,
     {total, by_state, by_enrich}. Enrichment is done when by_enrich has no 'pending'."""
     _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
     return db_write.staging_status(user_id, batch_id=batch_id)
+
+
+@app.post("/api/import/commit")
+def commit_import(payload: ImportCommitRequest, request: Request,
+                  user_id: str = Depends(auth.get_current_user_id)):
+    """Fan reviewed staging rows into the library: to-read + currently-reading become
+    recommendations (predicted later); read rows stay as the ranking backlog. Rows
+    missing kind/genre are skipped and reported (they stay in staging to fix).
+    Currently-reading is treated as a to-read recommendation here — the in-progress
+    marker is a client-side reading-status concern (localStorage), not a stored field."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            result = db_write.commit_staged(
+                user_id, batch_id=payload.batch_id, ids=payload.ids)
+    except Exception as e:
+        raise _server_error(e)
+    return {"ok": True, **result}
 
 
 @app.put("/api/import/staging/{staging_id}")

@@ -911,6 +911,62 @@ def staging_status(user_id, batch_id=None):
     return {"total": len(rows), "by_state": by_state, "by_enrich": by_enrich}
 
 
+def commit_staged(user_id, batch_id=None, ids=None):
+    """Fan reviewed staging rows out into the library:
+      * to-read + currently-reading -> a recommendation (fiction via
+        add_recommendation, nonfiction via add_nonfiction_recommendation),
+        require_scores=False so it lands metadata-only and is predicted later;
+        its staging row is then deleted.
+      * read -> LEFT as the ranking backlog (promoted one-by-one via add_book).
+    A row missing `kind` or a valid taxonomy `genre` is SKIPPED and reported (never
+    silently dropped) and stays in staging for the user to fix and re-commit.
+    Optional `batch_id` / `ids` narrow the set. Returns
+    {committed, skipped:[{id,title,reason}], backlog}. Goes through the existing
+    validated writers only — no direct SQL into books/recommendations."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    rows = get_staging_rows(uid, batch_id=batch_id, limit=10 ** 9)
+    if ids is not None:
+        idset = set(ids)
+        rows = [r for r in rows if r["id"] in idset]
+    fic_genres = set(list_valid_genres(uid, "fiction"))
+    non_genres = set(list_valid_genres(uid, "nonfiction"))
+    committed, backlog, skipped = 0, 0, []
+    for r in rows:
+        if r["shelf"] == "read":
+            backlog += 1
+            continue
+        title, kind, genre = r["title"], r.get("kind"), r.get("genre")
+        if kind not in ("fiction", "nonfiction"):
+            skipped.append({"id": r["id"], "title": title,
+                            "reason": "not classified as fiction or nonfiction"})
+            continue
+        if not genre or genre not in (fic_genres if kind == "fiction" else non_genres):
+            skipped.append({"id": r["id"], "title": title,
+                            "reason": f"genre not set or not in your genres ({genre!r})"})
+            continue
+        try:
+            if kind == "fiction":
+                ok = add_recommendation(
+                    title, genre, r.get("author"), {}, series=r.get("series"),
+                    series_number=r.get("series_number"), words=r.get("words"),
+                    require_scores=False, user_id=uid)
+            else:
+                ok = add_nonfiction_recommendation(
+                    title, author=r.get("author"), genre=genre, scores={},
+                    series=r.get("series"), series_number=r.get("series_number"),
+                    words=r.get("words"), require_scores=False, user_id=uid)
+        except Exception:
+            ok = False
+        if ok:
+            delete_staging_row(uid, r["id"])
+            committed += 1
+        else:
+            skipped.append({"id": r["id"], "title": title,
+                            "reason": "could not add (already in your library?)"})
+    return {"committed": committed, "skipped": skipped, "backlog": backlog}
+
+
 _ensure_series_number()
 _ensure_delta_log()
 _ensure_component_corrections()
