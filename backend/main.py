@@ -56,6 +56,7 @@ import pandas as pd
 import db_loader
 import db_write
 import goodreads_import
+import import_enrich
 import user_weights
 import predict_engine as pe
 import views as views_mod
@@ -4038,10 +4039,13 @@ class StagingRowUpdate(BaseModel):
 
 
 @app.post("/api/import/goodreads")
-def import_goodreads(payload: GoodreadsImportRequest, request: Request,
-                     user_id: str = Depends(auth.get_current_user_id)):
-    """Parse an uploaded Goodreads export CSV and stage its rows for review.
-    Returns the parse summary + how many rows were staged / skipped as duplicate."""
+def import_goodreads(payload: GoodreadsImportRequest, background_tasks: BackgroundTasks,
+                     request: Request, user_id: str = Depends(auth.get_current_user_id)):
+    """Parse an uploaded Goodreads export CSV, stage its rows for review, and kick a
+    background pass that classifies kind (fiction/nonfiction) + genre (cheap Sonnet).
+    Returns the parse summary + how many rows were staged / skipped as duplicate, and
+    whether background enrichment was scheduled (the client then polls
+    GET /api/import/status). IMPORT_AUTOENRICH=0 disables the auto-classify."""
     _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
     text = payload.csv_text or ""
     if len(text) > _MAX_CSV_CHARS:
@@ -4060,7 +4064,11 @@ def import_goodreads(payload: GoodreadsImportRequest, request: Request,
         result = db_write.stage_import_rows(user_id, rows, source="goodreads")
     except Exception as e:
         raise _server_error(e)
-    return {"ok": True, "parse": summary, **result}
+    enriching = bool(result["staged"]) and os.environ.get("IMPORT_AUTOENRICH", "1") != "0"
+    if enriching:
+        background_tasks.add_task(
+            import_enrich.enrich_pending, user_id, batch_id=result["batch_id"])
+    return {"ok": True, "parse": summary, "enriching": enriching, **result}
 
 
 @app.get("/api/import/staging")
@@ -4074,10 +4082,21 @@ def list_import_staging(request: Request,
     _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
     rows = db_write.get_staging_rows(
         user_id, batch_id=batch_id, shelf=shelf, state=state)
-    counts = {}
+    by_shelf, by_enrich = {}, {}
     for r in rows:
-        counts[r["shelf"]] = counts.get(r["shelf"], 0) + 1
-    return {"rows": rows, "count": len(rows), "by_shelf": counts}
+        by_shelf[r["shelf"]] = by_shelf.get(r["shelf"], 0) + 1
+        by_enrich[r["enrich_state"]] = by_enrich.get(r["enrich_state"], 0) + 1
+    return {"rows": rows, "count": len(rows),
+            "by_shelf": by_shelf, "by_enrich": by_enrich}
+
+
+@app.get("/api/import/status")
+def import_status(request: Request, batch_id: Optional[str] = None,
+                  user_id: str = Depends(auth.get_current_user_id)):
+    """Cheap progress counts for polling an import while background enrichment runs:
+    {total, by_state, by_enrich}. Enrichment is done when by_enrich has no 'pending'."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    return db_write.staging_status(user_id, batch_id=batch_id)
 
 
 @app.put("/api/import/staging/{staging_id}")

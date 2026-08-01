@@ -829,6 +829,88 @@ def clear_staging_batch(user_id, batch_id):
     return n
 
 
+def set_staging_enrichment(user_id, staging_id, *, kind=None, genre=None,
+                           enrich_state="done"):
+    """System write from the background classifier: set kind/genre + enrich_state
+    on one staging row. Kept SEPARATE from update_staging_row because enrich_state
+    is machine-owned (not in the user-editable set) — this is the enrichment pass
+    writing its result, not a user review edit. kind/genre are written only when
+    provided (a classify that got kind but no confident genre leaves genre as-is).
+    Validates kind + enrich_state. Returns the updated row dict, or None."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if enrich_state not in ("pending", "done", "error"):
+        raise ValidationError("enrich_state must be pending / done / error")
+    if kind not in (None, "fiction", "nonfiction"):
+        raise ValidationError("kind must be 'fiction', 'nonfiction' or null")
+    if get_staging_row(uid, staging_id) is None:
+        return None
+    sets = ["enrich_state=?"]
+    args = [enrich_state]
+    if kind is not None:
+        sets.append("kind=?")
+        args.append(kind)
+    if genre is not None:
+        sets.append("genre=?")
+        args.append(genre)
+    sets.append("updated_at=?")
+    args.append(dt.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+    args += [uid, staging_id]
+    con = _connect()
+    try:
+        con.execute(
+            f"UPDATE import_staging SET {','.join(sets)} WHERE user_id=? AND id=?",
+            tuple(args))
+        con.commit()
+    finally:
+        con.close()
+    return get_staging_row(uid, staging_id)
+
+
+def list_valid_genres(user_id=None, kind="fiction"):
+    """Sorted genre names for a tenant's taxonomy (global + their own overrides),
+    for the import classifier + review-table picker. kind='fiction' -> genre_weights;
+    kind='nonfiction' -> nonfiction_genre_weights (falls back to ['Nonfiction'] if
+    that table isn't present on a fresh backend)."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    con = _connect()
+    try:
+        if kind == "nonfiction":
+            genres = set()
+            try:
+                genres = {r[0] for r in con.execute(
+                    "SELECT genre FROM nonfiction_genre_weights")}
+                genres |= {r[0] for r in con.execute(
+                    "SELECT DISTINCT genre FROM nonfiction_genre_weight_overrides "
+                    "WHERE user_id=?", (uid,))}
+            except Exception:
+                pass
+            return sorted(genres) if genres else ["Nonfiction"]
+        return sorted(_valid_genres(con, uid))
+    finally:
+        con.close()
+
+
+def staging_status(user_id, batch_id=None):
+    """Cheap counts for polling an import's progress: {total, by_state, by_enrich}.
+    Read-only; no full rows fetched."""
+    _ensure_import_staging()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    q = "SELECT state, enrich_state FROM import_staging WHERE user_id=?"
+    args = [uid]
+    if batch_id:
+        q += " AND batch_id=?"
+        args.append(batch_id)
+    con = _connect()
+    rows = con.execute(q, tuple(args)).fetchall()
+    con.close()
+    by_state, by_enrich = {}, {}
+    for st, en in rows:
+        by_state[st] = by_state.get(st, 0) + 1
+        by_enrich[en] = by_enrich.get(en, 0) + 1
+    return {"total": len(rows), "by_state": by_state, "by_enrich": by_enrich}
+
+
 _ensure_series_number()
 _ensure_delta_log()
 _ensure_component_corrections()
