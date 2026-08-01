@@ -189,7 +189,8 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` ·
 `analytics` · `calibration` · `track-record` · `methodology` · `delta-log` · `weights`
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth) ·
-`directory` + `profile` + `u/[handle]` (public profiles — see below),
+`import` (Goodreads onboarding import) · `try` (public no-login prediction demo) ·
+`directory` + `profile` + `u` — the `/u/[handle]` public-profile viewer (see below),
 plus the `/` home. The former fiction/nonfiction route split was collapsed into a
 single set of top-level pages — `tier-list`, `series`, `reading`, and `timeline` —
 each with an in-page fiction/nonfiction type toggle that swaps the kind-parametrized
@@ -197,11 +198,11 @@ view components in `components/views/*View.tsx`. **Rankings was merged into `sta
 (2026-07-31): `/stats` now leads with the summary dashboard (totals, tier distribution,
 books-per-year), then a "Rankings" section that embeds `RankingsView` (the same
 fiction/nonfiction/all toggle + full tables, including the cross-type leaderboard) via
-its `embedded` prop. `/rankings` — and the old `/fiction|/nonfiction/rankings` — now
+its embedded prop. `/rankings` — and the old `/fiction|/nonfiction/rankings` — now
 redirect to `/stats` (see `next.config.ts`), preserving `?type=`; `#rankings` jumps to
 the tables, and the top-level "Stats" nav link occupies the slot Rankings used to hold.
 The cross-type table ranks by **WA** (was Total Average); `StatsClient` renders its own
-copy only when `showRanking` is set — the merged page passes `false` so the leaderboard
+copy only when `showRanking` is set — the merged page passes false so the leaderboard
 isn't duplicated, while the public-profile Stats tab keeps it. Nav lives in
 `components/Nav.tsx`; API calls in `lib/api.ts` (static-mode via
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
