@@ -133,7 +133,9 @@ def _cold_start_block(cold_term):
       * ``off`` — no fitted term and no stated preference.
 
     ``author_prior`` flags the independent favorite-authors bump (new readers' stated
-    favorites + analogs), which rides along whatever the word-count source is."""
+    favorites + analogs), which rides along whatever the word-count source is — applied on
+    the same no-same-author-analog slice. ``genre_prior`` flags the parallel favorite-genres
+    bump, applied instead on the no-same-genre-analog slice (n_genre == 0)."""
     slopes = (cold_term or {}).get("slopes")
     n_fit = int((cold_term or {}).get("n") or 0)
     source = "fitted" if (slopes and n_fit > 0) else ("preference" if slopes else "off")
@@ -145,6 +147,7 @@ def _cold_start_block(cold_term):
         "source": source,
         "fitted": source == "fitted",
         "author_prior": bool((cold_term or {}).get("author_prior")),
+        "genre_prior": bool((cold_term or {}).get("genre_prior")),
     }
     if slopes:
         block["slope_wa_per_dex"] = round(float(slopes[0]), 4)

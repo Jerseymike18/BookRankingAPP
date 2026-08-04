@@ -354,6 +354,13 @@ COLD_START_TERM_ENABLED = os.environ.get("COLD_START_TERM", "1") != "0"
 _author_prior_cache: dict = {}          # normalized-favorites tuple → {base, map}
 _AUTHOR_OFFSET_BASE = 0.5               # WA bump for a direct favorite
 _ANALOG_WEIGHT = 0.5                    # analogs get this fraction of the favorite bump
+# New-user favorite-GENRE prior: the genre analog of the author prior — a positive WA bump
+# on the GENRE cold slice (n_genre==0) when the unread book's genre is a stated favorite.
+# Same magnitude as the author favorite bump ("nudge like fav_authors"); genre is a broader
+# bucket, so dial this down here if it reads as too strong. Direct favorites only — no LLM
+# "analog genre" expansion (genre is already coarse; keeps this deterministic + API-free).
+_genre_prior_cache: dict = {}           # normalized-fav-genres tuple → {base, map}
+_GENRE_OFFSET_BASE = 0.5                # WA bump for a book in a favorite genre
 
 
 # Center for a preference-only term: log10 of a typical novel (~160k words), so a
@@ -423,15 +430,42 @@ def _build_author_prior(fav_authors):
     return _author_prior_cache[favs]
 
 
-def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None):
-    """Per-tenant cold-start term — two INDEPENDENT components, each applied only on the
-    cold slice (n_author==0) by correct_and_predict:
-      * word count: the tenant's FITTED slope once they have enough books, else their
-        onboarding word-count preference (new users);
-      * author prior: favorite authors + analogs, attached whenever set. It fades PER
-        AUTHOR via the n_author==0 gate (the moment you rate that author), NOT with library
-        size — so a favorite you still haven't read keeps its nudge even once you're data-rich.
-    None when neither component applies."""
+def _expand_genre_prior(favs):
+    """Build {base, map} from favorite genre names (each weight 1.0). The genre analog of
+    _expand_author_prior, minus the LLM analog widening — genre is already a coarse bucket,
+    so favorites alone keep the nudge deterministic and API-free. Empty input → None."""
+    m = {}
+    for g in favs:
+        ng = _rp.normalize_genre(g)
+        if ng:
+            m[ng] = 1.0
+    if not m:
+        return None
+    return {"base": _GENRE_OFFSET_BASE, "map": m}
+
+
+def _build_genre_prior(fav_genres):
+    """Cached genre prior for a favorites list, keyed by the normalized-favorites tuple so
+    it rebuilds when the reader changes them. None when there are no usable favorites."""
+    favs = tuple(str(g).strip() for g in (fav_genres or []) if str(g).strip())[:5]
+    if not favs:
+        return None
+    if favs not in _genre_prior_cache:
+        _genre_prior_cache[favs] = _expand_genre_prior(favs)
+    return _genre_prior_cache[favs]
+
+
+def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_genres=None):
+    """Per-tenant cold-start term — INDEPENDENT components, each applied only on its own
+    cold slice by correct_and_predict:
+      * word count (AUTHOR slice, n_author==0): the tenant's FITTED slope once they have
+        enough books, else their onboarding word-count preference (new users);
+      * author prior (AUTHOR slice, n_author==0): favorite authors + analogs, attached
+        whenever set. It fades PER AUTHOR (the moment you rate that author), NOT with library
+        size — so a favorite you still haven't read keeps its nudge even once you're data-rich;
+      * genre prior (GENRE slice, n_genre==0): favorite genres, attached whenever set. Fades
+        PER GENRE (the moment you rate a book in that genre), independent of the author gate.
+    None when no component applies."""
     if not COLD_START_TERM_ENABLED or _rp is None:
         return None
     uid = _uid(user_id)
@@ -439,23 +473,28 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None):
         _cold_term_cache[uid] = _fit_cold_term_for(uid)     # fitted coefs or None
     fitted = _cold_term_cache[uid]
     # Word-count component: fitted (data-rich) else the stated preference (new user).
-    # dict(...) copies so attaching an author prior never mutates the cached fitted term.
+    # dict(...) copies so attaching a prior never mutates the cached fitted term.
     term = dict(fitted if fitted is not None
                 else (_preference_cold_term(word_count_pref) or {}))
     ap = _build_author_prior(fav_authors)                   # independent of library size
     if ap:
         term["author_prior"] = ap
+    gp = _build_genre_prior(fav_genres)                     # independent of library size
+    if gp:
+        term["genre_prior"] = gp
     return term or None                                     # {} → nothing to apply
 
 
-def _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term):
+def _cold_adjust_rec_wa(wa, words, series_number, author, genre, n_author, n_genre, cold_term):
     """Apply the cold-start term to a SAVED recommendation's displayed WA so cold-slice
-    recs rank consistently with the live Predict page. No-op unless the reader has a term
-    and the rec has no same-author analog (n_author == 0) — the same gate correct_and_predict
-    uses. Keeps the read-queue and reading-status slots agreeing on the same book's WA."""
-    if cold_term is None or n_author != 0 or _rp is None:
+    recs rank consistently with the live Predict page. No-op unless the reader has a term and
+    the rec sits on at least one cold slice — no same-author analog (n_author == 0) and/or no
+    same-genre analog (n_genre == 0) — the same per-component gates correct_and_predict uses.
+    Keeps the read-queue and reading-status slots agreeing on the same book's WA."""
+    if cold_term is None or _rp is None or (n_author != 0 and n_genre != 0):
         return wa
-    return _rp.apply_cold_start_term(wa, words, series_number, author, cold_term)
+    return _rp.apply_cold_start_term(wa, words, series_number, author, genre,
+                                     n_author, n_genre, cold_term)
 
 
 def _correction_pool(user_id, books_e):
@@ -1921,9 +1960,12 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
     rated_wa = books["WA"].values
     # Same-author analog counts drive the conformal interval bucket (author is the
     # engine's innermost density tier). Precompute once so the per-rec lookup is O(1).
+    # Same-genre counts gate the favorite-genre cold-start prior the same way.
     author_counts = books["Author"].value_counts()
+    genre_counts = books["Genre"].value_counts()
     cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
-                               user_md.get("fav_authors"))
+                               user_md.get("fav_authors"),
+                               user_md.get("fav_genres"))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -1956,7 +1998,9 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
         # Cold-start term on the no-analog slice — keeps this rec's WA (and its rank
         # here) consistent with what the Predict page showed for the same book.
         n_author = int(author_counts.get((author or "").strip(), 0))
-        wa = _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term)
+        n_genre = int(genre_counts.get(genre_str, 0))
+        wa = _cold_adjust_rec_wa(wa, words, series_number, author, genre_str,
+                                 n_author, n_genre, cold_term)
         predicted_rank = int((rated_wa > wa).sum() + 1)
 
         rec = {
@@ -2088,7 +2132,8 @@ def _build_research_response(user_id, title, author, eff_genre, genre_auto_detec
             corr_pool, gw_e, gcw_e, cache, blurb=blurb, keywords=keywords,
             corr_models=corr_models, words=words, pairs=pairs,
             cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
-                                     user_md.get("fav_authors")),
+                                     user_md.get("fav_authors"),
+                                     user_md.get("fav_genres")),
             # Rank / total / grounding counts scope to the tenant's OWN library
             # (books_e), never the seed-borrowed correction pool (corr_pool). The
             # correction VALUE still borrows the seed; only the display denominator
@@ -2528,8 +2573,10 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
     rated_wa = books["WA"].values
     total_rated = len(books)
     author_counts = books["Author"].value_counts()
+    genre_counts = books["Genre"].value_counts()
     cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
-                               user_md.get("fav_authors"))
+                               user_md.get("fav_authors"),
+                               user_md.get("fav_genres"))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -2579,7 +2626,9 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
             category_avgs[cat] = round(wcat, 2)
             wa += wcat * ((gw.get(genre_str, {}) or {}).get(cat, 0) or 0)
         n_author = int(author_counts.get((author or "").strip(), 0))
-        wa = _cold_adjust_rec_wa(wa, words, series_number, author, n_author, cold_term)
+        n_genre = int(genre_counts.get(genre_str, 0))
+        wa = _cold_adjust_rec_wa(wa, words, series_number, author, genre_str,
+                                 n_author, n_genre, cold_term)
         predicted_rank = int((rated_wa > wa).sum() + 1)
         return {
             "title": title,
@@ -3840,7 +3889,8 @@ def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
     return ep.build_engine_parameters(
         books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS,
         cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
-                                 user_md.get("fav_authors")),
+                                 user_md.get("fav_authors"),
+                                 user_md.get("fav_genres")),
         model_source="borrowed_seed" if borrowed else "own",
         min_own_fit=MIN_OWN_FIT,
     )

@@ -327,6 +327,7 @@ function coldStartStatus(params: EngineParameters) {
     nFit: cs.n_books_fit,
     minFit: cs.min_books_to_fit,
     authorPrior: cs.author_prior,
+    genrePrior: cs.genre_prior,
     longer: (cs.slope_wa_per_dex ?? 0) >= 0,
   };
 }
@@ -435,6 +436,12 @@ function SimpleView({
           <>
             {" "}Your stated favorite authors (and authors very like them) also get a small boost — which disappears
             per author the moment you actually rate one of their books.
+          </>
+        )}
+        {cs.genrePrior && (
+          <>
+            {" "}Your favorite genres get the same kind of nudge — a small boost that fades per genre as soon as you
+            rate a book in it.
           </>
         )}{" "}
         And the instant you rate anything by an author, all of this steps aside: your real history takes over.
@@ -693,6 +700,12 @@ function TechnicalView({
           <>
             {" "}Independently, your stated favorite authors (and close analogs) carry a positive prior on this same
             cold slice — fading per author the moment you rate one of their books.
+          </>
+        )}
+        {cs.genrePrior && (
+          <>
+            {" "}Your stated favorite genres carry a parallel prior on the analogous no-same-genre-analog slice
+            (same-genre count = 0), fading per genre the moment you rate a book in that genre.
           </>
         )}
       </Body>

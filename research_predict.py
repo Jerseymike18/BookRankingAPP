@@ -540,13 +540,15 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     corrected = {c: min(10.0, max(0.0, v)) for c, v in corrected.items()}
 
     wa = _wa_from_components(corrected, genre, gw, gcw)
-    # Word-count cold-start terminus term (default OFF; see
-    # experiments/cold_start_wordcount_spec.md). Applied ONLY when there is no
-    # same-author analog, where the correction is blind to book length. With
-    # cold_term=None (the default for every current caller) this is byte-identical
-    # to prior behavior, so the 0.636 walk-forward baseline and test_engine hold.
-    if cold_term is not None and n_author == 0:
-        wa = apply_cold_start_term(wa, words, series_number, author, cold_term)
+    # Cold-start terminus term (default OFF; see experiments/cold_start_wordcount_spec.md).
+    # Each component applies only on its own cold slice, where the correction is blind to
+    # that dimension: the word-count slope + author prior when there is no same-author
+    # analog (n_author == 0), the favorite-genre prior when there is no same-genre analog
+    # (n_genre == 0). With cold_term=None (the default for walk-forward / test_engine) this
+    # is byte-identical to prior behavior, so the 0.636 baseline and test_engine hold.
+    if cold_term is not None and (n_author == 0 or n_genre == 0):
+        wa = apply_cold_start_term(wa, words, series_number, author, genre,
+                                   n_author, n_genre, cold_term)
     half = 1.645 * resid_sd
     ci = (wa - half, wa + half)
 
@@ -608,26 +610,50 @@ def normalize_author(name):
     return " ".join(str(name).lower().replace(".", " ").split()) if name else ""
 
 
-def apply_cold_start_term(wa, words, series_number, author, coefs):
+def normalize_genre(name):
+    """Loose genre key for matching a stated favorite genre against a book's genre
+    (case/space-insensitive). Parentheses are KEPT so 'Science Fiction (Hard)' and
+    '(Soft)' stay distinct."""
+    return " ".join(str(name).lower().split()) if name else ""
+
+
+def apply_cold_start_term(wa, words, series_number, author, genre,
+                          n_author, n_genre, coefs):
     """Return wa adjusted by the cold-start term, or wa unchanged when the term is off
-    (coefs is None). The term may carry two independent, additive components, each optional:
-      * a word-count slope (fitted, or a new user's stated preference);
+    (coefs is None). The term carries independent, additive components, each applied only
+    on its OWN cold slice — the dimension the author+genre correction is blind to there:
+
+      * a word-count slope (fitted, or a new user's stated preference) — AUTHOR slice;
       * an author prior — {"map": {normalized_author: weight}, "base": offset} — a new
-        reader's favorite authors (weight 1.0) and their analogs (discounted), a positive
-        offset when the book's author is on the list. Applied only on the cold slice by the
-        caller (n_author==0). The adjusted WA is clamped to [0, 10]."""
+        reader's favorite authors (weight 1.0) and their analogs (discounted); a positive
+        offset when the book's author is on the list — AUTHOR slice (n_author == 0);
+      * a genre prior — {"map": {normalized_genre: weight}, "base": offset} — a new
+        reader's favorite genres (weight 1.0); a positive offset when the book's genre is
+        on the list — GENRE slice (n_genre == 0), independent of the author gate.
+
+    The word-count and author components fade per-author (the moment n_author > 0); the
+    genre component fades per-genre (n_genre > 0). The adjusted WA is clamped to [0, 10]."""
     if coefs is None:
         return wa
     adj = 0.0
-    if coefs.get("slopes"):                         # word-count component
-        f = _cold_features(words, series_number, coefs.get("use_series", False))
-        if f is not None:
-            fc = np.array(f) - np.array(coefs["mu"])
-            adj += coefs.get("intercept", 0.0) + float(np.dot(coefs["slopes"], fc))
-    ap = coefs.get("author_prior")                  # author-prior component (new users)
-    if ap and author:
-        adj += float(ap.get("base", 0.0)) * float(ap.get("map", {}).get(
-            normalize_author(author), 0.0))
+    # Word-count slope + author prior — the AUTHOR cold slice, where the correction has no
+    # same-author analog to learn book length / this author's taste from.
+    if n_author == 0:
+        if coefs.get("slopes"):                     # word-count component
+            f = _cold_features(words, series_number, coefs.get("use_series", False))
+            if f is not None:
+                fc = np.array(f) - np.array(coefs["mu"])
+                adj += coefs.get("intercept", 0.0) + float(np.dot(coefs["slopes"], fc))
+        ap = coefs.get("author_prior")              # author-prior component (new users)
+        if ap and author:
+            adj += float(ap.get("base", 0.0)) * float(ap.get("map", {}).get(
+                normalize_author(author), 0.0))
+    # Genre prior — the GENRE cold slice, where the correction has no same-genre analog.
+    if n_genre == 0:
+        gp = coefs.get("genre_prior")               # genre-prior component (new users)
+        if gp and genre:
+            adj += float(gp.get("base", 0.0)) * float(gp.get("map", {}).get(
+                normalize_genre(genre), 0.0))
     return float(min(max(wa + adj, 0.0), 10.0))
 
 
