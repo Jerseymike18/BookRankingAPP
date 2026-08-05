@@ -653,10 +653,15 @@ export interface EngineParameters {
   };
   library: {
     n_rated_books: number;
-    // "own" once the reader's library fits its own calibration;
-    // "borrowed_seed" while a new tenant rides the reference library's.
-    model_source: "own" | "borrowed_seed";
+    // Whose calibration the reader's predictions run on. Cold start shrinks
+    // SMOOTHLY rather than switching, so this is a three-state summary of a
+    // continuum: "borrowed_seed" = riding the reference library's calibration
+    // whole, "blended" = a genuine mixture, "own" = converged on their own fit.
+    model_source: "own" | "borrowed_seed" | "blended";
     min_own_fit: number | null;
+    // 0..1 — the share carried by the reader's OWN fit. The honest figure behind
+    // model_source; null on payloads built before smooth shrinkage.
+    blend_weight: number | null;
   };
 }
 

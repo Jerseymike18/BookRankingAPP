@@ -551,6 +551,7 @@
     "residuals_available": true
   },
   "library": {
+    "blend_weight": 1.0,
     "min_own_fit": 15,
     "model_source": "own",
     "n_rated_books": 131

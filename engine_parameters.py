@@ -158,7 +158,8 @@ def _cold_start_block(cold_term):
 
 
 def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
-                            cold_term=None, model_source="own", min_own_fit=None):
+                            cold_term=None, model_source="own", min_own_fit=None,
+                            blend_weight=None):
     """Assemble the live engine-parameters payload from the prebuilt engine tuple.
 
     Args mirror the cached engine (``books, gw, gcw, …, r2, resid_sd``) so the
@@ -166,9 +167,12 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
     CALLER'S tenant engine so every number is theirs. ``residuals`` is the loaded
     ``calibration/residuals.json`` (or None). ``model_source`` is "own" when the
     regression/correction calibration is fit on the reader's own library,
-    "borrowed_seed" for a below-``min_own_fit`` tenant riding the reference
-    library's calibration. Deterministic: no timestamps, no HEAD — safe to
-    snapshot byte-identically for the default user."""
+    "borrowed_seed" for a tenant riding the reference library's calibration whole,
+    and "blended" in between — cold start shrinks smoothly rather than switching,
+    so ``blend_weight`` (0..1, the fraction carried by the reader's OWN fit) is the
+    honest figure and ``min_own_fit`` is retained as a reference threshold only.
+    Deterministic: no timestamps, no HEAD — safe to snapshot byte-identically for
+    the default user."""
     cat_comps = books.attrs["category_components"]
     cat_order = [c for c in CATEGORY_ORDER if c in cat_comps] + [
         c for c in cat_comps if c not in CATEGORY_ORDER
@@ -229,8 +233,10 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
         },
         "library": {
             "n_rated_books": int(len(books)),
-            # Whose calibration the reader's predictions run on right now.
+            # Whose calibration the reader's predictions run on right now, and in
+            # what proportion (blend_weight = the share carried by their OWN fit).
             "model_source": model_source,
             "min_own_fit": min_own_fit,
+            "blend_weight": blend_weight,
         },
     }

@@ -53,6 +53,7 @@ from pydantic import BaseModel, AfterValidator
 from typing import Optional, Annotated
 
 import pandas as pd
+import numpy as np
 import db_loader
 import db_write
 import goodreads_import
@@ -236,19 +237,97 @@ def _uid(user_id):
     return user_id or db_backend.DEFAULT_USER_ID
 
 
-# Cold-start prior (Phase-4 K_USER_PRIOR, v1). A tenant with too few books to fit
-# a stable model of their own BORROWS the seed tenant's fitted prediction model
-# (coeffs / genre-trust / upstream). Their OWN books + weights are still used for
-# listing and WA ranking — WA is computed from their EFFECTIVE weights (the global
-# defaults overlaid with any of their own overrides) + their own scores in
-# db_loader, so rankings stay correctly per-user. This both crash-proofs the
-# 0-book case (pe.fit_regression on an empty frame raises — the multi-tenant
-# cold-start 500) and gives brand-new users working predictions from book #1.
-# The seed is the local single-user (Michael / DEFAULT_USER_ID), who always fits
-# his own model, so his behavior is byte-identical and the 0.631 gate is intact.
-# TODO(phase4): replace this hard switch with smooth shrinkage toward the prior.
+# Cold-start prior (Phase-4 K_USER_PRIOR, v2 — SMOOTH). A tenant without enough
+# books to fit a stable model of their own shrinks toward the seed tenant's fitted
+# prediction model (coeffs / genre bias+trust / upstream) instead of switching to
+# it wholesale. Their OWN books + weights are still used for listing and WA ranking
+# — WA is computed from their EFFECTIVE weights (the global defaults overlaid with
+# any of their own overrides) + their own scores in db_loader, so rankings stay
+# correctly per-user. This crash-proofs the 0-book case (pe.fit_regression on an
+# empty frame raises — the multi-tenant cold-start 500) and gives brand-new users
+# working predictions from book #1.
+#
+# The seed is the local single-user (Michael / DEFAULT_USER_ID), who ALWAYS fits
+# his own model with no blending at all (the short-circuit in _build_engine_for),
+# so his behavior is byte-identical and the walk-forward gate is intact.
+#
+# v1 was a hard switch at MIN_OWN_FIT: below it a tenant ran on 100% of someone
+# else's calibration, at it they snapped to 100% of their own. v2 replaces that
+# cliff with empirical-Bayes shrinkage, which is also what the engine already does
+# internally (pe._shrink, genre trust n/(n+8)) — this just extends the same idea to
+# the per-tenant model itself. NOTHING here reimplements prediction math: the
+# read-only engine's fit functions are called unchanged and only their OUTPUTS are
+# combined, exactly as the v1 borrow already did.
 SEED_USER_ID = db_backend.DEFAULT_USER_ID
-MIN_OWN_FIT = 15  # below this many books, borrow the seed model instead of fitting
+# Retained as the CORRECTION-POOL threshold (_correction_pool) and as the figure
+# reported on /api/engine-parameters — no longer a model on/off switch.
+MIN_OWN_FIT = 15
+
+# Below this many books no own fit is ATTEMPTED — not a taste judgement but a
+# numerical floor: fit_regression solves 5 parameters and takes np.std(resid,
+# ddof=5), so a smaller frame is underdetermined and its resid_sd degenerate.
+OWN_FIT_FLOOR = 8
+# Model-level shrinkage constant. Chosen so the own-fit weight is exactly ½ at the
+# legacy MIN_OWN_FIT=15 threshold: the old switch point is now the MIDPOINT of the
+# ramp rather than a cliff (15 - OWN_FIT_FLOOR = 7 = K_MODEL -> w = 7/14).
+K_MODEL = 7.0
+# Per-GENRE shrinkage constant for the genre bias/trust blend. Deliberately equal
+# to the constant inside pe.genre_bias_and_trust (trust = n/(n+8)) so the blend and
+# the engine's own genre weighting have the same shape.
+K_GENRE = 8.0
+
+
+def _own_fit_weight(n_books: int) -> float:
+    """Weight on the tenant's OWN model-level fit; 1 - w rides the seed prior.
+
+    Ramps from 0 at OWN_FIT_FLOOR (continuous — no jump at the floor, because the
+    numerator starts at 0 there) toward 1 as the library grows. Governs only the
+    near-deterministic pieces (the WA-from-categories regression, R^2 ~ 0.99, and
+    the upstream component models); per-GENRE taste shrinks separately on its own
+    count in _blend_ginfo, which is where a reader's actual preferences live."""
+    m = max(0, int(n_books) - OWN_FIT_FLOOR)
+    return m / (m + K_MODEL)
+
+
+def _blend_ginfo(own: dict, seed: dict) -> dict:
+    """Per-genre blend of pe.genre_bias_and_trust output.
+
+    The denominator is each genre's OWN count, not the library-wide one: a tenant
+    with 12 books may hold 9 in one genre and 0 in six others, and shrinking those
+    identically would both hold back the genre they have real evidence for and
+    over-trust the ones they have none for. A genre absent from `own` has n=0 and
+    collapses exactly to the seed entry (v1's behaviour), and one absent from the
+    seed passes through unshrunk."""
+    out = {}
+    for g in set(own) | set(seed):
+        o, s = own.get(g), seed.get(g)
+        if o is None or s is None:
+            out[g] = o if s is None else s
+            continue
+        n = float(o.get("n", 0) or 0)
+        wg = n / (n + K_GENRE)
+        out[g] = {"bias": wg * float(o["bias"]) + (1.0 - wg) * float(s["bias"]),
+                  "n": o["n"],   # the tenant's own count — a displayed fact, not a weight
+                  "trust": wg * float(o["trust"]) + (1.0 - wg) * float(s["trust"])}
+    return out
+
+
+def _blend_upstream(own: dict, seed: dict, w: float) -> dict:
+    """Blend pe.fit_upstream output (target -> {coef, drivers}) on the model-level
+    weight. A target present in only one side, or fitted on a different driver set,
+    is taken whole rather than mixing incomparable coefficient vectors."""
+    out = dict(seed)
+    for target, o in own.items():
+        s = seed.get(target)
+        if s is None or list(s.get("drivers", ())) != list(o.get("drivers", ())):
+            out[target] = o
+            continue
+        out[target] = {
+            "coef": w * np.asarray(o["coef"], dtype=float)
+                    + (1.0 - w) * np.asarray(s["coef"], dtype=float),
+            "drivers": o["drivers"],
+        }
+    return out
 
 
 def _shape_empty_books(books, categories):
@@ -274,28 +353,54 @@ def _build_engine_for(uid) -> tuple:
     read-only engine fit functions. No prediction math is reimplemented here —
     predict_engine stays tenant-agnostic and simply receives scoped data. The
     tenant's own weight overrides (if any) are overlaid on the global weights
-    before the load computes WA (see user_weights). A below-threshold tenant
-    borrows the seed's fitted model (see SEED_USER_ID)."""
+    before the load computes WA (see user_weights). A data-poor tenant shrinks
+    toward the seed's fitted model (see SEED_USER_ID / _own_fit_weight)."""
     books, gw, gcw = db_loader.load_from_db(
         user_id=uid, weight_overrides=user_weights.load_overrides(uid))
     if len(books) == 0:
         books = _shape_empty_books(books, db_loader.CATEGORY_OF_INTEREST)
-    if uid != SEED_USER_ID and len(books) < MIN_OWN_FIT:
-        # Cold start: borrow the seed's fitted prediction model, keep own books.
-        _, _, _, coeffs, r2, resid_sd, ginfo, upstream = _get_engine(SEED_USER_ID)
+
+    if uid == SEED_USER_ID:
+        # The seed never blends — it IS the prior. Byte-identical to pre-Phase-4.
+        coeffs, r2, resid_sd = pe.fit_regression(books)
+        ginfo = pe.genre_bias_and_trust(books, coeffs)
+        upstream = pe.fit_upstream(books)
         return books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream
-    coeffs, r2, resid_sd = pe.fit_regression(books)
-    ginfo = pe.genre_bias_and_trust(books, coeffs)
-    upstream = pe.fit_upstream(books)
+
+    w = _own_fit_weight(len(books))
+    _, _, _, s_coeffs, s_r2, s_resid_sd, s_ginfo, s_upstream = _get_engine(SEED_USER_ID)
+    if w <= 0.0:
+        # Too few books to fit anything of their own: ride the prior whole.
+        return books, gw, gcw, s_coeffs, s_r2, s_resid_sd, s_ginfo, s_upstream
+
+    o_coeffs, o_r2, o_resid_sd = pe.fit_regression(books)
+    coeffs = w * np.asarray(o_coeffs, dtype=float) + (1.0 - w) * np.asarray(s_coeffs, dtype=float)
+    r2 = w * float(o_r2) + (1.0 - w) * float(s_r2)
+    resid_sd = w * float(o_resid_sd) + (1.0 - w) * float(s_resid_sd)
+    # Genre bias is recomputed against the BLENDED coeffs, not the tenant's own:
+    # a bias term has to correct the regression that is actually going to be used.
+    ginfo = _blend_ginfo(pe.genre_bias_and_trust(books, coeffs), s_ginfo)
+    upstream = _blend_upstream(pe.fit_upstream(books), s_upstream, w)
     return books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream
 
 
 def _get_engine(user_id=None) -> tuple:
+    """The tenant's warm engine tuple, keyed on BOTH its own epoch and the SEED's.
+
+    A non-seed tenant's tuple embeds a shrunken share of the seed's fitted model,
+    so a write by the seed makes every other tenant's cached engine stale — under
+    the v1 hard switch that only affected sub-threshold tenants, but under smooth
+    shrinkage it reaches every tenant below the asymptote. Mirrors the two-epoch
+    key _corr_statics already uses for the same reason. Values stay pure functions
+    of committed DB state, so a miss just rebuilds the identical object."""
     uid = _uid(user_id)
-    cached = _engine_cache.get(uid)
-    if cached is None:
-        cached = _engine_cache[uid] = _build_engine_for(uid)
-    return cached
+    key = (_engine_epoch.get(uid, 0), _engine_epoch.get(SEED_USER_ID, 0))
+    hit = _engine_cache.get(uid)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    built = _build_engine_for(uid)
+    _engine_cache[uid] = (key, built)
+    return built
 
 
 def _invalidate_engine(user_id=None) -> None:
@@ -503,9 +608,14 @@ def _correction_pool(user_id, books_e):
     which is degenerate (near-raw), noisy (a handful of idiosyncratic ratings swing the
     prediction wildly), or an outright crash on an empty pool. So a below-threshold tenant
     borrows the SEED's calibrated books UNIONed with their own (their reads still add
-    analogs; the seed's 129 dominate the calibration). This mirrors the model borrow in
-    _build_engine_for and completes it for the research path. The seed and any data-rich
-    tenant use their own books unchanged, so their predictions are byte-identical."""
+    analogs; the seed's 129 dominate the calibration). This completes the model-level
+    cold-start prior in _build_engine_for for the research path. The seed and any
+    data-rich tenant use their own books unchanged, byte-identical predictions.
+
+    NOTE: this is still a HARD switch at MIN_OWN_FIT, deliberately — _build_engine_for
+    blends fitted PARAMETERS, which mix linearly; a training POOL does not, so the same
+    smooth ramp does not transfer here. Softening it (e.g. sample-weighting the seed rows
+    by 1 - _own_fit_weight) is a separate piece of work with its own accuracy gate."""
     if user_id == SEED_USER_ID or len(books_e) >= MIN_OWN_FIT:
         return books_e
     seed_books = _get_engine(SEED_USER_ID)[0]
@@ -3885,14 +3995,26 @@ def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
         books, gw, gcw, _coeffs, r2, resid_sd, _ginfo, _upstream = _get_engine(user_id)
     except Exception as e:
         raise _server_error(e, "Engine build failed")
-    borrowed = _uid(user_id) != SEED_USER_ID and len(books) < MIN_OWN_FIT
+    # Calibration provenance is a CONTINUUM now (smooth cold-start shrinkage), so
+    # the flag reports three states and carries the actual own-fit weight: the seed
+    # (and any tenant whose ramp has effectively converged) is "own", a tenant below
+    # OWN_FIT_FLOOR rides the prior whole ("borrowed_seed"), everyone between is
+    # "blended". blend_weight is the fraction of their OWN fit.
+    if _uid(user_id) == SEED_USER_ID:
+        blend_weight = 1.0
+    else:
+        blend_weight = _own_fit_weight(len(books))
+    model_source = ("own" if blend_weight >= 0.995
+                    else "borrowed_seed" if blend_weight <= 0.0
+                    else "blended")
     return ep.build_engine_parameters(
         books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS,
         cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                  user_md.get("fav_authors"),
                                  user_md.get("fav_genres")),
-        model_source="borrowed_seed" if borrowed else "own",
+        model_source=model_source,
         min_own_fit=MIN_OWN_FIT,
+        blend_weight=round(float(blend_weight), 4),
     )
 
 

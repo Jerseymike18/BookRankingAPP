@@ -332,6 +332,20 @@ function coldStartStatus(params: EngineParameters) {
   };
 }
 
+/** Whose calibration the reader is running on. Cold start shrinks smoothly, so
+ *  this is a continuum: `borrowed` = riding the reference prior whole, `blended`
+ *  = a genuine mixture (with `pctOwn` the share carried by their own fit). */
+function calibrationStatus(params: EngineParameters) {
+  const src = params.library.model_source;
+  const w = params.library.blend_weight;
+  return {
+    borrowed: src === "borrowed_seed",
+    blended: src === "blended",
+    // Rounded for prose only — the payload keeps the exact weight.
+    pctOwn: w == null ? null : Math.round(w * 100),
+  };
+}
+
 /* ── PLAIN-ENGLISH view ─────────────────────────────────────────────────── */
 function SimpleView({
   params,
@@ -342,7 +356,7 @@ function SimpleView({
 }) {
   const { schema, interval, models, library } = params;
   const cs = coldStartStatus(params);
-  const borrowed = library.model_source === "borrowed_seed";
+  const { borrowed, blended, pctOwn } = calibrationStatus(params);
 
   return (
     <>
@@ -453,10 +467,17 @@ function SimpleView({
         {library.n_rated_books === 1 ? "" : "s"}.{" "}
         {borrowed ? (
           <>
-            While it&rsquo;s under {library.min_own_fit ?? "the threshold"} books, predictions borrow calibration from
-            the engine&rsquo;s reference library so they work from day one — your own books and weights still drive
-            your rankings, and every book you rate shifts predictions toward your taste. Past that threshold the
-            engine runs entirely on your own data.
+            That&rsquo;s not yet enough to calibrate on, so predictions lean on the engine&rsquo;s reference library
+            for now — they work from day one, and your own books and weights still drive your rankings. There&rsquo;s
+            no threshold to cross: as you rate books, the calibration slides over to your own data a little at a time.
+          </>
+        ) : blended ? (
+          <>
+            The calibration behind your predictions is now{" "}
+            <strong>{pctOwn == null ? "partly" : `about ${pctOwn}% `}your own</strong>, with the rest still leaning on
+            the engine&rsquo;s reference library — enough of your data to trust, not yet enough to stand alone. That
+            share climbs with every book you rate, and it climbs fastest in the genres you actually read: a genre you
+            have real history in switches over to your taste well before the rest.
           </>
         ) : (
           <>
@@ -505,7 +526,7 @@ function TechnicalView({
   const wGenre10 = 10 / (10 + kg); // a 10-book genre
   const served = validation?.served_coverage;
   const cs = coldStartStatus(params);
-  const borrowed = library.model_source === "borrowed_seed";
+  const { borrowed, blended, pctOwn } = calibrationStatus(params);
 
   return (
     <>
@@ -571,13 +592,24 @@ function TechnicalView({
           last
         />
       </div>
-      {borrowed && (
+      {(borrowed || blended) && (
         <Callout>
-          <strong>Your library is still warming up.</strong>{" "}With fewer than{" "}
-          <span className="font-mono">{library.min_own_fit}</span>{" "}rated books, the calibration in stages 2&ndash;3
-          (and the regression diagnostic below) is borrowed from the engine&rsquo;s reference library, unioned with your
-          own reads — a stable prior beats a noisy fit on a handful of books. Your own books and weights still drive the
-          roll-up and the rank. Past the threshold, everything is fit on your data alone.
+          <strong>Your library is still warming up.</strong>{" "}The calibration in stages 2&ndash;3 (and the regression
+          diagnostic below) is shrunk toward the engine&rsquo;s reference library, unioned with your own reads — a
+          stable prior beats a noisy fit on a handful of books.{" "}
+          {borrowed ? (
+            <>
+              At <span className="font-mono">{library.n_rated_books}</span>{" "}rated books it rides that prior whole.
+            </>
+          ) : (
+            <>
+              It currently carries{" "}
+              <span className="font-mono">{pctOwn == null ? "part" : `${pctOwn}%`}</span>{" "}of your own fit.
+            </>
+          )}{" "}
+          The weight moves continuously with library size — there is no threshold and no snap — and per-genre bias
+          shrinks on each genre&rsquo;s own count, so a genre you read heavily converges ahead of one you don&rsquo;t.
+          Your own books and weights drive the roll-up and the rank throughout.
         </Callout>
       )}
 
@@ -647,7 +679,9 @@ function TechnicalView({
         slope &lt; 1 pulls everything toward the mean) toward a slope-1 deviation model, undoing that
         regression-to-the-mean compression; and the correlation smoothing from stage 2 (<TeX>{`\\text{blend} = ${wt(shrinkage.corr_blend)}`}</TeX>)
         runs first. All of it is fit on rated books only
-        {borrowed ? " (currently the borrowed calibration pool — see above)" : " — your rated books"}, out-of-sample
+        {borrowed || blended
+          ? " (currently shrunk toward the reference calibration pool — see above)"
+          : " — your rated books"}, out-of-sample
         for the book being predicted.
       </Body>
       <Callout>
