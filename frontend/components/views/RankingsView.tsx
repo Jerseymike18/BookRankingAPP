@@ -692,6 +692,34 @@ const CAT_ABBREV: Record<string, string> = {
   Substance: "Subst", Reasoning: "Reason", Exposition: "Expos", Impact: "Impact",
 };
 
+/* ── Individual component columns ──────────────────────────────────────────
+   Every category header can expand into its own component sub-columns, each
+   independently sortable. Purely presentational: the 14-component / 5-category
+   rating structure is untouched, and the values come straight off the payload
+   the expand-a-row panel already renders (book.components) — nothing is
+   recomputed here. */
+
+// Keyed by the *display* label (post componentLabel), so the nonfiction
+// renames ("Enjoyment", "Insight") get abbreviated too. Anything unlisted
+// renders in full; the header carries the full name as a tooltip either way.
+const COMP_ABBREV: Record<string, string> = {
+  Entertainment: "Enter", Enjoyment: "Enjoy", "Emotional Impact": "Emotion",
+  Motivations: "Motive", "Thought-Provokingness": "Thought", Depth2: "Depth",
+  Originality: "Orig", Integration: "Integr", Narration: "Narr",
+  Informativeness: "Info", Argumentation: "Argument",
+};
+
+/** Namespaced so a component can never collide with a category or meta column
+ *  (fiction "Depth" lives in Character, "Depth2" in Worldbuilding). */
+function compColKey(cat: string, comp: string): string {
+  return `comp:${cat}:${comp}`;
+}
+
+function compHeader(comp: string, kind: BookKind): string {
+  const label = componentLabel(comp, kind);
+  return COMP_ABBREV[label] ?? label;
+}
+
 // The primary ranking score is WA (the weighted score) for BOTH tracks — nonfiction
 // now ranks by WA too (2026 redesign). Total Average is secondary and still drives
 // tier bands + series rollups.
@@ -700,20 +728,83 @@ function primaryScore(b: Book, _kind: BookKind): number {
 }
 
 // Columns are built from the response's category_order (5 for fiction, 5 for
-// nonfiction) so the same table serves both types; both lead with WA.
-function buildCols(kind: BookKind, categoryOrder: string[]): ColDef<Book>[] {
+// nonfiction) so the same table serves both types; both lead with WA. An
+// expanded category is followed by one sortable column per component it owns.
+function buildCols(
+  kind: BookKind,
+  categoryOrder: string[],
+  componentsByCat: Record<string, string[]>,
+  expanded: Set<string>,
+): ColDef<Book>[] {
   return [
     { key: "title", label: "Book", type: "string", getValue: (b) => b.title, align: "left" },
     {
       key: "wa", label: "WA",
       type: "numeric", getValue: (b) => primaryScore(b, kind), align: "right",
     },
-    ...categoryOrder.map((cat): ColDef<Book> => ({
-      key: cat, label: CAT_ABBREV[cat] ?? cat, type: "numeric",
-      getValue: (b) => (b.category_avgs ?? {})[cat] ?? 0, align: "right",
-    })),
+    ...categoryOrder.flatMap((cat): ColDef<Book>[] => {
+      const catCol: ColDef<Book> = {
+        key: cat, label: CAT_ABBREV[cat] ?? cat, type: "numeric",
+        getValue: (b) => (b.category_avgs ?? {})[cat] ?? 0, align: "right",
+      };
+      if (!expanded.has(cat)) return [catCol];
+      return [
+        catCol,
+        ...(componentsByCat[cat] ?? []).map((comp): ColDef<Book> => ({
+          key: compColKey(cat, comp), label: compHeader(comp, kind), type: "numeric",
+          getValue: (b) => b.components?.[cat]?.[comp] ?? 0, align: "right",
+        })),
+      ];
+    }),
     { key: "genre", label: "Genre", type: "string", getValue: (b) => b.genre, align: "left" },
   ];
+}
+
+/* ── Score cell ───────────────────────────────────────────────────────────
+   Shared by the category-average and component columns so an expanded group
+   matches the row it sits in. Missing / 0 reads as "—" (the optional
+   Worldbuilding case), matching how useSortable sinks those to the bottom. */
+
+function ScoreCell({ value, active, digits }: {
+  value: number | null | undefined;
+  active: boolean;
+  digits: number;
+}) {
+  const empty = value == null || value === 0;
+  return (
+    <td
+      className="px-3 py-3 text-right"
+      style={{
+        color: empty ? "var(--color-faint)" : active ? "var(--color-sage)" : "var(--color-muted)",
+        background: active ? "var(--color-sage-light)" : "transparent",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      {empty ? "—" : value.toFixed(digits)}
+    </td>
+  );
+}
+
+/** Expand/collapse control living inside a category header. Stops propagation
+ *  so clicking it doesn't also re-sort by the category average. */
+function CatToggle({ cat, expanded, onToggle }: {
+  cat: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-expanded={expanded}
+      aria-label={`${expanded ? "Hide" : "Show"} ${cat} components`}
+      title={`${expanded ? "Hide" : "Show"} ${cat} components`}
+      className="ml-1.5 px-1 rounded align-middle"
+      style={{ color: "var(--color-faint)", lineHeight: 1 }}
+    >
+      {expanded ? "⌃" : "⌄"}
+    </button>
+  );
 }
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────── */
@@ -769,12 +860,34 @@ function PerTypeRankings({
   const { books, genres, category_order } = data;
   const router = useRouter();
   const primaryKey = "wa";  // both tracks rank by WA (nonfiction 2026 redesign)
-  const cols = useMemo(() => buildCols(kind, category_order), [kind, category_order]);
 
   const [yearTab, setYearTab] = useState<YearTab>("all");
   const [genreFilter, setGenreFilter] = useState<string>("All genres");
   const [search, setSearch] = useState("");
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set());
+
+  // Component names per category, in schema order, unioned across the library
+  // so a category still expands when the first book leaves one blank.
+  const componentsByCat = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const cat of category_order) {
+      const order: string[] = [];
+      const seen = new Set<string>();
+      for (const b of books) {
+        for (const comp of Object.keys(b.components?.[cat] ?? {})) {
+          if (!seen.has(comp)) { seen.add(comp); order.push(comp); }
+        }
+      }
+      if (order.length > 0) map[cat] = order;
+    }
+    return map;
+  }, [books, category_order]);
+
+  const cols = useMemo(
+    () => buildCols(kind, category_order, componentsByCat, expandedCats),
+    [kind, category_order, componentsByCat, expandedCats],
+  );
 
   const onRefresh = useCallback(() => router.refresh(), [router]);
 
@@ -827,11 +940,26 @@ function PerTypeRankings({
     setSearch("");
   }, []);
 
+  // Collapsing a category removes its component columns — if one of them was
+  // the active sort, fall back to WA so the table doesn't silently drop to
+  // unsorted (useSortable no-ops on an unknown key).
+  const toggleCat = useCallback((cat: string) => {
+    setExpandedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+    if (expandedCats.has(cat) && sortState.key.startsWith(`comp:${cat}:`)) {
+      handleSort(primaryKey);
+    }
+  }, [expandedCats, sortState.key, handleSort]);
+
   return (
     <div>
       {/* Filters summary — the page title + type toggle live in the wrapper. */}
       <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
-        {books.length} books rated · click a column header to sort · click a row to expand scores
+        {books.length} books rated · click a column header to sort · ⌄ on a category expands it into
+        its components · click a row to expand scores
       </p>
 
       {/* Year sub-tabs (fiction only — nonfiction books have no year tabs) */}
@@ -923,22 +1051,40 @@ function PerTypeRankings({
               >
                 #
               </th>
-              {cols.map((col) => (
-                <SortableTh
-                  key={col.key}
-                  col={col}
-                  sortState={sortState}
-                  onSort={handleSort}
-                  extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
-                />
-              ))}
+              {cols.map((col) => {
+                const isCat = category_order.includes(col.key);
+                const canExpand = isCat && (componentsByCat[col.key]?.length ?? 0) > 0;
+                return (
+                  <SortableTh
+                    key={col.key}
+                    col={col}
+                    sortState={sortState}
+                    onSort={handleSort}
+                    title={
+                      col.key.startsWith("comp:")
+                        ? componentLabel(col.key.split(":")[2], kind)
+                        : undefined
+                    }
+                    extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
+                    accessory={
+                      canExpand ? (
+                        <CatToggle
+                          cat={col.key}
+                          expanded={expandedCats.has(col.key)}
+                          onToggle={() => toggleCat(col.key)}
+                        />
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={cols.length + 1}
                   className="text-center py-16 text-sm"
                   style={{ color: "var(--color-muted)" }}
                 >
@@ -1008,23 +1154,32 @@ function PerTypeRankings({
                       >
                         {primaryScore(book, kind).toFixed(2)}
                       </td>
-                      {/* Category averages */}
-                      {category_order.map((cat) => {
-                        const val = avgs[cat] ?? 0;
-                        const isActive = sortState.key === cat;
-                        return (
-                          <td
+                      {/* Category averages, each followed by its component
+                          columns while that category is expanded. Mirrors the
+                          order buildCols() uses for the headers. */}
+                      {category_order.flatMap((cat) => {
+                        const cells = [
+                          <ScoreCell
                             key={cat}
-                            className="px-3 py-3 text-right"
-                            style={{
-                              color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"),
-                              background: isActive ? "var(--color-sage-light)" : "transparent",
-                              fontVariantNumeric: "tabular-nums",
-                            }}
-                          >
-                            {val === 0 ? "—" : val.toFixed(2)}
-                          </td>
-                        );
+                            value={avgs[cat] ?? 0}
+                            active={sortState.key === cat}
+                            digits={2}
+                          />,
+                        ];
+                        if (expandedCats.has(cat)) {
+                          for (const comp of componentsByCat[cat] ?? []) {
+                            const key = compColKey(cat, comp);
+                            cells.push(
+                              <ScoreCell
+                                key={key}
+                                value={book.components?.[cat]?.[comp]}
+                                active={sortState.key === key}
+                                digits={1}
+                              />,
+                            );
+                          }
+                        }
+                        return cells;
                       })}
                       <td
                         className="px-3 py-3"
@@ -1038,7 +1193,7 @@ function PerTypeRankings({
                     {isExpanded && (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={cols.length + 1}
                           style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}
                         >
                           <BookExpandedPanel

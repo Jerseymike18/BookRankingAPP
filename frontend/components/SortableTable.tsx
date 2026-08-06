@@ -98,12 +98,17 @@ export function useSortable<T>(
 
 /* ── SortableTh ────────────────────────────────────────────────────────────── */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function SortableTh({ col, sortState, onSort, extraStyle }: {
+export function SortableTh({ col, sortState, onSort, extraStyle, accessory, title }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   col: ColDef<any>;
   sortState: SortState;
   onSort: (key: string) => void;
   extraStyle?: React.CSSProperties;
+  /** Optional control rendered after the label inside the header (e.g. an
+      expand toggle). It must stop propagation so it doesn't also trigger a sort. */
+  accessory?: React.ReactNode;
+  /** Native tooltip — used when the visible label is abbreviated. */
+  title?: string;
 }) {
   const active = sortState.key === col.key;
   const sortable = col.sortable !== false;
@@ -112,6 +117,7 @@ export function SortableTh({ col, sortState, onSort, extraStyle }: {
   return (
     <th
       onClick={sortable ? () => onSort(col.key) : undefined}
+      title={title}
       className={`px-3 py-2 text-${align} text-xs font-semibold uppercase tracking-wider whitespace-nowrap${
         sortable ? " cursor-pointer select-none" : ""
       }`}
@@ -124,6 +130,7 @@ export function SortableTh({ col, sortState, onSort, extraStyle }: {
     >
       {col.label}
       {sortable && active ? (sortState.dir === "desc" ? " ▼" : " ▲") : ""}
+      {accessory}
     </th>
   );
 }
