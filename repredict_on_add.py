@@ -69,6 +69,7 @@ import db_write
 import research_predict as rp
 import reresearch_and_measure as rm
 import hybrid_researcher as hybrid
+import score_anchors as sa
 
 LIVE = rp.LIVE  # canonical 14 components, reference order
 
@@ -317,6 +318,7 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
     try:
         engine = get_engine()
         books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = engine
+        anchors = sa.load_anchors(user_id)   # this tenant's rating scale (see step 4)
         if cache is None:
             cache = rp.load_cache()
         if web == "auto":
@@ -429,6 +431,10 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
             if raw is None:
                 skipped.append({"title": title, "reason": src})
                 continue
+            # This tenant's prose→number scale, applied to the raw research
+            # vector before the correction — the same step the served predict
+            # path takes, so an auto re-prediction lands where a manual one would.
+            raw = sa.remap_scores(raw, anchors)
 
             res = rp.correct_and_predict(
                 title, r["author"], r["genre"], raw, conf, resid_sd,
@@ -584,6 +590,9 @@ def ground_saved_rec(title, author, genre, *, get_engine, cache=None, web="auto"
             web_cache_only=False, allow_research=True)
         if raw is None:
             return {"changed": False, "skipped": src}
+        # This tenant's prose→number scale, on the raw vector before correction
+        # (identical to the served predict path and to on_book_added above).
+        raw = sa.remap_scores(raw, sa.load_anchors(user_id))
         try:
             rp.save_cache(cache)           # persist any newly-researched memory vector
         except Exception:

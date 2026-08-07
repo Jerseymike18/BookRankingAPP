@@ -647,6 +647,12 @@ export interface EngineParameters {
     center_words?: number; // pivot word count (10^μ)
     n_books_fit?: number; // present only when source === "fitted"
   };
+  /** The reader's prose→number research scale (see ScoreAnchors). */
+  score_anchors: {
+    bands: (ScoreAnchorBand & { canonical: string })[];
+    customized: boolean;
+    applied_to: string;
+  };
   models: {
     research: string;
     discover: string;
@@ -804,6 +810,24 @@ export interface GenreWeights {
 export interface EffectiveWeights {
   categories: string[]; // canonical category order
   genres: GenreWeights[];
+}
+
+/* ── Score anchors (the reader's prose→number rating scale) ── */
+
+/** One sentiment band of the research prompt: what number the reader thinks that
+ *  kind of reception is worth. `hint` is the canonical range the prompt states. */
+export interface ScoreAnchorBand {
+  key: string;
+  label: string;
+  hint?: string;
+  default: number;
+  value: number;
+}
+
+/** The caller's effective rating scale, for the anchor editor. */
+export interface ScoreAnchors {
+  bands: ScoreAnchorBand[];
+  customized: boolean;
 }
 
 /* ── Public profiles (opt-in cross-user browse) ── */

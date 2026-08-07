@@ -1,4 +1,4 @@
-import { fetchWeights } from "@/lib/api";
+import { fetchScoreAnchors, fetchWeights } from "@/lib/api";
 import { getServerAccessToken } from "@/lib/supabase/server";
 import WelcomeClient from "./WelcomeClient";
 import ComingSoon from "@/components/ComingSoon";
@@ -25,10 +25,14 @@ export default async function WelcomePage() {
     );
   }
 
-  // Seed the picker from the caller's effective FICTION weights. For a brand-new
-  // account this is exactly the global defaults (no overrides yet); it never
-  // builds an engine or touches the books table, so a 0-book account is fine.
+  // Seed the pickers from the caller's effective FICTION weights and their rating
+  // scale (the prose→number anchors grounded research scores against). For a
+  // brand-new account both are exactly the shared defaults; neither builds an
+  // engine or touches the books table, so a 0-book account is fine.
   const token = await getServerAccessToken();
-  const weights = await fetchWeights("fiction", token);
-  return <WelcomeClient weights={weights} />;
+  const [weights, anchors] = await Promise.all([
+    fetchWeights("fiction", token),
+    fetchScoreAnchors(token),
+  ]);
+  return <WelcomeClient weights={weights} anchors={anchors} />;
 }

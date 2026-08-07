@@ -40,7 +40,8 @@ pipeline — see **Publishing** below and `README.md`.
    `add_book`, `change_rating`, `delete_book`, `set_year_read`, `set_status`,
    `update_queue`, `add_recommendation`, `set_recommendation_meta`,
    `update_recommendation_scores`, `update_book_metadata`, `set_series_number`, `set_done`,
-   plus the nonfiction equivalents). Do not add new write functions unless explicitly asked.
+   `set_score_anchors`, `reset_score_anchors`, plus the nonfiction equivalents). Do not add
+   new write functions unless explicitly asked.
 
 3. **DB schema is fixed.** The `books` table has `title, genre, author, series,
    series_number, words, year_read, status` plus the 14 component columns. `recommendations`
@@ -114,6 +115,39 @@ prediction interval; that band covered only ~31% of honest errors while claiming
 - **DeltaTracker note:** correction weights were learned against the model's raw biases. If the
   cached corpus is ever bulk re-researched on a new model, the DeltaTracker corrections should be
   recomputed against the new model's biases — otherwise old-model corrections get misapplied.
+
+## Rating-scale anchors (per-user prose→number scale)
+
+The research prompt converts reader sentiment into 0–10 component scores through a fixed
+table of seven bands (`reresearch_and_measure.ANCHORS`: "really strong / recommend it" →
+8.0–8.5, and so on). Those numbers were one reader's judgement, so each tenant can set their
+own — `score_anchors.py` (read side + the remap) over the per-user `score_anchors` table
+(`db_write.set_score_anchors` / `reset_score_anchors`, LONG format, sparse-by-user like the
+weight overrides), edited in the **fourth window of the `/welcome` wizard** and served by
+`GET/PUT /api/score-anchors` (+ `POST /api/score-anchors/reset`).
+
+- **It is a REMAP, not a per-user prompt.** The prompt and the research cache stay canonical
+  for everyone (a book is researched once, ever, for all tenants); the reader's anchors are
+  applied afterwards as a monotone piecewise-linear map of the raw vector — canonical band
+  centre → their centre, top-segment slope extrapolated above the highest anchor, clamped to
+  0–10. Zero extra LLM spend, no cache fragmentation, instant effect, exactly reversible.
+  **Never** re-key the research cache per user or inject anchors into the prompt.
+- **Where it applies:** the raw research scores only, *before* correlation smoothing and the
+  author/genre correction — backend `_build_research_response` (so `/api/predict/research`
+  and the `/try` demo can't drift), the nonfiction predict path
+  (`nonfiction_research.research_and_predict(anchors=…)`), and both `repredict_on_add`
+  paths. Never on `/api/predict/instant` (analog-only, no LLM vector) and never on stored
+  components (already remapped when predicted).
+- **The correction ladder keeps training on canonical raw scores.** Remapping both the target
+  and the training pairs would let the per-genre refit silently undo the reader's choice.
+  Same reasoning as the DeltaTracker note above: corrections are calibrated against the
+  model's raw biases.
+- **Default = identity, and that is a regression guard.** With the canonical table
+  `remap_scores` returns its input unchanged, so every existing prediction, the walk-forward
+  baseline, and `test_engine.py` are byte-identical. `test_score_anchors.py` (28 checks) is
+  the gate: identity, monotonicity/bounds, the write gate (partial/inverted/out-of-range
+  rejected), tenant isolation, and a **prompt-drift check** that every band label still
+  appears verbatim in `rm.ANCHORS` — keep them in sync when either changes.
 
 ## Auto re-prediction
 
@@ -317,7 +351,9 @@ engine features must beat, and the raw dataset for a future public track-record 
   library size and whether their calibration is own-fit or the borrowed seed
   (`library.model_source` / `min_own_fit`), their cold-start term (`cold_start.source` = `fitted`
   on their own residuals / `preference` from onboarding / `off`, plus the favorite-author-prior
-  flag), and the served shrinkage / interval / model constants read straight off the modules that
+  flag), their rating-scale anchors (`score_anchors` — the prose→number bands, read live off
+  `score_anchors.BANDS`, with a `customized` flag; the Technical flow shows the remap as its own
+  stage), and the served shrinkage / interval / model constants read straight off the modules that
   implement them (`reresearch_and_measure`, `research_predict`, `intervals`) — nothing is
   hardcoded. Both views branch their prose on those per-user fields, so the page is correct for
   every tenant, not just the seed. Math renders via **KaTeX** (the only frontend dep this added;

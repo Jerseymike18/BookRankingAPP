@@ -499,6 +499,104 @@ def _ensure_weight_overrides():
     con.close()
 
 
+# ---------------------------------------------------------------------------
+# Per-user SCORE ANCHORS (the prose→number scale of the research prompt)
+# ---------------------------------------------------------------------------
+# Grounded research converts what reviewers SAY about a book into 0-10 component
+# scores using the sentiment table in reresearch_and_measure.ANCHORS ("really
+# strong / recommend it" -> 8.0-8.5, and so on). Those numbers are one reader's
+# judgement; this table lets each tenant set their own centre for each of the
+# seven bands. The read side + the remap math live in score_anchors.py — this
+# module owns only the band KEYS (so validation needs no import of that module),
+# the storage, and the write gate. Sparse LONG format, mirroring the weight
+# override tables: a row exists only for a band the reader actually changed, and
+# "reset to default" is a row delete. Portable DDL (SQLite + Postgres).
+SCORE_ANCHOR_BANDS = ("bad", "weak", "fine", "good", "strong", "favorite", "best")
+
+
+def _ensure_score_anchors():
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS score_anchors (
+            user_id TEXT NOT NULL,
+            band    TEXT NOT NULL,
+            value   REAL NOT NULL,
+            PRIMARY KEY (user_id, band)
+        )""")
+    con.commit()
+    con.close()
+
+
+def get_score_anchors(user_id=None):
+    """The tenant's STORED anchor values as {band: value} — only the bands they
+    changed (empty dict when they're on the canonical defaults). Callers wanting
+    a complete, default-filled table use score_anchors.load_anchors."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    con = _connect()
+    try:
+        rows = con.execute(
+            "SELECT band, value FROM score_anchors WHERE user_id=?", (uid,)).fetchall()
+    finally:
+        con.close()
+    return {r[0]: float(r[1]) for r in rows if r[0] in SCORE_ANCHOR_BANDS}
+
+
+def set_score_anchors(values, user_id=None):
+    """Store this tenant's rating-scale anchors. `values` is {band: number} and
+    must supply EVERY band in SCORE_ANCHOR_BANDS (the editor always sends the
+    whole table — a partial write could leave an inconsistent, non-monotone
+    scale). Each value must be a number in 0-10, and the sequence must be
+    NONDECREASING in band order: the bands are ordered sentiment, so an inversion
+    ("weak" above "good") would mean a remap that reorders books rather than
+    re-prices them. Returns True on success, False on any validation failure
+    (nothing is written). Bands left exactly on the default are stored as rows
+    too, so the reader's explicit choice survives a later change to the
+    defaults — resetting is reset_score_anchors, not a value edit."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    if not isinstance(values, dict):
+        return False
+    clean = {}
+    for band in SCORE_ANCHOR_BANDS:
+        if band not in values:
+            return False
+        try:
+            v = float(values[band])
+        except (TypeError, ValueError):
+            return False
+        if not (0.0 <= v <= 10.0):
+            return False
+        clean[band] = round(v, 4)
+    seq = [clean[b] for b in SCORE_ANCHOR_BANDS]
+    if any(b < a for a, b in zip(seq, seq[1:])):
+        return False
+    _ensure_score_anchors()
+    con = _connect()
+    try:
+        _backup_once()
+        con.execute("DELETE FROM score_anchors WHERE user_id=?", (uid,))
+        con.executemany(
+            "INSERT INTO score_anchors (user_id, band, value) VALUES (?,?,?)",
+            [(uid, b, clean[b]) for b in SCORE_ANCHOR_BANDS])
+        con.commit()
+    finally:
+        con.close()
+    return True
+
+
+def reset_score_anchors(user_id=None):
+    """Drop this tenant's anchor rows — they fall back to the canonical defaults
+    (the identity remap). Always True; deleting nothing is a valid no-op."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_score_anchors()
+    con = _connect()
+    try:
+        con.execute("DELETE FROM score_anchors WHERE user_id=?", (uid,))
+        con.commit()
+    finally:
+        con.close()
+    return True
+
+
 def set_component_corrections(version, constants, blend_weight, *, active=True,
                               source_tag=None, engine_hash=None, n_books=None,
                               decision=None, note=None):
@@ -978,6 +1076,7 @@ _ensure_series_number()
 _ensure_delta_log()
 _ensure_component_corrections()
 _ensure_weight_overrides()
+_ensure_score_anchors()
 
 
 def _valid_genres(con, uid=None):

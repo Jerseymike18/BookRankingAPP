@@ -632,6 +632,61 @@
     "n_components": 14,
     "n_genres": 16
   },
+  "score_anchors": {
+    "applied_to": "raw research components, before correction",
+    "bands": [
+      {
+        "canonical": "4.0 and below",
+        "default": 3.5,
+        "key": "bad",
+        "label": "bad / DNF",
+        "value": 3.5
+      },
+      {
+        "canonical": "5.0 – 6.0",
+        "default": 5.5,
+        "key": "weak",
+        "label": "disappointing / weak",
+        "value": 5.5
+      },
+      {
+        "canonical": "6.0 – 7.0",
+        "default": 6.5,
+        "key": "fine",
+        "label": "fine / didn't grab me",
+        "value": 6.5
+      },
+      {
+        "canonical": "7.0 – 8.0",
+        "default": 7.5,
+        "key": "good",
+        "label": "good, enjoyed it",
+        "value": 7.5
+      },
+      {
+        "canonical": "8.0 – 8.5",
+        "default": 8.25,
+        "key": "strong",
+        "label": "really strong / recommend it",
+        "value": 8.25
+      },
+      {
+        "canonical": "8.5 – 9.0",
+        "default": 8.75,
+        "key": "favorite",
+        "label": "one of my favorites / would re-read",
+        "value": 8.75
+      },
+      {
+        "canonical": "9.0 – 9.5",
+        "default": 9.25,
+        "key": "best",
+        "label": "best in genre / blew me away",
+        "value": 9.25
+      }
+    ],
+    "customized": false
+  },
   "shrinkage": {
     "corr_blend": 0.2,
     "estimator": "n / (n + k)",

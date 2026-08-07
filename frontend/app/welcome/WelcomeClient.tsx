@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { setGenreWeights } from "@/lib/api";
+import { setGenreWeights, setScoreAnchors } from "@/lib/api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { EffectiveWeights } from "@/lib/types";
+import type { EffectiveWeights, ScoreAnchorBand, ScoreAnchors } from "@/lib/types";
 
 /* ── First-run tutorial + simplified genre-weight picker ─────────────────────
    A new account lands here (the proxy sends any not-yet-onboarded user to
-   /welcome). The flow is a four-window wizard:
+   /welcome). The flow is a five-window wizard:
 
      1. Tour            — what the app is, the three things you'll do, how it predicts
      2. Preferences     — book length · favorite authors · favorite genres
      3. Genre weights   — tune the five category weights for the genres you picked
-     4. Import          — optionally bring in your Goodreads library
+     4. Rating scale    — what number each kind of review sentiment is worth to you
+     5. Import          — optionally bring in your Goodreads library
 
    Finishing (from the last window) sets the Supabase `onboarded` flag so the
    proxy stops routing here — full control of every genre (and the components
@@ -57,11 +58,12 @@ const LENGTH_OPTIONS: { label: string; value: number }[] = [
   { label: "Long epics", value: 1 },
 ];
 
-// The four wizard windows, in order.
+// The five wizard windows, in order.
 const STEPS = [
   { key: "tour", title: "A quick tour" },
   { key: "prefs", title: "A few preferences" },
   { key: "weights", title: "Genre weights" },
+  { key: "anchors", title: "Your rating scale" },
   { key: "import", title: "Bring your books" },
 ] as const;
 
@@ -154,6 +156,102 @@ function buildModels(
       def,
     };
   });
+}
+
+/* ── Rating scale (score anchors) ────────────────────────────────────────────
+   Before the engine does anything of its own, a grounded research pass reads what
+   reader communities actually SAY about a book and converts that sentiment into
+   0-10 component scores — through a fixed table ("really strong / recommend it"
+   is worth 8.0-8.5, and so on). Those numbers were one reader's judgement call.
+   This window lets the reader set their own number for each band; the backend
+   applies them as a monotone remap of the raw research scores, before its
+   corrections. Sent as one whole table (the server rejects a partial or inverted
+   one) and only when the reader actually changes something. */
+
+const fmtAnchor = (v: number) => (Math.round(v * 100) / 100).toString();
+const anchorNum = (s: string) => parseFloat(s);
+
+const anchorRawOf = (bands: ScoreAnchorBand[]): Record<string, string> =>
+  Object.fromEntries(bands.map((b) => [b.key, fmtAnchor(b.value)]));
+
+const anchorsDirty = (bands: ScoreAnchorBand[], raw: Record<string, string>) =>
+  bands.some((b) => anchorNum(raw[b.key] ?? "") !== b.default);
+
+/** First problem with the typed scale, or null. Bands arrive lowest-sentiment
+ *  first, so the values must be nondecreasing in that order — an inversion would
+ *  reorder books instead of re-pricing them, which the server refuses too. */
+function anchorProblem(
+  bands: ScoreAnchorBand[],
+  raw: Record<string, string>
+): string | null {
+  let prev = -Infinity;
+  for (const b of bands) {
+    const v = anchorNum(raw[b.key] ?? "");
+    if (!Number.isFinite(v) || v < 0 || v > 10) {
+      return `Give “${b.label}” a number between 0 and 10.`;
+    }
+    if (v < prev) {
+      return `“${b.label}” can’t be worth less than a weaker reaction — the scale has to rise.`;
+    }
+    prev = v;
+  }
+  return null;
+}
+
+function AnchorRow({
+  band,
+  value,
+  editable,
+  onChange,
+}: {
+  band: ScoreAnchorBand;
+  value: string;
+  editable: boolean;
+  onChange: (v: string) => void;
+}) {
+  const v = anchorNum(value);
+  const delta = Number.isFinite(v) ? v - band.default : 0;
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm truncate" style={{ color: "var(--color-ink)" }}>
+          “{band.label}”
+        </p>
+        {band.hint && (
+          <p className="text-xs" style={{ color: "var(--color-faint)" }}>
+            standard: {band.hint}
+          </p>
+        )}
+      </div>
+      {editable ? (
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => {
+            const r = e.target.value;
+            if (r === "" || NUM_RE.test(r)) onChange(r);
+          }}
+          aria-label={`Score for “${band.label}”`}
+          className="w-20 px-2 py-1.5 rounded-lg text-sm border text-right tabular-nums focus:outline-none focus:ring-2"
+          style={inputStyle}
+        />
+      ) : (
+        <span
+          className="w-20 text-right text-sm tabular-nums font-medium"
+          style={{ color: "var(--color-ink)" }}
+        >
+          {fmtAnchor(band.default)}
+        </span>
+      )}
+      <span
+        className="w-14 shrink-0 text-right text-xs tabular-nums"
+        style={{ color: delta === 0 ? "var(--color-faint)" : "var(--color-sage)" }}
+      >
+        {editable && delta !== 0 ? `${delta > 0 ? "+" : ""}${fmtAnchor(delta)}` : "／10"}
+      </span>
+    </div>
+  );
 }
 
 function LocationTag({ children }: { children: React.ReactNode }) {
@@ -261,7 +359,13 @@ function NumberRow({
   );
 }
 
-export default function WelcomeClient({ weights }: { weights: EffectiveWeights }) {
+export default function WelcomeClient({
+  weights,
+  anchors,
+}: {
+  weights: EffectiveWeights;
+  anchors: ScoreAnchors;
+}) {
   const [step, setStep] = useState(0);
   const [models, setModels] = useState<GenreModel[]>(() => buildModels(weights, []));
   const [mode, setMode] = useState<"keep" | "customize">("keep");
@@ -270,6 +374,12 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
   const [lengthPref, setLengthPref] = useState<number>(0);
   const [favAuthors, setFavAuthors] = useState<string[]>(() => Array(MAX_FAVS).fill(""));
   const [favGenres, setFavGenres] = useState<string[]>(() => Array(MAX_FAVS).fill(""));
+  const [anchorMode, setAnchorMode] = useState<"keep" | "customize">(() =>
+    anchors.customized ? "customize" : "keep"
+  );
+  const [anchorRaw, setAnchorRaw] = useState<Record<string, string>>(() =>
+    anchorRawOf(anchors.bands)
+  );
 
   // Genre names for the favorite-genres autocomplete (the tunable global set).
   const genreOptions = globalGenres(weights)
@@ -288,6 +398,12 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
   // zero sum). Unchanged genres are never written, so they never block.
   const customizing = mode === "customize";
   const blocked = customizing && models.some((m) => isDirty(m) && sumOf(m.raw) <= 0);
+
+  // The rating scale is written only when the reader edits it, and only if the
+  // whole table is valid — the same rule the server enforces.
+  const anchorEditing = anchorMode === "customize";
+  const anchorIssue = anchorEditing ? anchorProblem(anchors.bands, anchorRaw) : null;
+  const anchorChanged = anchorEditing && anchorsDirty(anchors.bands, anchorRaw);
 
   // Leaving the preferences window: rebuild the weight models around the genres
   // the reader named (preserving any edits already made to carried-over genres).
@@ -317,6 +433,11 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
         return;
       }
     }
+    if (anchorEditing && anchorIssue) {
+      setError(anchorIssue);
+      setStep(3);
+      return;
+    }
     setBusy(true);
     try {
       // Persist only the genres the reader actually changed. Untouched genres are
@@ -325,6 +446,15 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
         for (const m of models) {
           if (isDirty(m)) await setGenreWeights(m.genre, toNums(m.raw), "fiction");
         }
+      }
+      // The rating scale, only if they moved a band off its standard value. Sent
+      // whole (every band), which is what the server requires.
+      if (anchorChanged) {
+        await setScoreAnchors(
+          Object.fromEntries(
+            anchors.bands.map((b) => [b.key, anchorNum(anchorRaw[b.key] ?? "")])
+          )
+        );
       }
       // Mark onboarding complete so the proxy stops routing here (hosted only).
       // This MUST run before navigating to /import — the proxy bounces a
@@ -370,7 +500,7 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
           className="mt-2 text-sm max-w-2xl leading-relaxed"
           style={{ color: "var(--color-muted)" }}
         >
-          A quick tour, then three short setup steps — about a minute. You can
+          A quick tour, then four short setup steps — about a minute. You can
           change everything later.
         </p>
       </div>
@@ -687,8 +817,74 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
         </Panel>
       )}
 
-      {/* ── Window 4 — import from Goodreads ──────────────────────────────── */}
+      {/* ── Window 4 — the rating scale (score anchors) ───────────────────── */}
       {step === 3 && (
+        <Panel
+          title="Your rating scale"
+          subtitle="Before it predicts anything, the engine reads what reviewers actually say about a book and turns that into numbers. These are the numbers it uses. If “one of my favorites” is a 9 to you rather than an 8.75, say so — every prediction is re-priced onto your scale."
+        >
+          {/* Keep-standard / set-my-own toggle (mirrors the weights window). */}
+          <div
+            className="inline-flex rounded-lg p-0.5 mb-4"
+            style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
+          >
+            {(["keep", "customize"] as const).map((m) => {
+              const on = anchorMode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setAnchorMode(m);
+                    setError(null);
+                  }}
+                  className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  style={
+                    on
+                      ? { background: "var(--color-sage)", color: "#fff" }
+                      : { background: "transparent", color: "var(--color-ink)" }
+                  }
+                >
+                  {m === "keep" ? "Keep the standard scale" : "Set my own numbers"}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="rounded-lg p-4"
+            style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
+          >
+            <p className="text-xs mb-2" style={{ color: "var(--color-muted)" }}>
+              What a component scores when reviewers describe it this way — best
+              reaction at the top.
+            </p>
+            {/* Highest sentiment first; the payload is ordered lowest-first. */}
+            {[...anchors.bands].reverse().map((b) => (
+              <AnchorRow
+                key={b.key}
+                band={b}
+                value={anchorRaw[b.key] ?? ""}
+                editable={anchorEditing}
+                onChange={(v) => setAnchorRaw((r) => ({ ...r, [b.key]: v }))}
+              />
+            ))}
+            {anchorIssue && (
+              <p className="text-xs mt-2" style={{ color: "var(--color-spine-c)" }}>
+                {anchorIssue}
+              </p>
+            )}
+          </div>
+
+          <p className="text-xs mt-4" style={{ color: "var(--color-faint)" }}>
+            This shifts the starting numbers only. Once you&rsquo;ve rated books of your
+            own, the engine keeps correcting against your actual ratings on top of this.
+          </p>
+        </Panel>
+      )}
+
+      {/* ── Window 5 — import from Goodreads ──────────────────────────────── */}
+      {step === 4 && (
         <Panel
           title="Bring your books"
           subtitle="Already track your reading on Goodreads? Import your library so you're not starting from an empty shelf."
@@ -774,6 +970,20 @@ export default function WelcomeClient({ weights }: { weights: EffectiveWeights }
         )}
 
         {step === 3 && (
+          <button
+            onClick={() => {
+              setError(null);
+              setStep(4);
+            }}
+            disabled={!!anchorIssue}
+            className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
+            style={{ background: "var(--color-sage)", color: "#fff" }}
+          >
+            Continue →
+          </button>
+        )}
+
+        {step === 4 && (
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => finish("/")}

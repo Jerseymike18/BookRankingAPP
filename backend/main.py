@@ -59,6 +59,7 @@ import db_write
 import goodreads_import
 import import_enrich
 import user_weights
+import score_anchors as sa
 import predict_engine as pe
 import views as views_mod
 import validate_engine as ve
@@ -1176,6 +1177,50 @@ def delete_nonfiction_genre(genre: str,
     return {"ok": True}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SCORE ANCHORS  (the reader's prose→number rating scale)
+# ─────────────────────────────────────────────────────────────────────────────
+# Grounded research turns what reviewers SAY about a book into 0-10 component
+# scores through a fixed sentiment table ("really strong / recommend it" → 8.0-8.5).
+# These routes let each tenant set their own number for each of the seven bands;
+# score_anchors applies them as a monotone remap of the raw research vector, before
+# the engine's corrections. No engine invalidation is needed — the anchors touch the
+# RESEARCH input, not the weights the cached engine is built from, so they take
+# effect on the next prediction. Books already predicted keep their stored scores
+# until they're re-predicted (same as a weights change re-ranking, not re-scoring).
+class ScoreAnchorsRequest(BaseModel):
+    anchors: dict[str, float]          # every band key -> its 0-10 centre
+
+
+@app.get("/api/score-anchors")
+def get_score_anchors(user_id: str = Depends(auth.get_current_user_id)):
+    """The caller's EFFECTIVE rating-scale anchors: one row per sentiment band
+    (label, canonical range, default, their value) plus a `customized` flag, for
+    the anchor editor in the first-run tutorial. Read-only."""
+    return sa.effective_anchors(user_id)
+
+
+@app.put("/api/score-anchors")
+def put_score_anchors(req: ScoreAnchorsRequest,
+                      user_id: str = Depends(auth.get_current_user_id)):
+    """Set the caller's rating-scale anchors. Must supply every band, each a
+    number in 0-10, nondecreasing from "bad / DNF" up to "best in genre" (an
+    inversion would reorder books rather than re-price them)."""
+    if not db_write.set_score_anchors(req.anchors, user_id=user_id):
+        raise HTTPException(
+            status_code=422,
+            detail="Could not save your rating scale. Give every band a number "
+                   "between 0 and 10, rising from the weakest band to the best.")
+    return {"ok": True}
+
+
+@app.post("/api/score-anchors/reset")
+def post_reset_score_anchors(user_id: str = Depends(auth.get_current_user_id)):
+    """Revert the caller to the canonical anchor table (the identity remap)."""
+    db_write.reset_score_anchors(user_id=user_id)
+    return {"ok": True}
+
+
 @app.get("/api/books/{title}/scores")
 def get_book_scores(title: str, user_id: str = Depends(auth.get_current_user_id)):
     """Return component scores for a single rated book (for Edit Ratings)."""
@@ -2234,6 +2279,13 @@ def _build_research_response(user_id, title, author, eff_genre, genre_auto_detec
     research call) and resolved `eff_genre`. `user_md` may be {} (the demo has no
     per-user preferences), which just leaves the cold-start term off."""
     books_e, gw_e, gcw_e, coeffs, r2, resid_sd, ginfo, upstream = engine_data
+    # The reader's own prose→number scale, applied to the RAW research vector
+    # before anything else (score_anchors). The research prompt and its cache stay
+    # canonical for everyone; this re-prices what the reviews said onto this
+    # reader's anchors, and is the exact identity map for anyone on the defaults.
+    # The correction ladder below still trains on canonical raw scores — see the
+    # module docstring for why both sides must not be remapped.
+    scores = sa.remap_for_user(scores, user_id)
     try:
         corr_pool = _correction_pool(user_id, books_e)   # borrow the seed's calibration if new
         pairs, corr_models = _corr_statics(user_id, corr_pool)   # per-run statics, cached
@@ -3309,7 +3361,12 @@ def predict_nf_research(req: NonfictionResearchRequest, request: Request,
     try:
         data = _get_nf_engine(user_id)
         r = _nr.research_and_predict(req.title, req.author, eff_genre,
-                                     data=data, cache=cache, force=req.force)
+                                     data=data, cache=cache, force=req.force,
+                                     # The reader's own prose→number scale, applied
+                                     # to the raw vector before the roll-up (the
+                                     # fiction path does the same in
+                                     # _build_research_response).
+                                     anchors=sa.load_anchors(user_id))
         _rp.save_cache(cache, _nr.NF_CACHE)
     except FileNotFoundError:
         raise HTTPException(status_code=503,
@@ -4015,6 +4072,7 @@ def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
         model_source=model_source,
         min_own_fit=MIN_OWN_FIT,
         blend_weight=round(float(blend_weight), 4),
+        anchors=sa.load_anchors(user_id),
     )
 
 

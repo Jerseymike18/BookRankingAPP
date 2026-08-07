@@ -44,6 +44,7 @@ import math
 import intervals
 import research_predict as rp
 import reresearch_and_measure as rm
+import score_anchors as sa
 
 # Canonical category display order (matches db_loader.CATEGORY_OF_INTEREST).
 CATEGORY_ORDER = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"]
@@ -157,9 +158,28 @@ def _cold_start_block(cold_term):
     return block
 
 
+def _score_anchor_block(anchors):
+    """The reader's prose→number research scale (score_anchors). `anchors` is a
+    {band: value} table for THIS tenant (None → the canonical defaults). Band
+    labels/defaults are read live off score_anchors.BANDS so the page can't drift
+    from the scale the engine actually applies; `customized` says whether this
+    reader's remap is the identity."""
+    values = anchors or sa.DEFAULTS
+    return {
+        "bands": [
+            {"key": b["key"], "label": b["label"], "canonical": b["hint"],
+             "default": b["default"],
+             "value": round(float(values.get(b["key"], b["default"])), 4)}
+            for b in sa.BANDS
+        ],
+        "customized": not sa.is_default(values),
+        "applied_to": "raw research components, before correction",
+    }
+
+
 def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
                             cold_term=None, model_source="own", min_own_fit=None,
-                            blend_weight=None):
+                            blend_weight=None, anchors=None):
     """Assemble the live engine-parameters payload from the prebuilt engine tuple.
 
     Args mirror the cached engine (``books, gw, gcw, …, r2, resid_sd``) so the
@@ -171,6 +191,8 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
     and "blended" in between — cold start shrinks smoothly rather than switching,
     so ``blend_weight`` (0..1, the fraction carried by the reader's OWN fit) is the
     honest figure and ``min_own_fit`` is retained as a reference threshold only.
+    ``anchors`` is the caller's rating-scale table (score_anchors.load_anchors);
+    None reports the canonical defaults.
     Deterministic: no timestamps, no HEAD — safe to snapshot byte-identically for
     the default user."""
     cat_comps = books.attrs["category_components"]
@@ -227,6 +249,7 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
             "inputs": REGRESSION_INPUTS,
         },
         "cold_start": _cold_start_block(cold_term),
+        "score_anchors": _score_anchor_block(anchors),
         "models": {
             "research": rm.MODEL,
             "discover": rp.DISCOVER_MODEL,

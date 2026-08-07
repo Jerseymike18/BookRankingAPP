@@ -25,6 +25,7 @@ but makes no API call on import; call research_nonfiction_components() to spend.
 import research_layer as rl
 import research_predict as rp
 import nonfiction_engine as ne
+import score_anchors as sa
 
 # Reuse the fiction rubric's 0-10 scale + sentiment anchors verbatim (they are
 # taste-general), with a nonfiction framing paragraph on top.
@@ -143,7 +144,7 @@ def researched_nonfiction_wa(scores, data, genre="Nonfiction"):
 
 
 def research_and_predict(title, author, genre="Nonfiction", data=None,
-                         cache=None, client=None, force=False):
+                         cache=None, client=None, force=False, anchors=None):
     """Convenience: research the components (cached), roll them up to WA/Total
     Average, and report the predicted rank by Total Average. One API call on a
     cache miss, free on a hit.
@@ -152,11 +153,20 @@ def research_and_predict(title, author, genre="Nonfiction", data=None,
     `n_genre` (same-author / same-genre books in the rated nonfiction library) —
     the fields the shared Predict UI expects. Pass `cache` (a dict from
     rp.load_cache(NF_CACHE)) so the caller can persist file writes; when omitted an
-    ephemeral cache is used (the durable DB store still records the entry)."""
+    ephemeral cache is used (the durable DB store still records the entry).
+
+    `anchors` (optional): the caller's rating-scale anchors ({band: value} from
+    score_anchors.load_anchors) — the reader's own prose→number mapping, applied
+    to the RAW researched vector before the roll-up, exactly as the fiction path
+    does. None (the default) or the canonical table leaves the scores untouched.
+    The cached entry always stores the canonical raw vector, so the cache stays
+    shared across tenants."""
     data = data or ne.load_nonfiction_from_db()
     books = data[0]
     scores, conf, from_cache = research_nonfiction_book(
         title, author, genre, client=client, cache=cache, force=force)
+    if anchors is not None:
+        scores = sa.remap_scores(scores, anchors)
     wa, total, cat_avgs = researched_nonfiction_wa(scores, data, genre)
     bt = ne.add_total_average(books)
     rank = int((bt["Total Average"] > total).sum() + 1)

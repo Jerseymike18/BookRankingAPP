@@ -58,6 +58,7 @@ Consequences worth memorizing:
 
 **Data + publishing:**
 - SQLite `books.db` (local + the showcase's export source) / Postgres (hosted). **7 per-user tables**: `books`, `recommendations`, `nonfiction_books`, `nonfiction_recommendations`, `read_queue`, `nonfiction_read_queue`, `delta_log`. Weight tables are **global**.
+- Per-user *preference* tables sit alongside those: the weight overrides (`genre_weight_overrides`, `gcomp_weight_overrides` + nonfiction twins), `profiles` (public-profile metadata), and `score_anchors` (each reader's prose→number research scale — see CLAUDE.md "Rating-scale anchors"). Sparse: a row exists only where a reader changed a default.
 - `scripts/export_static_data.py` → deterministic snapshot in `frontend/public/data/`. Git hooks (`scripts/hooks/`) regenerate it on commit and gate it on push. **A display feature that shows new data must ALSO be added to this export**, or the static showcase has nothing to render.
 
 ## Prediction engine (one-liner; math in `CLAUDE.md`)

@@ -381,7 +381,12 @@ function SimpleView({
           detail={
             <>
               A language model ({<span className="font-mono">{models.research}</span>}) researches the book and scores
-              all {schema.n_components} components against the same rubric your own ratings use.
+              all {schema.n_components} components against the same rubric your own ratings use — turning what
+              reviewers say (&ldquo;really strong&rdquo;, &ldquo;disappointing&rdquo;) into numbers on{" "}
+              {params.score_anchors.customized ? "your own" : "the standard"} scale.{" "}
+              {params.score_anchors.customized
+                ? "You set those numbers during setup, so the whole engine starts from your reading of the reviews."
+                : "You can change what number each kind of reaction is worth."}
             </>
           }
         />
@@ -534,7 +539,7 @@ function TechnicalView({
       <SectionHeader id="flow">The prediction, end to end</SectionHeader>
       <Lede>
         A prediction turns a title + author + genre into a Weighted Average (WA) on the same 0&ndash;10 scale as every
-        rated book, plus an honest error band and a projected rank in <em>your</em>{" "}library. Five stages, in order.
+        rated book, plus an honest error band and a projected rank in <em>your</em>{" "}library. Six stages, in order.
       </Lede>
       <div className="mt-4">
         <FlowStage
@@ -550,6 +555,35 @@ function TechnicalView({
         />
         <FlowStage
           n={2}
+          title="Your rating-scale anchors"
+          detail={
+            <>
+              The rubric converts reader sentiment to numbers through a fixed table of{" "}
+              {params.score_anchors.bands.length} bands. Yours are applied here, as a monotone piecewise-linear remap
+              of the raw vector ({params.score_anchors.applied_to}) — order-preserving and clamped to 0&ndash;10.{" "}
+              {params.score_anchors.customized ? (
+                <>
+                  You&rsquo;ve set your own:{" "}
+                  {params.score_anchors.bands
+                    .filter((b) => b.value !== b.default)
+                    .map((b) => `“${b.label}” → ${b.value}`)
+                    .join(", ")}
+                  . The correction in the next stages still trains on the model&rsquo;s unremapped scores, so your
+                  scale shifts the prediction rather than being fitted away.
+                </>
+              ) : (
+                <>
+                  You&rsquo;re on the standard table (&ldquo;{params.score_anchors.bands[params.score_anchors.bands.length - 1].label}
+                  &rdquo; ={" "}
+                  {params.score_anchors.bands[params.score_anchors.bands.length - 1].default}), so this stage is the
+                  identity map — it changes nothing.
+                </>
+              )}
+            </>
+          }
+        />
+        <FlowStage
+          n={3}
           title="Correlation smoothing"
           detail={
             <>
@@ -560,7 +594,7 @@ function TechnicalView({
           }
         />
         <FlowStage
-          n={3}
+          n={4}
           title="Author + genre correction (empirical Bayes)"
           detail={
             <>
@@ -571,7 +605,7 @@ function TechnicalView({
           }
         />
         <FlowStage
-          n={4}
+          n={5}
           title="Weighted-average roll-up"
           detail={
             <>
@@ -581,7 +615,7 @@ function TechnicalView({
           }
         />
         <FlowStage
-          n={5}
+          n={6}
           title="Conformal interval + rank"
           detail={
             <>
@@ -594,7 +628,7 @@ function TechnicalView({
       </div>
       {(borrowed || blended) && (
         <Callout>
-          <strong>Your library is still warming up.</strong>{" "}The calibration in stages 2&ndash;3 (and the regression
+          <strong>Your library is still warming up.</strong>{" "}The calibration in stages 3&ndash;4 (and the regression
           diagnostic below) is shrunk toward the engine&rsquo;s reference library, unioned with your own reads — a
           stable prior beats a noisy fit on a handful of books.{" "}
           {borrowed ? (

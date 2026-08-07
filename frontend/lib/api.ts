@@ -26,6 +26,7 @@ import type {
   EngineValidation,
   EngineParameters,
   EffectiveWeights,
+  ScoreAnchors,
   Profile,
   PublicProfile,
   ProfileDirectory,
@@ -806,6 +807,48 @@ export async function deleteGenre(
   const res = await apiFetch(`${base(kind)}/weights/genre/${encodeURIComponent(genre)}`, {
     method: "DELETE",
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/* ── Score anchors (the reader's prose→number rating scale) ──────────────────
+ * Grounded research turns what reviewers SAY about a book into 0-10 component
+ * scores through a fixed sentiment table. These let a reader set their own
+ * number for each band; the backend applies them to the raw research vector
+ * before the engine's corrections. Live-backend only (the read-only static
+ * build has no per-user identity), same as the weights editor. */
+
+/** The caller's effective rating scale: every sentiment band with its canonical
+ *  default and their value, plus whether they've changed anything. */
+export async function fetchScoreAnchors(token?: ServerToken): Promise<ScoreAnchors> {
+  if (STATIC) throw new Error("Read-only deployment");
+  const res = await apiFetch(`${API}/api/score-anchors`, { cache: "no-store" }, token);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** Save the caller's rating scale. Send EVERY band, each 0-10 and nondecreasing
+ *  from the weakest band to the best — the server rejects a partial or inverted
+ *  table (an inversion would reorder books rather than re-price them). */
+export async function setScoreAnchors(
+  anchors: Record<string, number>
+): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/score-anchors`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ anchors }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Revert the caller to the canonical anchors (the identity remap). */
+export async function resetScoreAnchors(): Promise<{ ok: boolean }> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/score-anchors/reset`, { method: "POST" });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
