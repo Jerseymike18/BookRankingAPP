@@ -627,9 +627,13 @@ def apply_cold_start_term(wa, words, series_number, author, genre,
       * an author prior — {"map": {normalized_author: weight}, "base": offset} — a new
         reader's favorite authors (weight 1.0) and their analogs (discounted); a positive
         offset when the book's author is on the list — AUTHOR slice (n_author == 0);
-      * a genre prior — {"map": {normalized_genre: weight}, "base": offset} — a new
-        reader's favorite genres (weight 1.0); a positive offset when the book's genre is
-        on the list — GENRE slice (n_genre == 0), independent of the author gate.
+      * a genre prior — {"map": {normalized_genre: weight}, "base": offset} — the reader's
+        per-genre taste offset, applied on the GENRE slice (n_genre == 0), independent of
+        the author gate. Two sources fill this slot (see backend _build_genre_prior): the
+        stated favorite genres (weight 1.0, positive base), or — once they've imported a
+        Goodreads export — shrunken offsets derived from their own star ratings. The latter
+        are SIGNED: a genre the reader rates below their own average yields a NEGATIVE
+        offset and correctly lowers the prediction. Do not assume adj >= 0 here.
 
     The word-count and author components fade per-author (the moment n_author > 0); the
     genre component fades per-genre (n_genre > 0). The adjusted WA is clamped to [0, 10]."""

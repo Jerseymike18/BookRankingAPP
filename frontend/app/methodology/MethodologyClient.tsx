@@ -328,6 +328,7 @@ function coldStartStatus(params: EngineParameters) {
     minFit: cs.min_books_to_fit,
     authorPrior: cs.author_prior,
     genrePrior: cs.genre_prior,
+    genrePriorFromStars: cs.genre_prior_source === "stars",
     longer: (cs.slope_wa_per_dex ?? 0) >= 0,
   };
 }
@@ -457,12 +458,18 @@ function SimpleView({
             per author the moment you actually rate one of their books.
           </>
         )}
-        {cs.genrePrior && (
+        {cs.genrePrior && (cs.genrePriorFromStars ? (
+          <>
+            {" "}Genres work the same way, but with better evidence: your imported Goodreads ratings say which genres
+            you tend to score above your own average and which fall below, so a genre you rate highly gets a nudge up
+            and one you rate poorly gets nudged <em>down</em>. Each fades as soon as you rate a book in that genre.
+          </>
+        ) : (
           <>
             {" "}Your favorite genres get the same kind of nudge — a small boost that fades per genre as soon as you
             rate a book in it.
           </>
-        )}{" "}
+        ))}{" "}
         And the instant you rate anything by an author, all of this steps aside: your real history takes over.
       </Body>
 

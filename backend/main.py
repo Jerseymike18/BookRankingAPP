@@ -58,6 +58,7 @@ import db_loader
 import db_write
 import goodreads_import
 import import_enrich
+import star_priors
 import user_weights
 import score_anchors as sa
 import predict_engine as pe
@@ -468,6 +469,22 @@ _ANALOG_WEIGHT = 0.5                    # analogs get this fraction of the favor
 _genre_prior_cache: dict = {}           # normalized-fav-genres tuple → {base, map}
 _GENRE_OFFSET_BASE = 0.5                # WA bump for a book in a favorite genre
 
+# Star-derived genre prior (Workstream B, genre-only). When a reader has imported a
+# Goodreads export we can do better than their five self-reported favorites: shrunken
+# per-genre offsets computed from their own star ratings (star_priors.py), filling the
+# SAME genre_prior slot. Graded instead of binary, covers every genre they've read
+# instead of five, and — the substantive difference — SIGNED, so a genre they rate below
+# their own average pushes a cold-slice prediction DOWN.
+#
+# The per-AUTHOR equivalent was measured and REJECTED (2026-08-08): ~9% to-read coverage
+# vs genre's ~91%. Don't reintroduce it without new coverage evidence.
+#
+# Kill switch: STAR_GENRE_PRIOR=0 falls straight back to the favorites prior. With no
+# stored offsets this path is inert, so every existing tenant is byte-identical.
+STAR_GENRE_PRIOR_ENABLED = os.environ.get("STAR_GENRE_PRIOR", "1") != "0"
+# Metadata key written at import-commit; read on every predict via user_metadata.
+STAR_GENRE_OFFSETS_KEY = "genre_offsets"
+
 
 # Center for a preference-only term: log10 of a typical novel (~160k words), so a
 # stated slope pivots around a mid-length book (matches the seed's fitted mu ≈ 5.2).
@@ -550,9 +567,22 @@ def _expand_genre_prior(favs):
     return {"base": _GENRE_OFFSET_BASE, "map": m}
 
 
-def _build_genre_prior(fav_genres):
-    """Cached genre prior for a favorites list, keyed by the normalized-favorites tuple so
-    it rebuilds when the reader changes them. None when there are no usable favorites."""
+def _build_genre_prior(fav_genres, genre_offsets=None):
+    """The genre_prior slot: star-derived offsets when the reader has imported, else their
+    self-reported favorites.
+
+    REPLACE, never stack. Both fill the same slot, so adding them would double-count a genre
+    that is both a stated favorite AND highly rated — and the star offsets are strictly better
+    evidence for exactly the thing the favorites list was a proxy for. Favorites remain the
+    fallback for readers who never import.
+
+    Star offsets are NOT cached in _genre_prior_cache: that cache is keyed by the favorites
+    tuple, which says nothing about a tenant's offsets. The star path is a cheap dict
+    comprehension over ~10 genres, so it just rebuilds per call."""
+    if STAR_GENRE_PRIOR_ENABLED and genre_offsets and _rp is not None:
+        gp = star_priors.to_genre_prior(genre_offsets, _rp.normalize_genre)
+        if gp:
+            return gp
     favs = tuple(str(g).strip() for g in (fav_genres or []) if str(g).strip())[:5]
     if not favs:
         return None
@@ -561,7 +591,8 @@ def _build_genre_prior(fav_genres):
     return _genre_prior_cache[favs]
 
 
-def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_genres=None):
+def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_genres=None,
+                   genre_offsets=None):
     """Per-tenant cold-start term — INDEPENDENT components, each applied only on its own
     cold slice by correct_and_predict:
       * word count (AUTHOR slice, n_author==0): the tenant's FITTED slope once they have
@@ -569,8 +600,10 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_gen
       * author prior (AUTHOR slice, n_author==0): favorite authors + analogs, attached
         whenever set. It fades PER AUTHOR (the moment you rate that author), NOT with library
         size — so a favorite you still haven't read keeps its nudge even once you're data-rich;
-      * genre prior (GENRE slice, n_genre==0): favorite genres, attached whenever set. Fades
-        PER GENRE (the moment you rate a book in that genre), independent of the author gate.
+      * genre prior (GENRE slice, n_genre==0): the reader's STAR-DERIVED per-genre offsets
+        when they've imported a Goodreads export, else their stated favorite genres — see
+        _build_genre_prior. Attached whenever set; fades PER GENRE (the moment you rate a
+        book in that genre), independent of the author gate.
     None when no component applies."""
     if not COLD_START_TERM_ENABLED or _rp is None:
         return None
@@ -585,10 +618,48 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_gen
     ap = _build_author_prior(fav_authors)                   # independent of library size
     if ap:
         term["author_prior"] = ap
-    gp = _build_genre_prior(fav_genres)                     # independent of library size
+    gp = _build_genre_prior(fav_genres, genre_offsets)      # independent of library size
     if gp:
         term["genre_prior"] = gp
     return term or None                                     # {} → nothing to apply
+
+
+def _refresh_genre_offsets(user_id, user_md):
+    """Recompute the reader's star-derived per-genre offsets from their staged `read`
+    rows and persist them to Supabase user_metadata. Returns the count stored (0 when
+    nothing qualified or the write didn't stick).
+
+    Best-effort on purpose: this is an enrichment on top of a commit that has ALREADY
+    succeeded, so any failure here is swallowed rather than surfaced — a reader must
+    never see their import fail because a prior couldn't be saved. They simply keep the
+    favorites-based prior.
+
+    Recomputes from scratch rather than merging, so re-importing or fixing genres in
+    review converges instead of compounding. A later commit sees fewer `read` rows (each
+    one is deleted as its book gets ranked), which is fine and self-correcting: a genre
+    the reader has actually rated has n_genre > 0, so the star prior is already gated off
+    for it.
+
+    TIMING: auth.get_current_user_metadata reads the JWT CLAIMS, not the database — so a
+    freshly-written offset takes effect on the reader's next token refresh, not on their
+    next request. That suits this feature (importing then ranking a backlog spans far
+    longer than a token lifetime) but it does mean the prior is not instantaneous. Nothing
+    to invalidate locally: _cold_term_cache holds only the fitted word-count term, while
+    the priors are rebuilt per call from whatever metadata the request carries."""
+    if not STAR_GENRE_PRIOR_ENABLED:
+        return 0
+    try:
+        rows = db_write.get_staging_rows(user_id, shelf="read", limit=10 ** 9)
+        offsets = star_priors.genre_offsets(rows)
+        if not offsets:
+            return 0
+        ok = signup_mod.set_user_metadata(
+            user_id, {STAR_GENRE_OFFSETS_KEY: offsets}, existing=user_md)
+        return len(offsets) if ok else 0
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "genre-offset refresh failed for a tenant", exc_info=True)
+        return 0
 
 
 def _cold_adjust_rec_wa(wa, words, series_number, author, genre, n_author, n_genre, cold_term):
@@ -2120,7 +2191,8 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
     genre_counts = books["Genre"].value_counts()
     cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
                                user_md.get("fav_authors"),
-                               user_md.get("fav_genres"))
+                               user_md.get("fav_genres"),
+                               user_md.get(STAR_GENRE_OFFSETS_KEY))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -2295,7 +2367,8 @@ def _build_research_response(user_id, title, author, eff_genre, genre_auto_detec
             corr_models=corr_models, words=words, pairs=pairs,
             cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                      user_md.get("fav_authors"),
-                                     user_md.get("fav_genres")),
+                                     user_md.get("fav_genres"),
+                                     user_md.get(STAR_GENRE_OFFSETS_KEY)),
             # Rank / total / grounding counts scope to the tenant's OWN library
             # (books_e), never the seed-borrowed correction pool (corr_pool). The
             # correction VALUE still borrows the seed; only the display denominator
@@ -2738,7 +2811,8 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
     genre_counts = books["Genre"].value_counts()
     cold_term = _get_cold_term(user_id, user_md.get("word_count_pref"),
                                user_md.get("fav_authors"),
-                               user_md.get("fav_genres"))
+                               user_md.get("fav_genres"),
+                               user_md.get(STAR_GENRE_OFFSETS_KEY))
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
@@ -4068,7 +4142,8 @@ def get_engine_parameters(user_id: str = Depends(auth.get_current_user_id),
         books, gw, gcw, r2, resid_sd, residuals=_RESIDUALS,
         cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
                                  user_md.get("fav_authors"),
-                                 user_md.get("fav_genres")),
+                                 user_md.get("fav_genres"),
+                                 user_md.get(STAR_GENRE_OFFSETS_KEY)),
         model_source=model_source,
         min_own_fit=MIN_OWN_FIT,
         blend_weight=round(float(blend_weight), 4),
@@ -4336,12 +4411,17 @@ def import_status(request: Request, batch_id: Optional[str] = None,
 
 @app.post("/api/import/commit")
 def commit_import(payload: ImportCommitRequest, request: Request,
-                  user_id: str = Depends(auth.get_current_user_id)):
+                  user_id: str = Depends(auth.get_current_user_id),
+                  user_md: dict = Depends(auth.get_current_user_metadata)):
     """Fan reviewed staging rows into the library: to-read + currently-reading become
     recommendations (predicted later); read rows stay as the ranking backlog. Rows
     missing kind/genre are skipped and reported (they stay in staging to fix).
     Currently-reading is treated as a to-read recommendation here — the in-progress
-    marker is a client-side reading-status concern (localStorage), not a stored field."""
+    marker is a client-side reading-status concern (localStorage), not a stored field.
+
+    Also derives the reader's star-based per-genre taste offsets HERE, which is the only
+    correct moment: the `read` rows carry `goodreads_rating`, and ranking a book deletes
+    its staging row — so waiting until later would find the ratings gone."""
     _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
     try:
         with contextlib.redirect_stdout(io.StringIO()):
@@ -4349,7 +4429,7 @@ def commit_import(payload: ImportCommitRequest, request: Request,
                 user_id, batch_id=payload.batch_id, ids=payload.ids)
     except Exception as e:
         raise _server_error(e)
-    return {"ok": True, **result}
+    return {"ok": True, **result, "genre_offsets": _refresh_genre_offsets(user_id, user_md)}
 
 
 @app.put("/api/import/staging/{staging_id}")

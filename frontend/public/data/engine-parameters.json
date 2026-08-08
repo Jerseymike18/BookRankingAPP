@@ -7,6 +7,7 @@
     "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
     "fitted": true,
     "genre_prior": false,
+    "genre_prior_source": "off",
     "min_books_to_fit": 25,
     "n_books_fit": 131,
     "slope_wa_per_dex": 0.9993,

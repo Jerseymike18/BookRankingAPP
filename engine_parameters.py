@@ -121,6 +121,22 @@ def _interval_block(residuals):
     return block
 
 
+def _genre_prior_source(cold_term):
+    """Which evidence fills the genre_prior slot: "stars" | "favorites" | "off".
+
+    Distinguished structurally rather than by a flag, so it can't drift from what the
+    backend actually built: the favorites prior emits uniform 1.0 weights with the
+    magnitude in ``base``, while the star prior folds signed per-genre WA offsets into the
+    map (base 1.0) because the cap has to be applied per genre."""
+    gp = (cold_term or {}).get("genre_prior")
+    if not gp:
+        return "off"
+    weights = list((gp.get("map") or {}).values())
+    if weights and all(float(w) == 1.0 for w in weights):
+        return "favorites"
+    return "stars"
+
+
 def _cold_start_block(cold_term):
     """The word-count cold-start term (research_predict.apply_cold_start_term): a length
     adjustment applied ONLY on the cold slice — a book with no same-author analog (same-
@@ -135,8 +151,12 @@ def _cold_start_block(cold_term):
 
     ``author_prior`` flags the independent favorite-authors bump (new readers' stated
     favorites + analogs), which rides along whatever the word-count source is — applied on
-    the same no-same-author-analog slice. ``genre_prior`` flags the parallel favorite-genres
-    bump, applied instead on the no-same-genre-analog slice (n_genre == 0)."""
+    the same no-same-author-analog slice. ``genre_prior`` flags the parallel per-genre
+    adjustment, applied instead on the no-same-genre-analog slice (n_genre == 0), and
+    ``genre_prior_source`` says which evidence fills it: ``stars`` for offsets derived from
+    the reader's imported Goodreads ratings (graded and SIGNED — a below-average genre
+    lowers the prediction), ``favorites`` for their stated favorite genres (a positive bump
+    only), or ``off``."""
     slopes = (cold_term or {}).get("slopes")
     n_fit = int((cold_term or {}).get("n") or 0)
     source = "fitted" if (slopes and n_fit > 0) else ("preference" if slopes else "off")
@@ -149,6 +169,7 @@ def _cold_start_block(cold_term):
         "fitted": source == "fitted",
         "author_prior": bool((cold_term or {}).get("author_prior")),
         "genre_prior": bool((cold_term or {}).get("genre_prior")),
+        "genre_prior_source": _genre_prior_source(cold_term),
     }
     if slopes:
         block["slope_wa_per_dex"] = round(float(slopes[0]), 4)

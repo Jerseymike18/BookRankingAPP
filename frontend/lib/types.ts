@@ -642,7 +642,11 @@ export interface EngineParameters {
     source: "fitted" | "preference" | "off";
     fitted: boolean;
     author_prior: boolean; // favorite-authors bump attached (new readers)
-    genre_prior: boolean; // favorite-genres bump attached (new readers)
+    genre_prior: boolean; // a per-genre cold-slice adjustment is attached
+    // Which evidence fills it: "stars" = shrunken offsets from the reader's imported
+    // Goodreads ratings (graded and SIGNED — a below-average genre lowers the
+    // prediction); "favorites" = their stated favorite genres (a positive bump only).
+    genre_prior_source?: "stars" | "favorites" | "off";
     slope_wa_per_dex?: number; // length slope (WA per 10× word count)
     center_words?: number; // pivot word count (10^μ)
     n_books_fit?: number; // present only when source === "fitted"

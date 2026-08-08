@@ -32,6 +32,10 @@ _SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
 # Local dev / the static build leave these unset → the endpoint 404s.
 SIGNUP_ENABLED = bool(_INVITE_CODE and _SERVICE_ROLE_KEY and _SUPABASE_URL)
 
+# Writing user_metadata needs the service role but NOT the invite code, so it is
+# available whenever the hosted-app auth env is configured (see set_user_metadata).
+ADMIN_ENABLED = bool(_SERVICE_ROLE_KEY and _SUPABASE_URL)
+
 
 class SignupError(Exception):
     """A user-facing sign-up failure (bad email/password, duplicate, upstream)."""
@@ -64,6 +68,41 @@ def create_user(email: str, password: str) -> dict:
         raise SignupError(_friendly(exc.code, exc.read().decode(errors="replace")))
     except urllib.error.URLError as exc:
         raise SignupError(f"Could not reach the auth server: {exc.reason}")
+
+
+def set_user_metadata(user_id: str, patch: dict, existing: dict = None) -> bool:
+    """MERGE `patch` into a user's Supabase user_metadata via the Admin API.
+
+    Used for server-derived onboarding facts the browser can't compute (e.g. the
+    star-derived genre offsets built at import-commit). Metadata is the right home
+    for these — `auth.get_current_user_metadata` already threads it into every
+    request, so no books.db schema change is needed for a handful of floats.
+
+    The Admin API's handling of a partial `user_metadata` has varied across
+    Supabase versions (merge vs replace), so pass `existing` — the caller's current
+    metadata, which every authenticated handler already has — and the merge is done
+    HERE. That way a replace-style upstream cannot silently drop `onboarded` or
+    `fav_genres`.
+
+    Best-effort by design: returns True on success, False on any failure. Callers
+    treat this as an optional enrichment and must never fail a user's request
+    because it didn't stick.
+    """
+    if not ADMIN_ENABLED or not user_id or not patch:
+        return False
+    merged = dict(existing or {})
+    merged.update(patch)
+    url = f"{_SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+    payload = json.dumps({"user_metadata": merged}).encode()
+    req = urllib.request.Request(url, data=payload, method="PUT")
+    req.add_header("Content-Type", "application/json")
+    req.add_header("apikey", _SERVICE_ROLE_KEY)
+    req.add_header("Authorization", f"Bearer {_SERVICE_ROLE_KEY}")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return 200 <= resp.status < 300
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+        return False
 
 
 def _friendly(code: int, detail: str) -> str:
