@@ -1106,6 +1106,7 @@ export default function ReadQueueClient({
   }, []);
 
   /* Filters */
+  const [fTitle, setFTitle] = useState("");
   const [fGenre, setFGenre] = useState("All genres");
   const [fLength, setFLength] = useState("Any");
   const [fType, setFType] = useState("Any");
@@ -1131,6 +1132,16 @@ export default function ReadQueueClient({
   const results = useMemo(() => {
     let list = recommendations.filter((r) => !deletedTitles.has(r.title));
 
+    // Title lookup — "is this book already on my to-read list?". Matches the
+    // series name too, so a series lookup surfaces every entry in it.
+    if (fTitle.trim()) {
+      const q = fTitle.trim().toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.series.toLowerCase().includes(q)
+      );
+    }
     if (fGenre !== "All genres") {
       list = list.filter((r) => r.genre === fGenre);
     }
@@ -1162,7 +1173,12 @@ export default function ReadQueueClient({
       rec: r,
       moodScore: hasMoods ? moodScoreFor(r, active) : null,
     }));
-  }, [recommendations, deletedTitles, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
+  }, [recommendations, deletedTitles, fTitle, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
+
+  // Whether anything other than the title lookup is narrowing the list — a
+  // lookup miss only means "not on your to-read list" when nothing else filters.
+  const otherFiltersActive =
+    fGenre !== "All genres" || fLength !== "Any" || fType !== "Any" || !!fAuthor.trim() || !!fKeyword.trim();
 
   const resetMoods = useCallback(() => {
     setMoodWeights(Object.fromEntries(MOOD_NAMES.map((m) => [m, 0])));
@@ -1281,6 +1297,12 @@ export default function ReadQueueClient({
               Filters
             </h2>
             <div className="flex flex-wrap gap-3">
+              <FilterText
+                placeholder="Title or series…"
+                value={fTitle}
+                onChange={setFTitle}
+              />
+
               <FilterSelect value={fGenre} onChange={setFGenre}>
                 <option value="All genres">All genres</option>
                 {genres.map((g) => (
@@ -1339,7 +1361,9 @@ export default function ReadQueueClient({
 
             {results.length === 0 ? (
               <p className="text-center py-10 text-sm" style={{ color: "var(--color-muted)" }}>
-                No books match your filters.
+                {fTitle.trim() && !otherFiltersActive
+                  ? `Nothing matching “${fTitle.trim()}” is on your to-read list.`
+                  : "No books match your filters."}
               </p>
             ) : (
               <div style={{ overflowX: "auto" }}>

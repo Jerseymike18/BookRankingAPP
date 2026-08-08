@@ -682,6 +682,7 @@ export default function NonfictionReadQueueClient({
   const hasMoods = Object.keys(active).length > 0;
 
   /* Filters */
+  const [fTitle, setFTitle] = useState("");
   const [fGenre, setFGenre] = useState("All genres");
   const [fLength, setFLength] = useState("Any");
   const [fType, setFType] = useState("Any");
@@ -695,6 +696,11 @@ export default function NonfictionReadQueueClient({
 
   const results = useMemo(() => {
     let list = recommendations.filter((r) => !deletedTitles.has(r.title));
+    // Title lookup — matches the series name too (mirrors fiction).
+    if (fTitle.trim()) {
+      const q = fTitle.trim().toLowerCase();
+      list = list.filter((r) => r.title.toLowerCase().includes(q) || r.series.toLowerCase().includes(q));
+    }
     if (fGenre !== "All genres") list = list.filter((r) => r.genre === fGenre);
     if (fLength !== "Any") {
       if (fLength === "Short (<100K)") list = list.filter((r) => r.words !== null && r.words < 100_000);
@@ -706,7 +712,11 @@ export default function NonfictionReadQueueClient({
     if (fKeyword.trim()) { const q = fKeyword.trim().toLowerCase(); list = list.filter((r) => r.keywords.toLowerCase().includes(q)); }
     // Attach a mood score (null when no mood is active) so sort + render can use it.
     return list.map((r) => ({ rec: r, moodScore: hasMoods ? moodScoreFor(r, active) : null }));
-  }, [recommendations, deletedTitles, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
+  }, [recommendations, deletedTitles, fTitle, fGenre, fLength, fType, fAuthor, fKeyword, hasMoods, active]);
+
+  // A lookup miss only means "not on your to-read list" when nothing else filters.
+  const otherFiltersActive =
+    fGenre !== "All genres" || fLength !== "Any" || fType !== "Any" || !!fAuthor.trim() || !!fKeyword.trim();
 
   const sortedResults = useMemo(() => {
     const mult = sortDir === "desc" ? -1 : 1;
@@ -786,6 +796,7 @@ export default function NonfictionReadQueueClient({
           <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
             <h2 className="font-display font-semibold text-lg mb-4" style={{ color: "var(--color-ink)" }}>Filters</h2>
             <div className="flex flex-wrap gap-3">
+              <FilterText placeholder="Title or series…" value={fTitle} onChange={setFTitle} />
               {genreOptions.length > 1 && (
                 <FilterSelect value={fGenre} onChange={setFGenre}>
                   <option value="All genres">All genres</option>
@@ -825,7 +836,11 @@ export default function NonfictionReadQueueClient({
             </div>
 
             {results.length === 0 ? (
-              <p className="text-center py-10 text-sm" style={{ color: "var(--color-muted)" }}>No books match your filters.</p>
+              <p className="text-center py-10 text-sm" style={{ color: "var(--color-muted)" }}>
+                {fTitle.trim() && !otherFiltersActive
+                  ? `Nothing matching “${fTitle.trim()}” is on your to-read list.`
+                  : "No books match your filters."}
+              </p>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
