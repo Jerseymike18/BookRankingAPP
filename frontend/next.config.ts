@@ -27,6 +27,11 @@ const securityHeaders = [
       "img-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
+      // Both already fall back to default-src 'self'; stated explicitly so a
+      // future tightening of default-src can't silently break PWA install or
+      // service-worker registration.
+      "manifest-src 'self'",
+      "worker-src 'self'",
       scriptSrc,
       "connect-src 'self' https://*.supabase.co https://*.up.railway.app",
     ].join("; "),

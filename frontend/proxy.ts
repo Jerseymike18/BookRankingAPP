@@ -90,7 +90,14 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Run on every route EXCEPT Next internals, the /data static snapshots, and
   // asset files — otherwise the gate would block CSS/JS/images/JSON from loading.
+  //
+  // `sw.js` is listed explicitly: the extension allowlist below has no `.js`
+  // (bundled JS lives under the excluded `_next/static`), so without this the
+  // service worker would be auth-gated and served a redirect to /login, and the
+  // PWA would never install for a signed-in user. `/manifest.json` needs no
+  // entry — it is already covered by `json$`, which is why the manifest is a
+  // static file in public/ rather than an app/manifest.ts route.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|data/|.*\\.(?:png|svg|jpg|jpeg|gif|webp|ico|json|txt|xml)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|data/|.*\\.(?:png|svg|jpg|jpeg|gif|webp|ico|json|txt|xml)$).*)",
   ],
 };
