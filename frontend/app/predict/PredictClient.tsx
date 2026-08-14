@@ -852,6 +852,30 @@ function ScoredCard({
             Refine
           </button>
         ) : null}
+
+        {/* Re-predict: the no-cache fresh look. Lives in the header BESIDE Refine
+            because that is where this page keeps its per-card actions — buried in
+            the expanded panel it may as well not exist. Distinct from Refine:
+            Refine is the one-time memory→grounded upgrade and disappears once a
+            book is grounded; this works on any card, at any time. */}
+        {onRepredict && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRepredict();
+            }}
+            disabled={repredicting}
+            className="text-xs px-2 py-1 rounded-md flex-shrink-0 disabled:opacity-60"
+            style={{
+              border: "1px solid var(--color-rule)",
+              color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
+              background: repredicting ? "var(--color-sage-light)" : "transparent",
+            }}
+            title="Ignore the cached research and predict this book again from scratch"
+          >
+            {repredicting ? "Re-predicting…" : "Re-predict"}
+          </button>
+        )}
         <svg
           className="w-4 h-4 flex-shrink-0 transition-transform"
           style={{
@@ -946,34 +970,20 @@ function ScoredCard({
             </p>
           )}
 
-          {/* Re-predict this one book: a no-cache fresh look. Sits here rather
-              than in the header row so it can't be confused with Refine, which
-              is a different operation (memory → grounded, offered only once). */}
-          {onRepredict && (
-            <div className="pt-2 border-t space-y-2" style={{ borderColor: "var(--color-rule)" }}>
-              <div className="flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRepredict(); }}
-                  disabled={repredicting}
-                  title="Ignore the cached research and predict this book again from scratch"
-                  className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
-                  style={{
-                    background: repredicting ? "var(--color-sage-light)" : "var(--color-surface)",
-                    color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
-                    border: "1px solid var(--color-rule)",
-                  }}
-                >
-                  {repredicting ? "Re-predicting…" : "Re-predict"}
-                </button>
-                <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-                  Fresh look — ignores the cached research for this book.
-                </span>
-              </div>
-              {repredictError && (
-                <p className="text-xs" style={{ color: "#92400E" }}>{repredictError}</p>
-              )}
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Re-predict failure — in the always-visible strip, not the collapsed
+          panel, so a failed press can't report itself somewhere unseen. */}
+      {repredictError && (
+        <div
+          className="px-5 py-2"
+          style={{
+            borderTop: "1px solid var(--color-rule)",
+            background: "var(--color-surface)",
+          }}
+        >
+          <p className="text-xs" style={{ color: "#92400E" }}>{repredictError}</p>
         </div>
       )}
 
