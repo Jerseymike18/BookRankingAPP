@@ -201,6 +201,16 @@ Writes go through `db_write.update_nonfiction_recommendation_scores` (added 2026
 authorization — the mirror of the fiction function; nonfiction previously had no in-place score
 writer at all).
 
+**Measured run-to-run variance (2026-08-14, n=7 forced calls on one book, zero library change):**
+WA sd **0.052**, full range **0.159** — about **3% of the served directional band** (±1.67 at n=6),
+and smaller than 4 of the 5 gaps between adjacent rated nonfiction WAs. 8 of 12 components were
+byte-identical across every call; the 4 that moved (Informativeness, Clarity, Structure, Prose)
+each shifted exactly one 0.5 notch. So the button is **not** a noise generator — but rank is only
+as stable as the library is dense: the test book sat 0.03 WA under a neighbour, and 1 of 7 samples
+crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA of a neighbour
+while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
+re-litigate this without a bigger library.
+
 Regression guard: `test_repredict_one.py` (37 checks — scope, tenant isolation, eligibility, the
 tag, the no-op guard, both-paths-agree, the endpoint's `rank_pool` wiring, and for nonfiction: that
 the fresh-research force actually bypasses a warm cache, that no `delta_log` row is written, and
