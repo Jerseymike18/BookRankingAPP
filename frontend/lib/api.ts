@@ -643,6 +643,23 @@ export async function repredictRecommendation(
   return data;
 }
 
+/** Re-predict ONE unread NONFICTION book. Unlike the fiction call, this ALWAYS
+ *  spends an LLM call: nonfiction has no correction layer, so the cached path
+ *  would return an identical vector and the only real re-prediction is a fresh
+ *  research call. Always slow; never free. */
+export async function repredictNonfictionRecommendation(
+  title: string
+): Promise<{ ok: boolean; report: RepredictOneReport }> {
+  assertWritable();
+  const res = await apiFetch(
+    `${API}/api/nonfiction/recommendations/${encodeURIComponent(title)}/repredict`,
+    { method: "POST" }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function deleteRecommendation(title: string): Promise<{ ok: boolean; message: string }> {
   assertWritable();
   const res = await apiFetch(`${API}/api/recommendations/${encodeURIComponent(title)}`, {

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useCallback } from "react";
-import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
-import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import type { NonfictionReadQueueResponse, NonfictionRecommendation, RepredictOneReport } from "@/lib/types";
+import { saveNonfictionQueue, deleteNonfictionRecommendation, repredictNonfictionRecommendation } from "@/lib/api";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 
@@ -192,9 +193,35 @@ function SortHeader({
 /* ── Expandable row panel ─────────────────────────────────────────────── */
 function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecommendation; moodScore?: number | null; onDelete: () => void }) {
   const ro = useReadOnly();
+  const router = useRouter();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // ── Re-predict this one book ────────────────────────────────────────────
+  // Gated behind a confirm step, unlike the fiction button: nonfiction has no
+  // correction layer, so this ALWAYS re-researches and always costs an API call.
+  // A one-click spend would be too easy to trigger by accident.
+  const [repredictConfirm, setRepredictConfirm] = useState(false);
+  const [repredicting, setRepredicting] = useState(false);
+  const [repredictReport, setRepredictReport] = useState<RepredictOneReport | null>(null);
+  const [repredictError, setRepredictError] = useState<string | null>(null);
+
+  async function handleRepredict() {
+    setRepredicting(true);
+    setRepredictConfirm(false);
+    setRepredictError(null);
+    setRepredictReport(null);
+    try {
+      const { report } = await repredictNonfictionRecommendation(rec.title);
+      setRepredictReport(report);
+      if (report.written) router.refresh();
+    } catch (e) {
+      setRepredictError(e instanceof Error ? e.message : "Re-prediction failed.");
+    } finally {
+      setRepredicting(false);
+    }
+  }
 
   return (
     <div className="px-5 py-4 space-y-4" style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}>
@@ -256,10 +283,48 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
       {/* Component scores */}
       <ComponentScores components={rec.components} />
 
-      {/* Remove (mutation — hidden on a read-only deploy) */}
+      {/* Re-predict + remove (mutations — hidden on a read-only deploy) */}
       {!ro && (
-        <div className="pt-2 border-t flex items-center gap-3" style={{ borderColor: "var(--color-rule)" }}>
-          {!deleteConfirm ? (
+        <div className="pt-2 border-t space-y-3" style={{ borderColor: "var(--color-rule)" }}>
+        <div className="flex items-center gap-3">
+          {/* Re-predict: two-step, because it always spends an API call */}
+          {!deleteConfirm && (repredictConfirm ? (
+            <>
+              <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+                Re-research this book? Costs one API call.
+              </span>
+              <button
+                onClick={handleRepredict}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                style={{ background: "var(--color-sage)", color: "#fff" }}
+              >
+                Yes, re-predict
+              </button>
+              <button
+                onClick={() => setRepredictConfirm(false)}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--color-surface-2)", color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setRepredictConfirm(true)}
+              disabled={repredicting}
+              title="Re-research this book and rewrite its prediction (spends one API call)"
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+              style={{
+                background: repredicting ? "var(--color-sage-light)" : "var(--color-surface-2)",
+                color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              {repredicting ? "Re-predicting…" : "Re-predict"}
+            </button>
+          ))}
+
+          {!repredictConfirm && (!deleteConfirm ? (
             <button
               onClick={() => setDeleteConfirm(true)}
               className="text-xs px-3 py-1.5 rounded-lg transition-colors"
@@ -298,8 +363,61 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
                 Cancel
               </button>
             </>
-          )}
+          ))}
           {deleteError && <span className="text-xs" style={{ color: DANGER }}>{deleteError}</span>}
+        </div>
+
+        {/* Re-prediction outcome. Unlike fiction, "no change" here means the model
+            returned the same scores on a genuinely fresh look — not that the
+            baseline sat still (nonfiction has no baseline to move). */}
+        {repredicting && (
+          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+            Re-researching this book — this usually takes under a minute.
+          </p>
+        )}
+        {repredictReport && !repredicting && (
+          <div className="text-xs space-y-1" style={{ color: "var(--color-muted)" }}>
+            {repredictReport.changed ? (
+              <>
+                <p>
+                  Re-predicted:{" "}
+                  <strong style={{ color: "var(--color-ink)" }}>
+                    WA {repredictReport.old_wa?.toFixed(2) ?? "—"} → {repredictReport.new_wa.toFixed(2)}
+                  </strong>
+                  {repredictReport.d_wa != null && (
+                    <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "#B45309" }}>
+                      {" "}({repredictReport.d_wa >= 0 ? "+" : ""}{repredictReport.d_wa.toFixed(2)})
+                    </span>
+                  )}
+                  {repredictReport.old_rank != null && (
+                    <span style={{ color: "var(--color-faint)" }}>
+                      {" "}· rank #{repredictReport.old_rank} → #{repredictReport.new_rank} of{" "}
+                      {repredictReport.total}
+                    </span>
+                  )}
+                </p>
+                {repredictReport.drivers.length > 0 && (
+                  <p style={{ color: "var(--color-faint)" }}>
+                    Biggest moves:{" "}
+                    {repredictReport.drivers
+                      .filter((d) => Math.abs(d.delta) >= 0.01)
+                      .map((d) => `${componentLabel(d.component, "nonfiction")} ${d.delta >= 0 ? "+" : ""}${d.delta.toFixed(2)}`)
+                      .join(" · ") || "none"}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p>
+                Re-researched — <strong style={{ color: "var(--color-ink)" }}>no change</strong>{" "}
+                <span style={{ color: "var(--color-faint)" }}>
+                  (still WA {repredictReport.new_wa.toFixed(2)}; a fresh look landed on the
+                  same scores)
+                </span>
+              </p>
+            )}
+          </div>
+        )}
+        {repredictError && <p className="text-xs" style={{ color: DANGER }}>{repredictError}</p>}
         </div>
       )}
     </div>

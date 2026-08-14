@@ -40,8 +40,9 @@ pipeline — see **Publishing** below and `README.md`.
    `add_book`, `change_rating`, `delete_book`, `set_year_read`, `set_status`,
    `update_queue`, `add_recommendation`, `set_recommendation_meta`,
    `update_recommendation_scores`, `update_book_metadata`, `set_series_number`, `set_done`,
-   `set_score_anchors`, `reset_score_anchors`, plus the nonfiction equivalents). Do not add
-   new write functions unless explicitly asked.
+   `set_score_anchors`, `reset_score_anchors`, plus the nonfiction equivalents —
+   including `update_nonfiction_recommendation_scores`, the in-place nonfiction score
+   writer added 2026-08-14). Do not add new write functions unless explicitly asked.
 
 3. **DB schema is fixed.** The `books` table has `title, genre, author, series,
    series_number, words, year_read, status` plus the 14 component columns. `recommendations`
@@ -181,8 +182,29 @@ upgrade. Three things are load-bearing:
   manufacture a delta. The read-queue still applies it on display. `rank_pool` is the reader's own
   library (never the borrowed seed pool) — the cold-start rank-leak guard.
 
-Regression guard: `test_repredict_one.py` (25 checks — scope, tenant isolation, eligibility, the
-tag, the no-op guard, both-paths-agree, and the endpoint's `rank_pool` wiring). A dry-run CLI is
+**Nonfiction granular re-prediction is a DIFFERENT operation — don't unify them.**
+`repredict_nonfiction_one` + `POST /api/nonfiction/recommendations/{title}/repredict` exist, but
+nonfiction has **no correction layer** (research vector → anchors → weighted roll-up, that's all),
+so a nonfiction book's stored scores don't depend on the reader's library and there is no baseline
+to move. Re-running the cached path would return a byte-identical vector forever. So the
+nonfiction path **forces a fresh research call** (`force=True`) and therefore **always spends one
+Opus call** — there is no cheap path, and the UI gates it behind a confirm step for that reason
+(owner decision, 2026-08-14). Three further divergences that must not be "fixed" into parity:
+
+- **No `delta_log` row.** `delta_log` is fiction-shaped (its pred_/act_/d_ columns are the 14
+  `FICTION_COMPONENTS`). The move is reported, not recorded; writing one would be a schema change.
+- **No interval** — nonfiction has no residual table, and the guard forbids a variance substitute.
+- **Rank is recomputed by WA**, not taken from `research_and_predict`'s own `rank` field, which is
+  by Total Average — reusing it would report an old→new rank move measured on two scales.
+
+Writes go through `db_write.update_nonfiction_recommendation_scores` (added 2026-08-14 with owner
+authorization — the mirror of the fiction function; nonfiction previously had no in-place score
+writer at all).
+
+Regression guard: `test_repredict_one.py` (37 checks — scope, tenant isolation, eligibility, the
+tag, the no-op guard, both-paths-agree, the endpoint's `rank_pool` wiring, and for nonfiction: that
+the fresh-research force actually bypasses a warm cache, that no `delta_log` row is written, and
+that the reported WA/rank agree with the read-queue). A dry-run CLI is
 `python3 repredict_on_add.py "<title>" --one --dry-run`.
 
 ## Security posture

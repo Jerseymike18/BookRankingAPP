@@ -73,6 +73,139 @@ def _make_vec(components):
     return vec
 
 
+def _nf_repredict_checks(bm, db_write, rpa, tmpdb, SEED, USER_B, _vec):
+    """Nonfiction granular re-prediction (separate table, engine and 12-component
+    schema). The load-bearing difference from fiction: nonfiction has NO
+    correction layer, so its stored scores don't move with the library and the
+    button FORCES a fresh research call. A regression to cache-first would turn
+    it into a permanent no-op, so the force is asserted directly."""
+    import nonfiction_research as nr
+    import nonfiction_engine as nfe
+
+    NFC = list(db_write.NONFICTION_COMPONENTS)
+
+    def nfvec(base):
+        return {c: min(10.0, max(0.0, float(base) + (i % 3) * 0.1))
+                for i, c in enumerate(NFC)}
+
+    con = sqlite3.connect(tmpdb)
+    for t in ("nonfiction_books", "nonfiction_recommendations"):
+        con.execute(f"DELETE FROM {t}")
+    con.commit()
+    genres = [r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")]
+    con.close()
+    if not genres:
+        check("nonfiction: genre weights seeded in the test DB", False, "none found")
+        return
+    NFG = genres[0]
+
+    # Mocked researcher: zero API spend, and a call COUNTER so we can prove the
+    # force actually bypasses the cache rather than trusting the flag.
+    calls = {"n": 0}
+    NFRAW = {"scores": nfvec(7.0)}
+    orig_components = nr.research_nonfiction_components
+
+    def fake_components(title, author, genre="Nonfiction", client=None, **kw):
+        calls["n"] += 1
+        return dict(NFRAW["scores"]), "test"
+
+    nr.research_nonfiction_components = fake_components
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            for i in range(5):
+                db_write.add_nonfiction_book(f"NFBook{i}", f"NFAuthor{i}", NFG,
+                                             nfvec(6 + i % 3), allow_new_genre=True)
+            db_write.add_nonfiction_recommendation("NFTarget", "NFAuthor0", NFG,
+                                                   nfvec(7.0), allow_new_genre=True)
+            db_write.add_nonfiction_recommendation("NFDone", "NFAuthor0", NFG,
+                                                   nfvec(7.0), allow_new_genre=True)
+            db_write.set_nonfiction_done("NFDone", True)
+            db_write.add_nonfiction_recommendation("NFTarget", "NFAuthor0", NFG,
+                                                   nfvec(3.0), allow_new_genre=True,
+                                                   user_id=USER_B)
+
+        def nf_data():
+            return nfe.load_nonfiction_from_db(path=tmpdb, user_id=SEED)
+
+        def nf_scores(title, uid=SEED):
+            con = sqlite3.connect(tmpdb)
+            cols = ", ".join(f'"{c}"' for c in NFC)
+            row = con.execute(
+                f"SELECT {cols} FROM nonfiction_recommendations WHERE title=? AND user_id=?",
+                (title, uid)).fetchone()
+            con.close()
+            return dict(zip(NFC, row)) if row else None
+
+        def nf_repredict(title, uid=SEED, **kw):
+            with contextlib.redirect_stdout(io.StringIO()):
+                return rpa.repredict_nonfiction_one(title, get_data=nf_data,
+                                                    cache={}, user_id=uid, **kw)
+
+        print("\nGRANULAR RE-PREDICTION — nonfiction")
+        check("NF: absent title → None", nf_repredict("NoSuchNFBook") is None)
+        check("NF: finished (done=1) rec → None", nf_repredict("NFDone") is None)
+
+        # THE force. The cache is deliberately pre-warmed with a DIFFERENT vector:
+        # a cache-first implementation would return that and never call the model.
+        warm = {"NFTarget": {"scores": nfvec(2.0), "conf": "stale"}}
+        calls["n"] = 0
+        NFRAW["scores"] = nfvec(8.4)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rep = rpa.repredict_nonfiction_one("NFTarget", get_data=nf_data,
+                                               cache=warm, user_id=SEED)
+        check("NF: forces a FRESH research call even with a warm cache",
+              calls["n"] == 1, f"research calls={calls['n']}")
+        after = nf_scores("NFTarget")
+        check("NF: stored scores come from the fresh research, not the stale cache",
+              rep is not None and rep["changed"] and after is not None
+              and abs(after[NFC[0]] - nfvec(8.4)[NFC[0]]) < 1e-6,
+              f"stored {after and round(after[NFC[0]], 2)}, stale would be "
+              f"{round(nfvec(2.0)[NFC[0]], 2)}")
+        check("NF: report ranks by WA, consistent with the read-queue",
+              rep is not None and abs(
+                  rep["new_wa"] - round(float(nfe.wa_from_components(
+                      after, NFG, *nf_data()[1:])[0]), 4)) < 1e-4,
+              f"report new_wa={rep and rep['new_wa']}")
+        check("NF: report names the components that moved",
+              rep is not None and len(rep["drivers"]) == 3)
+
+        # The fiction-shaped delta_log must stay untouched by the nonfiction path.
+        con = sqlite3.connect(tmpdb)
+        n_delta = con.execute("SELECT COUNT(*) FROM delta_log WHERE title=?",
+                              ("NFTarget",)).fetchone()[0]
+        con.close()
+        check("NF: writes NO delta_log row (that table is fiction-shaped)",
+              n_delta == 0, f"rows={n_delta}")
+
+        # Same vector back → no write, even though a call was still spent.
+        calls["n"] = 0
+        rep2 = nf_repredict("NFTarget")
+        check("NF: identical fresh scores → changed=False, nothing written",
+              rep2 is not None and rep2["changed"] is False and rep2["written"] is False)
+        check("NF: a no-change re-predict still made the (paid) research call",
+              calls["n"] == 1, f"research calls={calls['n']}")
+
+        check("NF: another tenant's identically-titled rec is untouched",
+              nf_scores("NFTarget", USER_B) == nfvec(3.0))
+
+        # The endpoint.
+        bm._nf_engine_cache.clear()
+        NFRAW["scores"] = nfvec(5.5)
+        with contextlib.redirect_stdout(io.StringIO()):
+            resp = bm.repredict_nf_recommendation("NFTarget", request=None, user_id=SEED)
+        check("NF endpoint returns a report for the caller's own book",
+              resp.get("ok") and resp["report"]["title"] == "NFTarget")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                bm.repredict_nf_recommendation("NoSuchNFBook", request=None, user_id=SEED)
+            check("NF endpoint 404s on a title not on the reader's TBR", False, "no raise")
+        except Exception as exc:
+            check("NF endpoint 404s on a title not on the reader's TBR",
+                  getattr(exc, "status_code", None) == 404, f"{type(exc).__name__}")
+    finally:
+        nr.research_nonfiction_components = orig_components
+
+
 def main():
     import db_backend
     import db_write
@@ -117,8 +250,10 @@ def main():
         # how we make a re-prediction actually MOVE without touching engine math.
         RAW = {"scores": vec(7.0)}
         _rp.get_client = lambda: object()
-        _rp.load_cache = lambda: _cache
-        _rp.save_cache = lambda c: None
+        # Keep the real (path=…) signatures — the nonfiction path passes NF_CACHE
+        # explicitly, and a 0-arg mock would only fail on the nonfiction checks.
+        _rp.load_cache = lambda path=None: _cache
+        _rp.save_cache = lambda c, path=None: None
         _rp.research_book = (lambda title, author, genre, client, cache,
                              allowed_genres=None, **kw:
                              (dict(RAW["scores"]), "test", "", "", genre, 100000, True))
@@ -307,6 +442,12 @@ def main():
         except Exception as exc:
             check("endpoint 404s on a title not on the reader's TBR",
                   getattr(exc, "status_code", None) == 404, f"{type(exc).__name__}")
+
+        # ── 10. NONFICTION — the separate table, engine and schema ───────────
+        # The nonfiction track has NO correction layer, so its re-prediction
+        # FORCES a fresh research call — that force is the whole feature, and a
+        # regression to cache-first would silently turn the button into a no-op.
+        _nf_repredict_checks(bm, db_write, rpa, tmpdb, SEED, USER_B, vec)
     finally:
         os.chdir(orig_cwd)
         db_write.DB = orig_db

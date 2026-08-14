@@ -3001,6 +3001,40 @@ def set_nonfiction_recommendation_meta(title, blurb=None, keywords=None, user_id
         con.close()
 
 
+def update_nonfiction_recommendation_scores(title, new_scores, user_id=None):
+    """Replace the 12 component scores on an existing nonfiction recommendation IN
+    PLACE, by title — the nonfiction reprediction write path, and the exact mirror
+    of update_recommendation_scores. Same validation discipline as
+    add_nonfiction_recommendation's scores (range + completeness via
+    _validate_nonfiction_scores) and the same _backup_once guard; touches no other
+    column (genre/author/series/done/blurb/words/keywords are preserved) and no
+    schema. Returns True on success, False otherwise (nothing commits on failure).
+    """
+    con = _connect()
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        row = con.execute(
+            "SELECT id FROM nonfiction_recommendations WHERE user_id=? AND title=?",
+            (uid, title)).fetchone()
+        if not row:
+            raise ValidationError(f"No nonfiction recommendation titled '{title}' found.")
+        _validate_nonfiction_scores(new_scores, require_all=True)
+        _backup_once()
+        sets = ",".join(f'"{c}"=?' for c in NONFICTION_COMPONENTS)
+        vals = [new_scores.get(c) for c in NONFICTION_COMPONENTS]
+        con.execute(
+            f"UPDATE nonfiction_recommendations SET {sets} WHERE user_id=? AND title=?",
+            vals + [uid, title])
+        con.commit()
+        return True
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ '{title}' not repredicted — {e}")
+        return False
+    finally:
+        con.close()
+
+
 def delete_nonfiction_recommendation(title, user_id=None):
     """Permanently delete a nonfiction TBR recommendation by title."""
     con = _connect()

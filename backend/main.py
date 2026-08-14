@@ -3648,6 +3648,52 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
     return {"recommendations": result, "genres": []}
 
 
+@app.post("/api/nonfiction/recommendations/{title}/repredict")
+def repredict_nf_recommendation(title: str, request: Request,
+                                user_id: str = Depends(auth.get_current_user_id)):
+    """GRANULAR re-prediction for ONE unread nonfiction book.
+
+    Deliberately NOT the same operation as its fiction sibling, because the two
+    tracks predict differently. Fiction re-prediction is worth doing for free: its
+    stored scores come from a correction trained on the reader's rated library, so
+    they move as the library grows. Nonfiction has NO correction layer — its stored
+    scores are the research vector under the reader's anchors, independent of the
+    library — so the cached path would return an identical vector every time.
+
+    This therefore FORCES a fresh research call (force=True), which is the only
+    thing that genuinely re-predicts a nonfiction book. That means it always spends
+    one Opus call: no cache-hit fast path exists here, unlike /api/predict/research.
+    Owner decision, 2026-08-14. Same LLM rate-limit bucket accordingly.
+
+    No delta_log row is written (the table is fiction-shaped) and no interval is
+    returned (nonfiction has no residual table). 404 if the title is not on this
+    reader's active nonfiction TBR."""
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
+    if _repred is None or _nr is None or _rp is None:
+        raise HTTPException(status_code=503,
+                            detail="Re-prediction is unavailable on this deployment.")
+    try:
+        data = _get_nf_engine(user_id)
+    except Exception as e:
+        raise _server_error(e, "Nonfiction engine build failed")
+
+    report = _repred.repredict_nonfiction_one(
+        title, get_data=lambda: data, cache=_rp.load_cache(_nr.NF_CACHE),
+        user_id=user_id, write_lock=_repred_lock)
+    if report is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No unread nonfiction book titled '{title}' on your list.")
+    if report.get("skipped"):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not re-predict this book ({report['skipped']}).")
+    if report.get("changed") and not report.get("written"):
+        raise HTTPException(status_code=500,
+                            detail="Re-predicted, but the new scores could not be saved.")
+    return {"ok": True, "report": report}
+
+
 class NonfictionRecRequest(BaseModel):
     title: str
     author: Optional[str] = None

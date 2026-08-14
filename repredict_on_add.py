@@ -599,11 +599,13 @@ def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pair
     }
 
 
-def _drivers(old, new, k=3):
-    """The k components that moved most, largest |Δ| first (report only)."""
+def _drivers(old, new, k=3, components=None):
+    """The k components that moved most, largest |Δ| first (report only).
+    `components` selects the schema — the 14 fiction components by default, or
+    db_write.NONFICTION_COMPONENTS for the nonfiction track."""
+    comps = components if components is not None else db_write.FICTION_COMPONENTS
     return [{"component": c, "delta": round(d, 2)} for c, d in sorted(
-        (((c), (new.get(c) or 0) - (old.get(c) or 0))
-         for c in db_write.FICTION_COMPONENTS),
+        ((c, (new.get(c) or 0) - (old.get(c) or 0)) for c in comps),
         key=lambda x: abs(x[1]), reverse=True)[:k]]
 
 
@@ -745,6 +747,159 @@ def repredict_one(title, *, get_engine, cache=None, web="auto", corr_models="aut
     except Exception as exc:
         if verbose:
             print(f"  (repredict-one skipped for '{title}': {exc})")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# GRANULAR RE-PREDICTION — NONFICTION.
+# ---------------------------------------------------------------------------
+# The nonfiction counterpart of repredict_one, and it is deliberately NOT a
+# transliteration of it, because the two tracks predict differently:
+#
+#   fiction     research vector → correlation smoothing → author+genre CORRECTION
+#               trained on the rated library → WA
+#   nonfiction  research vector → the reader's anchors → weighted roll-up. THAT IS
+#               ALL. There is no correction layer, no correction pool, no analogs.
+#
+# The consequence drives this whole function: a nonfiction book's stored scores do
+# not depend on the reader's library at all, so re-running the cached path would
+# return a byte-identical vector every time. There is no baseline to move. The only
+# way to genuinely re-predict a nonfiction book is to ask the model again — so this
+# forces a fresh research call (force=True, skipping both cache layers), and it
+# costs one Opus call per invocation with no cheap path. Owner decision, 2026-08-14.
+#
+# Two more places it must not pretend to be its fiction sibling:
+#   * NO delta_log row. `delta_log` is fiction-shaped (its pred_/act_/d_ columns are
+#     the 14 FICTION_COMPONENTS); there is no nonfiction delta log to write to, and
+#     inventing one is a schema change. The move is reported, not recorded.
+#   * NO interval. Nonfiction has no residual table, and the regression guard
+#     forbids a variance-derived substitute.
+#   * The rank is recomputed HERE, by WA. `research_and_predict` returns a rank of
+#     its own, but that one is by TOTAL AVERAGE, while the nonfiction read-queue
+#     (and nfe.rank_table) rank by WA — so reusing it would report an old→new rank
+#     move measured on two different scales. Same reason the reported WA is derived
+#     from the CLAMPED vector actually written, not from the pre-clamp roll-up: the
+#     report must describe the row the reader will see.
+def repredict_nonfiction_one(title, *, get_data, cache=None, anchors=None,
+                             user_id=None, dry_run=False, verbose=False,
+                             write_lock=None, force=True):
+    """Re-predict ONE saved nonfiction recommendation in place and report the move.
+
+    `get_data` yields nonfiction_engine.load_nonfiction_from_db()'s (books, gw, gcw)
+    for `user_id` (the backend passes its cached per-tenant `_get_nf_engine`).
+    `cache` is the nonfiction research cache dict (rp.load_cache(nr.NF_CACHE)).
+    `write_lock`, if given, is held ONLY around the db_write call, never around the
+    research call.
+
+    `force=True` (the default, and the point of this function) re-researches rather
+    than serving the cached vector — see the section note above. force=False makes
+    it a free no-op-unless-your-anchors-changed refresh, kept for tests and the CLI.
+
+    Returns a JSON-serializable report dict, or None when it could not run (rec
+    gone, research failure). Never raises.
+    """
+    user_id = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        import nonfiction_research as nr
+        import nonfiction_engine as nfe
+        import research_predict as _rp_mod
+
+        data = get_data()
+        books, gw, gcw = data
+
+        con = db_backend.connect(db_write.DB)
+        con.row_factory = sqlite3.Row
+        try:
+            cols = ", ".join(f'"{c}"' for c in db_write.NONFICTION_COMPONENTS)
+            row = con.execute(
+                f"SELECT title, genre, author, {cols} FROM nonfiction_recommendations "
+                f"WHERE LOWER(title)=LOWER(?) AND COALESCE(done,0)=0 AND user_id=? "
+                f"ORDER BY id DESC LIMIT 1",
+                (title, user_id)).fetchone()
+        finally:
+            con.close()
+        if row is None:
+            return None                     # not on this reader's nonfiction TBR
+        row = dict(row)
+        genre = row["genre"] or "Nonfiction"
+        author = row["author"] or ""
+
+        if cache is None:
+            cache = _rp_mod.load_cache(nr.NF_CACHE)
+        if anchors is None:
+            anchors = sa.load_anchors(user_id)
+
+        old = {c: row[c] for c in db_write.NONFICTION_COMPONENTS}
+        old_complete = all(v is not None for v in old.values())
+        old_wa = old_rank = None
+        if old_complete:
+            try:
+                old_wa, _ = nfe.wa_from_components(old, genre, gw, gcw)
+                old_rank = int((books["WA"] > old_wa).sum() + 1)
+            except Exception:
+                old_wa = old_rank = None
+
+        # The fresh prediction. research_and_predict applies the reader's anchors to
+        # the raw vector before the roll-up, exactly as the served nonfiction predict
+        # endpoint does — so a re-prediction lands where a manual one would.
+        res = nr.research_and_predict(row["title"], author, genre, data=data,
+                                      cache=cache, force=force, anchors=anchors)
+        try:
+            _rp_mod.save_cache(cache, nr.NF_CACHE)   # persist the refreshed entry
+        except Exception:
+            pass
+
+        # Clamp before the validated write: the writer rejects out-of-range, and a
+        # remapped anchor scale can push a top score a hair past 10 (same reasoning
+        # as the fiction clamp).
+        new = {c: _clamp(v) for c, v in res["scores"].items()
+               if c in db_write.NONFICTION_COMPONENTS}
+        if len(new) != len(db_write.NONFICTION_COMPONENTS):
+            return {"title": row["title"], "author": author, "genre": genre,
+                    "changed": False, "written": False,
+                    "skipped": "research-incomplete", "dry_run": dry_run}
+        # Measured off the clamped vector, by WA, on the same frame old_wa/old_rank
+        # used — so ΔWA and Δrank are like-for-like and agree with the read-queue.
+        new_wa, _ = nfe.wa_from_components(new, genre, gw, gcw)
+        new_wa = float(new_wa)
+        new_rank = int((books["WA"] > new_wa).sum() + 1)
+
+        changed = not (old_complete and all(
+            abs(float(old[c]) - new[c]) < 1e-6
+            for c in db_write.NONFICTION_COMPONENTS))
+
+        written = False
+        if changed and not dry_run:
+            import contextlib as _contextlib
+            with (write_lock if write_lock is not None else _contextlib.nullcontext()):
+                written = bool(db_write.update_nonfiction_recommendation_scores(
+                    row["title"], new, user_id=user_id))
+
+        report = {
+            "title": row["title"], "author": author, "genre": genre,
+            "changed": changed, "written": written,
+            "source": "cache" if res.get("from_cache") else "research",
+            "old_wa": round(old_wa, 4) if old_wa is not None else None,
+            "new_wa": round(new_wa, 4),
+            "d_wa": round(new_wa - old_wa, 4) if old_wa is not None else None,
+            "old_rank": old_rank, "new_rank": new_rank,
+            "d_rank": (new_rank - old_rank) if old_rank is not None else None,
+            "total": int(res.get("n") or len(books)),
+            "n_author": res.get("n_author"), "n_genre": res.get("n_genre"),
+            "drivers": _drivers(old, new, components=db_write.NONFICTION_COMPONENTS),
+            "dry_run": dry_run,
+        }
+        if verbose:
+            d = f"{report['d_wa']:+.3f}" if report["d_wa"] is not None else "n/a"
+            note = ("" if changed else "  (unchanged)") \
+                + ("  [dry run — not written]" if dry_run else "")
+            print(f"  repredict-nf '{report['title']}' [{report['source']}]: "
+                  f"WA {report['old_wa']}→{report['new_wa']} ({d}) "
+                  f"rank {report['old_rank']}→{report['new_rank']}{note}")
+        return report
+    except Exception as exc:
+        if verbose:
+            print(f"  (repredict-nf skipped for '{title}': {exc})")
         return None
 
 
