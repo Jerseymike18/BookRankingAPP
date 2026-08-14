@@ -1480,6 +1480,63 @@ def _run_background_ground(title: str, author: str, genre: str, user_id: str) ->
         print(f"  (background-ground failed for '{title}': {exc})")
 
 
+@app.post("/api/recommendations/{title}/repredict")
+def repredict_recommendation(title: str, request: Request,
+                             user_id: str = Depends(auth.get_current_user_id)):
+    """GRANULAR re-prediction: re-predict ONE unread recommendation, on demand.
+
+    The counterpart to the automatic cohort pass above. Finishing a book sweeps
+    every peer whose baseline moved; this re-predicts exactly the book the reader
+    pointed at, against the library as it stands right now — nothing else in the
+    TBR is touched.
+
+    SYNCHRONOUS and potentially slow (up to a couple of minutes) when the book
+    has never been web-grounded: it runs the same live path as /api/predict/research,
+    so it carries the same LLM rate-limit bucket. A warm book is engine-only and
+    returns in milliseconds. Deliberately not backgrounded — the reader asked for
+    this one book by name and is waiting on its answer, unlike the on-add cohort
+    pass whose whole point is that the add returns instantly.
+
+    Fiction only (the nonfiction track has its own table and engine). Returns the
+    old→new report; 404 if the title is not on this reader's active TBR."""
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
+    if _repred is None or _rp is None:
+        raise HTTPException(status_code=503,
+                            detail="Re-prediction is unavailable on this deployment.")
+    try:
+        engine = _get_engine(user_id)
+        books_e = engine[0]
+        corr_pool = _correction_pool(user_id, books_e)
+        pairs, corr_models = _corr_statics(user_id, corr_pool)
+    except Exception as e:
+        raise _server_error(e, "Engine build failed")
+
+    # books = the (possibly seed-borrowed) CORRECTION pool; rank_pool = the
+    # reader's OWN library, so a cold-start reader is never ranked against the
+    # seed corpus. _repred_lock is threaded in as the WRITE lock only — it is
+    # never held across the slow web call, so this can't stall the background
+    # grounding executor.
+    report = _repred.repredict_one(
+        title,
+        get_engine=lambda: (corr_pool,) + tuple(engine[1:]),
+        rank_pool=books_e, corr_models=corr_models, pairs=pairs,
+        user_id=user_id, write_lock=_repred_lock)
+    if report is None:
+        raise HTTPException(status_code=404,
+                            detail=f"No unread book titled '{title}' on your list.")
+    if report.get("skipped"):
+        raise HTTPException(
+            status_code=422,
+            detail="Could not re-predict this book — no research vector available "
+                   f"({report['skipped']}).")
+    # A moved prediction that failed to persist is an error, not a result — surface
+    # it rather than letting the client render it as an unchanged re-prediction.
+    if report.get("changed") and not report.get("written"):
+        raise HTTPException(status_code=500,
+                            detail="Re-predicted, but the new scores could not be saved.")
+    return {"ok": True, "report": report}
+
+
 @app.get("/api/repredict/recent")
 def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id)):
     """Poll for a background cohort re-prediction's report by its token. Returns

@@ -160,6 +160,31 @@ capped). It writes through `db_write.update_recommendation_scores` + `log_delta`
 `baseline_repredict:*`) and supports a dry-run. It calls the read-only engine; it never
 reimplements or mutates prediction math.
 
+**Granular (one-book, on-demand) re-prediction.** `repredict_on_add.repredict_one` is the
+deliberate opposite of the cohort pass: the reader points at ONE unread recommendation and
+re-predicts just that book against the library as it stands now — no cohort, no gate, nothing
+else in the TBR touched. Served **synchronously** by `POST /api/recommendations/{title}/repredict`
+(auth-gated, `_RL_LLM` bucket, fiction only), driven from a per-book **Re-predict** button in the
+read-queue's expanded panel. It runs the FULL live path (research an uncached book, make the
+deferred web call), so it is slow on a never-grounded book and instant on a warm one — and it
+doubles as the manual repair for a rec saved memory-only that never got its background grounding
+upgrade. Three things are load-bearing:
+
+- **One prediction core.** `repredict_one` and `ground_saved_rec` both run `_predict_rec`, so the
+  two single-book paths can never drift into predicting the same book two different ways.
+- **The audit tag keeps its prefix.** Rows are tagged `baseline_repredict:manual:<title>`; that
+  `baseline_repredict:` prefix is what `delta_log_view` filters out of the Delta Log, so a manual
+  re-prediction can never be mistaken for a genuine predicted-vs-actual delta once the book is
+  read. Never retag these rows without updating `delta_log_view._REPREDICT_PREFIX`.
+- **The cold-start term is NOT applied to the report.** It shifts displayed WA only, never the
+  stored components (all this writes), so applying it to one side of an old→new comparison would
+  manufacture a delta. The read-queue still applies it on display. `rank_pool` is the reader's own
+  library (never the borrowed seed pool) — the cold-start rank-leak guard.
+
+Regression guard: `test_repredict_one.py` (25 checks — scope, tenant isolation, eligibility, the
+tag, the no-op guard, both-paths-agree, and the endpoint's `rank_pool` wiring). A dry-run CLI is
+`python3 repredict_on_add.py "<title>" --one --dry-run`.
+
 ## Security posture
 
 The app runs in **two postures** (full detail in `ARCHITECTURE.md`):

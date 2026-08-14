@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ReadQueueResponse, Recommendation } from "@/lib/types";
-import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata } from "@/lib/api";
+import type { ReadQueueResponse, Recommendation, RepredictOneReport } from "@/lib/types";
+import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, repredictRecommendation } from "@/lib/api";
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -182,6 +182,29 @@ function RecExpandedPanel({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ── Re-predict this one book (granular, on demand) ──────────────────────
+  const [repredicting, setRepredicting] = useState(false);
+  const [repredictReport, setRepredictReport] = useState<RepredictOneReport | null>(null);
+  const [repredictError, setRepredictError] = useState<string | null>(null);
+
+  async function handleRepredict() {
+    setRepredicting(true);
+    setRepredictError(null);
+    setRepredictReport(null);
+    try {
+      const { report } = await repredictRecommendation(rec.title);
+      setRepredictReport(report);
+      // Only refetch when the stored row actually moved — an unchanged
+      // re-prediction has nothing to re-render, and a refresh would collapse
+      // this panel (and its result) for no reason.
+      if (report.written) router.refresh();
+    } catch (e) {
+      setRepredictError(e instanceof Error ? e.message : "Re-prediction failed.");
+    } finally {
+      setRepredicting(false);
+    }
+  }
 
   // ── Edit metadata (author/genre/series/series_number/words — no title/year) ──
   const [editing, setEditing] = useState(false);
@@ -406,6 +429,24 @@ function RecExpandedPanel({
             </button>
           )}
 
+          {/* Re-predict just this book against the current library. Can take a
+              couple of minutes the first time a book is web-grounded. */}
+          {!editing && !deleteConfirm && (
+            <button
+              onClick={handleRepredict}
+              disabled={repredicting}
+              title="Re-run this book's prediction against your library as it stands now"
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+              style={{
+                background: repredicting ? "var(--color-sage-light)" : "var(--color-surface-2)",
+                color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
+                border: "1px solid var(--color-rule)",
+              }}
+            >
+              {repredicting ? "Re-predicting…" : "Re-predict"}
+            </button>
+          )}
+
           {editing && (
             <>
               <button
@@ -471,6 +512,58 @@ function RecExpandedPanel({
             <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
           )}
         </div>
+
+        {/* Re-prediction outcome. "No change" is a real result, not a failure —
+            the prediction was re-run and landed on the same answer. */}
+        {repredicting && (
+          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
+            Re-running the prediction — this can take a minute or two if the book
+            hasn&apos;t been researched before.
+          </p>
+        )}
+        {repredictReport && !repredicting && (
+          <div className="text-xs space-y-1" style={{ color: "var(--color-muted)" }}>
+            {repredictReport.changed ? (
+              <p>
+                Re-predicted:{" "}
+                <strong style={{ color: "var(--color-ink)" }}>
+                  WA {repredictReport.old_wa?.toFixed(2) ?? "—"} → {repredictReport.new_wa.toFixed(2)}
+                </strong>
+                {repredictReport.d_wa != null && (
+                  <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "#B45309" }}>
+                    {" "}({repredictReport.d_wa >= 0 ? "+" : ""}{repredictReport.d_wa.toFixed(2)})
+                  </span>
+                )}
+                {repredictReport.old_rank != null && (
+                  <span style={{ color: "var(--color-faint)" }}>
+                    {" "}· rank #{repredictReport.old_rank} → #{repredictReport.new_rank} of{" "}
+                    {repredictReport.total}
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p>
+                Re-predicted — <strong style={{ color: "var(--color-ink)" }}>no change</strong>{" "}
+                <span style={{ color: "var(--color-faint)" }}>
+                  (still WA {repredictReport.new_wa.toFixed(2)}; your library hasn&apos;t moved
+                  this book&apos;s baseline)
+                </span>
+              </p>
+            )}
+            {repredictReport.changed && repredictReport.drivers.length > 0 && (
+              <p style={{ color: "var(--color-faint)" }}>
+                Biggest moves:{" "}
+                {repredictReport.drivers
+                  .filter((d) => Math.abs(d.delta) >= 0.01)
+                  .map((d) => `${d.component} ${d.delta >= 0 ? "+" : ""}${d.delta.toFixed(2)}`)
+                  .join(" · ") || "none"}
+              </p>
+            )}
+          </div>
+        )}
+        {repredictError && (
+          <p className="text-xs" style={{ color: "#c0392b" }}>{repredictError}</p>
+        )}
       </div>
       )}
     </div>

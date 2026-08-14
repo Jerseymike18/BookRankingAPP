@@ -509,6 +509,246 @@ def on_book_added(trigger_title, trigger_author, trigger_genre, trigger_scores=N
 
 
 # ---------------------------------------------------------------------------
+# SINGLE-BOOK CORE — the one place a saved recommendation is re-predicted.
+# ---------------------------------------------------------------------------
+# Both single-book paths below (after-save background grounding, and the
+# on-demand `repredict_one`) run EXACTLY this, so they can never drift into
+# predicting the same book two different ways. It computes; it never writes.
+def _active_rec_row(title, user_id):
+    """The tenant's most recent ACTIVE (done=0) recommendation row for `title`,
+    as a plain dict, or None. Read-only, tenant-scoped, case-insensitive — a
+    finished/deleted rec (or another tenant's identically-titled one) is never
+    returned."""
+    con = db_backend.connect(db_write.DB)
+    con.row_factory = sqlite3.Row
+    try:
+        cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
+        row = con.execute(
+            f"SELECT title, genre, author, words, {cols} FROM recommendations "
+            f"WHERE LOWER(title)=LOWER(?) AND COALESCE(done,0)=0 AND user_id=? "
+            f"ORDER BY id DESC LIMIT 1",
+            (title, user_id)).fetchone()
+    finally:
+        con.close()
+    return dict(row) if row is not None else None
+
+
+def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pairs,
+                 anchors, rank_pool=None, allow_research=True, web_cache_only=False):
+    """Re-run the live single-book predict path for one recommendation `row` and
+    return the old→new comparison. PURE — computes and returns; writes nothing.
+
+    Same path a fresh prediction takes: cached-or-researched memory vector →
+    policy grounded overrides → this tenant's prose→number anchors → correlation
+    smoothing + the validated author+genre correction. No engine math here.
+
+    `rank_pool` is the reader's OWN rated library, distinct from `books` (the
+    possibly seed-borrowed correction pool) — a cold-start reader must never be
+    ranked against the seed corpus. Old and new WA are both measured with
+    `_wa_from_components` on the same frame, so ΔWA is exactly the prediction
+    move and nothing else. The cold-start term is deliberately NOT applied: it
+    shifts the displayed WA only (never the stored components, which is all this
+    writes), and applying it to one side of the comparison but not the other
+    would manufacture a delta. The read-queue still applies it on display.
+
+    Returns {"skipped": reason} when the book has no usable research vector."""
+    title, author, genre = row["title"], row["author"], row["genre"]
+    old = {c: row[c] for c in db_write.FICTION_COMPONENTS}
+    old_complete = all(v is not None for v in old.values())
+
+    n_cached = len(cache) if isinstance(cache, dict) else 0
+    raw, conf, src = _raw_scores_for(title, author, genre, cache, web,
+                                     web_cache_only=web_cache_only,
+                                     allow_research=allow_research)
+    if raw is None:
+        return {"skipped": src}
+    raw = sa.remap_scores(raw, anchors)
+    # Persist ONLY a newly-researched memory vector. Rewriting an unchanged cache
+    # would bump its mtime for nothing, and the backend keys its per-tenant
+    # correction statics on that mtime — so a no-op save silently invalidates
+    # every tenant's cached pairs/models and forces a rebuild.
+    if isinstance(cache, dict) and len(cache) > n_cached:
+        try:
+            rp.save_cache(cache)
+        except Exception:
+            pass
+
+    res = rp.correct_and_predict(
+        title, author, genre, raw, conf, resid_sd, books, gw, gcw, cache,
+        corr_models=corr_models, rank_pool=rank_pool, pairs=pairs)
+    new = {c: _clamp(v) for c, v in res["scores"].items()}
+    new_wa = rp._wa_from_components(new, genre, gw, gcw)
+
+    rank_frame = rank_pool if rank_pool is not None else books
+    old_wa = old_rank = None
+    if old_complete:
+        try:
+            old_wa = rp._wa_from_components(old, genre, gw, gcw)
+            old_rank = int((rank_frame["WA"] > old_wa).sum() + 1)
+        except Exception:
+            old_wa = old_rank = None
+
+    changed = not (old_complete and all(
+        abs(float(old[c]) - new[c]) < 1e-6 for c in db_write.FICTION_COMPONENTS))
+    return {
+        "title": title, "author": author, "genre": genre,
+        "old": old, "new": new, "changed": changed, "source": src,
+        "old_wa": old_wa, "new_wa": new_wa,
+        "old_rank": old_rank, "new_rank": res["rank"], "total": res["total"],
+        "n_author": res.get("n_author"), "n_genre": res.get("n_genre"),
+    }
+
+
+def _drivers(old, new, k=3):
+    """The k components that moved most, largest |Δ| first (report only)."""
+    return [{"component": c, "delta": round(d, 2)} for c, d in sorted(
+        (((c), (new.get(c) or 0) - (old.get(c) or 0))
+         for c in db_write.FICTION_COMPONENTS),
+        key=lambda x: abs(x[1]), reverse=True)[:k]]
+
+
+# ---------------------------------------------------------------------------
+# GRANULAR RE-PREDICTION — one book, on demand, one at a time.
+# ---------------------------------------------------------------------------
+# `on_book_added` above is automatic and COHORT-scoped: finishing a book sweeps
+# every unread peer whose baseline moved. This is its deliberate opposite — the
+# reader points at ONE saved recommendation and asks "re-predict just this,
+# against the library as it stands now." Nothing else in the TBR is touched.
+#
+# Why it moves a number even when nothing about the book changed: the prediction
+# is the book's raw research vector run through a correction trained on the
+# reader's rated library. That library grows and its weights/anchors change, so
+# the same raw vector corrects to a different answer over time. A book saved
+# fifty reads ago is still carrying the baseline of fifty reads ago until
+# something re-predicts it.
+#
+# It runs the full live path (fresh web grounding for a book not yet grounded,
+# cached where the caches are warm), so it also serves as the manual repair for a
+# rec that was saved memory-only and never got its background grounding upgrade.
+#
+# Same discipline as everything else here: read-only engine, every write through
+# db_write, tenant-scoped, dry-run supported, never raises.
+def repredict_one(title, *, get_engine, cache=None, web="auto", corr_models="auto",
+                  pairs=None, rank_pool=None, anchors=None, user_id=None,
+                  dry_run=False, verbose=False, write_lock=None):
+    """Re-predict ONE saved recommendation in place and report the old→new move.
+
+    Call with the rec already committed. `get_engine` yields the predict_engine
+    8-tuple whose books frame is the CORRECTION pool for `user_id` (the backend
+    passes its cached per-tenant engine + `_correction_pool`); `rank_pool` is the
+    reader's own rated library for the reported rank. `pairs`/`corr_models` are
+    the per-run statics; "auto" builds them here.
+
+    `write_lock`, if given, is held ONLY around the db_write calls — never around
+    the slow web_search — so a manual re-predict never blocks the background
+    grounding executor for the duration of a web call.
+
+    Writes through `db_write.update_recommendation_scores`, and logs the move to
+    `delta_log` under a `baseline_repredict:manual:<title>` tag. That prefix is
+    load-bearing: `delta_log_view` filters `baseline_repredict:*` out of the
+    Delta Log, so these audit rows can never be mistaken for a genuine
+    predicted-vs-actual delta once the reader finishes the book. The real delta
+    is still captured at read time, and will read THIS prediction as the frozen
+    forecast.
+
+    Returns a JSON-serializable report dict, or None when it could not run (rec
+    gone, engine failure). Never raises — a failed re-predict leaves the stored
+    prediction exactly as it was.
+    """
+    user_id = user_id or db_backend.DEFAULT_USER_ID
+    try:
+        books, gw, gcw, coeffs, r2, resid_sd, ginfo, upstream = get_engine()
+        row = _active_rec_row(title, user_id)
+        if row is None:
+            return None                    # not on this reader's TBR (any more)
+        if cache is None:
+            cache = rp.load_cache()
+        if anchors is None:
+            anchors = sa.load_anchors(user_id)
+        if web == "auto":
+            try:
+                web = hybrid._shared_web()
+            except Exception:
+                web = None
+        if corr_models == "auto":
+            try:
+                corr_models = rp.build_corr_models(books, cache, pairs=pairs)
+            except Exception:
+                corr_models = None
+
+        # Full live path: research an uncached book, and make the deferred web
+        # call rather than requiring the book to be web-cached already. This is
+        # the one place that is deliberately allowed to be slow — the reader
+        # asked for this single book by name and is waiting on it.
+        out = _predict_rec(row, books=books, gw=gw, gcw=gcw, resid_sd=resid_sd,
+                           cache=cache, web=web, corr_models=corr_models,
+                           pairs=pairs, anchors=anchors, rank_pool=rank_pool,
+                           allow_research=True, web_cache_only=False)
+        if "skipped" in out:
+            report = {"title": row["title"], "author": row["author"],
+                      "genre": row["genre"], "changed": False, "written": False,
+                      "skipped": out["skipped"], "dry_run": dry_run}
+            if verbose:
+                print(f"  repredict '{title}': skipped ({out['skipped']})")
+            return report
+
+        old, new = out["old"], out["new"]
+        old_wa, new_wa = out["old_wa"], out["new_wa"]
+
+        # A re-prediction that lands on the identical vector is a real, useful
+        # answer ("still the best estimate") — report it, but don't churn the row
+        # or its delta history with a no-op revision.
+        written = False
+        if out["changed"] and not dry_run:
+            import contextlib as _contextlib
+            with (write_lock if write_lock is not None else _contextlib.nullcontext()):
+                if old_wa is not None:
+                    db_write.log_delta(
+                        row["title"], old, old_wa, new, new_wa,
+                        pred_model=db_write.RESEARCH_MODEL,
+                        meta={"tag": f"baseline_repredict:manual:{row['title']}",
+                              "pred_genre": row["genre"], "pred_author": row["author"],
+                              "n_author": out.get("n_author"), "n_genre": out.get("n_genre"),
+                              "analog_src": ("author" if (out.get("n_author") or 0) > 0
+                                             else "genre" if (out.get("n_genre") or 0) > 0
+                                             else "global"),
+                              "corr_method": ("corr_smooth+author_genre" if corr_models
+                                              else "author_genre")},
+                        user_id=user_id)
+                written = bool(db_write.update_recommendation_scores(
+                    row["title"], new, user_id=user_id))
+
+        report = {
+            "title": row["title"], "author": row["author"], "genre": row["genre"],
+            "changed": out["changed"], "written": written, "source": out["source"],
+            "old_wa": round(old_wa, 4) if old_wa is not None else None,
+            "new_wa": round(new_wa, 4),
+            "d_wa": round(new_wa - old_wa, 4) if old_wa is not None else None,
+            "old_rank": out["old_rank"], "new_rank": out["new_rank"],
+            "d_rank": ((out["new_rank"] - out["old_rank"])
+                       if out["old_rank"] is not None else None),
+            "total": out["total"],
+            "n_author": out.get("n_author"), "n_genre": out.get("n_genre"),
+            "drivers": _drivers(old, new),
+            "dry_run": dry_run,
+        }
+        if verbose:
+            d = f"{report['d_wa']:+.3f}" if report["d_wa"] is not None else "n/a"
+            # The suffix reports whether the PREDICTION moved; whether it was
+            # written is a separate axis (a dry run moves without writing).
+            note = ("" if report["changed"] else "  (unchanged)") \
+                + ("  [dry run — not written]" if dry_run else "")
+            print(f"  repredict '{report['title']}' [{report['source']}]: "
+                  f"WA {report['old_wa']}→{report['new_wa']} ({d}) "
+                  f"rank {report['old_rank']}→{report['new_rank']}{note}")
+        return report
+    except Exception as exc:
+        if verbose:
+            print(f"  (repredict-one skipped for '{title}': {exc})")
+        return None
+
+
+# ---------------------------------------------------------------------------
 # After-save background grounding: upgrade ONE saved recommendation's stored
 # scores from memory to the calibrated grounded prediction.
 # ---------------------------------------------------------------------------
@@ -560,54 +800,29 @@ def ground_saved_rec(title, author, genre, *, get_engine, cache=None, web="auto"
                 corr_models = None
 
         # Current stored scores (tenant-scoped, active rec only).
-        con = db_backend.connect(db_write.DB)
-        con.row_factory = sqlite3.Row
-        try:
-            cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
-            row = con.execute(
-                f"SELECT genre, author, words, {cols} FROM recommendations "
-                f"WHERE LOWER(title)=LOWER(?) AND COALESCE(done,0)=0 AND user_id=? "
-                f"ORDER BY id DESC LIMIT 1",
-                (title, user_id)).fetchone()
-        finally:
-            con.close()
+        row = _active_rec_row(title, user_id)
         if row is None:
             return None                    # rec deleted/finished before this ran
-        genre = row["genre"] or genre
-        author = row["author"] or author
-        old = {c: row[c] for c in db_write.FICTION_COMPONENTS}
-        old_complete = all(v is not None for v in old.values())
-        try:
-            old_wa = rp._wa_from_components(old, genre, gw, gcw) if old_complete else None
-        except Exception:
-            old_wa = None
+        # Fall back to the caller's metadata only where the row's own is null.
+        row["genre"] = row["genre"] or genre
+        row["author"] = row["author"] or author
 
         # Fresh grounding: memory scores (cached or researched) with the policy's
         # grounded components overridden from a live web_search. web_cache_only is
-        # False here (this IS the deferred web call) and research is allowed.
-        raw, conf, src = _raw_scores_for(
-            title, author, genre, cache, web,
-            web_cache_only=False, allow_research=True)
-        if raw is None:
-            return {"changed": False, "skipped": src}
-        # This tenant's prose→number scale, on the raw vector before correction
-        # (identical to the served predict path and to on_book_added above).
-        raw = sa.remap_scores(raw, sa.load_anchors(user_id))
-        try:
-            rp.save_cache(cache)           # persist any newly-researched memory vector
-        except Exception:
-            pass
-
-        res = rp.correct_and_predict(
-            title, author, genre, raw, conf, resid_sd,
-            books, gw, gcw, cache, corr_models=corr_models, pairs=pairs)
-        new = {c: _clamp(v) for c, v in res["scores"].items()}
-        new_wa = rp._wa_from_components(new, genre, gw, gcw)
+        # False here (this IS the deferred web call) and research is allowed. The
+        # tenant's prose→number anchors are applied inside _predict_rec, on the raw
+        # vector before correction, exactly as the served predict path does.
+        out = _predict_rec(row, books=books, gw=gw, gcw=gcw, resid_sd=resid_sd,
+                           cache=cache, web=web, corr_models=corr_models,
+                           pairs=pairs, anchors=sa.load_anchors(user_id),
+                           allow_research=True, web_cache_only=False)
+        if "skipped" in out:
+            return {"changed": False, "skipped": out["skipped"]}
+        src, old_wa, new_wa = out["source"], out["old_wa"], out["new_wa"]
 
         # No-op guard: an already-grounded rec re-grounds to (near-)identical
         # scores → skip the write rather than churn the row and its delta history.
-        if old_complete and all(
-                abs(float(old[c]) - new[c]) < 1e-6 for c in db_write.FICTION_COMPONENTS):
+        if not out["changed"]:
             if verbose:
                 print(f"  ground '{title}': already grounded (no change)")
             return {"changed": False, "source": src,
@@ -617,7 +832,8 @@ def ground_saved_rec(title, author, genre, *, get_engine, cache=None, web="auto"
         if not dry_run:
             import contextlib as _contextlib
             with (write_lock if write_lock is not None else _contextlib.nullcontext()):
-                db_write.update_recommendation_scores(title, new, user_id=user_id)
+                db_write.update_recommendation_scores(row["title"], out["new"],
+                                                      user_id=user_id)
         if verbose:
             print(f"  ground '{title}' [{src}]: WA "
                   f"{round(old_wa, 3) if old_wa is not None else '—'}→{round(new_wa, 3)}")
@@ -671,7 +887,19 @@ def _main():
     ap.add_argument("--no-research", action="store_true", help="do not auto-research an uncached trigger")
     ap.add_argument("--full", action="store_true",
                     help="re-predict EVERY active recommendation, not just the scoped cohort")
+    ap.add_argument("--one", action="store_true",
+                    help="GRANULAR mode: treat `title` as one UNREAD recommendation and "
+                         "re-predict just that book (no cohort, no trigger lookup)")
     args = ap.parse_args()
+
+    # Granular mode: one saved recommendation, by title. No trigger book is
+    # involved, so it skips the `books` lookup the cohort path needs.
+    if args.one:
+        rep = repredict_one(args.title, get_engine=lambda: pe.build(source="db"),
+                            dry_run=not args.write, verbose=True)
+        if rep is None:
+            raise SystemExit(f"No active recommendation titled {args.title!r}.")
+        return 0
 
     con = db_backend.connect(db_write.DB)
     # Tenant-scoped like every other read here: the CLI acts as the default

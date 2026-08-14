@@ -754,6 +754,29 @@ export interface RepredictMover {
   drivers: { component: string; delta: number }[];
 }
 
+/** Result of a GRANULAR (one-book, on-demand) re-prediction — the counterpart to
+ *  the cohort RepredictReport below. `changed: false` is a real answer ("still the
+ *  best estimate"), not a failure: the stored row is left untouched. */
+export interface RepredictOneReport {
+  title: string;
+  author: string;
+  genre: string;
+  changed: boolean;
+  written: boolean;
+  source: string;
+  old_wa: number | null;
+  new_wa: number;
+  d_wa: number | null;
+  old_rank: number | null;
+  new_rank: number;
+  d_rank: number | null;
+  total: number;
+  n_author: number | null;
+  n_genre: number | null;
+  drivers: { component: string; delta: number }[];
+  dry_run: boolean;
+}
+
 export interface RepredictReport {
   trigger: {
     title: string;

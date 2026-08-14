@@ -21,6 +21,7 @@ import type {
   BookKind,
   CombinedStatsResponse,
   RepredictHandle,
+  RepredictOneReport,
   RepredictPoll,
   TrackRecord,
   EngineValidation,
@@ -621,6 +622,22 @@ export async function generateRecommendationMeta(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre }),
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+/** Re-predict ONE unread book against the library as it stands now. Slow (a live
+ *  grounded research call) the first time a book is grounded; near-instant once
+ *  its research is cached — so the caller must not impose a short timeout. */
+export async function repredictRecommendation(
+  title: string
+): Promise<{ ok: boolean; report: RepredictOneReport }> {
+  assertWritable();
+  const res = await apiFetch(
+    `${API}/api/recommendations/${encodeURIComponent(title)}/repredict`,
+    { method: "POST" }
+  );
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
