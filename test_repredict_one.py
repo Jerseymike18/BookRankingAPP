@@ -232,6 +232,7 @@ def main():
     orig_cwd = os.getcwd()
     orig_db = db_write.DB
     orig_rl = bm._RATE_LIMIT_ENABLED
+    orig_cold = bm.COLD_START_TERM_ENABLED
     orig_get_client = _rp.get_client
     orig_research = _rp.research_book
     orig_load_cache = _rp.load_cache
@@ -422,7 +423,8 @@ def main():
         RAW["scores"] = vec(9.1)
         _cache.pop("TargetBook", None)
         with contextlib.redirect_stdout(io.StringIO()):
-            resp = bm.repredict_recommendation("TargetBook", request=None, user_id=SEED)
+            resp = bm.repredict_recommendation("TargetBook", request=None, user_id=SEED,
+                                               user_md={})
         check("endpoint returns a report for the caller's own book",
               resp.get("ok") and resp["report"]["title"] == "TargetBook")
         check("endpoint's report ranks out of the caller's own library",
@@ -430,18 +432,53 @@ def main():
 
         bm._engine_cache.clear(); bm._corr_statics_cache.clear()
         with contextlib.redirect_stdout(io.StringIO()):
-            resp_b = bm.repredict_recommendation("TargetBook", request=None, user_id=USER_B)
+            resp_b = bm.repredict_recommendation("TargetBook", request=None,
+                                                 user_id=USER_B, user_md={})
         check("cold-start tenant is NOT ranked against the borrowed seed corpus",
               resp_b["report"]["total"] == 0,
               f"total={resp_b['report']['total']} (leak would be 14)")
 
         try:
             with contextlib.redirect_stdout(io.StringIO()):
-                bm.repredict_recommendation("NoSuchBookXyzzy", request=None, user_id=SEED)
+                bm.repredict_recommendation("NoSuchBookXyzzy", request=None, user_id=SEED,
+                                            user_md={})
             check("endpoint 404s on a title not on the reader's TBR", False, "no raise")
         except Exception as exc:
             check("endpoint 404s on a title not on the reader's TBR",
                   getattr(exc, "status_code", None) == 404, f"{type(exc).__name__}")
+
+        # ── 9b. The report's WA must equal what the READ-QUEUE displays ──────
+        # These are the two surfaces a reader compares for the same book. The
+        # gap that used to exist here was the cold-start term: the read-queue
+        # applies it on display, the report didn't, so a cold-slice book's
+        # "WA 8.41 → 8.37" disagreed with the 8.56 on its own row. Drive both
+        # real handlers and require them to agree, on a tenant whose library
+        # makes the book cold (no same-author, no same-genre analog).
+        bm._engine_cache.clear(); bm._corr_statics_cache.clear()
+        bm._cold_term_cache.clear()
+        bm.COLD_START_TERM_ENABLED = True
+        cold_md = {"word_count_pref": "long", "fav_authors": ["SharedAuthor"],
+                   "fav_genres": [GENRE]}
+        RAW["scores"] = vec(7.7)
+        _cache.pop("TargetBook", None)
+        with contextlib.redirect_stdout(io.StringIO()):
+            rep_c = bm.repredict_recommendation("TargetBook", request=None,
+                                                user_id=USER_B, user_md=cold_md)
+            rq = bm.get_read_queue(user_id=USER_B, user_md=cold_md)
+        row_b = next((r for r in rq["recommendations"] if r["title"] == "TargetBook"), None)
+        check("cold-start term is actually active for this check (else it proves nothing)",
+              row_b is not None and bm._get_cold_term(USER_B, "long", ["SharedAuthor"],
+                                                      [GENRE], None) is not None)
+        check("report WA equals the read-queue's displayed WA for the same book",
+              row_b is not None
+              and abs(rep_c["report"]["new_wa"] - row_b["wa"]) < 5e-4,
+              f"report={rep_c['report']['new_wa']} vs read-queue={row_b and row_b['wa']}")
+        check("report rank equals the read-queue's predicted rank",
+              row_b is not None
+              and rep_c["report"]["new_rank"] == row_b["predicted_rank"],
+              f"report=#{rep_c['report']['new_rank']} vs "
+              f"read-queue=#{row_b and row_b['predicted_rank']}")
+        bm.COLD_START_TERM_ENABLED = orig_cold
 
         # ── 10. NONFICTION — the separate table, engine and schema ───────────
         # The nonfiction track has NO correction layer, so its re-prediction
@@ -452,6 +489,7 @@ def main():
         os.chdir(orig_cwd)
         db_write.DB = orig_db
         bm._RATE_LIMIT_ENABLED = orig_rl
+        bm.COLD_START_TERM_ENABLED = orig_cold
         _rp.get_client = orig_get_client
         _rp.research_book = orig_research
         _rp.load_cache = orig_load_cache

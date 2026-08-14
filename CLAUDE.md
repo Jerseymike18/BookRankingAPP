@@ -177,10 +177,18 @@ upgrade. Three things are load-bearing:
   `baseline_repredict:` prefix is what `delta_log_view` filters out of the Delta Log, so a manual
   re-prediction can never be mistaken for a genuine predicted-vs-actual delta once the book is
   read. Never retag these rows without updating `delta_log_view._REPREDICT_PREFIX`.
-- **The cold-start term is NOT applied to the report.** It shifts displayed WA only, never the
-  stored components (all this writes), so applying it to one side of an old→new comparison would
-  manufacture a delta. The read-queue still applies it on display. `rank_pool` is the reader's own
+- **The cold-start term IS applied to the report — to both sides, on the read-queue's gate.**
+  The report's WA/rank must equal what the read-queue and Predict page show for the same book, or
+  the reader sees two numbers for one row. Two rules keep that honest: it is applied to **both**
+  old and new (the adjustment is a function of the book's metadata, not of WA, so both sides shift
+  equally and ΔWA is untouched — except for a book pinned at the 0/10 clamp), and its gate uses
+  the **`rank_pool` (own-library) counts**, the same rule as `_cold_adjust_rec_wa`, *not*
+  `correct_and_predict`'s internal correction-pool counts. `new_rank` is likewise recomputed on
+  the display WA rather than taken from `correct_and_predict`. `rank_pool` is the reader's own
   library (never the borrowed seed pool) — the cold-start rank-leak guard.
+  *(Fixed 2026-08-14; before this the report omitted the term and disagreed with the row it had
+  just rewritten by up to ~0.18 WA on cold-slice books. Gate: the read-queue-agreement checks in
+  `test_repredict_one.py`.)*
 
 **Nonfiction granular re-prediction is a DIFFERENT operation — don't unify them.**
 `repredict_nonfiction_one` + `POST /api/nonfiction/recommendations/{title}/repredict` exist, but
@@ -211,8 +219,18 @@ crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA 
 while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
 re-litigate this without a bigger library.
 
-Regression guard: `test_repredict_one.py` (37 checks — scope, tenant isolation, eligibility, the
-tag, the no-op guard, both-paths-agree, the endpoint's `rank_pool` wiring, and for nonfiction: that
+**Predict page (fiction only).** The same button also sits on each Predict card, where it means
+the **no-cache refresh** (`ResearchRequest.force`) — distinct from **Refine**, which upgrades
+memory scores to grounded ones and is offered only until a book IS grounded. Cards are candidates,
+so it normally writes nothing; but for a book already **saved**, the client follows with the
+re-predict endpoint so the card and the stored row can't disagree. That second call is free: the
+forced call already overwrote the book's research-cache entry, so the cache-first endpoint persists
+exactly the vector on screen. Config-gated via `PredictFlowConfig.repredict`, left undefined for
+nonfiction (whose re-predict lives on its read-queue, where it can persist).
+
+Regression guard: `test_repredict_one.py` (40 checks — scope, tenant isolation, eligibility, the
+tag, the no-op guard, both-paths-agree, the endpoint's `rank_pool` wiring, report/read-queue WA +
+rank agreement under an active cold-start term, and for nonfiction: that
 the fresh-research force actually bypasses a warm cache, that no `delta_log` row is written, and
 that the reported WA/rank agree with the read-queue). A dry-run CLI is
 `python3 repredict_on_add.py "<title>" --one --dry-run`.

@@ -1482,7 +1482,8 @@ def _run_background_ground(title: str, author: str, genre: str, user_id: str) ->
 
 @app.post("/api/recommendations/{title}/repredict")
 def repredict_recommendation(title: str, request: Request,
-                             user_id: str = Depends(auth.get_current_user_id)):
+                             user_id: str = Depends(auth.get_current_user_id),
+                             user_md: dict = Depends(auth.get_current_user_metadata)):
     """GRANULAR re-prediction: re-predict ONE unread recommendation, on demand.
 
     The counterpart to the automatic cohort pass above. Finishing a book sweeps
@@ -1513,13 +1514,20 @@ def repredict_recommendation(title: str, request: Request,
 
     # books = the (possibly seed-borrowed) CORRECTION pool; rank_pool = the
     # reader's OWN library, so a cold-start reader is never ranked against the
-    # seed corpus. _repred_lock is threaded in as the WRITE lock only — it is
-    # never held across the slow web call, so this can't stall the background
-    # grounding executor.
+    # seed corpus. cold_term is passed so the reported WA is the one the reader
+    # sees on the read-queue and Predict page for this book rather than the raw
+    # correction output — same term, same gate as _cold_adjust_rec_wa.
+    # _repred_lock is threaded in as the WRITE lock only — it is never held
+    # across the slow web call, so this can't stall the background grounding
+    # executor.
     report = _repred.repredict_one(
         title,
         get_engine=lambda: (corr_pool,) + tuple(engine[1:]),
         rank_pool=books_e, corr_models=corr_models, pairs=pairs,
+        cold_term=_get_cold_term(user_id, user_md.get("word_count_pref"),
+                                 user_md.get("fav_authors"),
+                                 user_md.get("fav_genres"),
+                                 user_md.get(STAR_GENRE_OFFSETS_KEY)),
         user_id=user_id, write_lock=_repred_lock)
     if report is None:
         raise HTTPException(status_code=404,

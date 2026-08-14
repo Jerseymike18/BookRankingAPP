@@ -524,7 +524,8 @@ def _active_rec_row(title, user_id):
     try:
         cols = ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
         row = con.execute(
-            f"SELECT title, genre, author, words, {cols} FROM recommendations "
+            f"SELECT title, genre, author, words, series_number, {cols} "
+            f"FROM recommendations "
             f"WHERE LOWER(title)=LOWER(?) AND COALESCE(done,0)=0 AND user_id=? "
             f"ORDER BY id DESC LIMIT 1",
             (title, user_id)).fetchone()
@@ -534,7 +535,8 @@ def _active_rec_row(title, user_id):
 
 
 def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pairs,
-                 anchors, rank_pool=None, allow_research=True, web_cache_only=False):
+                 anchors, rank_pool=None, cold_term=None, allow_research=True,
+                 web_cache_only=False):
     """Re-run the live single-book predict path for one recommendation `row` and
     return the old→new comparison. PURE — computes and returns; writes nothing.
 
@@ -544,12 +546,20 @@ def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pair
 
     `rank_pool` is the reader's OWN rated library, distinct from `books` (the
     possibly seed-borrowed correction pool) — a cold-start reader must never be
-    ranked against the seed corpus. Old and new WA are both measured with
-    `_wa_from_components` on the same frame, so ΔWA is exactly the prediction
-    move and nothing else. The cold-start term is deliberately NOT applied: it
-    shifts the displayed WA only (never the stored components, which is all this
-    writes), and applying it to one side of the comparison but not the other
-    would manufacture a delta. The read-queue still applies it on display.
+    ranked against the seed corpus.
+
+    `cold_term` makes the REPORTED WA the one the reader actually sees elsewhere.
+    It never touches the stored components (all this writes) — it shifts displayed
+    WA on the cold slices. Two rules keep it honest:
+
+      * it is applied to BOTH sides, old and new, or not at all. The adjustment
+        `apply_cold_start_term` adds is a function of the book's metadata, not of
+        WA, so shifting both sides moves the levels and leaves ΔWA untouched (the
+        one exception is a book pinned at the 0/10 clamp).
+      * its gate uses the counts from `rank_pool` — the reader's OWN library —
+        which is the rule the read-queue's `_cold_adjust_rec_wa` uses. Gating on
+        the correction pool instead (what `correct_and_predict` does internally)
+        would make this report disagree with the row it just rewrote.
 
     Returns {"skipped": reason} when the book has no usable research vector."""
     title, author, genre = row["title"], row["author"], row["genre"]
@@ -577,24 +587,49 @@ def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pair
         title, author, genre, raw, conf, resid_sd, books, gw, gcw, cache,
         corr_models=corr_models, rank_pool=rank_pool, pairs=pairs)
     new = {c: _clamp(v) for c, v in res["scores"].items()}
-    new_wa = rp._wa_from_components(new, genre, gw, gcw)
 
+    # Display-WA lens: identical for both sides, so ΔWA is the prediction move
+    # while the LEVELS match what the read-queue and Predict page show.
     rank_frame = rank_pool if rank_pool is not None else books
+    try:
+        n_author_own = int((rank_frame["Author"] == author).sum())
+        n_genre_own = int((rank_frame["Genre"] == genre).sum())
+    except Exception:
+        n_author_own = n_genre_own = 1          # unknown → leave the term off
+
+    def _shown(raw_wa):
+        if cold_term is None or (n_author_own != 0 and n_genre_own != 0):
+            return raw_wa
+        try:
+            return rp.apply_cold_start_term(
+                raw_wa, row.get("words"), row.get("series_number"), author, genre,
+                n_author_own, n_genre_own, cold_term)
+        except Exception:
+            return raw_wa
+
+    new_wa = _shown(rp._wa_from_components(new, genre, gw, gcw))
     old_wa = old_rank = None
     if old_complete:
         try:
-            old_wa = rp._wa_from_components(old, genre, gw, gcw)
+            old_wa = _shown(rp._wa_from_components(old, genre, gw, gcw))
             old_rank = int((rank_frame["WA"] > old_wa).sum() + 1)
         except Exception:
             old_wa = old_rank = None
 
     changed = not (old_complete and all(
         abs(float(old[c]) - new[c]) < 1e-6 for c in db_write.FICTION_COMPONENTS))
+    # Rank on the SAME frame and the SAME (display) WA as old_rank — not
+    # correct_and_predict's own rank, which was measured before the cold-start
+    # lens above and would put the two ends of the move on different scales.
+    try:
+        new_rank = int((rank_frame["WA"] > new_wa).sum() + 1)
+    except Exception:
+        new_rank = res["rank"]
     return {
         "title": title, "author": author, "genre": genre,
         "old": old, "new": new, "changed": changed, "source": src,
         "old_wa": old_wa, "new_wa": new_wa,
-        "old_rank": old_rank, "new_rank": res["rank"], "total": res["total"],
+        "old_rank": old_rank, "new_rank": new_rank, "total": res["total"],
         "n_author": res.get("n_author"), "n_genre": res.get("n_genre"),
     }
 
@@ -631,15 +666,18 @@ def _drivers(old, new, k=3, components=None):
 # Same discipline as everything else here: read-only engine, every write through
 # db_write, tenant-scoped, dry-run supported, never raises.
 def repredict_one(title, *, get_engine, cache=None, web="auto", corr_models="auto",
-                  pairs=None, rank_pool=None, anchors=None, user_id=None,
-                  dry_run=False, verbose=False, write_lock=None):
+                  pairs=None, rank_pool=None, anchors=None, cold_term=None,
+                  user_id=None, dry_run=False, verbose=False, write_lock=None):
     """Re-predict ONE saved recommendation in place and report the old→new move.
 
     Call with the rec already committed. `get_engine` yields the predict_engine
     8-tuple whose books frame is the CORRECTION pool for `user_id` (the backend
     passes its cached per-tenant engine + `_correction_pool`); `rank_pool` is the
     reader's own rated library for the reported rank. `pairs`/`corr_models` are
-    the per-run statics; "auto" builds them here.
+    the per-run statics; "auto" builds them here. `cold_term` is the reader's
+    cold-start term — pass it so the reported WA matches what the read-queue and
+    Predict page show for the same book (see `_predict_rec`); omitting it reports
+    the raw correction output instead.
 
     `write_lock`, if given, is held ONLY around the db_write calls — never around
     the slow web_search — so a manual re-predict never blocks the background
@@ -685,6 +723,7 @@ def repredict_one(title, *, get_engine, cache=None, web="auto", corr_models="aut
         out = _predict_rec(row, books=books, gw=gw, gcw=gcw, resid_sd=resid_sd,
                            cache=cache, web=web, corr_models=corr_models,
                            pairs=pairs, anchors=anchors, rank_pool=rank_pool,
+                           cold_term=cold_term,
                            allow_research=True, web_cache_only=False)
         if "skipped" in out:
             report = {"title": row["title"], "author": row["author"],
