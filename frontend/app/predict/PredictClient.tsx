@@ -8,6 +8,7 @@ import {
   predictNonfiction,
   saveNonfictionRecommendation,
   discoverNonfictionCandidates,
+  repredictRecommendation,
 } from "@/lib/api";
 import type {
   ResearchResult,
@@ -293,6 +294,8 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   const [scoringIdx, setScoringIdx] = useState<number | null>(null); // which candidate is being scored now
   const [scoringDone, setScoringDone] = useState(false);
   const [refiningTitles, setRefiningTitles] = useState<Set<string>>(new Set()); // titles being grounded-refined now
+  const [repredictingTitles, setRepredictingTitles] = useState<Set<string>>(new Set()); // titles being re-predicted now
+  const [repredictErrors, setRepredictErrors] = useState<Record<string, string>>({});
 
   // Step 3: save. Opt-out model — every scored book is queued to save unless the
   // reader removes it with the ✕ (`removed`), so a "save most of them" run is one click.
@@ -412,6 +415,69 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   // Skips books the reader removed with ✕ — no point spending a web_search on a discard.
   function refineRemaining() {
     void refineSet(scored.filter((r) => !removed.has(r.title)));
+  }
+
+  // ── Re-predict ONE card: take a genuinely fresh look at this book ─────────
+  // Distinct from Refine. Refine upgrades memory scores to grounded ones and is
+  // only offered until a book IS grounded; this bypasses the research cache
+  // entirely, so it works on any card and is the escape hatch for a cached
+  // prediction the reader thinks is wrong.
+  //
+  // The saved-book step is the subtle part. A card can already be saved (the
+  // reader hit Save, or it's a book they typed that's on their TBR). Re-scoring
+  // only the card would leave the STORED prediction stale — the card and the
+  // read-queue would disagree about the same book. So for a saved book we follow
+  // with the re-predict endpoint, which is FREE here: the forced call above just
+  // overwrote that book's research-cache entry, so the (cache-first) endpoint
+  // re-corrects and persists exactly the vector now on screen. One LLM call total.
+  async function repredictOne(title: string) {
+    const repredict = config.repredict;
+    const r = scored.find((x) => x.title === title);
+    if (!repredict || !r || repredictingTitles.has(title)) return;
+    setRepredictingTitles((prev) => new Set(prev).add(title));
+    setRepredictErrors((prev) => {
+      if (!(title in prev)) return prev;
+      const next = { ...prev };
+      delete next[title];
+      return next;
+    });
+    try {
+      const fresh = await repredict(r);
+      setScored((prev) => prev.map((x) => (x.title === title ? { ...fresh } : x)));
+      const saved = saveResults[title];
+      if (saved && !saved.startsWith("Error")) {
+        try {
+          const { report } = await repredictRecommendation(title);
+          setSaveResults((prev) => ({
+            ...prev,
+            [title]: report.changed
+              ? `Saved · re-predicted, WA ${report.old_wa?.toFixed(2) ?? "—"} → ${report.new_wa.toFixed(2)}`
+              : "Saved · re-predicted, no change",
+          }));
+        } catch {
+          // The card is fresh but the stored row is not — say so rather than
+          // letting the two silently disagree.
+          setSaveResults((prev) => ({
+            ...prev,
+            [title]: "Error: re-predicted here, but your saved copy could not be updated.",
+          }));
+        }
+      }
+    } catch (e) {
+      // Keep the existing (good) prediction on screen and report the failure
+      // beside it. Writing `error` onto the card would move it into the failed
+      // bucket and throw away a result the reader already has.
+      setRepredictErrors((prev) => ({
+        ...prev,
+        [title]: e instanceof Error ? e.message : "Re-predict failed.",
+      }));
+    } finally {
+      setRepredictingTitles((prev) => {
+        const next = new Set(prev);
+        next.delete(title);
+        return next;
+      });
+    }
   }
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
@@ -634,6 +700,9 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
               saveMsg={saveResults[r.title]}
               refining={refiningTitles.has(r.title)}
               onRefine={config.refine ? () => refineOne(r.title) : undefined}
+              repredicting={repredictingTitles.has(r.title)}
+              onRepredict={config.repredict ? () => void repredictOne(r.title) : undefined}
+              repredictError={repredictErrors[r.title]}
             />
           ))}
 
@@ -690,6 +759,9 @@ function ScoredCard({
   saveMsg,
   refining,
   onRefine,
+  repredicting,
+  onRepredict,
+  repredictError,
 }: {
   result: ScoredCandidate;
   rank: number;
@@ -704,6 +776,11 @@ function ScoredCard({
   saveMsg?: string;
   refining?: boolean;
   onRefine?: () => void;
+  /** A no-cache re-score of this one book is in flight. */
+  repredicting?: boolean;
+  /** Fiction only — undefined hides the affordance entirely (nonfiction). */
+  onRepredict?: () => void;
+  repredictError?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -868,6 +945,35 @@ function ScoredCard({
               {result.keywords}
             </p>
           )}
+
+          {/* Re-predict this one book: a no-cache fresh look. Sits here rather
+              than in the header row so it can't be confused with Refine, which
+              is a different operation (memory → grounded, offered only once). */}
+          {onRepredict && (
+            <div className="pt-2 border-t space-y-2" style={{ borderColor: "var(--color-rule)" }}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRepredict(); }}
+                  disabled={repredicting}
+                  title="Ignore the cached research and predict this book again from scratch"
+                  className="text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
+                  style={{
+                    background: repredicting ? "var(--color-sage-light)" : "var(--color-surface)",
+                    color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
+                    border: "1px solid var(--color-rule)",
+                  }}
+                >
+                  {repredicting ? "Re-predicting…" : "Re-predict"}
+                </button>
+                <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+                  Fresh look — ignores the cached research for this book.
+                </span>
+              </div>
+              {repredictError && (
+                <p className="text-xs" style={{ color: "#92400E" }}>{repredictError}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -925,6 +1031,9 @@ interface PredictFlowConfig {
   /** Grounded (hybrid) re-score. Fiction only — when omitted the eager pass, the
    *  per-card Refine button, and the refine banner all disable themselves. */
   refine?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
+  /** No-cache re-score ("Re-predict"). Fiction only — omitted for nonfiction, whose
+   *  re-predict lives on its read-queue instead, where it can persist the result. */
+  repredict?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
 }
 
 /** Adapt a nonfiction prediction into the fiction-shaped ScoredCandidate the shared
@@ -969,6 +1078,12 @@ function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
     discover: (request) => discoverCandidates(request),
     score: (c) => predictResearch(c.title, c.author, c.genre ?? undefined),
     refine: (r) => predictResearch(r.title, r.author, r.genre, true),
+    // Re-predict = the no-cache refresh. Distinct from Refine: Refine upgrades
+    // memory scores to grounded ones and is only offered until a book IS grounded;
+    // this takes a genuinely fresh look at any book, grounded or not. Fiction only —
+    // the nonfiction config leaves it undefined so the button never appears there
+    // (nonfiction's own re-predict lives on its read-queue, where it can persist).
+    repredict: (r) => predictResearch(r.title, r.author, r.genre, true, true),
     save: (r) =>
       saveRecommendation({
         title: r.title, genre: r.genre, author: r.author,

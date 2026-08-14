@@ -346,17 +346,23 @@ export async function predictInstant(
   return data;
 }
 
+/** `grounded` upgrades the memory scores with web-review grounding (the "Refine"
+ *  path). `force` is the separate no-cache refresh: skip both research-cache layers
+ *  and take a genuinely fresh look, overwriting the cached entry for this one book.
+ *  They compose — a forced grounded call re-researches the 8 memory-sourced
+ *  components and re-applies grounding to the other 6. */
 export async function predictResearch(
   title: string,
   author: string,
   genre?: string,
-  grounded = false
+  grounded = false,
+  force = false
 ): Promise<ResearchResult> {
   assertWritable();
   const res = await apiFetch(`${API}/api/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, author, genre: genre ?? null, grounded }),
+    body: JSON.stringify({ title, author, genre: genre ?? null, grounded, force }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
