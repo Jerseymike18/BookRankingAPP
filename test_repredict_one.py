@@ -480,6 +480,55 @@ def main():
               f"read-queue=#{row_b and row_b['predicted_rank']}")
         bm.COLD_START_TERM_ENABLED = orig_cold
 
+        # ── 9c. A server error must reach the browser as a server error ──────
+        # Found while debugging a "Failed to fetch" on the Re-predict button.
+        # Starlette's ServerErrorMiddleware sits OUTSIDE every user middleware,
+        # so an unhandled 500 skipped CORSMiddleware and went out with no
+        # Access-Control-Allow-Origin. The browser cannot read such a response —
+        # it reports a network failure with no status and no message, hiding a
+        # real backend error behind what looks like a connectivity problem.
+        # _cors_safe_errors is registered BEFORE CORSMiddleware so it returns a
+        # normal response that travels out through CORS. If that registration
+        # order is ever flipped, this check fails and the masking returns.
+        from fastapi.testclient import TestClient as _TestClient
+        from fastapi import HTTPException as _HTTPExc
+
+        if not any(getattr(r, "path", None) == "/__probe_unhandled"
+                   for r in bm.app.routes):
+            @bm.app.get("/__probe_unhandled")
+            def _probe_unhandled():
+                raise RuntimeError("simulated unhandled failure")
+
+            @bm.app.get("/__probe_handled")
+            def _probe_handled():
+                raise _HTTPExc(status_code=500, detail="handled")
+
+            @bm.app.get("/__probe_ok")
+            def _probe_ok():
+                return {"ok": True}
+
+        _origin = bm._ALLOWED_ORIGIN
+        _c = _TestClient(bm.app, raise_server_exceptions=False)
+        import logging as _logging
+        _logging.disable(_logging.CRITICAL)        # silence the expected traceback
+        try:
+            _r_ok = _c.get("/__probe_ok", headers={"Origin": _origin})
+            _r_h = _c.get("/__probe_handled", headers={"Origin": _origin})
+            _r_u = _c.get("/__probe_unhandled", headers={"Origin": _origin})
+        finally:
+            _logging.disable(_logging.NOTSET)
+        _acao = "access-control-allow-origin"
+        check("UNHANDLED 500 still carries CORS headers (else the browser shows "
+              "'Failed to fetch' and the real error is invisible)",
+              _r_u.status_code == 500 and _r_u.headers.get(_acao) == _origin,
+              f"status={_r_u.status_code} ACAO={_r_u.headers.get(_acao)!r}")
+        check("unhandled 500 carries a readable detail body",
+              isinstance(_r_u.json().get("detail"), str) and _r_u.json()["detail"],
+              f"body={_r_u.text[:60]}")
+        check("handled errors and successes are unaffected by the net",
+              _r_h.headers.get(_acao) == _origin and _r_h.json()["detail"] == "handled"
+              and _r_ok.status_code == 200 and _r_ok.headers.get(_acao) == _origin)
+
         # ── 10. NONFICTION — the separate table, engine and schema ───────────
         # The nonfiction track has NO correction layer, so its re-prediction
         # FORCES a fresh research call — that force is the whole feature, and a

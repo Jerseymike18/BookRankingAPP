@@ -84,7 +84,20 @@ async function apiFetch(
     }
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  const res = await fetch(input, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(input, { ...init, headers });
+  } catch {
+    // fetch() rejects with a bare "Failed to fetch" for BOTH a genuine
+    // connectivity failure AND a response the browser refuses to expose (a
+    // server error missing CORS headers looks identical from here). Neither the
+    // status nor the message is readable, so say what is actually known instead
+    // of surfacing a word that sounds like the network when it often isn't.
+    throw new Error(
+      "Couldn't reach the server — either the connection dropped or the request " +
+      "failed server-side. If it keeps happening, the server log has the detail.",
+    );
+  }
   if (res.status === 401 && typeof window !== "undefined") {
     const next = encodeURIComponent(window.location.pathname + window.location.search);
     window.location.assign(`/login?next=${next}`);

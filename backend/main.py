@@ -48,6 +48,7 @@ if PROJECT_ROOT not in sys.path:
 os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, AfterValidator
 from typing import Optional, Annotated
@@ -763,14 +764,46 @@ app = FastAPI(
 _ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "http://localhost:3000")
 _BIND_HOST = os.environ.get("BIND_HOST", "127.0.0.1")  # informational; enforced by uvicorn CLI
 
+log = logging.getLogger("reading_ledger")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unhandled-exception net — MUST be registered BEFORE CORSMiddleware below.
+# ─────────────────────────────────────────────────────────────────────────────
+# Starlette's own ServerErrorMiddleware sits OUTSIDE every user middleware, so a
+# 500 it generates never passes back through CORSMiddleware and goes out with no
+# Access-Control-Allow-Origin header. A browser cannot read such a response: it
+# reports the request as a network failure — "TypeError: Failed to fetch" — with
+# no status and no message. The real error is invisible to the client, and to
+# anyone debugging from one.
+#
+# Registering this first makes CORSMiddleware the OUTER layer (add_middleware
+# builds the stack so the LAST registered wraps the earlier ones), so the
+# JSONResponse below is a normal response travelling out through CORS and picks
+# up the headers. The client then sees an honest 500 with a message instead of a
+# phantom connectivity problem.
+#
+# It changes no successful response, and leaks nothing: the detail is generic and
+# the traceback goes to the server log (same discipline as _server_error).
+@app.middleware("http")
+async def _cors_safe_errors(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        log.exception("unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Something went wrong on the server. "
+                                "The error has been logged."},
+        )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[_ALLOWED_ORIGIN],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-log = logging.getLogger("reading_ledger")
 
 
 def _server_error(exc: Exception, context: str = "") -> HTTPException:
