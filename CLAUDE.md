@@ -219,6 +219,32 @@ crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA 
 while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
 re-litigate this without a bigger library.
 
+**Measured fiction run-to-run variance (2026-08-14, n=6 forced calls each on two books, zero
+library change).** Unlike nonfiction's, fiction's noise floor is **not one number — it is
+book-dependent, spanning ~4x**:
+
+| book | n_author | WA sd | range | % of served band | rank spread |
+|---|---|---|---|---|---|
+| Crime and Punishment | 2 | 0.026 | 0.072 | 3% | 3 places (17–20) |
+| The Silmarillion | 4 | 0.112 | 0.327 | 13% | 13 places (79–92) |
+
+**WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%)
+and against the engine's honest walk-forward MAE (0.636) — so the WA estimate is trustworthy. But
+the fiction library is dense: 131 books with a **median adjacent-WA gap of 0.021**, so even the
+quiet book moved 3 places on pure noise and the contested one moved 13. Do not read a rank move of
+under ~10 places from a re-predict as signal. (Contrast nonfiction: sd 0.052 but only 6 books, so
+big gaps and near-total rank stability — the two tracks are fragile in opposite ways.)
+
+Plausible mechanism, NOT established at n=2 books: variance tracks how contested a book's reception
+is. The Silmarillion's biggest movers were Action (sd 0.31), Plot (0.23), Emotional Impact (0.23) —
+exactly what readers disagree about — while Crime and Punishment's reception is settled.
+
+Two mechanics worth knowing before re-measuring: `force` bypasses only the **memory** research
+cache, so the 6 web-grounded components (Depth, Depth2, Ending, Insights, Integration, Originality)
+are NOT re-sourced; but they still move in the output, because `smooth_components` predicts each
+component from the other 13, propagating memory-side noise into all 14. Measure the served output,
+not the raw vector.
+
 **Predict page (fiction only).** The same button also sits on each Predict card, where it means
 the **no-cache refresh** (`ResearchRequest.force`) — distinct from **Refine**, which upgrades
 memory scores to grounded ones and is offered only until a book IS grounded. Cards are candidates,
