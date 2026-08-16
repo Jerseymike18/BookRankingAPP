@@ -11,10 +11,10 @@
       "Motivations": 9.0
     },
     "Story": {
-      "Action": 9.0,
+      "Action": 8.3,
       "Ending": 8.5,
-      "Entertainment": 8.3,
-      "Plot": 8.5
+      "Entertainment": 8.7,
+      "Plot": 8.9
     },
     "Theme": {
       "Insights": 8.6,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Two Towers",
-  "wa": 8.664
+  "wa": 8.718
 }

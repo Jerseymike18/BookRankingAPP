@@ -1,74 +1,74 @@
 {
   "series": [
     {
-      "adjusted_wa": 9.219,
+      "adjusted_wa": 9.21,
       "author": "Steven Erikson",
-      "avg_total_average": 9.07,
-      "avg_wa": 9.02,
+      "avg_total_average": 9.05,
+      "avg_wa": 9.01,
       "books": 10,
       "genre": "Epic Fantasy",
       "rank": 1,
       "series": "Malazan: Book of the Fallen"
     },
     {
-      "adjusted_wa": 8.79,
-      "author": "Robert Jordan",
-      "avg_total_average": 8.2,
-      "avg_wa": 8.26,
-      "books": 15,
+      "adjusted_wa": 8.81,
+      "author": "George R.R. Martin",
+      "avg_total_average": 8.57,
+      "avg_wa": 8.79,
+      "books": 3,
       "genre": "Epic Fantasy",
       "rank": 2,
+      "series": "A Song of Ice and Fire"
+    },
+    {
+      "adjusted_wa": 8.805,
+      "author": "Robert Jordan",
+      "avg_total_average": 8.22,
+      "avg_wa": 8.27,
+      "books": 15,
+      "genre": "Epic Fantasy",
+      "rank": 3,
       "series": "The Wheel of Time"
     },
     {
-      "adjusted_wa": 8.433,
+      "adjusted_wa": 8.499,
       "author": "J.R.R. Tolkien",
-      "avg_total_average": 8.67,
-      "avg_wa": 8.41,
+      "avg_total_average": 8.7,
+      "avg_wa": 8.48,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 3,
+      "rank": 4,
       "series": "Lord of the Rings"
     },
     {
-      "adjusted_wa": 8.428,
+      "adjusted_wa": 8.369,
       "author": "Dan Simmons",
-      "avg_total_average": 8.41,
-      "avg_wa": 8.39,
+      "avg_total_average": 8.34,
+      "avg_wa": 8.33,
       "books": 4,
       "genre": "Science Fiction (Hard)",
-      "rank": 4,
+      "rank": 5,
       "series": "Hyperion Cantos"
     },
     {
-      "adjusted_wa": 8.272,
-      "author": "Pierce Brown",
-      "avg_total_average": 8.09,
-      "avg_wa": 8.2,
-      "books": 6,
-      "genre": "Science Fiction (Soft)",
-      "rank": 5,
-      "series": "Red Rising"
-    },
-    {
-      "adjusted_wa": 8.25,
+      "adjusted_wa": 8.296,
       "author": "Brandon Sanderson",
-      "avg_total_average": 8.1,
-      "avg_wa": 8.19,
+      "avg_total_average": 8.17,
+      "avg_wa": 8.24,
       "books": 5,
       "genre": "Epic Fantasy",
       "rank": 6,
       "series": "The Stormlight Archive"
     },
     {
-      "adjusted_wa": 7.979,
-      "author": "Orson Scott Card",
-      "avg_total_average": 7.54,
-      "avg_wa": 7.94,
-      "books": 4,
-      "genre": "Science Fiction (Hard)",
+      "adjusted_wa": 8.287,
+      "author": "Pierce Brown",
+      "avg_total_average": 8.1,
+      "avg_wa": 8.21,
+      "books": 6,
+      "genre": "Science Fiction (Soft)",
       "rank": 7,
-      "series": "Ender's Game"
+      "series": "Red Rising"
     },
     {
       "adjusted_wa": 7.973,
@@ -81,14 +81,14 @@
       "series": "The First Law"
     },
     {
-      "adjusted_wa": 7.967,
-      "author": "Guy Gavriel Kay",
-      "avg_total_average": 8.18,
-      "avg_wa": 8.37,
-      "books": 1,
-      "genre": "Literary Fantasy",
+      "adjusted_wa": 7.955,
+      "author": "Orson Scott Card",
+      "avg_total_average": 7.73,
+      "avg_wa": 7.9,
+      "books": 5,
+      "genre": "Science Fiction (Hard)",
       "rank": 9,
-      "series": "The Sarantine Mosaic"
+      "series": "Ender's Game"
     },
     {
       "adjusted_wa": 7.919,
@@ -111,13 +111,33 @@
       "series": "Sun Eater"
     },
     {
+      "adjusted_wa": 7.847,
+      "author": "Guy Gavriel Kay",
+      "avg_total_average": 7.94,
+      "avg_wa": 8.04,
+      "books": 2,
+      "genre": "Literary Fantasy",
+      "rank": 12,
+      "series": "The Sarantine Mosaic"
+    },
+    {
+      "adjusted_wa": 7.565,
+      "author": "Patrick Rothfuss",
+      "avg_total_average": 7.84,
+      "avg_wa": 7.75,
+      "books": 2,
+      "genre": "Epic Fantasy",
+      "rank": 13,
+      "series": "The Kingkiller Chronicle"
+    },
+    {
       "adjusted_wa": 7.492,
       "author": "Brandon Sanderson",
       "avg_total_average": 7.44,
       "avg_wa": 7.47,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 12,
+      "rank": 14,
       "series": "Mistborn Era 1"
     },
     {
@@ -127,18 +147,18 @@
       "avg_wa": 7.36,
       "books": 8,
       "genre": "Science Fantasy",
-      "rank": 13,
+      "rank": 15,
       "series": "Dungeon Crawler Carl"
     },
     {
-      "adjusted_wa": 7.305,
-      "author": "Guy Gavriel Kay",
-      "avg_total_average": 7.7,
-      "avg_wa": 7.7,
+      "adjusted_wa": 7.416,
+      "author": "Liu Cixin",
+      "avg_total_average": 7.51,
+      "avg_wa": 7.82,
       "books": 1,
-      "genre": "Literary Fantasy",
-      "rank": 14,
-      "series": "Sarantine Mosaic"
+      "genre": "Science Fiction (Hard)",
+      "rank": 16,
+      "series": "Remembrance of Earth's Past"
     },
     {
       "adjusted_wa": 7.087,
@@ -147,7 +167,7 @@
       "avg_wa": 7.06,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 15,
+      "rank": 17,
       "series": "Gentleman Bastards"
     },
     {
@@ -157,38 +177,28 @@
       "avg_wa": 7.05,
       "books": 2,
       "genre": "Epic Fantasy",
-      "rank": 16,
+      "rank": 18,
       "series": "The Burning"
     },
     {
-      "adjusted_wa": 6.488,
+      "adjusted_wa": 6.567,
       "author": "N.K. Jemisin",
-      "avg_total_average": 7.07,
-      "avg_wa": 6.89,
-      "books": 1,
-      "genre": "Science Fantasy",
-      "rank": 17,
-      "series": "Broken Earth"
-    },
-    {
-      "adjusted_wa": 6.286,
-      "author": "Patrick Rothfuss",
-      "avg_total_average": 6.83,
-      "avg_wa": 6.69,
-      "books": 1,
-      "genre": "Epic Fantasy",
-      "rank": 18,
-      "series": "The Kingkiller Chronicles"
-    },
-    {
-      "adjusted_wa": 6.183,
-      "author": "N. K. Jemisin",
-      "avg_total_average": 6.56,
-      "avg_wa": 6.37,
-      "books": 2,
+      "avg_total_average": 6.73,
+      "avg_wa": 6.54,
+      "books": 3,
       "genre": "Science Fantasy",
       "rank": 19,
       "series": "The Broken Earth"
+    },
+    {
+      "adjusted_wa": 6.494,
+      "author": "Orson Scott Card",
+      "avg_total_average": 5.97,
+      "avg_wa": 6.42,
+      "books": 6,
+      "genre": "Science Fiction (Hard)",
+      "rank": 20,
+      "series": "Ender's Shadow"
     },
     {
       "adjusted_wa": 5.977,
@@ -197,7 +207,7 @@
       "avg_wa": 5.95,
       "books": 3,
       "genre": "Science Fantasy",
-      "rank": 20,
+      "rank": 21,
       "series": "Thrawn Trilogy"
     },
     {
@@ -207,18 +217,8 @@
       "avg_wa": 5.81,
       "books": 3,
       "genre": "Epic Fantasy",
-      "rank": 21,
-      "series": "Memory, Sorrow, Thorn"
-    },
-    {
-      "adjusted_wa": 5.498,
-      "author": "Orson Scott Card",
-      "avg_total_average": 5.1,
-      "avg_wa": 5.48,
-      "books": 3,
-      "genre": "Science Fiction (Hard)",
       "rank": 22,
-      "series": "Ender's Shadow"
+      "series": "Memory, Sorrow, Thorn"
     },
     {
       "adjusted_wa": 4.194,

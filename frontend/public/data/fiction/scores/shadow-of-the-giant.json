@@ -1,0 +1,32 @@
+{
+  "author": "Orson Scott Card",
+  "components": {
+    "Aesthetics": {
+      "Narration": 6.5,
+      "Prose": 6.0
+    },
+    "Character": {
+      "Depth": 8.1,
+      "Emotional Impact": 8.8,
+      "Motivations": 7.3
+    },
+    "Story": {
+      "Action": 5.3,
+      "Ending": 8.5,
+      "Entertainment": 7.9,
+      "Plot": 6.8
+    },
+    "Theme": {
+      "Insights": 7.1,
+      "Thought-Provokingness": 7.5
+    },
+    "Worldbuilding": {
+      "Depth2": 6.0,
+      "Integration": 7.2,
+      "Originality": 4.4
+    }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Shadow of the Giant",
+  "wa": 7.1678
+}

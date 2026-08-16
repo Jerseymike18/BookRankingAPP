@@ -13,8 +13,8 @@
     "Story": {
       "Action": 6.5,
       "Ending": 7.1,
-      "Entertainment": 5.2,
-      "Plot": 5.64
+      "Entertainment": 6.0,
+      "Plot": 6.5
     },
     "Theme": {
       "Insights": 7.3,
@@ -28,5 +28,5 @@
   },
   "genre": "Science Fiction (Hard)",
   "title": "Xenocide",
-  "wa": 6.9811
+  "wa": 7.1332
 }

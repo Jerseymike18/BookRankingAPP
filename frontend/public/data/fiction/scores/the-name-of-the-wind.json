@@ -2,23 +2,23 @@
   "author": "Patrick Rothfuss",
   "components": {
     "Aesthetics": {
-      "Narration": 8.8,
-      "Prose": 9.0
+      "Narration": 9.6,
+      "Prose": 9.4
     },
     "Character": {
-      "Depth": 6.5,
+      "Depth": 7.9,
       "Emotional Impact": 5.8,
       "Motivations": 5.4
     },
     "Story": {
-      "Action": 6.1,
-      "Ending": 5.8,
+      "Action": 7.0,
+      "Ending": 6.6,
       "Entertainment": 8.8,
-      "Plot": 6.2
+      "Plot": 7.4
     },
     "Theme": {
-      "Insights": 6.3,
-      "Thought-Provokingness": 6.1
+      "Insights": 7.4,
+      "Thought-Provokingness": 7.9
     },
     "Worldbuilding": {
       "Depth2": 6.5,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Name of the Wind",
-  "wa": 6.6864
+  "wa": 7.4234
 }

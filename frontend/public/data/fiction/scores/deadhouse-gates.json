@@ -3,7 +3,7 @@
   "components": {
     "Aesthetics": {
       "Narration": 8.9,
-      "Prose": 9.2
+      "Prose": 9.0
     },
     "Character": {
       "Depth": 8.9,
@@ -11,9 +11,9 @@
       "Motivations": 9.1
     },
     "Story": {
-      "Action": 9.8,
+      "Action": 9.6,
       "Ending": 9.7,
-      "Entertainment": 9.5,
+      "Entertainment": 9.3,
       "Plot": 9.2
     },
     "Theme": {
@@ -21,12 +21,12 @@
       "Thought-Provokingness": 9.3
     },
     "Worldbuilding": {
-      "Depth2": 9.5,
+      "Depth2": 9.1,
       "Integration": 9.3,
       "Originality": 9.5
     }
   },
   "genre": "Epic Fantasy",
   "title": "Deadhouse Gates",
-  "wa": 9.3233
+  "wa": 9.2544
 }

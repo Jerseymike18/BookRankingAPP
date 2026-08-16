@@ -1,0 +1,32 @@
+{
+  "author": "Orson Scott Card",
+  "components": {
+    "Aesthetics": {
+      "Narration": 6.4,
+      "Prose": 6.2
+    },
+    "Character": {
+      "Depth": 7.0,
+      "Emotional Impact": 6.1,
+      "Motivations": 6.0
+    },
+    "Story": {
+      "Action": 6.0,
+      "Ending": 4.5,
+      "Entertainment": 6.8,
+      "Plot": 5.9
+    },
+    "Theme": {
+      "Insights": 7.5,
+      "Thought-Provokingness": 8.0
+    },
+    "Worldbuilding": {
+      "Depth2": 5.8,
+      "Integration": 6.6,
+      "Originality": 3.0
+    }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Shadow Puppets",
+  "wa": 6.7512
+}

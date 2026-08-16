@@ -3,20 +3,20 @@
     {
       "author": "Jonathan Haidt",
       "category_avgs": {
-        "Aesthetics": 7.4,
-        "Exposition": null,
+        "Aesthetics": 7.05,
+        "Exposition": 8.54,
         "Impact": 8.095,
-        "Reasoning": 9.5,
-        "Substance": 9.2
+        "Reasoning": 9.005,
+        "Substance": 9.26
       },
       "components": {
         "Aesthetics": {
           "Prose": 7.4,
-          "Voice": null
+          "Voice": 6.4
         },
         "Exposition": {
-          "Clarity": null,
-          "Structure": null
+          "Clarity": 8.9,
+          "Structure": 8.1
         },
         "Impact": {
           "Entertainment": 5.8,
@@ -25,12 +25,12 @@
         },
         "Reasoning": {
           "Argumentation": 9.5,
-          "Evidence": null
+          "Evidence": 8.4
         },
         "Substance": {
-          "Accuracy": null,
+          "Accuracy": 9.0,
           "Informativeness": 9.2,
-          "Originality": null
+          "Originality": 9.6
         }
       },
       "genre": "Nonfiction",
@@ -39,8 +39,8 @@
       "series_number": null,
       "slug": "the-anxious-generation",
       "title": "The Anxious Generation",
-      "total_average": 8.4917,
-      "wa": 8.6103,
+      "total_average": 8.2967,
+      "wa": 8.491,
       "words": null,
       "year": 2025,
       "year_read": 2025
@@ -48,20 +48,20 @@
     {
       "author": "Niccolò Machiavelli",
       "category_avgs": {
-        "Aesthetics": 7.9,
-        "Exposition": null,
+        "Aesthetics": 8.11,
+        "Exposition": 8.105,
         "Impact": 8.16,
-        "Reasoning": 8.5,
-        "Substance": 7.3
+        "Reasoning": 8.275,
+        "Substance": 8.05
       },
       "components": {
         "Aesthetics": {
           "Prose": 7.9,
-          "Voice": null
+          "Voice": 8.5
         },
         "Exposition": {
-          "Clarity": null,
-          "Structure": null
+          "Clarity": 7.7,
+          "Structure": 8.6
         },
         "Impact": {
           "Entertainment": 5.4,
@@ -70,12 +70,12 @@
         },
         "Reasoning": {
           "Argumentation": 8.5,
-          "Evidence": null
+          "Evidence": 8.0
         },
         "Substance": {
-          "Accuracy": null,
+          "Accuracy": 7.7,
           "Informativeness": 7.3,
-          "Originality": null
+          "Originality": 9.4
         }
       },
       "genre": "Nonfiction",
@@ -84,53 +84,8 @@
       "series_number": null,
       "slug": "the-prince",
       "title": "The Prince",
-      "total_average": 7.8917,
-      "wa": 7.8706,
-      "words": null,
-      "year": 2026,
-      "year_read": 2026
-    },
-    {
-      "author": "Sigmund Freud",
-      "category_avgs": {
-        "Aesthetics": 7.9,
-        "Exposition": null,
-        "Impact": 8.31,
-        "Reasoning": 8.8,
-        "Substance": 6.2
-      },
-      "components": {
-        "Aesthetics": {
-          "Prose": 7.9,
-          "Voice": null
-        },
-        "Exposition": {
-          "Clarity": null,
-          "Structure": null
-        },
-        "Impact": {
-          "Entertainment": 5.9,
-          "Insights": 9.3,
-          "Thought-Provokingness": 8.9
-        },
-        "Reasoning": {
-          "Argumentation": 8.8,
-          "Evidence": null
-        },
-        "Substance": {
-          "Accuracy": null,
-          "Informativeness": 6.2,
-          "Originality": null
-        }
-      },
-      "genre": "Nonfiction",
-      "rank": 3,
-      "series": "",
-      "series_number": null,
-      "slug": "future-of-an-illusion",
-      "title": "Future of an Illusion",
-      "total_average": 7.7333,
-      "wa": 7.5794,
+      "total_average": 8.12,
+      "wa": 8.1285,
       "words": null,
       "year": 2026,
       "year_read": 2026
@@ -138,20 +93,20 @@
     {
       "author": "Augustine",
       "category_avgs": {
-        "Aesthetics": 8.1,
-        "Exposition": null,
+        "Aesthetics": 8.24,
+        "Exposition": 8.045,
         "Impact": 8.32,
-        "Reasoning": 7.1,
-        "Substance": 6.3714
+        "Reasoning": 6.965,
+        "Substance": 7.55
       },
       "components": {
         "Aesthetics": {
           "Prose": 8.1,
-          "Voice": null
+          "Voice": 8.5
         },
         "Exposition": {
-          "Clarity": null,
-          "Structure": null
+          "Clarity": 8.0,
+          "Structure": 8.1
         },
         "Impact": {
           "Entertainment": 4.8,
@@ -160,43 +115,88 @@
         },
         "Reasoning": {
           "Argumentation": 7.1,
-          "Evidence": null
+          "Evidence": 6.8
         },
         "Substance": {
-          "Accuracy": 7.0,
+          "Accuracy": 8.5,
           "Informativeness": 5.9,
-          "Originality": null
+          "Originality": 8.8
+        }
+      },
+      "genre": "Nonfiction",
+      "rank": 3,
+      "series": "",
+      "series_number": null,
+      "slug": "confessions",
+      "title": "Confessions",
+      "total_average": 7.7933,
+      "wa": 7.8325,
+      "words": null,
+      "year": 2025,
+      "year_read": 2025
+    },
+    {
+      "author": "Sigmund Freud",
+      "category_avgs": {
+        "Aesthetics": 7.62,
+        "Exposition": 6.53,
+        "Impact": 8.31,
+        "Reasoning": 7.99,
+        "Substance": 7.22
+      },
+      "components": {
+        "Aesthetics": {
+          "Prose": 7.9,
+          "Voice": 7.1
+        },
+        "Exposition": {
+          "Clarity": 6.8,
+          "Structure": 6.2
+        },
+        "Impact": {
+          "Entertainment": 5.9,
+          "Insights": 9.3,
+          "Thought-Provokingness": 8.9
+        },
+        "Reasoning": {
+          "Argumentation": 8.8,
+          "Evidence": 7.0
+        },
+        "Substance": {
+          "Accuracy": 6.8,
+          "Informativeness": 6.2,
+          "Originality": 9.0
         }
       },
       "genre": "Nonfiction",
       "rank": 4,
       "series": "",
       "series_number": null,
-      "slug": "confessions",
-      "title": "Confessions",
-      "total_average": 7.3958,
-      "wa": 7.3782,
+      "slug": "future-of-an-illusion",
+      "title": "Future of an Illusion",
+      "total_average": 7.4533,
+      "wa": 7.5645,
       "words": null,
-      "year": 2025,
-      "year_read": 2025
+      "year": 2026,
+      "year_read": 2026
     },
     {
       "author": "Ben Mezrich",
       "category_avgs": {
-        "Aesthetics": 7.3,
-        "Exposition": null,
+        "Aesthetics": 7.44,
+        "Exposition": 7.36,
         "Impact": 6.675,
-        "Reasoning": 5.8,
-        "Substance": 6.2
+        "Reasoning": 6.25,
+        "Substance": 7.31
       },
       "components": {
         "Aesthetics": {
           "Prose": 7.3,
-          "Voice": null
+          "Voice": 7.7
         },
         "Exposition": {
-          "Clarity": null,
-          "Structure": null
+          "Clarity": 7.0,
+          "Structure": 7.8
         },
         "Impact": {
           "Entertainment": 8.3,
@@ -205,12 +205,12 @@
         },
         "Reasoning": {
           "Argumentation": 5.8,
-          "Evidence": null
+          "Evidence": 6.8
         },
         "Substance": {
-          "Accuracy": null,
+          "Accuracy": 8.9,
           "Informativeness": 6.2,
-          "Originality": null
+          "Originality": 7.2
         }
       },
       "genre": "Nonfiction",
@@ -219,8 +219,8 @@
       "series_number": null,
       "slug": "bringing-down-the-house",
       "title": "Bringing Down the House",
-      "total_average": 6.5417,
-      "wa": 6.4632,
+      "total_average": 7.1,
+      "wa": 7.0193,
       "words": null,
       "year": 2025,
       "year_read": 2025
@@ -228,20 +228,20 @@
     {
       "author": "Friedrich Nietzsche",
       "category_avgs": {
-        "Aesthetics": 6.8,
-        "Exposition": null,
+        "Aesthetics": 6.345,
+        "Exposition": 4.055,
         "Impact": 5.945,
-        "Reasoning": 5.1,
-        "Substance": 3.7
+        "Reasoning": 4.605,
+        "Substance": 5.02
       },
       "components": {
         "Aesthetics": {
           "Prose": 6.8,
-          "Voice": null
+          "Voice": 5.5
         },
         "Exposition": {
-          "Clarity": null,
-          "Structure": null
+          "Clarity": 3.2,
+          "Structure": 5.1
         },
         "Impact": {
           "Entertainment": 3.6,
@@ -250,12 +250,12 @@
         },
         "Reasoning": {
           "Argumentation": 5.1,
-          "Evidence": null
+          "Evidence": 4.0
         },
         "Substance": {
-          "Accuracy": null,
+          "Accuracy": 3.1,
           "Informativeness": 3.7,
-          "Originality": null
+          "Originality": 8.7
         }
       },
       "genre": "Nonfiction",
@@ -264,8 +264,8 @@
       "series_number": null,
       "slug": "twilight-of-the-idols",
       "title": "Twilight of the Idols",
-      "total_average": 5.35,
-      "wa": 5.1544,
+      "total_average": 5.1633,
+      "wa": 5.243,
       "words": null,
       "year": 2026,
       "year_read": 2026

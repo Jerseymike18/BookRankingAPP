@@ -3,30 +3,30 @@
   "components": {
     "Aesthetics": {
       "Narration": 8.3,
-      "Prose": 7.8
+      "Prose": 8.2
     },
     "Character": {
-      "Depth": 8.6,
-      "Emotional Impact": 9.9,
-      "Motivations": 8.5
+      "Depth": 9.0,
+      "Emotional Impact": 10.0,
+      "Motivations": 9.5
     },
     "Story": {
-      "Action": 9.9,
+      "Action": 9.7,
       "Ending": 10.0,
-      "Entertainment": 9.8,
-      "Plot": 9.5
+      "Entertainment": 9.4,
+      "Plot": 9.3
     },
     "Theme": {
-      "Insights": 8.5,
-      "Thought-Provokingness": 8.6
+      "Insights": 8.8,
+      "Thought-Provokingness": 8.9
     },
     "Worldbuilding": {
-      "Depth2": 8.8,
+      "Depth2": 9.1,
       "Integration": 9.3,
       "Originality": 9.2
     }
   },
   "genre": "Epic Fantasy",
   "title": "A Memory of Light",
-  "wa": 9.1595
+  "wa": 9.2644
 }

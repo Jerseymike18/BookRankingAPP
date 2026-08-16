@@ -1,6 +1,44 @@
 {
   "books": [
     {
+      "author": "Michael Ende",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.4,
+          "Prose": 8.7
+        },
+        "Character": {
+          "Depth": 9.5,
+          "Emotional Impact": 9.7,
+          "Motivations": 9.6
+        },
+        "Story": {
+          "Action": 6.6,
+          "Ending": 9.5,
+          "Entertainment": 9.3,
+          "Plot": 9.4
+        },
+        "Theme": {
+          "Insights": 9.0,
+          "Thought-Provokingness": 9.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.4,
+          "Integration": 9.8,
+          "Originality": 9.6
+        }
+      },
+      "genre": "Literary Fantasy",
+      "rank": 1,
+      "series": "Standalone",
+      "series_number": null,
+      "tier": "S",
+      "title": "The Neverending Story",
+      "wa": 9.2947,
+      "words": 111000,
+      "year_read": 2025
+    },
+    {
       "author": "Orson Scott Card",
       "components": {
         "Aesthetics": {
@@ -8,72 +46,34 @@
           "Prose": 8.7
         },
         "Character": {
-          "Depth": 9.9,
-          "Emotional Impact": 9.9,
+          "Depth": 9.7,
+          "Emotional Impact": 9.8,
           "Motivations": 10.0
         },
         "Story": {
-          "Action": 6.4,
+          "Action": 6.9,
           "Ending": 9.8,
-          "Entertainment": 9.4,
-          "Plot": 9.3
+          "Entertainment": 9.0,
+          "Plot": 9.0
         },
         "Theme": {
           "Insights": 9.6,
           "Thought-Provokingness": 9.8
         },
         "Worldbuilding": {
-          "Depth2": 8.9,
-          "Integration": 9.3,
-          "Originality": 8.7
+          "Depth2": 8.4,
+          "Integration": 8.6,
+          "Originality": 7.9
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 1,
+      "rank": 2,
       "series": "Ender's Game",
       "series_number": 2,
       "tier": "S",
       "title": "Speaker For The Dead",
-      "wa": 9.348,
+      "wa": 9.2751,
       "words": 150000,
-      "year_read": 2025
-    },
-    {
-      "author": "Michael Ende",
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.4,
-          "Prose": 9.1
-        },
-        "Character": {
-          "Depth": 9.7,
-          "Emotional Impact": 9.6,
-          "Motivations": 9.6
-        },
-        "Story": {
-          "Action": 7.1,
-          "Ending": 9.5,
-          "Entertainment": 9.3,
-          "Plot": 9.5
-        },
-        "Theme": {
-          "Insights": 9.0,
-          "Thought-Provokingness": 9.4
-        },
-        "Worldbuilding": {
-          "Depth2": 9.6,
-          "Integration": 9.8,
-          "Originality": 9.6
-        }
-      },
-      "genre": "Literary Fantasy",
-      "rank": 2,
-      "series": "Standalone",
-      "series_number": null,
-      "tier": "S",
-      "title": "The Neverending Story",
-      "wa": 9.329,
-      "words": 111000,
       "year_read": 2025
     },
     {
@@ -81,25 +81,25 @@
       "components": {
         "Aesthetics": {
           "Narration": 8.3,
-          "Prose": 7.8
+          "Prose": 8.2
         },
         "Character": {
-          "Depth": 8.6,
-          "Emotional Impact": 9.9,
-          "Motivations": 8.5
+          "Depth": 9.0,
+          "Emotional Impact": 10.0,
+          "Motivations": 9.5
         },
         "Story": {
-          "Action": 9.9,
+          "Action": 9.7,
           "Ending": 10.0,
-          "Entertainment": 9.8,
-          "Plot": 9.5
+          "Entertainment": 9.4,
+          "Plot": 9.3
         },
         "Theme": {
-          "Insights": 8.5,
-          "Thought-Provokingness": 8.6
+          "Insights": 8.8,
+          "Thought-Provokingness": 8.9
         },
         "Worldbuilding": {
-          "Depth2": 8.8,
+          "Depth2": 9.1,
           "Integration": 9.3,
           "Originality": 9.2
         }
@@ -110,84 +110,84 @@
       "series_number": 14,
       "tier": "S",
       "title": "A Memory of Light",
-      "wa": 9.1595,
+      "wa": 9.2644,
       "words": 350000,
+      "year_read": 2025
+    },
+    {
+      "author": "Orson Scott Card",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.8,
+          "Prose": 8.3
+        },
+        "Character": {
+          "Depth": 9.6,
+          "Emotional Impact": 9.3,
+          "Motivations": 9.9
+        },
+        "Story": {
+          "Action": 8.2,
+          "Ending": 9.8,
+          "Entertainment": 9.4,
+          "Plot": 9.5
+        },
+        "Theme": {
+          "Insights": 9.3,
+          "Thought-Provokingness": 9.2
+        },
+        "Worldbuilding": {
+          "Depth2": 6.5,
+          "Integration": 7.5,
+          "Originality": 6.8
+        }
+      },
+      "genre": "Science Fiction (Hard)",
+      "rank": 4,
+      "series": "Ender's Game",
+      "series_number": 1,
+      "tier": "S",
+      "title": "Ender's Game",
+      "wa": 9.0689,
+      "words": 100000,
       "year_read": 2025
     },
     {
       "author": "Robert Jordan & Brandon Sanderson",
       "components": {
         "Aesthetics": {
-          "Narration": 7.4,
-          "Prose": 7.5
+          "Narration": 8.5,
+          "Prose": 7.8
         },
         "Character": {
-          "Depth": 9.3,
+          "Depth": 9.6,
           "Emotional Impact": 9.8,
-          "Motivations": 8.9
+          "Motivations": 8.7
         },
         "Story": {
-          "Action": 8.9,
+          "Action": 8.6,
           "Ending": 9.6,
-          "Entertainment": 9.2,
-          "Plot": 9.0
+          "Entertainment": 9.0,
+          "Plot": 8.7
         },
         "Theme": {
-          "Insights": 8.8,
+          "Insights": 9.2,
           "Thought-Provokingness": 9.5
         },
         "Worldbuilding": {
           "Depth2": 8.6,
-          "Integration": 8.8,
+          "Integration": 8.0,
           "Originality": 8.1
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 4,
-      "series": "The Wheel of Time",
-      "series_number": 12,
-      "tier": "S",
-      "title": "The Gathering Storm",
-      "wa": 9.0211,
-      "words": 300000,
-      "year_read": 2025
-    },
-    {
-      "author": "Robert Jordan",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.7,
-          "Prose": 8.2
-        },
-        "Character": {
-          "Depth": 8.5,
-          "Emotional Impact": 9.3,
-          "Motivations": 8.7
-        },
-        "Story": {
-          "Action": 9.3,
-          "Ending": 9.5,
-          "Entertainment": 9.2,
-          "Plot": 9.1
-        },
-        "Theme": {
-          "Insights": 7.4,
-          "Thought-Provokingness": 8.8
-        },
-        "Worldbuilding": {
-          "Depth2": 9.4,
-          "Integration": 9.2,
-          "Originality": 9.1
         }
       },
       "genre": "Epic Fantasy",
       "rank": 5,
       "series": "The Wheel of Time",
-      "series_number": 2,
+      "series_number": 12,
       "tier": "S",
-      "title": "The Great Hunt",
-      "wa": 8.9208,
-      "words": 261000,
+      "title": "The Gathering Storm",
+      "wa": 9.0337,
+      "words": 300000,
       "year_read": 2025
     },
     {
@@ -205,8 +205,8 @@
         "Story": {
           "Action": 10.0,
           "Ending": 9.4,
-          "Entertainment": 9.9,
-          "Plot": 8.9
+          "Entertainment": 9.6,
+          "Plot": 9.1
         },
         "Theme": {
           "Insights": 8.4,
@@ -224,7 +224,7 @@
       "series_number": 5,
       "tier": "S",
       "title": "Dark Age",
-      "wa": 8.8803,
+      "wa": 8.8878,
       "words": 295510,
       "year_read": 2025
     },
@@ -232,114 +232,38 @@
       "author": "Robert Jordan",
       "components": {
         "Aesthetics": {
-          "Narration": 9.3,
-          "Prose": 8.5
+          "Narration": 8.4,
+          "Prose": 8.2
         },
         "Character": {
-          "Depth": 8.7,
-          "Emotional Impact": 9.1,
-          "Motivations": 8.8
+          "Depth": 8.5,
+          "Emotional Impact": 9.3,
+          "Motivations": 8.7
         },
         "Story": {
-          "Action": 9.4,
-          "Ending": 9.7,
-          "Entertainment": 8.5,
+          "Action": 9.3,
+          "Ending": 9.5,
+          "Entertainment": 8.9,
           "Plot": 8.8
         },
         "Theme": {
-          "Insights": 7.9,
+          "Insights": 8.0,
           "Thought-Provokingness": 8.3
         },
         "Worldbuilding": {
-          "Depth2": 9.2,
-          "Integration": 9.0,
-          "Originality": 8.6
+          "Depth2": 9.0,
+          "Integration": 9.2,
+          "Originality": 9.1
         }
       },
       "genre": "Epic Fantasy",
       "rank": 7,
       "series": "The Wheel of Time",
-      "series_number": 6,
+      "series_number": 2,
       "tier": "S",
-      "title": "Lord of Chaos",
-      "wa": 8.8556,
-      "words": 395000,
-      "year_read": 2025
-    },
-    {
-      "author": "Guy Gavriel Kay",
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 9.1
-        },
-        "Character": {
-          "Depth": 9.2,
-          "Emotional Impact": 9.5,
-          "Motivations": 9.0
-        },
-        "Story": {
-          "Action": 8.1,
-          "Ending": 9.4,
-          "Entertainment": 8.2,
-          "Plot": 8.5
-        },
-        "Theme": {
-          "Insights": 8.8,
-          "Thought-Provokingness": 8.6
-        },
-        "Worldbuilding": {
-          "Depth2": 7.8,
-          "Integration": 8.3,
-          "Originality": 6.0
-        }
-      },
-      "genre": "Literary Fantasy",
-      "rank": 8,
-      "series": "Standalone",
-      "series_number": null,
-      "tier": "A",
-      "title": "The Lions of Al-Rassan",
-      "wa": 8.8434,
-      "words": 150000,
-      "year_read": 2025
-    },
-    {
-      "author": "Robert Jordan",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.6,
-          "Prose": 8.5
-        },
-        "Character": {
-          "Depth": 9.0,
-          "Emotional Impact": 9.5,
-          "Motivations": 9.2
-        },
-        "Story": {
-          "Action": 8.7,
-          "Ending": 9.0,
-          "Entertainment": 9.2,
-          "Plot": 8.5
-        },
-        "Theme": {
-          "Insights": 8.1,
-          "Thought-Provokingness": 7.9
-        },
-        "Worldbuilding": {
-          "Depth2": 8.8,
-          "Integration": 9.3,
-          "Originality": 8.4
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 9,
-      "series": "The Wheel of Time",
-      "series_number": 11,
-      "tier": "A",
-      "title": "Knife of Dreams",
-      "wa": 8.8054,
-      "words": 314000,
+      "title": "The Great Hunt",
+      "wa": 8.8095,
+      "words": 261000,
       "year_read": 2025
     },
     {
@@ -371,13 +295,203 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 10,
+      "rank": 8,
       "series": "The Stormlight Archive",
       "series_number": 2,
       "tier": "A",
       "title": "Words of Radiance",
       "wa": 8.7536,
       "words": 400000,
+      "year_read": 2025
+    },
+    {
+      "author": "Robert Jordan",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.3,
+          "Prose": 8.5
+        },
+        "Character": {
+          "Depth": 8.7,
+          "Emotional Impact": 9.1,
+          "Motivations": 8.8
+        },
+        "Story": {
+          "Action": 9.2,
+          "Ending": 9.7,
+          "Entertainment": 8.5,
+          "Plot": 8.2
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 8.3
+        },
+        "Worldbuilding": {
+          "Depth2": 8.7,
+          "Integration": 9.0,
+          "Originality": 8.6
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 9,
+      "series": "The Wheel of Time",
+      "series_number": 6,
+      "tier": "A",
+      "title": "Lord of Chaos",
+      "wa": 8.729,
+      "words": 395000,
+      "year_read": 2025
+    },
+    {
+      "author": "Robert Jordan",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.6,
+          "Prose": 8.5
+        },
+        "Character": {
+          "Depth": 9.0,
+          "Emotional Impact": 8.6,
+          "Motivations": 9.2
+        },
+        "Story": {
+          "Action": 8.7,
+          "Ending": 9.0,
+          "Entertainment": 8.8,
+          "Plot": 8.5
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 7.9
+        },
+        "Worldbuilding": {
+          "Depth2": 8.5,
+          "Integration": 9.0,
+          "Originality": 8.4
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 10,
+      "series": "The Wheel of Time",
+      "series_number": 11,
+      "tier": "A",
+      "title": "Knife of Dreams",
+      "wa": 8.6503,
+      "words": 314000,
+      "year_read": 2025
+    },
+    {
+      "author": "Pierce Brown",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.9,
+          "Prose": 8.7
+        },
+        "Character": {
+          "Depth": 8.1,
+          "Emotional Impact": 9.7,
+          "Motivations": 9.2
+        },
+        "Story": {
+          "Action": 9.3,
+          "Ending": 9.2,
+          "Entertainment": 8.4,
+          "Plot": 8.8
+        },
+        "Theme": {
+          "Insights": 7.7,
+          "Thought-Provokingness": 8.0
+        },
+        "Worldbuilding": {
+          "Depth2": 8.0,
+          "Integration": 8.2,
+          "Originality": 8.5
+        }
+      },
+      "genre": "Science Fiction (Soft)",
+      "rank": 11,
+      "series": "Red Rising",
+      "series_number": 6,
+      "tier": "A",
+      "title": "Lightbringer",
+      "wa": 8.6306,
+      "words": 203435,
+      "year_read": 2025
+    },
+    {
+      "author": "Guy Gavriel Kay",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.5,
+          "Prose": 9.1
+        },
+        "Character": {
+          "Depth": 8.7,
+          "Emotional Impact": 9.0,
+          "Motivations": 9.0
+        },
+        "Story": {
+          "Action": 8.1,
+          "Ending": 9.4,
+          "Entertainment": 8.2,
+          "Plot": 8.5
+        },
+        "Theme": {
+          "Insights": 8.3,
+          "Thought-Provokingness": 8.6
+        },
+        "Worldbuilding": {
+          "Depth2": 7.5,
+          "Integration": 8.3,
+          "Originality": 6.0
+        }
+      },
+      "genre": "Literary Fantasy",
+      "rank": 12,
+      "series": "Standalone",
+      "series_number": null,
+      "tier": "A",
+      "title": "The Lions of Al-Rassan",
+      "wa": 8.6143,
+      "words": 150000,
+      "year_read": 2025
+    },
+    {
+      "author": "Brandon Sanderson",
+      "components": {
+        "Aesthetics": {
+          "Narration": 8.4,
+          "Prose": 7.5
+        },
+        "Character": {
+          "Depth": 8.8,
+          "Emotional Impact": 9.6,
+          "Motivations": 8.5
+        },
+        "Story": {
+          "Action": 8.0,
+          "Ending": 9.7,
+          "Entertainment": 8.2,
+          "Plot": 7.5
+        },
+        "Theme": {
+          "Insights": 8.7,
+          "Thought-Provokingness": 9.2
+        },
+        "Worldbuilding": {
+          "Depth2": 8.5,
+          "Integration": 8.8,
+          "Originality": 8.6
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 13,
+      "series": "The Stormlight Archive",
+      "series_number": 4,
+      "tier": "A",
+      "title": "Rhythm of War",
+      "wa": 8.5732,
+      "words": 453000,
       "year_read": 2025
     },
     {
@@ -409,7 +523,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 11,
+      "rank": 14,
       "series": "The Wheel of Time",
       "series_number": 4,
       "tier": "A",
@@ -437,7 +551,7 @@
           "Plot": 8.3
         },
         "Theme": {
-          "Insights": 7.6,
+          "Insights": 8.0,
           "Thought-Provokingness": 8.3
         },
         "Worldbuilding": {
@@ -447,12 +561,12 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 12,
+      "rank": 15,
       "series": "The Stormlight Archive",
       "series_number": 3,
       "tier": "A",
       "title": "Oathbringer",
-      "wa": 8.5504,
+      "wa": 8.5718,
       "words": 450000,
       "year_read": 2025
     },
@@ -485,51 +599,13 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 13,
+      "rank": 16,
       "series": "Red Rising",
       "series_number": 2,
       "tier": "A",
       "title": "Golden Son",
       "wa": 8.5478,
       "words": 165735,
-      "year_read": 2025
-    },
-    {
-      "author": "Pierce Brown",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.9,
-          "Prose": 8.7
-        },
-        "Character": {
-          "Depth": 8.1,
-          "Emotional Impact": 9.7,
-          "Motivations": 9.2
-        },
-        "Story": {
-          "Action": 9.3,
-          "Ending": 9.2,
-          "Entertainment": 8.4,
-          "Plot": 8.8
-        },
-        "Theme": {
-          "Insights": 7.2,
-          "Thought-Provokingness": 7.1
-        },
-        "Worldbuilding": {
-          "Depth2": 8.4,
-          "Integration": 8.9,
-          "Originality": 8.5
-        }
-      },
-      "genre": "Science Fiction (Soft)",
-      "rank": 14,
-      "series": "Red Rising",
-      "series_number": 6,
-      "tier": "A",
-      "title": "Lightbringer",
-      "wa": 8.5439,
-      "words": 203435,
       "year_read": 2025
     },
     {
@@ -561,89 +637,13 @@
         }
       },
       "genre": "Russian Literature",
-      "rank": 15,
+      "rank": 17,
       "series": "Standalone",
       "series_number": null,
       "tier": "A",
       "title": "The Idiot",
       "wa": 8.5242,
       "words": 164000,
-      "year_read": 2025
-    },
-    {
-      "author": "Brandon Sanderson",
-      "components": {
-        "Aesthetics": {
-          "Narration": 8.4,
-          "Prose": 7.5
-        },
-        "Character": {
-          "Depth": 8.8,
-          "Emotional Impact": 9.6,
-          "Motivations": 8.5
-        },
-        "Story": {
-          "Action": 8.0,
-          "Ending": 9.7,
-          "Entertainment": 8.2,
-          "Plot": 7.5
-        },
-        "Theme": {
-          "Insights": 8.3,
-          "Thought-Provokingness": 8.1
-        },
-        "Worldbuilding": {
-          "Depth2": 8.5,
-          "Integration": 8.8,
-          "Originality": 8.6
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 16,
-      "series": "The Stormlight Archive",
-      "series_number": 4,
-      "tier": "A",
-      "title": "Rhythm of War",
-      "wa": 8.4732,
-      "words": 453000,
-      "year_read": 2025
-    },
-    {
-      "author": "Orson Scott Card",
-      "components": {
-        "Aesthetics": {
-          "Narration": 7.1,
-          "Prose": 7.6
-        },
-        "Character": {
-          "Depth": 9.3,
-          "Emotional Impact": 9.5,
-          "Motivations": 9.4
-        },
-        "Story": {
-          "Action": 8.2,
-          "Ending": 9.5,
-          "Entertainment": 8.7,
-          "Plot": 8.7
-        },
-        "Theme": {
-          "Insights": 9.3,
-          "Thought-Provokingness": 9.2
-        },
-        "Worldbuilding": {
-          "Depth2": 0.0,
-          "Integration": 0.0,
-          "Originality": 0.0
-        }
-      },
-      "genre": "Science Fiction (Hard)",
-      "rank": 17,
-      "series": "Ender's Game",
-      "series_number": 1,
-      "tier": "A",
-      "title": "Ender's Game",
-      "wa": 8.4537,
-      "words": 100000,
       "year_read": 2025
     },
     {
@@ -723,6 +723,44 @@
       "year_read": 2025
     },
     {
+      "author": "Brandon Sanderson",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.3,
+          "Prose": 6.8
+        },
+        "Character": {
+          "Depth": 8.1,
+          "Emotional Impact": 8.4,
+          "Motivations": 7.8
+        },
+        "Story": {
+          "Action": 8.3,
+          "Ending": 9.5,
+          "Entertainment": 8.3,
+          "Plot": 8.6
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 8.3
+        },
+        "Worldbuilding": {
+          "Depth2": 9.3,
+          "Integration": 9.1,
+          "Originality": 8.8
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 20,
+      "series": "The Stormlight Archive",
+      "series_number": 1,
+      "tier": "B",
+      "title": "The Way of Kings",
+      "wa": 8.3716,
+      "words": 380000,
+      "year_read": 2025
+    },
+    {
       "author": "Christopher Ruocchio",
       "components": {
         "Aesthetics": {
@@ -751,7 +789,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 20,
+      "rank": 21,
       "series": "Sun Eater",
       "series_number": 3,
       "tier": "B",
@@ -789,7 +827,7 @@
         }
       },
       "genre": "Classical Epic",
-      "rank": 21,
+      "rank": 22,
       "series": "Standalone",
       "series_number": null,
       "tier": "B",
@@ -827,51 +865,13 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 22,
+      "rank": 23,
       "series": "The Wheel of Time",
       "series_number": 5,
       "tier": "B",
       "title": "The Fires of Heaven",
       "wa": 8.3037,
       "words": 346000,
-      "year_read": 2025
-    },
-    {
-      "author": "Brandon Sanderson",
-      "components": {
-        "Aesthetics": {
-          "Narration": 7.3,
-          "Prose": 6.8
-        },
-        "Character": {
-          "Depth": 8.1,
-          "Emotional Impact": 8.4,
-          "Motivations": 7.8
-        },
-        "Story": {
-          "Action": 8.3,
-          "Ending": 9.5,
-          "Entertainment": 8.3,
-          "Plot": 8.6
-        },
-        "Theme": {
-          "Insights": 7.5,
-          "Thought-Provokingness": 7.2
-        },
-        "Worldbuilding": {
-          "Depth2": 9.3,
-          "Integration": 9.1,
-          "Originality": 8.8
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 23,
-      "series": "The Stormlight Archive",
-      "series_number": 1,
-      "tier": "B",
-      "title": "The Way of Kings",
-      "wa": 8.2609,
-      "words": 380000,
       "year_read": 2025
     },
     {
@@ -1179,6 +1179,44 @@
       "year_read": 2025
     },
     {
+      "author": "Robert Jordan",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.2,
+          "Prose": 8.5
+        },
+        "Character": {
+          "Depth": 7.9,
+          "Emotional Impact": 7.3,
+          "Motivations": 7.7
+        },
+        "Story": {
+          "Action": 8.3,
+          "Ending": 8.6,
+          "Entertainment": 8.1,
+          "Plot": 6.99
+        },
+        "Theme": {
+          "Insights": 6.2,
+          "Thought-Provokingness": 7.5
+        },
+        "Worldbuilding": {
+          "Depth2": 8.1,
+          "Integration": 8.0,
+          "Originality": 8.3
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 32,
+      "series": "The Wheel of Time",
+      "series_number": 7,
+      "tier": "B",
+      "title": "A Crown of Swords",
+      "wa": 7.8059,
+      "words": 289000,
+      "year_read": 2025
+    },
+    {
       "author": "James Islington",
       "components": {
         "Aesthetics": {
@@ -1207,7 +1245,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 32,
+      "rank": 33,
       "series": "The Hierarchy",
       "series_number": 1,
       "tier": "B",
@@ -1245,7 +1283,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 33,
+      "rank": 34,
       "series": "Ender's Shadow",
       "series_number": 1,
       "tier": "B",
@@ -1283,7 +1321,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 34,
+      "rank": 35,
       "series": "Red Rising",
       "series_number": 1,
       "tier": "B",
@@ -1321,13 +1359,51 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 35,
-      "series": "Sarantine Mosaic",
+      "rank": 36,
+      "series": "The Sarantine Mosaic",
       "series_number": 1,
       "tier": "B",
       "title": "Sailing to Sarantium",
       "wa": 7.7048,
       "words": 170000,
+      "year_read": 2025
+    },
+    {
+      "author": "Robert Jordan",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.7,
+          "Prose": 7.3
+        },
+        "Character": {
+          "Depth": 7.5,
+          "Emotional Impact": 6.8,
+          "Motivations": 7.6
+        },
+        "Story": {
+          "Action": 7.9,
+          "Ending": 8.3,
+          "Entertainment": 8.2,
+          "Plot": 8.0
+        },
+        "Theme": {
+          "Insights": 7.4,
+          "Thought-Provokingness": 6.5
+        },
+        "Worldbuilding": {
+          "Depth2": 8.1,
+          "Integration": 8.4,
+          "Originality": 6.5
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 37,
+      "series": "The Wheel of Time",
+      "series_number": 1,
+      "tier": "C",
+      "title": "The Eye of the World",
+      "wa": 7.6479,
+      "words": 301000,
       "year_read": 2025
     },
     {
@@ -1359,10 +1435,10 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 36,
+      "rank": 38,
       "series": "Mistborn Era 1",
       "series_number": 1,
-      "tier": "B",
+      "tier": "C",
       "title": "The Final Empire",
       "wa": 7.6441,
       "words": 180000,
@@ -1397,7 +1473,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 37,
+      "rank": 39,
       "series": "The Wheel of Time",
       "series_number": 8,
       "tier": "C",
@@ -1435,7 +1511,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 38,
+      "rank": 40,
       "series": "Mistborn Era 1",
       "series_number": 3,
       "tier": "C",
@@ -1473,51 +1549,13 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 39,
+      "rank": 41,
       "series": "Sun Eater",
       "series_number": 2,
       "tier": "C",
       "title": "Howling Dark",
       "wa": 7.6313,
       "words": 256000,
-      "year_read": 2025
-    },
-    {
-      "author": "Robert Jordan",
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 8.5
-        },
-        "Character": {
-          "Depth": 7.4,
-          "Emotional Impact": 6.2,
-          "Motivations": 7.7
-        },
-        "Story": {
-          "Action": 8.3,
-          "Ending": 8.6,
-          "Entertainment": 8.1,
-          "Plot": 6.99
-        },
-        "Theme": {
-          "Insights": 6.2,
-          "Thought-Provokingness": 7.5
-        },
-        "Worldbuilding": {
-          "Depth2": 8.1,
-          "Integration": 8.0,
-          "Originality": 8.3
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 40,
-      "series": "The Wheel of Time",
-      "series_number": 7,
-      "tier": "C",
-      "title": "A Crown of Swords",
-      "wa": 7.6291,
-      "words": 289000,
       "year_read": 2025
     },
     {
@@ -1549,7 +1587,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 41,
+      "rank": 42,
       "series": "The Wheel of Time",
       "series_number": 10,
       "tier": "C",
@@ -1587,7 +1625,7 @@
         }
       },
       "genre": "Classical Drama",
-      "rank": 42,
+      "rank": 43,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1625,7 +1663,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 43,
+      "rank": 44,
       "series": "The Wheel of Time",
       "series_number": 0,
       "tier": "C",
@@ -1663,7 +1701,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 44,
+      "rank": 45,
       "series": "Red Rising",
       "series_number": 4,
       "tier": "C",
@@ -1701,51 +1739,13 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 45,
+      "rank": 46,
       "series": "Sun Eater",
       "series_number": 7,
       "tier": "C",
       "title": "Shadows Upon Time",
       "wa": 7.4365,
       "words": 370000,
-      "year_read": 2025
-    },
-    {
-      "author": "Robert Jordan",
-      "components": {
-        "Aesthetics": {
-          "Narration": 7.7,
-          "Prose": 7.3
-        },
-        "Character": {
-          "Depth": 7.2,
-          "Emotional Impact": 6.8,
-          "Motivations": 7.6
-        },
-        "Story": {
-          "Action": 7.9,
-          "Ending": 7.5,
-          "Entertainment": 7.1,
-          "Plot": 7.31
-        },
-        "Theme": {
-          "Insights": 7.4,
-          "Thought-Provokingness": 6.5
-        },
-        "Worldbuilding": {
-          "Depth2": 8.1,
-          "Integration": 8.4,
-          "Originality": 6.5
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 46,
-      "series": "The Wheel of Time",
-      "series_number": 1,
-      "tier": "C",
-      "title": "The Eye of the World",
-      "wa": 7.3201,
-      "words": 301000,
       "year_read": 2025
     },
     {
@@ -1863,6 +1863,82 @@
       "year_read": 2025
     },
     {
+      "author": "Orson Scott Card",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.5,
+          "Prose": 7.1
+        },
+        "Character": {
+          "Depth": 7.1,
+          "Emotional Impact": 10.0,
+          "Motivations": 7.7
+        },
+        "Story": {
+          "Action": 5.8,
+          "Ending": 8.5,
+          "Entertainment": 6.2,
+          "Plot": 7.2
+        },
+        "Theme": {
+          "Insights": 6.4,
+          "Thought-Provokingness": 7.2
+        },
+        "Worldbuilding": {
+          "Depth2": 7.5,
+          "Integration": 7.0,
+          "Originality": 6.8
+        }
+      },
+      "genre": "Science Fiction (Hard)",
+      "rank": 50,
+      "series": "Ender's Game",
+      "series_number": 4,
+      "tier": "C",
+      "title": "Children of the Mind",
+      "wa": 7.1489,
+      "words": 140000,
+      "year_read": 2025
+    },
+    {
+      "author": "Orson Scott Card",
+      "components": {
+        "Aesthetics": {
+          "Narration": 6.4,
+          "Prose": 6.8
+        },
+        "Character": {
+          "Depth": 7.0,
+          "Emotional Impact": 7.3,
+          "Motivations": 6.1
+        },
+        "Story": {
+          "Action": 6.5,
+          "Ending": 7.1,
+          "Entertainment": 6.0,
+          "Plot": 6.5
+        },
+        "Theme": {
+          "Insights": 7.3,
+          "Thought-Provokingness": 8.2
+        },
+        "Worldbuilding": {
+          "Depth2": 7.4,
+          "Integration": 7.0,
+          "Originality": 6.2
+        }
+      },
+      "genre": "Science Fiction (Hard)",
+      "rank": 51,
+      "series": "Ender's Game",
+      "series_number": 3,
+      "tier": "C",
+      "title": "Xenocide",
+      "wa": 7.1332,
+      "words": 150000,
+      "year_read": 2025
+    },
+    {
       "author": "Brandon Sanderson",
       "components": {
         "Aesthetics": {
@@ -1891,7 +1967,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 50,
+      "rank": 52,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1929,7 +2005,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 51,
+      "rank": 53,
       "series": "Mistborn Era 1",
       "series_number": 2,
       "tier": "C",
@@ -1967,7 +2043,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 52,
+      "rank": 54,
       "series": "Sun Eater",
       "series_number": 1,
       "tier": "C",
@@ -2005,7 +2081,7 @@
         }
       },
       "genre": "Classical Epic",
-      "rank": 53,
+      "rank": 55,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -2043,10 +2119,10 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 54,
+      "rank": 56,
       "series": "Standalone",
       "series_number": null,
-      "tier": "C",
+      "tier": "D",
       "title": "Silence",
       "wa": 7.0636,
       "words": 67000,
@@ -2081,89 +2157,13 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 55,
+      "rank": 57,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
       "title": "Twenty Thousand Leagues Under the Sea",
       "wa": 6.9988,
       "words": 87000,
-      "year_read": 2025
-    },
-    {
-      "author": "Orson Scott Card",
-      "components": {
-        "Aesthetics": {
-          "Narration": 7.5,
-          "Prose": 7.1
-        },
-        "Character": {
-          "Depth": 7.1,
-          "Emotional Impact": 9.7,
-          "Motivations": 7.7
-        },
-        "Story": {
-          "Action": 5.8,
-          "Ending": 8.3,
-          "Entertainment": 6.2,
-          "Plot": 6.1
-        },
-        "Theme": {
-          "Insights": 6.4,
-          "Thought-Provokingness": 7.2
-        },
-        "Worldbuilding": {
-          "Depth2": 7.5,
-          "Integration": 7.0,
-          "Originality": 6.8
-        }
-      },
-      "genre": "Science Fiction (Hard)",
-      "rank": 56,
-      "series": "Ender's Game",
-      "series_number": 4,
-      "tier": "D",
-      "title": "Children of the Mind",
-      "wa": 6.982,
-      "words": 140000,
-      "year_read": 2025
-    },
-    {
-      "author": "Orson Scott Card",
-      "components": {
-        "Aesthetics": {
-          "Narration": 6.4,
-          "Prose": 6.8
-        },
-        "Character": {
-          "Depth": 7.0,
-          "Emotional Impact": 7.3,
-          "Motivations": 6.1
-        },
-        "Story": {
-          "Action": 6.5,
-          "Ending": 7.1,
-          "Entertainment": 5.2,
-          "Plot": 5.64
-        },
-        "Theme": {
-          "Insights": 7.3,
-          "Thought-Provokingness": 8.2
-        },
-        "Worldbuilding": {
-          "Depth2": 7.4,
-          "Integration": 7.0,
-          "Originality": 6.2
-        }
-      },
-      "genre": "Science Fiction (Hard)",
-      "rank": 57,
-      "series": "Ender's Game",
-      "series_number": 3,
-      "tier": "D",
-      "title": "Xenocide",
-      "wa": 6.9811,
-      "words": 150000,
       "year_read": 2025
     },
     {
@@ -2205,6 +2205,44 @@
       "year_read": 2025
     },
     {
+      "author": "Orson Scott Card",
+      "components": {
+        "Aesthetics": {
+          "Narration": 6.7,
+          "Prose": 6.1
+        },
+        "Character": {
+          "Depth": 8.0,
+          "Emotional Impact": 8.3,
+          "Motivations": 6.8
+        },
+        "Story": {
+          "Action": 5.1,
+          "Ending": 8.2,
+          "Entertainment": 7.2,
+          "Plot": 6.5
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 6.5
+        },
+        "Worldbuilding": {
+          "Depth2": 6.8,
+          "Integration": 5.2,
+          "Originality": 6.0
+        }
+      },
+      "genre": "Science Fiction (Soft)",
+      "rank": 59,
+      "series": "Ender's Game",
+      "series_number": 2,
+      "tier": "D",
+      "title": "Ender in Exile",
+      "wa": 6.8771,
+      "words": 130000,
+      "year_read": 2025
+    },
+    {
       "author": "Tad Williams",
       "components": {
         "Aesthetics": {
@@ -2233,13 +2271,51 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 59,
+      "rank": 60,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 1,
       "tier": "D",
       "title": "The Dragonbone Chair",
       "wa": 6.6949,
       "words": 195750,
+      "year_read": 2025
+    },
+    {
+      "author": "Orson Scott Card",
+      "components": {
+        "Aesthetics": {
+          "Narration": 6.0,
+          "Prose": 6.4
+        },
+        "Character": {
+          "Depth": 7.2,
+          "Emotional Impact": 8.8,
+          "Motivations": 6.3
+        },
+        "Story": {
+          "Action": 4.9,
+          "Ending": 7.9,
+          "Entertainment": 5.3,
+          "Plot": 5.7
+        },
+        "Theme": {
+          "Insights": 7.1,
+          "Thought-Provokingness": 7.4
+        },
+        "Worldbuilding": {
+          "Depth2": 5.1,
+          "Integration": 5.4,
+          "Originality": 5.5
+        }
+      },
+      "genre": "Science Fiction (Hard)",
+      "rank": 61,
+      "series": "Ender's Shadow",
+      "series_number": 5,
+      "tier": "D",
+      "title": "Shadows in Flight",
+      "wa": 6.6272,
+      "words": 43000,
       "year_read": 2025
     },
     {
@@ -2271,7 +2347,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 60,
+      "rank": 62,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -2309,51 +2385,13 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 61,
+      "rank": 63,
       "series": "Thrawn Trilogy",
       "series_number": 2,
       "tier": "D",
       "title": "Dark Force Rising",
       "wa": 6.5342,
       "words": 120000,
-      "year_read": 2025
-    },
-    {
-      "author": "Orson Scott Card",
-      "components": {
-        "Aesthetics": {
-          "Narration": 4.8,
-          "Prose": 5.1
-        },
-        "Character": {
-          "Depth": 6.1,
-          "Emotional Impact": 8.8,
-          "Motivations": 6.3
-        },
-        "Story": {
-          "Action": 4.9,
-          "Ending": 7.9,
-          "Entertainment": 4.8,
-          "Plot": 5.2
-        },
-        "Theme": {
-          "Insights": 7.1,
-          "Thought-Provokingness": 7.4
-        },
-        "Worldbuilding": {
-          "Depth2": 5.1,
-          "Integration": 5.4,
-          "Originality": 5.5
-        }
-      },
-      "genre": "Science Fiction (Hard)",
-      "rank": 62,
-      "series": "Ender's Shadow",
-      "series_number": 5,
-      "tier": "D",
-      "title": "Shadows in Flight",
-      "wa": 6.3431,
-      "words": 43000,
       "year_read": 2025
     },
     {
@@ -2385,7 +2423,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 63,
+      "rank": 64,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -2423,7 +2461,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 64,
+      "rank": 65,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -2461,7 +2499,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 65,
+      "rank": 66,
       "series": "Thrawn Trilogy",
       "series_number": 1,
       "tier": "D",
@@ -2499,7 +2537,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 66,
+      "rank": 67,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2537,7 +2575,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 67,
+      "rank": 68,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2575,7 +2613,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 68,
+      "rank": 69,
       "series": "Thrawn Trilogy",
       "series_number": 3,
       "tier": "F",
@@ -2613,7 +2651,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 69,
+      "rank": 70,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2651,7 +2689,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 70,
+      "rank": 71,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2689,7 +2727,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 71,
+      "rank": 72,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2727,7 +2765,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 72,
+      "rank": 73,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 2,
       "tier": "F",
@@ -2765,7 +2803,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 73,
+      "rank": 74,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2785,7 +2823,7 @@
   "tier_counts": {
     "A": 11,
     "B": 18,
-    "C": 18,
+    "C": 19,
     "D": 11,
     "F": 8,
     "S": 7,

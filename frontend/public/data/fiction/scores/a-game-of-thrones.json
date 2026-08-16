@@ -1,0 +1,32 @@
+{
+  "author": "George R.R. Martin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 7.6,
+      "Prose": 8.4
+    },
+    "Character": {
+      "Depth": 9.2,
+      "Emotional Impact": 8.1,
+      "Motivations": 8.7
+    },
+    "Story": {
+      "Action": 8.0,
+      "Ending": 8.3,
+      "Entertainment": 8.6,
+      "Plot": 9.1
+    },
+    "Theme": {
+      "Insights": 7.7,
+      "Thought-Provokingness": 8.5
+    },
+    "Worldbuilding": {
+      "Depth2": 8.9,
+      "Integration": 8.6,
+      "Originality": 7.9
+    }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Game of Thrones",
+  "wa": 8.5465
+}

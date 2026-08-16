@@ -3,30 +3,30 @@
   "components": {
     "Aesthetics": {
       "Narration": 9.4,
-      "Prose": 9.1
+      "Prose": 8.7
     },
     "Character": {
-      "Depth": 9.7,
-      "Emotional Impact": 9.6,
+      "Depth": 9.5,
+      "Emotional Impact": 9.7,
       "Motivations": 9.6
     },
     "Story": {
-      "Action": 7.1,
+      "Action": 6.6,
       "Ending": 9.5,
       "Entertainment": 9.3,
-      "Plot": 9.5
+      "Plot": 9.4
     },
     "Theme": {
       "Insights": 9.0,
-      "Thought-Provokingness": 9.4
+      "Thought-Provokingness": 9.8
     },
     "Worldbuilding": {
-      "Depth2": 9.6,
+      "Depth2": 9.4,
       "Integration": 9.8,
       "Originality": 9.6
     }
   },
   "genre": "Literary Fantasy",
   "title": "The Neverending Story",
-  "wa": 9.329
+  "wa": 9.2947
 }

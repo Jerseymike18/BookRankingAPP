@@ -1,56 +1,56 @@
 {
   "currently_reading": {
-    "author": "N.K. Jemisin",
+    "author": "George R.R. Martin",
     "category_avgs": {
-      "Aesthetics": 7.21,
-      "Character": 6.87,
-      "Story": 6.93,
-      "Theme": 7.72,
-      "Worldbuilding": 7.69
+      "Aesthetics": 7.63,
+      "Character": 7.88,
+      "Story": 6.44,
+      "Theme": 7.79,
+      "Worldbuilding": 7.48
     },
-    "genre": "Science Fiction (Soft)",
+    "genre": "Epic Fantasy",
     "has_prediction": true,
-    "rank": 92,
-    "series": "Broken Earth",
-    "series_number": 3,
-    "title": "The Stone Sky",
-    "total": 131,
-    "wa": 7.16
+    "rank": 96,
+    "series": "A Song of Ice and Fire",
+    "series_number": 4,
+    "title": "A Feast for Crows",
+    "total": 140,
+    "wa": 7.23
   },
   "last_read": {
-    "author": "Guy Gavriel Kay",
+    "author": "Liu Cixin",
     "category_avgs": {
-      "Aesthetics": 9.34,
-      "Character": 8.41,
-      "Story": 7.92,
-      "Theme": 8.75,
-      "Worldbuilding": 6.96
+      "Aesthetics": 5.5,
+      "Character": 7.71,
+      "Story": 6.81,
+      "Theme": 9.27,
+      "Worldbuilding": 7.16
     },
-    "genre": "Literary Fantasy",
+    "genre": "Science Fiction (Hard)",
     "has_prediction": false,
-    "rank": 36,
-    "series": "The Sarantine Mosaic",
-    "series_number": 2,
-    "title": "Lord of Emperors",
-    "total": 131,
-    "wa": 8.37
+    "rank": 64,
+    "series": "Remembrance of Earth's Past",
+    "series_number": 1,
+    "title": "The Three-Body Problem",
+    "total": 140,
+    "wa": 7.82
   },
   "reading_next": {
-    "author": "Guy Gavriel Kay",
+    "author": "George R.R. Martin",
     "category_avgs": {
-      "Aesthetics": 8.54,
-      "Character": 8.52,
-      "Story": 8.39,
-      "Theme": 7.64,
-      "Worldbuilding": 6.79
+      "Aesthetics": 7.9,
+      "Character": 8.19,
+      "Story": 6.49,
+      "Theme": 7.91,
+      "Worldbuilding": 7.73
     },
-    "genre": "Literary Fantasy",
+    "genre": "Epic Fantasy",
     "has_prediction": true,
-    "rank": 44,
-    "series": "The Sarantine Mosaic",
-    "series_number": 2,
-    "title": "Lord of Emperors",
-    "total": 131,
-    "wa": 8.17
+    "rank": 92,
+    "series": "A Song of Ice and Fire",
+    "series_number": 5,
+    "title": "A Dance with Dragons",
+    "total": 140,
+    "wa": 7.4
   }
 }

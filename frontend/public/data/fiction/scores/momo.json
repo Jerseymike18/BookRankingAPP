@@ -7,7 +7,7 @@
     },
     "Character": {
       "Depth": 8.7,
-      "Emotional Impact": 8.7,
+      "Emotional Impact": 9.4,
       "Motivations": 8.5
     },
     "Story": {
@@ -17,8 +17,8 @@
       "Plot": 8.6
     },
     "Theme": {
-      "Insights": 8.8,
-      "Thought-Provokingness": 8.5
+      "Insights": 9.1,
+      "Thought-Provokingness": 8.9
     },
     "Worldbuilding": {
       "Depth2": 0.0,
@@ -28,5 +28,5 @@
   },
   "genre": "Literary Fantasy",
   "title": "Momo",
-  "wa": 8.1028
+  "wa": 8.269
 }

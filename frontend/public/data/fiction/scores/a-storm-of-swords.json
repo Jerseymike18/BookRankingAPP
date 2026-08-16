@@ -1,0 +1,32 @@
+{
+  "author": "George R.R. Martin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 8.5,
+      "Prose": 8.1
+    },
+    "Character": {
+      "Depth": 9.7,
+      "Emotional Impact": 9.1,
+      "Motivations": 9.4
+    },
+    "Story": {
+      "Action": 9.2,
+      "Ending": 9.3,
+      "Entertainment": 9.7,
+      "Plot": 9.6
+    },
+    "Theme": {
+      "Insights": 8.0,
+      "Thought-Provokingness": 9.2
+    },
+    "Worldbuilding": {
+      "Depth2": 9.4,
+      "Integration": 8.8,
+      "Originality": 8.3
+    }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Storm of Swords",
+  "wa": 9.2146
+}

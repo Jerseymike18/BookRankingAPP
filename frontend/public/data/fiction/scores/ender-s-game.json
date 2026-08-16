@@ -2,31 +2,31 @@
   "author": "Orson Scott Card",
   "components": {
     "Aesthetics": {
-      "Narration": 7.1,
-      "Prose": 7.6
+      "Narration": 7.8,
+      "Prose": 8.3
     },
     "Character": {
-      "Depth": 9.3,
-      "Emotional Impact": 9.5,
-      "Motivations": 9.4
+      "Depth": 9.6,
+      "Emotional Impact": 9.3,
+      "Motivations": 9.9
     },
     "Story": {
       "Action": 8.2,
-      "Ending": 9.5,
-      "Entertainment": 8.7,
-      "Plot": 8.7
+      "Ending": 9.8,
+      "Entertainment": 9.4,
+      "Plot": 9.5
     },
     "Theme": {
       "Insights": 9.3,
       "Thought-Provokingness": 9.2
     },
     "Worldbuilding": {
-      "Depth2": 0.0,
-      "Integration": 0.0,
-      "Originality": 0.0
+      "Depth2": 6.5,
+      "Integration": 7.5,
+      "Originality": 6.8
     }
   },
   "genre": "Science Fiction (Hard)",
   "title": "Ender's Game",
-  "wa": 8.4537
+  "wa": 9.0689
 }

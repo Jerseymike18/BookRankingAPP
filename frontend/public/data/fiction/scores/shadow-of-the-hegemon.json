@@ -1,0 +1,32 @@
+{
+  "author": "Orson Scott Card",
+  "components": {
+    "Aesthetics": {
+      "Narration": 5.8,
+      "Prose": 6.2
+    },
+    "Character": {
+      "Depth": 7.6,
+      "Emotional Impact": 6.2,
+      "Motivations": 6.8
+    },
+    "Story": {
+      "Action": 6.0,
+      "Ending": 6.4,
+      "Entertainment": 7.0,
+      "Plot": 6.1
+    },
+    "Theme": {
+      "Insights": 7.3,
+      "Thought-Provokingness": 6.2
+    },
+    "Worldbuilding": {
+      "Depth2": 5.5,
+      "Integration": 4.0,
+      "Originality": 3.0
+    }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "Shadow of the Hegemon",
+  "wa": 6.4013
+}

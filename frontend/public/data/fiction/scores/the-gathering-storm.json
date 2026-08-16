@@ -2,31 +2,31 @@
   "author": "Robert Jordan & Brandon Sanderson",
   "components": {
     "Aesthetics": {
-      "Narration": 7.4,
-      "Prose": 7.5
+      "Narration": 8.5,
+      "Prose": 7.8
     },
     "Character": {
-      "Depth": 9.3,
+      "Depth": 9.6,
       "Emotional Impact": 9.8,
-      "Motivations": 8.9
+      "Motivations": 8.7
     },
     "Story": {
-      "Action": 8.9,
+      "Action": 8.6,
       "Ending": 9.6,
-      "Entertainment": 9.2,
-      "Plot": 9.0
+      "Entertainment": 9.0,
+      "Plot": 8.7
     },
     "Theme": {
-      "Insights": 8.8,
+      "Insights": 9.2,
       "Thought-Provokingness": 9.5
     },
     "Worldbuilding": {
       "Depth2": 8.6,
-      "Integration": 8.8,
+      "Integration": 8.0,
       "Originality": 8.1
     }
   },
   "genre": "Epic Fantasy",
   "title": "The Gathering Storm",
-  "wa": 9.0211
+  "wa": 9.0337
 }

@@ -3,30 +3,30 @@
   "components": {
     "Aesthetics": {
       "Narration": 9.5,
-      "Prose": 9.4
+      "Prose": 9.0
     },
     "Character": {
-      "Depth": 8.9,
-      "Emotional Impact": 9.0,
+      "Depth": 8.6,
+      "Emotional Impact": 8.8,
       "Motivations": 9.3
     },
     "Story": {
-      "Action": 8.0,
+      "Action": 7.6,
       "Ending": 9.2,
-      "Entertainment": 8.9,
+      "Entertainment": 8.7,
       "Plot": 8.8
     },
     "Theme": {
       "Insights": 9.1,
-      "Thought-Provokingness": 9.0
+      "Thought-Provokingness": 8.8
     },
     "Worldbuilding": {
-      "Depth2": 9.3,
-      "Integration": 9.8,
+      "Depth2": 9.0,
+      "Integration": 9.2,
       "Originality": 9.3
     }
   },
   "genre": "Science Fiction (Hard)",
   "title": "The Fall of Hyperion",
-  "wa": 9.0153
+  "wa": 8.8746
 }

@@ -7,14 +7,14 @@
     },
     "Character": {
       "Depth": 7.1,
-      "Emotional Impact": 9.7,
+      "Emotional Impact": 10.0,
       "Motivations": 7.7
     },
     "Story": {
       "Action": 5.8,
-      "Ending": 8.3,
+      "Ending": 8.5,
       "Entertainment": 6.2,
-      "Plot": 6.1
+      "Plot": 7.2
     },
     "Theme": {
       "Insights": 6.4,
@@ -28,5 +28,5 @@
   },
   "genre": "Science Fiction (Hard)",
   "title": "Children of the Mind",
-  "wa": 6.982
+  "wa": 7.1489
 }

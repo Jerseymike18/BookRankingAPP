@@ -2,7 +2,7 @@
   "author": "Robert Jordan",
   "components": {
     "Aesthetics": {
-      "Narration": 8.7,
+      "Narration": 8.4,
       "Prose": 8.2
     },
     "Character": {
@@ -13,20 +13,20 @@
     "Story": {
       "Action": 9.3,
       "Ending": 9.5,
-      "Entertainment": 9.2,
-      "Plot": 9.1
+      "Entertainment": 8.9,
+      "Plot": 8.8
     },
     "Theme": {
-      "Insights": 7.4,
-      "Thought-Provokingness": 8.8
+      "Insights": 8.0,
+      "Thought-Provokingness": 8.3
     },
     "Worldbuilding": {
-      "Depth2": 9.4,
+      "Depth2": 9.0,
       "Integration": 9.2,
       "Originality": 9.1
     }
   },
   "genre": "Epic Fantasy",
   "title": "The Great Hunt",
-  "wa": 8.9208
+  "wa": 8.8095
 }

@@ -6,15 +6,15 @@
       "Prose": 8.5
     },
     "Character": {
-      "Depth": 8.1,
-      "Emotional Impact": 7.3,
+      "Depth": 8.7,
+      "Emotional Impact": 8.0,
       "Motivations": 7.6
     },
     "Story": {
-      "Action": 8.4,
+      "Action": 8.0,
       "Ending": 8.8,
       "Entertainment": 8.1,
-      "Plot": 8.2
+      "Plot": 8.7
     },
     "Theme": {
       "Insights": 7.5,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "Gardens of the Moon",
-  "wa": 8.2108
+  "wa": 8.408
 }

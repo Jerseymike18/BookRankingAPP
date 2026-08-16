@@ -8,25 +8,25 @@
     "Character": {
       "Depth": 8.8,
       "Emotional Impact": 9.0,
-      "Motivations": 9.1
+      "Motivations": 9.4
     },
     "Story": {
       "Action": 9.8,
-      "Ending": 9.5,
-      "Entertainment": 9.4,
-      "Plot": 9.3
+      "Ending": 9.2,
+      "Entertainment": 8.8,
+      "Plot": 8.7
     },
     "Theme": {
-      "Insights": 9.0,
+      "Insights": 8.7,
       "Thought-Provokingness": 8.8
     },
     "Worldbuilding": {
-      "Depth2": 9.5,
+      "Depth2": 9.3,
       "Integration": 9.1,
       "Originality": 9.3
     }
   },
   "genre": "Epic Fantasy",
   "title": "The Bonehunters",
-  "wa": 9.1751
+  "wa": 8.9846
 }

@@ -7,13 +7,13 @@
     },
     "Character": {
       "Depth": 9.0,
-      "Emotional Impact": 9.5,
+      "Emotional Impact": 8.6,
       "Motivations": 9.2
     },
     "Story": {
       "Action": 8.7,
       "Ending": 9.0,
-      "Entertainment": 9.2,
+      "Entertainment": 8.8,
       "Plot": 8.5
     },
     "Theme": {
@@ -21,12 +21,12 @@
       "Thought-Provokingness": 7.9
     },
     "Worldbuilding": {
-      "Depth2": 8.8,
-      "Integration": 9.3,
+      "Depth2": 8.5,
+      "Integration": 9.0,
       "Originality": 8.4
     }
   },
   "genre": "Epic Fantasy",
   "title": "Knife of Dreams",
-  "wa": 8.8054
+  "wa": 8.6503
 }

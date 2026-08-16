@@ -1,0 +1,32 @@
+{
+  "author": "Orson Scott Card",
+  "components": {
+    "Aesthetics": {
+      "Narration": 6.7,
+      "Prose": 6.1
+    },
+    "Character": {
+      "Depth": 8.0,
+      "Emotional Impact": 8.3,
+      "Motivations": 6.8
+    },
+    "Story": {
+      "Action": 5.1,
+      "Ending": 8.2,
+      "Entertainment": 7.2,
+      "Plot": 6.5
+    },
+    "Theme": {
+      "Insights": 7.9,
+      "Thought-Provokingness": 6.5
+    },
+    "Worldbuilding": {
+      "Depth2": 6.8,
+      "Integration": 5.2,
+      "Originality": 6.0
+    }
+  },
+  "genre": "Science Fiction (Soft)",
+  "title": "Ender in Exile",
+  "wa": 6.8771
+}

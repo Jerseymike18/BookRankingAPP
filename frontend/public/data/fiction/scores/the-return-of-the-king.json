@@ -13,12 +13,12 @@
     "Story": {
       "Action": 8.0,
       "Ending": 8.5,
-      "Entertainment": 8.2,
-      "Plot": 8.0
+      "Entertainment": 8.6,
+      "Plot": 8.5
     },
     "Theme": {
       "Insights": 8.0,
-      "Thought-Provokingness": 7.9
+      "Thought-Provokingness": 8.4
     },
     "Worldbuilding": {
       "Depth2": 10.0,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Return of the King",
-  "wa": 8.6531
+  "wa": 8.7988
 }

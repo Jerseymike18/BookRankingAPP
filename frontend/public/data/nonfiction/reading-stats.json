@@ -2,55 +2,55 @@
   "by_author": [
     {
       "author": "Jonathan Haidt",
-      "avg_wa": 8.61,
+      "avg_wa": 8.49,
       "books": 1
     },
     {
       "author": "Niccolò Machiavelli",
-      "avg_wa": 7.87,
-      "books": 1
-    },
-    {
-      "author": "Sigmund Freud",
-      "avg_wa": 7.58,
+      "avg_wa": 8.13,
       "books": 1
     },
     {
       "author": "Augustine",
-      "avg_wa": 7.38,
+      "avg_wa": 7.83,
+      "books": 1
+    },
+    {
+      "author": "Sigmund Freud",
+      "avg_wa": 7.56,
       "books": 1
     },
     {
       "author": "Ben Mezrich",
-      "avg_wa": 6.46,
+      "avg_wa": 7.02,
       "books": 1
     },
     {
       "author": "Friedrich Nietzsche",
-      "avg_wa": 5.15,
+      "avg_wa": 5.24,
       "books": 1
     }
   ],
   "by_genre": [],
   "per_year": [
     {
-      "avg_total_average": 7.48,
-      "avg_wa": 7.48,
+      "avg_total_average": 7.73,
+      "avg_wa": 7.78,
       "avg_words": null,
       "books": 3,
       "year": 2025
     },
     {
-      "avg_total_average": 6.99,
-      "avg_wa": 6.87,
+      "avg_total_average": 6.91,
+      "avg_wa": 6.98,
       "avg_words": null,
       "books": 3,
       "year": 2026
     }
   ],
   "summary": {
-    "avg_total_average": 7.23,
-    "avg_wa": 7.18,
+    "avg_total_average": 7.32,
+    "avg_wa": 7.38,
     "avg_words": null,
     "total_books": 6
   }

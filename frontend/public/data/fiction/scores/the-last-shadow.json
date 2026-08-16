@@ -11,22 +11,22 @@
       "Motivations": 4.4
     },
     "Story": {
-      "Action": 1.5,
+      "Action": 2.0,
       "Ending": 1.0,
-      "Entertainment": 1.8,
-      "Plot": 1.7
+      "Entertainment": 4.9,
+      "Plot": 3.5
     },
     "Theme": {
       "Insights": 3.2,
-      "Thought-Provokingness": 1.5
+      "Thought-Provokingness": 5.1
     },
     "Worldbuilding": {
-      "Depth2": 1.8,
-      "Integration": 1.4,
+      "Depth2": 4.6,
+      "Integration": 3.2,
       "Originality": 3.7
     }
   },
   "genre": "Science Fiction (Hard)",
   "title": "The Last Shadow",
-  "wa": 2.2993
+  "wa": 3.7824
 }

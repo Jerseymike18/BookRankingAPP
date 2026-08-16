@@ -2,31 +2,31 @@
   "author": "Steven Erikson",
   "components": {
     "Aesthetics": {
-      "Narration": 9.6,
-      "Prose": 9.2
+      "Narration": 9.9,
+      "Prose": 9.5
     },
     "Character": {
       "Depth": 9.7,
       "Emotional Impact": 10.0,
-      "Motivations": 9.4
+      "Motivations": 9.9
     },
     "Story": {
       "Action": 9.3,
-      "Ending": 9.8,
-      "Entertainment": 9.4,
-      "Plot": 9.2
+      "Ending": 9.9,
+      "Entertainment": 9.1,
+      "Plot": 9.5
     },
     "Theme": {
       "Insights": 9.4,
-      "Thought-Provokingness": 9.6
+      "Thought-Provokingness": 9.7
     },
     "Worldbuilding": {
-      "Depth2": 9.9,
-      "Integration": 9.8,
+      "Depth2": 9.6,
+      "Integration": 9.4,
       "Originality": 9.5
     }
   },
   "genre": "Epic Fantasy",
   "title": "The Crippled God",
-  "wa": 9.5582
+  "wa": 9.6076
 }

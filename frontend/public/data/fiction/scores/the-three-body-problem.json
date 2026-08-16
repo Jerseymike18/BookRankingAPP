@@ -1,0 +1,32 @@
+{
+  "author": "Liu Cixin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 5.3,
+      "Prose": 5.9
+    },
+    "Character": {
+      "Depth": 8.2,
+      "Emotional Impact": 9.0,
+      "Motivations": 6.8
+    },
+    "Story": {
+      "Action": 5.4,
+      "Ending": 8.8,
+      "Entertainment": 7.9,
+      "Plot": 6.2
+    },
+    "Theme": {
+      "Insights": 8.4,
+      "Thought-Provokingness": 9.7
+    },
+    "Worldbuilding": {
+      "Depth2": 6.3,
+      "Integration": 8.4,
+      "Originality": 8.8
+    }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "The Three-Body Problem",
+  "wa": 7.8164
+}

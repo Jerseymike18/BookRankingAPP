@@ -8,25 +8,25 @@
     "Character": {
       "Depth": 9.3,
       "Emotional Impact": 9.4,
-      "Motivations": 9.6
+      "Motivations": 9.2
     },
     "Story": {
       "Action": 7.2,
       "Ending": 8.5,
-      "Entertainment": 9.4,
-      "Plot": 9.5
+      "Entertainment": 9.1,
+      "Plot": 9.2
     },
     "Theme": {
-      "Insights": 9.3,
-      "Thought-Provokingness": 9.5
+      "Insights": 9.0,
+      "Thought-Provokingness": 9.6
     },
     "Worldbuilding": {
       "Depth2": 9.4,
       "Integration": 9.1,
-      "Originality": 9.6
+      "Originality": 9.2
     }
   },
   "genre": "Science Fiction (Hard)",
   "title": "Hyperion",
-  "wa": 9.2409
+  "wa": 9.1456
 }

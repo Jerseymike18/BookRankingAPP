@@ -13,8 +13,8 @@
     "Story": {
       "Action": 10.0,
       "Ending": 9.4,
-      "Entertainment": 9.9,
-      "Plot": 8.9
+      "Entertainment": 9.6,
+      "Plot": 9.1
     },
     "Theme": {
       "Insights": 8.4,
@@ -28,5 +28,5 @@
   },
   "genre": "Science Fiction (Soft)",
   "title": "Dark Age",
-  "wa": 8.8803
+  "wa": 8.8878
 }

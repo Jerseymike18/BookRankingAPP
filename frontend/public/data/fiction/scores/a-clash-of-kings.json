@@ -1,0 +1,32 @@
+{
+  "author": "George R.R. Martin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 8.3,
+      "Prose": 7.8
+    },
+    "Character": {
+      "Depth": 9.4,
+      "Emotional Impact": 8.8,
+      "Motivations": 8.3
+    },
+    "Story": {
+      "Action": 8.6,
+      "Ending": 7.5,
+      "Entertainment": 8.4,
+      "Plot": 9.2
+    },
+    "Theme": {
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.2
+    },
+    "Worldbuilding": {
+      "Depth2": 9.2,
+      "Integration": 8.4,
+      "Originality": 8.0
+    }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Clash of Kings",
+  "wa": 8.6011
+}
