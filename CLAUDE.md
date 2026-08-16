@@ -219,12 +219,25 @@ crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA 
 while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
 re-litigate this without a bigger library.
 
-> **Caveat on the RANK half of that (added 2026-08-14).** The sd/range figures are sound — they
-> measure research variance on the predicted book and don't depend on the library. The *rank*
-> claims do: they were computed against local `books.db`, whose nonfiction rows were a stale
-> partial-vector mirror of the live app's. The neighbour WAs were therefore wrong, so treat
-> "0.03 under a neighbour / 1 of 7 crossed" as indicative only. Local `books.db` is NOT the
-> owner's data — see the note in the security section.
+> **RANK half REDONE against the live library (owner-supplied, 2026-08-14).** The sd/range figures
+> above are sound — they measure research variance on the predicted book and don't depend on the
+> library — but the original rank claims used local `books.db`, whose nonfiction rows were a stale
+> partial-vector mirror. Corrected with the live WAs
+> (8.49 / 8.13 / 7.83 / 7.56 / 7.02 / 5.24):
+>
+> - **live gaps `[0.27, 0.30, 0.36, 0.54, 1.78]`, median 0.36** — the stale copy implied a median of
+>   0.74, so the real library is about twice as dense in the middle as first reported.
+> - The useful ratio is **noise range ÷ local gap** ≈ the chance a re-predict moves the book's rank.
+>   Nonfiction: 0.159 / 0.36 ≈ **~40%** for a typically-placed book. So a one-place flip is
+>   common, not rare — the earlier "occasional" understated it.
+> - The test book was an extreme, not a typical case: *Beyond Good and Evil* means 7.549, which sits
+>   **0.011** under *Future of an Illusion* (7.56). Against the live library it ranks #4 in 3 of 7
+>   samples and #5 in 4 — a coin flip, versus the 1-in-7 the stale copy suggested.
+>
+> Corrected framing: rank instability is **not** about n=6 as such. It is proximity to a boundary,
+> and nonfiction's gaps are wide enough that only near-boundary books move. Fiction is the opposite
+> and far worse — see the fiction table below, where the median gap (0.021) is *smaller than the
+> noise itself*, so the ratio saturates and rank moves essentially every press.
 
 **Measured fiction run-to-run variance (2026-08-14, n=6 forced calls each on two books, zero
 library change).** Unlike nonfiction's, fiction's noise floor is **not one number — it is
@@ -246,10 +259,17 @@ Plausible mechanism, NOT established at n=2 books: variance tracks how contested
 is. The Silmarillion's biggest movers were Action (sd 0.31), Plot (0.23), Emotional Impact (0.23) —
 exactly what readers disagree about — while Crime and Punishment's reception is settled.
 
-Same caveat as the nonfiction table: the sd/range columns are sound, but the rank spreads and the
-0.021 median gap were computed against local `books.db` (131 fiction books) rather than the live
-library (140 at the time). Density is if anything higher live, so the direction holds — the exact
-place-counts are indicative.
+Caveat: the sd/range columns are sound, but the rank spreads and the 0.021 median gap were computed
+against local `books.db` (131 fiction books) rather than the live library (140 at the time), and
+have NOT been redone against live the way the nonfiction ones were. Density is if anything higher
+live, so the direction holds and the ratio below only gets worse — the exact place-counts are
+indicative.
+
+**The one number to carry across both tracks: noise range ÷ local WA gap**, which approximates the
+chance a re-predict moves the book's rank. Nonfiction ≈ 0.159/0.36 ≈ 40% (a one-place flip is
+common). Fiction ≈ 0.072–0.327 / 0.021 ≈ **3× to 15×** — the ratio saturates, so rank moves on
+essentially every press, by several places. This is why the standing guidance is act on WA, ignore
+rank movement from a re-predict.
 
 Two mechanics worth knowing before re-measuring: `force` bypasses only the **memory** research
 cache, so the 6 web-grounded components (Depth, Depth2, Ending, Insights, Integration, Originality)
