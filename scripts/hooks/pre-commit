@@ -17,8 +17,19 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 0) Hard-constraint lint (CLAUDE.md HARD CONSTRAINTS) on the STAGED diff, BEFORE
 #    any snapshot work — so it runs on EVERY commit, not just data commits, and a
 #    violation blocks early. Fast: diff-scoped, no test run. (See lint_constraints.py.)
+#
+#    The engine-immutability check is DEFERRED to the commit-msg hook: git has not
+#    written the commit message yet at this point, so its 'engine-change: <reason>'
+#    marker cannot be read here (COMMIT_EDITMSG still holds the PREVIOUS message).
+#    Deferring only when that hook is actually installed keeps an older hook set
+#    failing closed instead of silently skipping the check.
 if command -v python3 >/dev/null 2>&1; then
-  if ! python3 "$REPO_ROOT/scripts/lint_constraints.py"; then
+  DEFER_ENGINE=""
+  if [ -x "$HERE/commit-msg" ]; then
+    DEFER_ENGINE="--defer-engine"
+  fi
+  # shellcheck disable=SC2086  # intentional word-split: empty means "no flag"
+  if ! python3 "$REPO_ROOT/scripts/lint_constraints.py" $DEFER_ENGINE; then
     echo "✗ pre-commit: hard-constraint lint FAILED — commit blocked." >&2
     echo "  Each ERROR above prints its own fix. A SANCTIONED engine change is" >&2
     echo "  allowed by adding 'engine-change: <reason>' to the commit message body" >&2

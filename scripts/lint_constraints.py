@@ -21,11 +21,25 @@ Checks:
   6 design-tokens     a NEW hex color literal in frontend/ outside globals.css        WARN
   7 secrets           apikey.txt/apikey.py or an sk-ant-… key in the diff             ERROR
 
-  * ERROR unless the commit-message body carries an `engine-change:` marker (the
-    deliberate escape hatch — a sanctioned engine change is possible but never
-    accidental). In pre-commit the marker is read from COMMIT_EDITMSG; in
-    --range mode from the range's commit logs; the env var
-    LINT_CONSTRAINTS_ALLOW_ENGINE=1 overrides in either.
+  * ERROR unless the commit-message body carries an `engine-change: <reason>`
+    marker (the deliberate escape hatch — a sanctioned engine change is possible
+    but never accidental). The marker must carry an actual reason; a bare
+    `engine-change:` does not count, and one parked in a '#' template comment does
+    not either, since git strips those from the final message.
+
+    WHERE THE MARKER IS READ FROM — this is timing-sensitive. Git runs pre-commit
+    BEFORE it writes .git/COMMIT_EDITMSG, so at pre-commit time that file still
+    holds the PREVIOUS commit's message: the marker for the commit being made is
+    literally unreadable there, and with `git commit -m/-F` it never appears at
+    all. Reading it there checked the wrong text and refused every sanctioned
+    change. So the check is SPLIT:
+      * pre-commit runs `--defer-engine`  → engine edits reported as a WARN
+      * commit-msg runs `--engine-only --message-file "$1"` → the real gate, on
+        the real message, which git passes as $1
+      * --range mode (CI) reads the range's commit logs, which are already final
+      * LINT_CONSTRAINTS_ALLOW_ENGINE=1 overrides in any of them
+    pre-commit only defers when scripts/hooks/commit-msg is actually installed, so
+    an older hook set still fails closed rather than silently skipping the check.
 
 SCOPING NOTES (why the ERROR checks pass clean on HEAD — see also the brief):
   * Check 2 exempts db_write.py, db_backend.py, migrate_*.py, backfill_*.py,
@@ -40,7 +54,9 @@ SCOPING NOTES (why the ERROR checks pass clean on HEAD — see also the brief):
     Comments and generated trees (frontend/public, frontend/.next) are ignored.
 
 Usage:
-    python3 scripts/lint_constraints.py                 # staged diff (pre-commit)
+    python3 scripts/lint_constraints.py                 # staged diff
+    python3 scripts/lint_constraints.py --defer-engine  # pre-commit
+    python3 scripts/lint_constraints.py --engine-only --message-file "$1"   # commit-msg
     python3 scripts/lint_constraints.py --range main..HEAD
     python3 scripts/lint_constraints.py --all           # whole tree, global checks only
     python3 scripts/lint_constraints.py --json
@@ -126,18 +142,44 @@ def _git_dir() -> Path:
     return path if path.is_absolute() else (ROOT / path)
 
 
-def engine_change_allowed(range_spec) -> bool:
-    """True if the deliberate escape hatch is present."""
+# The escape hatch, and it must carry an actual reason — a bare "engine-change:"
+# is not a justification. Matched per-line so it can't be satisfied by the phrase
+# appearing mid-sentence in unrelated prose.
+_MARKER_RE = re.compile(r"^[ \t]*engine-change:[ \t]*(\S.*)$",
+                        re.IGNORECASE | re.MULTILINE)
+
+
+def _strip_git_comments(body: str) -> str:
+    """Drop the '#' scissor/help lines git appends to a message template. They are
+    stripped from the final commit anyway, so a marker parked in one is not really
+    in the message and must not count."""
+    return "\n".join(ln for ln in body.splitlines()
+                     if not ln.lstrip().startswith("#"))
+
+
+def engine_change_allowed(range_spec, message_file=None) -> bool:
+    """True if the deliberate escape hatch is present.
+
+    `message_file` is the path git hands a commit-msg hook. Prefer it: at
+    pre-commit time git has NOT yet written COMMIT_EDITMSG (that file still holds
+    the PREVIOUS commit's message), so reading it there silently checks the wrong
+    text — which is why the marker is validated from the commit-msg hook instead.
+    """
     if os.environ.get("LINT_CONSTRAINTS_ALLOW_ENGINE"):
         return True
-    if range_spec:
+    if message_file:
+        try:
+            body = Path(message_file).read_text(encoding="utf-8")
+        except OSError:
+            body = ""
+    elif range_spec:
         body = _git("log", "--format=%B", range_spec).stdout
     else:
         try:
             body = (_git_dir() / "COMMIT_EDITMSG").read_text(encoding="utf-8")
         except OSError:
             body = ""
-    return "engine-change:" in body
+    return _MARKER_RE.search(_strip_git_comments(body)) is not None
 
 
 # ── file helpers ────────────────────────────────────────────────────────────────
@@ -207,9 +249,22 @@ def _reintroduces_resid_ci(line: str) -> bool:
 
 
 # ── checks ──────────────────────────────────────────────────────────────────────
-def check_engine_immutability(results, changed_files, range_spec):
+def check_engine_immutability(results, changed_files, range_spec,
+                              message_file=None, defer=False):
+    """`defer=True` is the pre-commit posture: the commit message does not exist
+    yet, so record that engine files were touched and let the commit-msg hook make
+    the real call. Deferring is only safe because that hook re-runs this check with
+    the actual message — pre-commit passes --defer-engine only when it is installed."""
     touched = sorted(f for f in changed_files if _base(f) in ENGINE_FILES)
-    if touched and not engine_change_allowed(range_spec):
+    if not touched:
+        return
+    if defer:
+        results["warns"].append(Finding(
+            "WARN", "engine-immutable", ", ".join(touched),
+            "read-only engine file(s) modified — the 'engine-change: <reason>' "
+            "marker is verified by the commit-msg hook, once the message exists."))
+        return
+    if not engine_change_allowed(range_spec, message_file):
         results["errors"].append(Finding(
             "ERROR", "engine-immutable", ", ".join(touched),
             "read-only engine file(s) modified. If this is a sanctioned change, "
@@ -339,10 +394,20 @@ def _whole_tree_source(tracked):
     return source
 
 
-def lint(mode="staged", range_spec=None) -> dict:
+def lint(mode="staged", range_spec=None, message_file=None,
+         defer_engine=False, engine_only=False) -> dict:
     """mode ∈ {'staged','range','all'}. Returns {'errors','warns'} of Findings.
-    Read-only; nothing here writes."""
+    Read-only; nothing here writes.
+
+    `engine_only` runs just the immutability check — the commit-msg posture, where
+    every other check already ran at pre-commit and re-running them would print
+    every warning twice."""
     results = {"errors": [], "warns": []}
+
+    if engine_only:
+        check_engine_immutability(results, _diff_name_only(range_spec),
+                                  range_spec, message_file, defer=False)
+        return results
 
     if mode == "all":
         tracked = _tracked_files()
@@ -358,7 +423,8 @@ def lint(mode="staged", range_spec=None) -> dict:
     # diff modes: staged (default) or range
     changed = _diff_name_only(range_spec)
     added = _diff_added(range_spec)
-    check_engine_immutability(results, changed, range_spec)
+    check_engine_immutability(results, changed, range_spec, message_file,
+                              defer=defer_engine)
     check_write_path(results, added)
     check_resid_ci(results, added, diff_mode=True)
     check_supabase_static(results, [f for f in changed if _is_frontend_src(f)])
@@ -388,14 +454,27 @@ def main(argv=None) -> int:
     g.add_argument("--all", action="store_true",
                    help="whole tree, global checks only")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
+    ap.add_argument("--message-file", metavar="PATH",
+                    help="read the engine-change marker from this file "
+                         "(the path git hands a commit-msg hook)")
+    ap.add_argument("--defer-engine", action="store_true",
+                    help="report engine-file edits as a WARN instead of an ERROR, "
+                         "because a later commit-msg hook does the real check")
+    ap.add_argument("--engine-only", action="store_true",
+                    help="run ONLY the engine-immutability check (commit-msg hook)")
     args = ap.parse_args(argv)
 
     if args.all:
         result = lint(mode="all")
     elif args.range:
-        result = lint(mode="range", range_spec=args.range)
+        result = lint(mode="range", range_spec=args.range,
+                      message_file=args.message_file,
+                      defer_engine=args.defer_engine,
+                      engine_only=args.engine_only)
     else:
-        result = lint(mode="staged")
+        result = lint(mode="staged", message_file=args.message_file,
+                      defer_engine=args.defer_engine,
+                      engine_only=args.engine_only)
 
     if args.json:
         print(json.dumps({

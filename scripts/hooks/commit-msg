@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# commit-msg — the engine-immutability gate, checked against the REAL message.
+#
+# Why this hook exists at all: git runs pre-commit BEFORE it writes the commit
+# message, so a pre-commit check cannot see the message being written. It reads
+# .git/COMMIT_EDITMSG, which at that moment still holds the PREVIOUS commit's
+# message — and with `git commit -m` / `-F` the new message never lands there
+# before the hook runs. The result was that a sanctioned engine change could not
+# be approved by writing 'engine-change: <reason>', because that line was
+# invisible; the only way through was the env-var override, which meant the
+# marker was never actually verified.
+#
+# commit-msg is the first hook that receives the real message: git passes its
+# path as $1. So pre-commit now DEFERS the engine check (reports a WARN) and this
+# hook makes the binding call. Everything else stays in pre-commit.
+#
+# `git commit --no-verify` bypasses this hook, same as pre-commit.
+#
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/hooks/_common.sh
+. "$HERE/_common.sh"
+
+MSG_FILE="$1"
+
+if ! command -v python3 >/dev/null 2>&1; then
+  exit 0
+fi
+
+if ! python3 "$REPO_ROOT/scripts/lint_constraints.py" \
+       --engine-only --message-file "$MSG_FILE"; then
+  echo "✗ commit-msg: engine-immutability check FAILED — commit blocked." >&2
+  echo "  You changed a read-only engine file (predict_engine / db_loader /" >&2
+  echo "  views / nonfiction_engine). If the change is sanctioned, add a line" >&2
+  echo "  to the commit message body giving the reason:" >&2
+  echo "" >&2
+  echo "      engine-change: <why this is intentional>" >&2
+  echo "" >&2
+  echo "  Otherwise revert the engine edit. (LINT_CONSTRAINTS_ALLOW_ENGINE=1" >&2
+  echo "  overrides, but prefer the marker — it stays in the history.)" >&2
+  exit 1
+fi

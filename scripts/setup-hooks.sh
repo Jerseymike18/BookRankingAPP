@@ -23,6 +23,8 @@ echo "✓ Publish hooks active for this clone."
 echo "  core.hooksPath = $(git -C "$REPO_ROOT" config core.hooksPath)"
 echo "    • pre-commit — hard-constraint lint (lint_constraints.py), then a data"
 echo "                   change auto-regenerates & stages the snapshot"
+echo "    • commit-msg — verifies the 'engine-change: <reason>' marker against the"
+echo "                   real message (pre-commit runs too early to see it)"
 echo "    • pre-push   — blocks a stale/invalid snapshot, then a doc-drift audit"
 echo "                   (lint_docs.py --no-run-tests)"
 echo
