@@ -248,12 +248,11 @@ book-dependent, spanning ~4x**:
 | Crime and Punishment | 2 | 0.026 | 0.072 | 3% | 3 places (17–20) |
 | The Silmarillion | 4 | 0.112 | 0.327 | 13% | 13 places (79–92) |
 
-**WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%)
-and against the engine's honest walk-forward MAE (0.636) — so the WA estimate is trustworthy. But
-the fiction library is dense: 131 books with a **median adjacent-WA gap of 0.021**, so even the
-quiet book moved 3 places on pure noise and the contested one moved 13. Do not read a rank move of
-under ~10 places from a re-predict as signal. (Contrast nonfiction: sd 0.052 but only 6 books, so
-big gaps and near-total rank stability — the two tracks are fragile in opposite ways.)
+**WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%) and
+against the engine's honest walk-forward MAE (0.628) — so the WA estimate is trustworthy. Rank is
+not; the live-library figures below quantify it. Do not read a rank move from a re-predict as
+signal. (Nonfiction is fragile in the opposite way: its noise is *larger* relative to its band, but
+its gaps are wider than its noise, so only near-boundary books move.)
 
 Plausible mechanism, NOT established at n=2 books: variance tracks how contested a book's reception
 is. The Silmarillion's biggest movers were Action (sd 0.31), Plot (0.23), Emotional Impact (0.23) —
@@ -323,14 +322,26 @@ Rules for the **unauthenticated (local / showcase) posture:**
   first adding authentication and reviewing every write/delete endpoint.
 - Do not put this behind a public reverse proxy without auth.
 
-**`books.db` is NOT the owner's data.** The hosted Postgres is the sole source of truth (owner
-decision 2026-07-12); the committed `books.db` is a stale mirror that drifts further every day. It
-is fine for exercising CODE (engine behaviour, endpoint wiring, throwaway-copy tests) and worthless
-for CLAIMS about what has been rated, owned, or is missing. Nothing here can read live Postgres, so
-a data-completeness claim must come from the owner or an authenticated live call — otherwise say it
-can't be checked. (Burned 2026-08-14: reported the 6 nonfiction books as missing half their
-components and proposed building a rating page; they were fully rated live, and the editing UI
-already existed in `RankingsView`, kind-parametrized.)
+**`books.db` drifts from the live app — refresh it before any claim about the data.** The hosted
+Postgres is the sole source of truth (owner decision 2026-07-12) and nothing syncs automatically,
+so the committed `books.db` goes stale from the moment the owner edits anything on the site.
+
+    python3 scripts/refresh_from_live.py            # dry run: show the drift
+    python3 scripts/refresh_from_live.py --write    # pull it down (backs up first)
+
+**Standing practice (owner decision 2026-08-15): run the dry run before analysing the owner's
+library, and `--write` before making any claim about what they have rated, own, or are missing.**
+The file is fine unrefreshed for exercising CODE — engine behaviour, endpoint wiring,
+throwaway-copy tests — because those don't depend on which books are in it. It is worthless
+unrefreshed for claims about the data. If the refresh can't run, say the claim is unchecked rather
+than reading the file anyway.
+
+Why this is a rule and not a nicety: on 2026-08-14 the stale copy produced two confident and wrong
+conclusions in one session — that the 6 nonfiction books were missing half their components (they
+were fully rated live) and that no UI existed to enter them (`RankingsView` has been
+kind-parametrized all along). The first refresh, on 2026-08-15, pulled +9 books, +32 recommendations,
++45 nonfiction recommendations and +66 delta_log rows, and surfaced two data ERRORs the lint had
+never seen because the rows weren't in the local file.
 
 **Middleware order is load-bearing.** `_cors_safe_errors` MUST stay registered *before*
 `CORSMiddleware` in `backend/main.py` (`add_middleware` builds the stack so the last registered is
