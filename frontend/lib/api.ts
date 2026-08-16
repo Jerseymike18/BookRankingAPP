@@ -623,6 +623,27 @@ export async function fetchSeriesTiers(kind: BookKind = "fiction", token?: Serve
   return res.json();
 }
 
+/** Mark a series finished (or ongoing again). Only a finished series gets a
+ *  Finale term in its score — an ongoing one is never charged for an ending it
+ *  hasn't written yet. Fiction only; nonfiction series have no quality terms. */
+export async function setSeriesComplete(
+  series: string,
+  complete: boolean
+): Promise<{ ok: boolean; series: string; complete: boolean }> {
+  assertWritable();
+  const res = await apiFetch(
+    `${API}/api/series/${encodeURIComponent(series)}/complete`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ complete }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
 export async function fetchTimeline(kind: BookKind = "fiction", token?: ServerToken): Promise<TimelineResponse> {
   if (STATIC) return getJSON<TimelineResponse>(`${kind}/timeline.json`);
   const res = await apiFetch(`${base(kind)}/timeline`, { cache: "no-store" }, token);

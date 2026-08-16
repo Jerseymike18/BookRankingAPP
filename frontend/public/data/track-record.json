@@ -1267,8 +1267,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.8056,
-      "actual_wa": 9.7028,
+      "abs_error": 0.7771,
+      "actual_wa": 9.6743,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 91,
@@ -1276,7 +1276,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 8,
-      "signed_error": -0.8056,
+      "signed_error": -0.7771,
       "title": "Toll the Hounds",
       "year_read": 2026
     },
@@ -1955,9 +1955,9 @@
   ],
   "headline": {
     "n_books": 139,
-    "naive_wa_mae": 0.8824,
-    "raw_wa_mae": 0.6274,
-    "wa_mae": 0.5051
+    "naive_wa_mae": 0.8822,
+    "raw_wa_mae": 0.6272,
+    "wa_mae": 0.5049
   },
   "interval_coverage": {
     "served_conformal": {
@@ -2000,9 +2000,9 @@
     },
     {
       "genre": "Epic Fantasy",
-      "honest_mae": 0.4723,
+      "honest_mae": 0.4718,
       "n": 57,
-      "raw_mae": 0.6091
+      "raw_mae": 0.6086
     },
     {
       "genre": "Science Fantasy",

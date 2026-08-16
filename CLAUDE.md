@@ -33,14 +33,20 @@ pipeline — see **Publishing** below and `README.md`.
 1. **Never touch prediction/derived math.** `predict_engine.py`, `db_loader.py`, and
    `views.py` are read-only reference implementations. The frontend and endpoints call them;
    they never reimplement or duplicate their logic. WA computation, tier banding, and series
-   Adjusted WA all live here and stay here.
+   Adjusted WA all live here and stay here. The **series-quality model** is the one piece
+   of this that was deliberately reworked (owner decision, 2026-08-16): it is OWNED by
+   `views.py` and belongs there, but it is no longer a frozen port of the spreadsheet
+   formula. Change it only on an explicit request, and re-run `test_series_score.py`.
+   `db_loader` also now passes `series_number` through as a `"Series #"` column — a
+   read-only passthrough like `year_read`/`status`, which the series model needs to
+   order a series and find its final volume.
 
 2. **All writes go through `db_write.py`.** Never write direct SQL to the database from the
    backend or anywhere else. Use the existing validated functions only (e.g.
    `add_book`, `change_rating`, `delete_book`, `set_year_read`, `set_status`,
    `update_queue`, `add_recommendation`, `set_recommendation_meta`,
    `update_recommendation_scores`, `update_book_metadata`, `set_series_number`, `set_done`,
-   `set_score_anchors`, `reset_score_anchors`, plus the nonfiction equivalents —
+   `set_score_anchors`, `reset_score_anchors`, `set_series_complete`, plus the nonfiction equivalents —
    including `update_nonfiction_recommendation_scores`, the in-place nonfiction score
    writer added 2026-08-14). Do not add new write functions unless explicitly asked.
 
@@ -48,6 +54,13 @@ pipeline — see **Publishing** below and `README.md`.
    series_number, words, year_read, status` plus the 14 component columns. `recommendations`
    has the same components plus `series_number, done, blurb, keywords`. Do **not** add columns
    without an explicit schema-change task that goes through `db_write`.
+   - **`series_meta`** (added 2026-08-16 with owner authorization) is the one place a fact
+     about a series AS A WHOLE can live — a series is only a grouping of `books` rows by the
+     free-text `series` column, so there is no row to hang it on. Sparse per-tenant
+     (`user_id, series, complete`), self-healing via `db_write._ensure_series_meta`, written
+     only through `db_write.set_series_complete`. **No row means not complete**, which is the
+     safe default: it suppresses the Finale term rather than penalising a series for an
+     ending it hasn't written. Unmarking deletes the row instead of storing a zero.
 
 4. **`test_engine.py` must stay at a clean pass (every check PASSES, no `[FAIL]` lines —
    currently 38/38).** The DB is the source of truth; the Excel workbook is import-only, so
@@ -385,8 +398,28 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 
 - **WA:** weighted sum of `WStoryAvg × Story% + WCharAvg × Char% + WThemeAvg × Theme% +
   WAesAvg × Aes% + WWBAvg × WB%` per genre weights.
-- **Series Adjusted WA:** `avg_WA + 0.0582 × (1.18^(n−1) − 1) − max(0, 3−n) × 0.2`
-  (length bonus above 1 book; short-series penalty below 3).
+- **Series score (`views.series_quality_terms` / `series_aggregate`):**
+  `avg_WA + Commitment + clamp(Peak − Floor + Finale, ±0.75)`. Each modifier prices
+  something a mean over books is structurally blind to (a mean is order- and
+  spread-invariant), and **every term is a deviation from the series' own average,
+  never a level** — that is what stops them re-weighting avg WA. Measured on the
+  reference library, the level forms ("the finale's Ending", "the best book's WA")
+  correlate 0.84–0.95 with avg WA; the deviation forms correlate −0.14 to +0.45.
+  - **Commitment** = `0.0582 × (1.18^(n−1) − 1) − max(0, 3−n) × 0.2` — the original
+    length bonus / short-series penalty, unchanged and **outside** the ±0.75 budget.
+  - **Peak** = `0.30 × (max_WA − avg_WA)`, capped +0.35 — it produced a standout.
+  - **Floor** = `0.25 × max(0, (avg_WA − min_WA) − 0.40)`, capped 0.45 — it contains a
+    dud, with the first 0.40 of drop forgiven as normal book-to-book variation.
+  - **Finale** = `0.15 × (final volume's Ending − mean Ending)`, capped +0.30 / −0.50
+    (a botched ending costs more than a great one earns). **Only applied to a series
+    the reader has marked complete** — see the `series_meta` note under HARD
+    CONSTRAINT 3. An unmarked series gets no Finale term, so an ongoing series is
+    never charged for an ending it hasn't written, and `series_aggregate` called
+    without `series_meta` suppresses the term everywhere.
+  - Peak and Floor are deliberately **asymmetric** (a reward for the ceiling, a penalty
+    for the collapse), not one signed variance term — a single spread term would net
+    them out. n=1 gets zero for all three new terms; n≥2 is scored.
+  - Regression guard: `test_series_score.py` (34 checks).
 - **Tier bands:** S+ fixed at Total Average ≥ 9.5 (≥ 9.0 for series); remaining books split
   S/A/B/C/D/F by percentile (~9% / 15% / 25% / 25% / 15% / 10%).
 - **Tier spine colors:** S+ #2D6A4F · S #4A7C59 · A #7BA87B · B #D4A853 · C #C07C5A ·

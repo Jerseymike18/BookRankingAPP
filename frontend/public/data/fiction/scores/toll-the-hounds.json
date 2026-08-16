@@ -6,7 +6,7 @@
       "Prose": 9.6
     },
     "Character": {
-      "Depth": 9.7,
+      "Depth": 9.9,
       "Emotional Impact": 9.9,
       "Motivations": 9.6
     },
@@ -14,7 +14,7 @@
       "Action": 9.3,
       "Ending": 10.0,
       "Entertainment": 9.8,
-      "Plot": 9.6
+      "Plot": 9.2
     },
     "Theme": {
       "Insights": 9.6,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "Toll the Hounds",
-  "wa": 9.7028
+  "wa": 9.6743
 }

@@ -101,21 +101,29 @@ def load_from_db(path=DB, user_id=None, weight_overrides=None):
 
     # Books: pull raw rows, rebuild the WCategoryAvg fields the engine expects,
     # and compute the stored WA the same way (so the WA column matches Excel).
-    # year_read/status are read-only passthroughs for the reading-log + derived
-    # views; the engine ignores any column it doesn't reference by name.
+    # year_read/status/series_number are read-only passthroughs for the
+    # reading-log + derived views; the engine ignores any column it doesn't
+    # reference by name.
     comp_cols = ",".join(f'"{c}"' for c in all_components)
     rows = con.execute(
-        f'SELECT title,genre,author,series,words,year_read,status,{comp_cols} '
-        f'FROM books WHERE user_id=?', (uid,)).fetchall()
+        f'SELECT title,genre,author,series,series_number,words,year_read,status,'
+        f'{comp_cols} FROM books WHERE user_id=?', (uid,)).fetchall()
     con.close()
 
     recs = []
     for row in rows:
-        (title, genre, author, series, words, year_read, status) = row[:7]
-        comp_vals = dict(zip(all_components, row[7:]))
+        (title, genre, author, series, series_number,
+         words, year_read, status) = row[:8]
+        comp_vals = dict(zip(all_components, row[8:]))
         rec = {"Book": title.strip(), "Genre": (genre or "Unknown").strip(),
                "Author": (author or "Unknown").strip(),
                "Series": (series or "").strip().strip("'\""),
+               # Position within the series (NUMERIC — fractional ordinals like
+               # 3.5 are legal). A read-only passthrough, like year_read/status:
+               # the engine ignores it, but views.series_aggregate needs it to
+               # order a series and find its final volume.
+               "Series #": (float(series_number)
+                            if series_number is not None else np.nan),
                "Words": words,
                "Year": int(year_read) if year_read is not None else None,
                "Status": (status or "finished").strip()}

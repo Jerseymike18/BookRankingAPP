@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
+import { setSeriesComplete } from "@/lib/api";
+import { useReadOnly } from "@/lib/readonly-context";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -71,19 +73,171 @@ function GenreFilter({
 
 /* ── Column definitions ───────────────────────────────────────────────────── */
 
+/** Total series-quality adjustment: how far the series score sits from the plain
+ *  average of its books. This is the whole point of the model, so it gets a
+ *  sortable column of its own — sort by it to see which series are carried (or
+ *  sunk) by how they're BUILT rather than by how good the individual books are. */
+const adjustment = (s: SeriesEntry | SeriesTierEntry) =>
+  (s.adjusted_wa ?? 0) - (s.avg_wa ?? 0);
+
 const SERIES_COLS: ColDef<SeriesEntry>[] = [
   { key: "series",      label: "Series",  type: "string",  getValue: (s) => s.series,      align: "left"  },
   { key: "author",      label: "Author",  type: "string",  getValue: (s) => s.author,      align: "left"  },
   { key: "genre",       label: "Genre",   type: "string",  getValue: (s) => s.genre,       align: "left"  },
   { key: "books",       label: "Books",   type: "numeric", getValue: (s) => s.books,       align: "right" },
-  { key: "adjusted_wa", label: "Adj WA",  type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
+  { key: "adjusted_wa", label: "Score",   type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
   { key: "avg_wa",      label: "Avg WA",  type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
+  { key: "adjustment",  label: "±",       type: "numeric", getValue: adjustment,           align: "right" },
 ];
+
+/* ── Score breakdown ──────────────────────────────────────────────────────── */
+
+const signed = (v: number | null | undefined, digits = 3) =>
+  v == null ? "—" : `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}`;
+
+/** One term of the score: its contribution, and the raw deviation it came from
+ *  (so the number is explained, not just displayed). */
+function Term({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number | null | undefined;
+  detail: string;
+}) {
+  const on = value != null && Math.abs(value) >= 0.0005;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--color-muted)" }}>
+          {label}
+        </span>
+        <span
+          className="text-sm font-semibold"
+          style={{
+            /* Same up/down convention the Track Record table uses; the down
+               colour is the existing --color-spine-c token, not a new value. */
+            color: !on ? "var(--color-faint)" : value! > 0 ? "var(--color-sage)" : "var(--color-spine-c)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {signed(value)}
+        </span>
+      </div>
+      <p className="text-xs mt-0.5" style={{ color: "var(--color-faint)" }}>{detail}</p>
+    </div>
+  );
+}
+
+/** The expanded panel under a series row: every term, plus the finished/ongoing
+ *  switch that licenses the Finale term. */
+function ScoreBreakdown({
+  s,
+  onToggleComplete,
+  pending,
+  error,
+}: {
+  s: SeriesEntry;
+  onToggleComplete: () => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  const readOnly = useReadOnly();
+  const complete = s.complete === true;
+  const solo = s.books < 2;
+
+  return (
+    <div className="px-3 py-4" style={{ background: "var(--color-surface-2)" }}>
+      <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+        <Term
+          label="Commitment"
+          value={s.commitment}
+          detail={
+            s.books >= 3
+              ? `${s.books} books sustained at this level`
+              : `short series — ${3 - s.books} book${s.books === 2 ? "" : "s"} below the 3-book floor`
+          }
+        />
+        <Term
+          label="Peak"
+          value={s.peak}
+          detail={
+            solo
+              ? "needs 2+ books"
+              : `best volume rises ${s.peak_lift?.toFixed(2) ?? "—"} WA above its own average`
+          }
+        />
+        <Term
+          label="Floor"
+          value={s.floor}
+          detail={
+            solo
+              ? "needs 2+ books"
+              : `worst volume falls ${s.floor_drop?.toFixed(2) ?? "—"} WA below it (first 0.40 forgiven)`
+          }
+        />
+        <Term
+          label="Finale"
+          value={s.finale}
+          detail={
+            solo
+              ? "needs 2+ books"
+              : !complete
+              ? "not counted — series not marked finished"
+              : `last book's Ending is ${signed(s.finale_lift, 2)} against the series' own average ending`
+          }
+        />
+      </div>
+
+      <div className="flex items-center flex-wrap gap-3 pt-3" style={{ borderTop: "1px solid var(--color-rule)" }}>
+        <span className="text-xs" style={{ color: "var(--color-muted)" }}>
+          {complete ? "Marked finished" : "Marked ongoing"} — only a finished series is scored on its ending.
+        </span>
+        {!readOnly && (
+          <button
+            onClick={onToggleComplete}
+            disabled={pending}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-rule)",
+              color: "var(--color-sage)",
+              opacity: pending ? 0.6 : 1,
+              cursor: pending ? "default" : "pointer",
+            }}
+          >
+            {pending ? "Saving…" : complete ? "Mark as ongoing" : "Mark as finished"}
+          </button>
+        )}
+        {error && (
+          <span className="text-xs" style={{ color: "#B91C1C" }}>{error}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ── Rankings tab ─────────────────────────────────────────────────────────── */
 
-function RankingsTab({ data, emptyMsg }: { data: SeriesResponse; emptyMsg: string }) {
+function RankingsTab({
+  data,
+  emptyMsg,
+  kind,
+}: {
+  data: SeriesResponse;
+  emptyMsg: string;
+  kind: BookKind;
+}) {
   const [genre, setGenre] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<{ series: string; message: string } | null>(null);
+  // Completeness flips optimistically here; a reload re-reads it from the server.
+  const [completeOverride, setCompleteOverride] = useState<Record<string, boolean>>({});
+
+  // Nonfiction series have no quality model, so there is nothing to break down.
+  const scored = kind === "fiction";
 
   const genres = useMemo(
     () => [...new Set(data.series.map((s) => s.genre))].sort(),
@@ -95,11 +249,33 @@ function RankingsTab({ data, emptyMsg }: { data: SeriesResponse; emptyMsg: strin
     [data.series, genre]
   );
 
+  const cols = useMemo(
+    () => (scored ? SERIES_COLS : SERIES_COLS.filter((c) => c.key !== "adjustment")),
+    [scored]
+  );
+
   const { sorted, sortState, handleSort } = useSortable(
     filtered,
-    SERIES_COLS,
+    cols,
     { key: "adjusted_wa", dir: "desc" }
   );
+
+  async function toggleComplete(s: SeriesEntry) {
+    const next = !(completeOverride[s.series] ?? s.complete === true);
+    setPending(s.series);
+    setError(null);
+    try {
+      await setSeriesComplete(s.series, next);
+      setCompleteOverride((m) => ({ ...m, [s.series]: next }));
+    } catch (e) {
+      setError({
+        series: s.series,
+        message: e instanceof Error ? e.message : "Could not save.",
+      });
+    } finally {
+      setPending(null);
+    }
+  }
 
   if (data.series.length === 0) {
     return <p className="text-sm" style={{ color: "var(--color-muted)" }}>{emptyMsg}</p>;
@@ -108,7 +284,17 @@ function RankingsTab({ data, emptyMsg }: { data: SeriesResponse; emptyMsg: strin
   return (
     <div>
       <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        Ranked by Adjusted WA — avg WA plus a length bonus (0.0582 × (1.18^(n−1) − 1)) minus a short-series penalty (−0.2 per book below 3 read). Click a column header to sort.
+        {scored ? (
+          <>
+            Ranked by a series score — the average WA of its books, adjusted for the
+            things an average can&apos;t see: how long it sustained that quality
+            (Commitment), whether it produced a standout (Peak), whether any volume
+            was a slog (Floor), and whether it stuck the landing (Finale). Click a
+            series to see its breakdown; click a column header to sort.
+          </>
+        ) : (
+          <>Ranked by average WA with a length adjustment. Click a column header to sort.</>
+        )}
       </p>
       <GenreFilter genres={genres} active={genre} onChange={setGenre} />
       <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{sorted.length} series</p>
@@ -117,28 +303,59 @@ function RankingsTab({ data, emptyMsg }: { data: SeriesResponse; emptyMsg: strin
           <thead>
             <tr style={{ background: "var(--color-surface-2)", borderBottom: "1px solid var(--color-rule)" }}>
               <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>#</th>
-              {SERIES_COLS.map((col) => (
+              {cols.map((col) => (
                 <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
               ))}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((s, i) => (
+            {sorted.map((s, i) => {
+              const expanded = scored && open === s.series;
+              const row = { ...s, complete: completeOverride[s.series] ?? s.complete };
+              const adj = adjustment(s);
+              return (
+              <Fragment key={s.series}>
               <tr
-                key={s.series}
-                style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
+                onClick={scored ? () => setOpen(expanded ? null : s.series) : undefined}
+                style={{
+                  borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
+                  cursor: scored ? "pointer" : "default",
+                  background: expanded ? "var(--color-sage-light)" : "transparent",
+                }}
               >
                 <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{i + 1}</td>
-                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)", background: sortState.key === "series" ? "var(--color-sage-light)" : "transparent" }}>{s.series}</td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)", background: sortState.key === "author" ? "var(--color-sage-light)" : "transparent" }}>{s.author}</td>
-                <td className="px-3 py-2.5" style={{ background: sortState.key === "genre" ? "var(--color-sage-light)" : "transparent" }}>
+                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)", background: !expanded && sortState.key === "series" ? "var(--color-sage-light)" : "transparent" }}>
+                  {s.series}
+                  {scored && row.complete === true && (
+                    <span className="ml-2 text-xs font-normal font-sans" style={{ color: "var(--color-faint)" }}>finished</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)", background: !expanded && sortState.key === "author" ? "var(--color-sage-light)" : "transparent" }}>{s.author}</td>
+                <td className="px-3 py-2.5" style={{ background: !expanded && sortState.key === "genre" ? "var(--color-sage-light)" : "transparent" }}>
                   <span className="genre-chip">{s.genre}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)", background: sortState.key === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
-                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: sortState.key === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortState.key === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)", background: !expanded && sortState.key === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
+                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: !expanded && sortState.key === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: !expanded && sortState.key === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
+                {scored && (
+                  <td className="px-3 py-2.5 text-right" style={{ color: Math.abs(adj) < 0.0005 ? "var(--color-faint)" : adj > 0 ? "var(--color-sage)" : "var(--color-spine-c)", background: !expanded && sortState.key === "adjustment" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{signed(adj)}</td>
+                )}
               </tr>
-            ))}
+              {expanded && (
+                <tr>
+                  <td colSpan={cols.length + 1} style={{ padding: 0 }}>
+                    <ScoreBreakdown
+                      s={row}
+                      onToggleComplete={() => toggleComplete(s)}
+                      pending={pending === s.series}
+                      error={error?.series === s.series ? error.message : null}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -227,7 +444,7 @@ function SeriesSingle({
       <SubTabs active={tab} onChange={setTab} />
 
       {tab === "rankings" ? (
-        <RankingsTab data={seriesData} emptyMsg={emptyMsg} />
+        <RankingsTab data={seriesData} emptyMsg={emptyMsg} kind={kind} />
       ) : (
         <TiersTab data={tiersData} emptyMsg={emptyMsg} />
       )}
@@ -236,9 +453,14 @@ function SeriesSingle({
 }
 
 /* ── Series view (wrapper) ────────────────────────────────────────────────
-   Fiction / Nonfiction toggle only — no "All". The headline number is Adjusted
-   WA (WA-scaled) and the tier tab is banded within a single track, so the two
-   tracks can't share one ordering. Default is Fiction (seeded from ?type=). */
+   Fiction / Nonfiction toggle only — no "All". The headline number is the series
+   score (WA-scaled) and the tier tab is banded within a single track, so the two
+   tracks can't share one ordering. Default is Fiction (seeded from ?type=).
+
+   Only the FICTION track has the series-quality model (Commitment/Peak/Floor/
+   Finale); the nonfiction routes return a plain length-adjusted average, so its
+   rows carry no term fields and the breakdown UI is switched off for it rather
+   than shown with fabricated zeroes. */
 
 export default function SeriesView({
   fiction,

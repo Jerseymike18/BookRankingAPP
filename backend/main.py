@@ -3045,11 +3045,28 @@ def set_year_read(req: SetYearRequest,
 # SERIES
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _series_terms(row):
+    """The per-term breakdown of one series' score, so the UI can show WHY a
+    series ranks where it does instead of just asserting a number. Avg WA plus
+    these four reconstructs Adjusted WA exactly (up to the shared clamp)."""
+    return {
+        "commitment": _clean(round(float(row["Commitment"]), 3)),
+        "peak": _clean(round(float(row["Peak"]), 3)),
+        "floor": _clean(round(float(row["Floor"]), 3)),
+        "finale": _clean(round(float(row["Finale"]), 3)),
+        "peak_lift": _clean(round(float(row["Peak Lift"]), 3)),
+        "floor_drop": _clean(round(float(row["Floor Drop"]), 3)),
+        "finale_lift": _clean(round(float(row["Finale Lift"]), 3)),
+        "complete": bool(row["Complete"]),
+    }
+
+
 @app.get("/api/series")
 def get_series(user_id: str = Depends(auth.get_current_user_id)):
-    """Series rankings: per-series aggregates sorted by Adjusted WA."""
+    """Series rankings: per-series aggregates sorted by the series score."""
     books = _get_engine(user_id)[0]
-    sa = views_mod.series_aggregate(books)
+    sa = views_mod.series_aggregate(
+        books, series_meta=db_write.get_series_meta(user_id=user_id))
     if sa.empty:
         return {"series": []}
     result = []
@@ -3063,15 +3080,18 @@ def get_series(user_id: str = Depends(auth.get_current_user_id)):
             "avg_wa": _clean(round(float(row["Avg WA"]), 2)),
             "adjusted_wa": _clean(round(float(row["Adjusted WA"]), 3)),
             "avg_total_average": _clean(round(float(row["Avg Total Average"]), 2)),
+            **_series_terms(row),
         })
     return {"series": result}
 
 
 @app.get("/api/series/tiers")
 def get_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
-    """Series tier list: same bands as book tier list but by Adjusted WA (S+ >= 9.0)."""
+    """Series tier list: same bands as book tier list but by the series score
+    (S+ >= 9.0)."""
     books = _get_engine(user_id)[0]
-    sa = views_mod.series_aggregate(books)
+    sa = views_mod.series_aggregate(
+        books, series_meta=db_write.get_series_meta(user_id=user_id))
     if sa.empty:
         return {"series": [], "tier_order": views_mod.TIER_ORDER, "tier_counts": {}}
     sa_renamed = sa.rename(columns={"Adjusted WA": "Total Average"})
@@ -3087,9 +3107,30 @@ def get_series_tiers(user_id: str = Depends(auth.get_current_user_id)):
             "adjusted_wa": _clean(round(float(row["Total Average"]), 3)),
             "avg_total_average": _clean(round(float(row["Avg Total Average"]), 2)),
             "tier": row["Tier"],
+            **_series_terms(row),
         })
     counts = views_mod.tier_counts(tiered)
     return {"series": result, "tier_order": views_mod.TIER_ORDER, "tier_counts": counts}
+
+
+class SeriesCompleteRequest(BaseModel):
+    complete: bool
+
+
+@app.put("/api/series/{series_name}/complete")
+def put_series_complete(series_name: str, req: SeriesCompleteRequest,
+                        user_id: str = Depends(auth.get_current_user_id)):
+    """Mark a series finished (or ongoing again). This is what licenses the
+    Finale term: the last volume's Ending only counts as an ENDING once the
+    series has actually ended, so an ongoing series is never penalised for a
+    finale it hasn't written yet. No engine invalidation — the flag is read
+    per-request in the series routes, not baked into the cached engine."""
+    if not db_write.set_series_complete(series_name, req.complete,
+                                        user_id=user_id):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No rated books found in a series called '{series_name}'.")
+    return {"ok": True, "series": series_name, "complete": bool(req.complete)}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

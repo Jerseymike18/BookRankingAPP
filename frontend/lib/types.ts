@@ -331,7 +331,25 @@ export interface ReadingStatusResponse {
   reading_next: StatusSlot | null;
 }
 
-export interface SeriesEntry {
+/** The per-term breakdown of a series score. avg_wa + commitment + peak + floor
+ *  + finale reconstructs adjusted_wa (up to the shared clamp on the last three).
+ *  The *_lift fields are the raw deviations each term was scaled from.
+ *
+ *  OPTIONAL because only the FICTION series routes emit them — nonfiction has no
+ *  series-quality model, so its rows carry none of these and the UI must render
+ *  the breakdown only where it genuinely exists rather than fake a zero. */
+export interface SeriesTerms {
+  commitment?: number | null;
+  peak?: number | null;
+  floor?: number | null;
+  finale?: number | null;
+  peak_lift?: number | null;
+  floor_drop?: number | null;
+  finale_lift?: number | null;
+  complete?: boolean;
+}
+
+export interface SeriesEntry extends SeriesTerms {
   rank: number;
   series: string;
   author: string;
@@ -346,7 +364,7 @@ export interface SeriesResponse {
   series: SeriesEntry[];
 }
 
-export interface SeriesTierEntry {
+export interface SeriesTierEntry extends SeriesTerms {
   series: string;
   author: string;
   genre: string;

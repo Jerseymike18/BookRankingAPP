@@ -602,6 +602,98 @@ def reset_score_anchors(user_id=None):
     return True
 
 
+# ---------------------------------------------------------------------------
+# Per-user SERIES META (is this series finished?)
+# ---------------------------------------------------------------------------
+# A series is not a table — it is a grouping of `books` rows by the free-text
+# `series` column — so there is nowhere on an existing row to record a fact
+# about the series AS A WHOLE. This table is that place, and it currently holds
+# exactly one fact: has the series ENDED (as far as the reader is concerned)?
+#
+# views.series_aggregate needs it because the Finale term reads the last volume's
+# Ending score, and "the last book I have read" is only "the finale" for a
+# finished series. Without the flag an ongoing series like The Stormlight
+# Archive would be scored as though book 5 were meant to end it.
+#
+# Sparse, like the weight-override and score-anchor tables: a row exists only for
+# a series the reader has explicitly marked. NO ROW MEANS NOT COMPLETE, which is
+# the safe default — an unmarked series simply gets no Finale term rather than a
+# penalty for an ending it never claimed to have. Portable DDL (SQLite + Postgres).
+#
+# Kept in step with views._NON_SERIES — the markers that mean "this book is not
+# in a series", which therefore can never be marked complete.
+_NON_SERIES_MARKERS = {"", "standalone", "none", "n/a"}
+
+_series_meta_ensured = False
+
+
+def _ensure_series_meta():
+    global _series_meta_ensured
+    if _series_meta_ensured:
+        return
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS series_meta (
+            user_id  TEXT NOT NULL,
+            series   TEXT NOT NULL,
+            complete INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, series)
+        )""")
+    con.commit()
+    con.close()
+    _series_meta_ensured = True
+
+
+def get_series_meta(user_id=None):
+    """This tenant's series flags as {series_name: {"complete": bool}} — only the
+    series they have explicitly marked. Feed it straight to
+    views.series_aggregate(books, series_meta=...); an absent series is treated
+    as not complete."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_series_meta()
+    con = _connect()
+    try:
+        rows = con.execute(
+            "SELECT series, complete FROM series_meta WHERE user_id=?",
+            (uid,)).fetchall()
+    finally:
+        con.close()
+    return {r[0]: {"complete": bool(r[1])} for r in rows}
+
+
+def set_series_complete(series, complete, user_id=None):
+    """Mark one series finished (or not) for this tenant. `series` must name a
+    series that actually has rated books in THIS tenant's library — that check is
+    what stops a typo from creating an orphan row that silently never applies.
+    Setting complete=False deletes the row rather than storing a zero, so the
+    table stays sparse and "unmarked" and "explicitly ongoing" behave the same
+    (both suppress the Finale term). Returns True on success, False if the series
+    name is empty, is a standalone marker, or matches no rated book."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    name = str(series or "").strip().strip("'\"")
+    if not name or name.lower() in _NON_SERIES_MARKERS:
+        return False
+    _ensure_series_meta()
+    con = _connect()
+    try:
+        hit = con.execute(
+            "SELECT 1 FROM books WHERE user_id=? AND TRIM(series)=? LIMIT 1",
+            (uid, name)).fetchone()
+        if hit is None:
+            return False
+        _backup_once()
+        con.execute("DELETE FROM series_meta WHERE user_id=? AND series=?",
+                    (uid, name))
+        if complete:
+            con.execute(
+                "INSERT INTO series_meta (user_id, series, complete) "
+                "VALUES (?,?,?)", (uid, name, 1))
+        con.commit()
+    finally:
+        con.close()
+    return True
+
+
 def set_component_corrections(version, constants, blend_weight, *, active=True,
                               source_tag=None, engine_hash=None, n_books=None,
                               decision=None, note=None):
@@ -1107,6 +1199,7 @@ _ensure_delta_log()
 _ensure_component_corrections()
 _ensure_weight_overrides()
 _ensure_score_anchors()
+_ensure_series_meta()
 
 
 def _valid_genres(con, uid=None):

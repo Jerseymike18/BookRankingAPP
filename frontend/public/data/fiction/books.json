@@ -4,8 +4,8 @@
       "author": "Steven Erikson",
       "category_avgs": {
         "Aesthetics": 9.75,
-        "Character": 9.7571,
-        "Story": 9.705,
+        "Character": 9.8571,
+        "Story": 9.565,
         "Theme": 9.7714,
         "Worldbuilding": 9.4111
       },
@@ -15,7 +15,7 @@
           "Prose": 9.6
         },
         "Character": {
-          "Depth": 9.7,
+          "Depth": 9.9,
           "Emotional Impact": 9.9,
           "Motivations": 9.6
         },
@@ -23,7 +23,7 @@
           "Action": 9.3,
           "Ending": 10.0,
           "Entertainment": 9.8,
-          "Plot": 9.6
+          "Plot": 9.2
         },
         "Theme": {
           "Insights": 9.6,
@@ -41,7 +41,7 @@
       "series_number": 8,
       "slug": "toll-the-hounds",
       "title": "Toll the Hounds",
-      "wa": 9.7028,
+      "wa": 9.6743,
       "words": 389000,
       "year": 2026,
       "year_read": 2026

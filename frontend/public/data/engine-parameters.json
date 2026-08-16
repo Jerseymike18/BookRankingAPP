@@ -10,7 +10,7 @@
     "genre_prior_source": "off",
     "min_books_to_fit": 25,
     "n_books_fit": 139,
-    "slope_wa_per_dex": 0.9909,
+    "slope_wa_per_dex": 0.9908,
     "source": "fitted"
   },
   "genre_category_weights": {
