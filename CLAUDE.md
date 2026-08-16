@@ -209,35 +209,38 @@ Writes go through `db_write.update_nonfiction_recommendation_scores` (added 2026
 authorization — the mirror of the fiction function; nonfiction previously had no in-place score
 writer at all).
 
-**Measured run-to-run variance (2026-08-14, n=7 forced calls on one book, zero library change):**
-WA sd **0.052**, full range **0.159** — about **3% of the served directional band** (±1.67 at n=6),
-and smaller than 4 of the 5 gaps between adjacent rated nonfiction WAs. 8 of 12 components were
-byte-identical across every call; the 4 that moved (Informativeness, Clarity, Structure, Prose)
-each shifted exactly one 0.5 notch. So the button is **not** a noise generator — but rank is only
-as stable as the library is dense: the test book sat 0.03 WA under a neighbour, and 1 of 7 samples
-crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA of a neighbour
-while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
-re-litigate this without a bigger library.
+**Measured run-to-run variance — REDONE 2026-08-15 on the refreshed library.** The first pass ran
+against a stale `books.db` (nonfiction rows carrying half their components, and ZERO nonfiction TBR
+entries, so the test book had to be staged). After `scripts/refresh_from_live.py`, local reproduces
+the owner's live nonfiction rankings exactly. Redone on **two real TBR books, n=6 forced calls
+each**, zero library change:
 
-> **RANK half REDONE against the live library (owner-supplied, 2026-08-14).** The sd/range figures
-> above are sound — they measure research variance on the predicted book and don't depend on the
-> library — but the original rank claims used local `books.db`, whose nonfiction rows were a stale
-> partial-vector mirror. Corrected with the live WAs
-> (8.49 / 8.13 / 7.83 / 7.56 / 7.02 / 5.24):
->
-> - **live gaps `[0.27, 0.30, 0.36, 0.54, 1.78]`, median 0.36** — the stale copy implied a median of
->   0.74, so the real library is about twice as dense in the middle as first reported.
-> - The useful ratio is **noise range ÷ local gap** ≈ the chance a re-predict moves the book's rank.
->   Nonfiction: 0.159 / 0.36 ≈ **~40%** for a typically-placed book. So a one-place flip is
->   common, not rare — the earlier "occasional" understated it.
-> - The test book was an extreme, not a typical case: *Beyond Good and Evil* means 7.549, which sits
->   **0.011** under *Future of an Illusion* (7.56). Against the live library it ranks #4 in 3 of 7
->   samples and #5 in 4 — a coin flip, versus the 1-in-7 the stale copy suggested.
->
-> Corrected framing: rank instability is **not** about n=6 as such. It is proximity to a boundary,
-> and nonfiction's gaps are wide enough that only near-boundary books move. Fiction is the opposite
-> and far worse — see the fiction table below, where the median gap (0.021) is *smaller than the
-> noise itself*, so the ratio saturates and rank moves essentially every press.
+| book | WA sd | range | rank across 6 runs | components that varied |
+|---|---|---|---|---|
+| Outliers (Gladwell) | 0.030 | 0.075 | #6 — no flip | 5 / 12 |
+| SPQR (Beard) | 0.034 | 0.075 | #3 — no flip | 2 / 12 |
+
+Live library: WA 5.24–8.49, gaps `[0.36, 0.30, 0.27, 0.55, 1.78]`, median **0.362**; served
+directional band **±1.333** (n=6).
+
+- **Noise is ~2.3–2.5% of the served band**, and `range ÷ median gap` ≈ **0.21** — so roughly a
+  1-in-5 chance a typically-placed book shifts one rank. **Rank did not move at all in 12 of 12
+  samples.**
+- Every earlier nonfiction figure here was inflated by the stale copy: sd 0.052 (not ~0.030), range
+  0.159 (not 0.075), band ±1.67 (not ±1.33 — the partial vectors distorted the LOO residuals), and
+  a claimed ~40% flip rate (not ~21%). The production app always used the correct band; only the
+  local reading was wrong.
+- The book that produced those numbers, *Beyond Good and Evil*, remains a legitimate third data
+  point (sd 0.052) — the research call never depended on the library. So nonfiction noise IS mildly
+  book-dependent, 0.030–0.052, about 1.7x — far less than fiction's 4x.
+- **The "contested reception" hypothesis does NOT replicate here.** Outliers (contested pop-sci) was
+  the *quietest* (0.030) and SPQR (settled history) marginally noisier (0.034), while contested
+  *Beyond Good and Evil* was the loudest. Mixed at n=3 books; treat the fiction pattern as unexplained
+  rather than established. Note also that component churn ≠ WA noise: Outliers moved 5 of 12
+  components yet ended with the lower WA sd, because the weighted roll-up cancels offsetting moves.
+
+So the nonfiction button is quieter and more rank-stable than any earlier statement in this file
+claimed. Don't re-litigate without a bigger library.
 
 **Measured fiction run-to-run variance (2026-08-14, n=6 forced calls each on two books, zero
 library change).** Unlike nonfiction's, fiction's noise floor is **not one number — it is
