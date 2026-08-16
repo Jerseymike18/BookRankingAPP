@@ -259,11 +259,14 @@ Plausible mechanism, NOT established at n=2 books: variance tracks how contested
 is. The Silmarillion's biggest movers were Action (sd 0.31), Plot (0.23), Emotional Impact (0.23) —
 exactly what readers disagree about — while Crime and Punishment's reception is settled.
 
-Caveat: the sd/range columns are sound, but the rank spreads and the 0.021 median gap were computed
-against local `books.db` (131 fiction books) rather than the live library (140 at the time), and
-have NOT been redone against live the way the nonfiction ones were. Density is if anything higher
-live, so the direction holds and the ratio below only gets worse — the exact place-counts are
-indicative.
+Caveat, and why it is BOUNDED here unlike the nonfiction one: the rank spreads and the 0.021 median
+gap were computed against local `books.db` (131 books) rather than live (140 at the time). But
+local **fiction** data is internally complete — 0 null components across all 131 — so its WAs are
+right, and the staleness is only *missing books*, not wrong numbers. That is the opposite of the
+nonfiction case, where null components produced genuinely wrong WAs and halved the apparent median
+gap. Projecting 131→140 books over the same 7.46-wide WA span moves the median gap 0.0213 → ~0.0199
+and the ratios 3.4×→3.6× and 15.3×→16.4× — same conclusion, slightly worse. An exact redo needs the
+live WA column and has not been done; it is not expected to change anything.
 
 **The one number to carry across both tracks: noise range ÷ local WA gap**, which approximates the
 chance a re-predict moves the book's rank. Nonfiction ≈ 0.159/0.36 ≈ 40% (a one-place flip is
