@@ -16,9 +16,12 @@ This widens the four ranking tables' `series_number` to DOUBLE PRECISION:
 BIGINT -> DOUBLE PRECISION is a WIDENING conversion, so no existing value can be
 lost or altered, and it matches what local SQLite already stores.
 
-NOT included: `import_staging.series_number` (INTEGER). That table is transient
-Goodreads-import scratch, cleared per batch; widen it separately if a fractional
-number ever needs to survive the import path.
+`import_staging.series_number` (INTEGER) was added 2026-08-15 on the owner's call.
+NOTE it is not sufficient on its own: `goodreads_import.split_series` NULLs any
+non-integer ordinal before it reaches the column ("#0.5" novellas), explicitly
+because the schema stored an INTEGER. Widening the column removes the reason for
+that; the parser still has to be changed for a fractional Goodreads ordinal to
+survive the import path.
 
 Postgres only. SQLite needs no change — its declared type is advisory and it
 already stores floats in this column.
@@ -35,7 +38,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-TABLES = ["books", "recommendations", "nonfiction_books", "nonfiction_recommendations"]
+TABLES = ["books", "recommendations", "nonfiction_books", "nonfiction_recommendations",
+          "import_staging"]
 TARGET = "double precision"
 
 
@@ -116,7 +120,7 @@ def main():
     for t in TABLES:
         if t in after:
             print(f"  {t:<28} {after[t]}")
-    print("  all four widened." if ok else "  VERIFY FAILED — see above.")
+    print(f"  all {len(after)} widened." if ok else "  VERIFY FAILED — see above.")
     con.close()
     return 0 if ok else 1
 

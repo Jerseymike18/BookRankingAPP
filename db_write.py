@@ -687,7 +687,9 @@ _STAGING_EDITABLE = {
     "kind", "title", "author", "genre", "series", "series_number",
     "words", "year_read", "read_month", "state",
 }
-_STAGING_INT_COLS = ("series_number", "words", "year_read", "read_month")
+# series_number is deliberately NOT here — it may be fractional (see
+# _norm_series_number). The other three are genuinely integral.
+_STAGING_INT_COLS = ("words", "year_read", "read_month")
 _import_staging_ensured = False
 
 
@@ -696,6 +698,26 @@ def _int_or_none(v):
         return int(v) if v is not None and str(v).strip() != "" else None
     except (TypeError, ValueError):
         return None
+
+
+def _norm_series_number(v):
+    """Normalise a series_number: int when whole, float when FRACTIONAL, None when
+    blank or unparseable.
+
+    Fractional ordinals are real data — Goodreads writes them ("#2.5" for a
+    novella), the reader's own conventions use them (0.5 prequels, 3.5
+    interstitials), and every series_number column has held them since
+    migrate_series_number_float.py. Before that they were `int()`ed away at six
+    separate points between the CSV and the stored row, so an imported
+    "Edgedancer (The Stormlight Archive, #2.5)" arrived unnumbered. Route every
+    series_number write through here so that can't silently return."""
+    if v is None or str(v).strip() == "":
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return int(f) if f == int(f) else f
 
 
 def _float_or_none(v):
@@ -745,6 +767,7 @@ def _staging_row(r):
     d = dict(zip(_STAGING_COLS.split(","), r))
     for k in _STAGING_INT_COLS:
         d[k] = int(d[k]) if d[k] is not None else None
+    d["series_number"] = _norm_series_number(d["series_number"])
     d["goodreads_rating"] = (
         float(d["goodreads_rating"]) if d["goodreads_rating"] is not None else None)
     return d
@@ -801,7 +824,7 @@ def stage_import_rows(user_id, rows, source="goodreads", batch_id=None):
                 f"INSERT INTO import_staging ({_STAGING_COLS}) VALUES ({placeholders})",
                 (uuid.uuid4().hex, uid, source, bid, shelf, row.get("kind"),
                  title, row.get("author"), row.get("genre"), row.get("series"),
-                 _int_or_none(row.get("series_number")), _int_or_none(row.get("words")),
+                 _norm_series_number(row.get("series_number")), _int_or_none(row.get("words")),
                  _int_or_none(row.get("year_read")), _int_or_none(row.get("read_month")),
                  _float_or_none(row.get("goodreads_rating")), row.get("goodreads_review"),
                  "pending_review", "pending", now, now))
@@ -874,6 +897,8 @@ def update_staging_row(user_id, staging_id, fields):
             raise ValidationError(f"month {v} is out of range (1-12)")
         if k in _STAGING_INT_COLS:
             v = _int_or_none(v)
+        if k == "series_number":
+            v = _norm_series_number(v)
         sets.append(f"{k}=?")
         args.append(v)
     if sets:
@@ -1299,7 +1324,7 @@ def add_book(title, genre, author, scores, series=None, series_number=None,
         _backup_once()
         cols = ["title", "genre", "author", "series", "series_number", "words",
                 "year_read", "read_month", "read_seq", "user_id"] + FICTION_COMPONENTS
-        vals = [title, genre, author, series, int(series_number) if series_number else None,
+        vals = [title, genre, author, series, _norm_series_number(series_number),
                 words, year_read, int(read_month) if read_month is not None else None,
                 _next_read_seq(con, uid), uid] + \
                [scores.get(c) for c in FICTION_COMPONENTS]
@@ -1350,7 +1375,7 @@ def add_recommendation(title, genre, author, scores, series=None, series_number=
         cols = (["title", "genre", "author", "series", "series_number", "words",
                  "done", "blurb", "keywords", "user_id"] + FICTION_COMPONENTS)
         vals = ([title, genre, author, series,
-                 int(series_number) if series_number else None,
+                 _norm_series_number(series_number),
                  words, 1 if done else 0,
                  blurb, keywords, uid] + [scores.get(c) for c in FICTION_COMPONENTS])
         ph = ",".join("?" for _ in cols)
@@ -2492,7 +2517,7 @@ def add_nonfiction_book(title, author=None, genre=None, scores=None,
                 + NONFICTION_COMPONENTS
                 + ["Total Average"])
         vals = ([title, genre, author, series,
-                 int(series_number) if series_number else None,
+                 _norm_series_number(series_number),
                  words, year_read, int(read_month) if read_month is not None else None,
                  _next_read_seq(con, uid), status, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS]
@@ -2973,7 +2998,7 @@ def add_nonfiction_recommendation(title, author=None, genre=None, scores=None,
         cols = (["title", "genre", "author", "series", "series_number", "words",
                  "done", "blurb", "keywords", "user_id"] + NONFICTION_COMPONENTS)
         vals = ([title, genre, author, series,
-                 int(series_number) if series_number else None, words,
+                 _norm_series_number(series_number), words,
                  1 if done else 0, blurb, keywords, uid]
                 + [scores.get(c) for c in NONFICTION_COMPONENTS])
         ph = ",".join("?" for _ in cols)

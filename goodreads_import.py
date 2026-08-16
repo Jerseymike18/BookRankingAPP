@@ -64,10 +64,12 @@ def split_series(title):
     """'The Way of Kings (The Stormlight Archive, #1)' ->
     ('The Way of Kings', 'The Stormlight Archive', 1).
 
-    No series tag -> (title, None, None). A non-integer number (e.g. a "#0.5"
-    novella) keeps the series *name* but yields series_number=None, because the
-    books/recommendations schema stores an INTEGER series_number — the user sets
-    the intended integer in review."""
+    No series tag -> (title, None, None). A FRACTIONAL number is preserved:
+    'Edgedancer (The Stormlight Archive, #2.5)' -> ('Edgedancer', 'The Stormlight
+    Archive', 2.5). It used to be discarded (yielding None) because the schema
+    stored an INTEGER series_number; migrate_series_number_float.py widened every
+    series_number column on 2026-08-15, so the reason is gone and Goodreads'
+    novella ordinals now survive the import instead of arriving unnumbered."""
     t = (title or "").strip()
     m = _SERIES_RE.match(t)
     if not m:
@@ -76,7 +78,7 @@ def split_series(title):
     series = m.group("series").strip().rstrip(",").strip()
     try:
         f = float(m.group("num"))
-        num = int(f) if f.is_integer() else None
+        num = int(f) if f.is_integer() else f
     except (TypeError, ValueError):
         num = None
     return (base or t), (series or None), num
