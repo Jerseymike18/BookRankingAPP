@@ -155,6 +155,33 @@ def main():
               staged is not None and staged["series_number"] == 2.5,
               f"staged {staged and staged['series_number']!r}")
 
+        # The SCHEMA DECLARATION itself. Every series_number column used to be
+        # declared INTEGER, and migrate_sqlite_to_postgres maps INTEGER -> BIGINT
+        # — which is precisely how the silent rounding reached production. They
+        # are NUMERIC now (SQLite: int stays int, 2.5 stays real; the migration
+        # maps NUMERIC -> DOUBLE PRECISION). Assert against a table created from
+        # scratch, so a future edit that reverts the declaration fails here.
+        print("\n  schema: a freshly-created table holds both")
+        fresh = os.path.join(tmpd, "fresh.db")
+        fcon = sqlite3.connect(fresh)
+        decls = [ln.strip() for ln in open(os.path.join(PROJECT_ROOT, "db_write.py"))
+                 if "series_number" in ln and ("NUMERIC" in ln or "INTEGER" in ln)
+                 and "ALTER" not in ln and "#" not in ln]
+        check("no series_number column is still declared INTEGER",
+              not any("INTEGER" in d for d in decls), f"{decls}")
+        fcon.execute("CREATE TABLE t (title TEXT, series_number NUMERIC)")
+        fcon.executemany("INSERT INTO t VALUES (?,?)", [("whole", 3), ("frac", 2.5)])
+        fcon.commit()
+        got = dict(fcon.execute("SELECT title, series_number FROM t").fetchall())
+        types = dict(fcon.execute("SELECT title, typeof(series_number) FROM t").fetchall())
+        fcon.close()
+        check("NUMERIC keeps a whole ordinal an int (not 3.0 in the UI)",
+              got["whole"] == 3 and types["whole"] == "integer",
+              f"{got['whole']!r} typeof={types['whole']}")
+        check("NUMERIC keeps a fractional ordinal at 2.5",
+              got["frac"] == 2.5 and types["frac"] == "real",
+              f"{got['frac']!r} typeof={types['frac']}")
+
         with contextlib.redirect_stdout(io.StringIO()):
             db_write.update_staging_row(uid, staged["id"], {"state": "confirmed"})
             db_write.commit_staged(uid, batch_id=bid)

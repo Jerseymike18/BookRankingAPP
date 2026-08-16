@@ -88,12 +88,17 @@ def _col(comp: str) -> str:
 # Schema migration: series_number column (created once on first import)
 # ---------------------------------------------------------------------------
 def _ensure_series_number():
-    """Add series_number INTEGER column to books and recommendations if absent."""
+    """Add the series_number column to books and recommendations if absent.
+    NUMERIC, not INTEGER: ordinals may be fractional (0.5 prequels, Goodreads
+    "#2.5" novellas). SQLite NUMERIC affinity keeps a whole value an int and a
+    fractional one a real, and migrate_sqlite_to_postgres maps NUMERIC to DOUBLE
+    PRECISION — whereas INTEGER maps to BIGINT, which is exactly how the silent
+    rounding on the hosted app was introduced (see migrate_series_number_float)."""
     con = _connect()
     for tbl in ("books", "recommendations"):
         cols = set(db_backend.table_columns(con, tbl))
         if "series_number" not in cols:
-            con.execute(f"ALTER TABLE {tbl} ADD COLUMN series_number INTEGER")
+            con.execute(f"ALTER TABLE {tbl} ADD COLUMN series_number NUMERIC")
     con.commit()
     con.close()
 
@@ -744,7 +749,7 @@ def _ensure_import_staging():
             author           TEXT,
             genre            TEXT,
             series           TEXT,
-            series_number    INTEGER,
+            series_number    NUMERIC,
             words            INTEGER,
             year_read        INTEGER,
             read_month       INTEGER,
@@ -2312,7 +2317,7 @@ def _ensure_nonfiction_schema():
             "Total Average"          REAL,
             "WA"                     REAL,
             status         TEXT DEFAULT 'finished',
-            series_number  INTEGER
+            series_number  NUMERIC
         )
     ''')
     con.execute('''
@@ -2349,7 +2354,7 @@ def _ensure_nonfiction_schema():
             "Insights"               REAL,
             "Philosophizing"         REAL,
             "Thought-Provokingness"  REAL,
-            series_number  INTEGER
+            series_number  NUMERIC
         )
     ''')
     con.execute('''
