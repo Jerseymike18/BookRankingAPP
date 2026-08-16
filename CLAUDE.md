@@ -219,6 +219,13 @@ crossed it (rank 3 vs 4). Expect occasional rank flips for books within ~0.1 WA 
 while the nonfiction library is this small; that is a property of n=6, not of the feature. Don't
 re-litigate this without a bigger library.
 
+> **Caveat on the RANK half of that (added 2026-08-14).** The sd/range figures are sound — they
+> measure research variance on the predicted book and don't depend on the library. The *rank*
+> claims do: they were computed against local `books.db`, whose nonfiction rows were a stale
+> partial-vector mirror of the live app's. The neighbour WAs were therefore wrong, so treat
+> "0.03 under a neighbour / 1 of 7 crossed" as indicative only. Local `books.db` is NOT the
+> owner's data — see the note in the security section.
+
 **Measured fiction run-to-run variance (2026-08-14, n=6 forced calls each on two books, zero
 library change).** Unlike nonfiction's, fiction's noise floor is **not one number — it is
 book-dependent, spanning ~4x**:
@@ -238,6 +245,11 @@ big gaps and near-total rank stability — the two tracks are fragile in opposit
 Plausible mechanism, NOT established at n=2 books: variance tracks how contested a book's reception
 is. The Silmarillion's biggest movers were Action (sd 0.31), Plot (0.23), Emotional Impact (0.23) —
 exactly what readers disagree about — while Crime and Punishment's reception is settled.
+
+Same caveat as the nonfiction table: the sd/range columns are sound, but the rank spreads and the
+0.021 median gap were computed against local `books.db` (131 fiction books) rather than the live
+library (140 at the time). Density is if anything higher live, so the direction holds — the exact
+place-counts are indicative.
 
 Two mechanics worth knowing before re-measuring: `force` bypasses only the **memory** research
 cache, so the 6 web-grounded components (Depth, Depth2, Ending, Insights, Integration, Originality)
@@ -280,6 +292,15 @@ Rules for the **unauthenticated (local / showcase) posture:**
 - uvicorn must bind to `127.0.0.1` (the default). Never pass `--host 0.0.0.0` without
   first adding authentication and reviewing every write/delete endpoint.
 - Do not put this behind a public reverse proxy without auth.
+
+**`books.db` is NOT the owner's data.** The hosted Postgres is the sole source of truth (owner
+decision 2026-07-12); the committed `books.db` is a stale mirror that drifts further every day. It
+is fine for exercising CODE (engine behaviour, endpoint wiring, throwaway-copy tests) and worthless
+for CLAIMS about what has been rated, owned, or is missing. Nothing here can read live Postgres, so
+a data-completeness claim must come from the owner or an authenticated live call — otherwise say it
+can't be checked. (Burned 2026-08-14: reported the 6 nonfiction books as missing half their
+components and proposed building a rating page; they were fully rated live, and the editing UI
+already existed in `RankingsView`, kind-parametrized.)
 
 **Middleware order is load-bearing.** `_cors_safe_errors` MUST stay registered *before*
 `CORSMiddleware` in `backend/main.py` (`add_middleware` builds the stack so the last registered is
