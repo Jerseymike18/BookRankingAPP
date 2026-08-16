@@ -255,6 +255,14 @@ Rules for the **unauthenticated (local / showcase) posture:**
   first adding authentication and reviewing every write/delete endpoint.
 - Do not put this behind a public reverse proxy without auth.
 
+**Middleware order is load-bearing.** `_cors_safe_errors` MUST stay registered *before*
+`CORSMiddleware` in `backend/main.py` (`add_middleware` builds the stack so the last registered is
+outermost). Starlette's own `ServerErrorMiddleware` sits outside all user middleware, so without
+that net an unhandled 500 skips CORS, goes out with no `Access-Control-Allow-Origin`, and the
+browser reports it as `TypeError: Failed to fetch` — no status, no message, on every endpoint.
+Guarded by the CORS checks in `test_repredict_one.py`. (Note the same string also appears, for an
+unrelated reason, when a request lands during a Railway redeploy.)
+
 If you ever need to expose this on a network, the minimum steps are: add an auth layer
 (e.g. HTTP Basic + TLS, or a token middleware), set `ALLOWED_ORIGIN` to the real frontend
 URL, and audit every unprotected endpoint in `backend/main.py`.
