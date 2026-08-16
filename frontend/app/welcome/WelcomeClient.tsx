@@ -4,6 +4,7 @@ import { useState } from "react";
 import { setGenreWeights, setScoreAnchors } from "@/lib/api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { EffectiveWeights, ScoreAnchorBand, ScoreAnchors } from "@/lib/types";
+import { ProgressBar } from "@/components/ProgressBar";
 
 /* ── First-run tutorial + simplified genre-weight picker ─────────────────────
    A new account lands here (the proxy sends any not-yet-onboarded user to
@@ -370,6 +371,7 @@ export default function WelcomeClient({
   const [models, setModels] = useState<GenreModel[]>(() => buildModels(weights, []));
   const [mode, setMode] = useState<"keep" | "customize">("keep");
   const [busy, setBusy] = useState(false);
+  const [saveSteps, setSaveSteps] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   const [lengthPref, setLengthPref] = useState<number>(0);
   const [favAuthors, setFavAuthors] = useState<string[]>(() => Array(MAX_FAVS).fill(""));
@@ -439,13 +441,20 @@ export default function WelcomeClient({
       return;
     }
     setBusy(true);
+    // One step per write this finish will actually perform: each dirty genre,
+    // the anchor table if it moved, and the auth-metadata update.
+    const dirtyModels = persist ? models.filter(isDirty) : [];
+    setSaveSteps({
+      done: 0,
+      total: dirtyModels.length + (anchorChanged ? 1 : 0) + (AUTH_CONFIGURED ? 1 : 0),
+    });
+    const stepDone = () => setSaveSteps((s) => ({ ...s, done: s.done + 1 }));
     try {
       // Persist only the genres the reader actually changed. Untouched genres are
       // left on the shared defaults — a valid state, never null/global-by-accident.
-      if (persist) {
-        for (const m of models) {
-          if (isDirty(m)) await setGenreWeights(m.genre, toNums(m.raw), "fiction");
-        }
+      for (const m of dirtyModels) {
+        await setGenreWeights(m.genre, toNums(m.raw), "fiction");
+        stepDone();
       }
       // The rating scale, only if they moved a band off its standard value. Sent
       // whole (every band), which is what the server requires.
@@ -455,6 +464,7 @@ export default function WelcomeClient({
             anchors.bands.map((b) => [b.key, anchorNum(anchorRaw[b.key] ?? "")])
           )
         );
+        stepDone();
       }
       // Mark onboarding complete so the proxy stops routing here (hosted only).
       // This MUST run before navigating to /import — the proxy bounces a
@@ -470,6 +480,7 @@ export default function WelcomeClient({
           },
         });
         if (metaErr) throw new Error(metaErr.message);
+        stepDone();
       }
       // Hard navigation so the proxy re-runs against the refreshed session and
       // sends the now-onboarded reader on instead of back here.
@@ -1001,6 +1012,16 @@ export default function WelcomeClient({
             >
               {busy ? "Finishing…" : "Import from Goodreads →"}
             </button>
+            {busy && saveSteps.total > 0 && (
+              // Each dirty genre is a separate write, so the setup save is
+              // genuinely countable — show the count, not a spinner.
+              <ProgressBar
+                className="w-full"
+                value={saveSteps.done}
+                max={saveSteps.total}
+                label={`Saving your setup — ${saveSteps.done} of ${saveSteps.total} steps`}
+              />
+            )}
           </div>
         )}
       </div>

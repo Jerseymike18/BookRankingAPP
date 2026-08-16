@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { fetchBookScores, editRating } from "@/lib/api";
 import type { BooksResponse, CategoryComponents } from "@/lib/types";
 import { seriesLabel } from "@/lib/format";
+import { Skeleton } from "@/components/Skeleton";
 
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -245,9 +246,13 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
           style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
         >
           {loadingScores && (
-            <p className="text-sm py-4 text-center" style={{ color: "var(--color-muted)" }}>
-              Loading scores…
-            </p>
+            // Placeholder in the shape of the ScoreGrid that replaces it, so the
+            // panel doesn't collapse and re-expand when the scores land.
+            <div aria-hidden className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {Array.from({ length: 14 }, (_, i) => (
+                <Skeleton key={i} h="4rem" radius="0.5rem" />
+              ))}
+            </div>
           )}
           {loadError && (
             <div className="rounded-lg px-4 py-3 text-sm"

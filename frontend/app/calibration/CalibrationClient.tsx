@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { runWalkforwardValidation, fetchResearcherComparison } from "@/lib/api";
 import { READONLY } from "@/lib/readonly";
 import type { CalibrationHealth, WalkforwardResult, ResearcherComparison } from "@/lib/types";
+import { ProgressBar } from "@/components/ProgressBar";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -240,6 +241,16 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
         >
           {running ? "Running walk-forward validation…" : "Run walk-forward validation"}
         </button>
+      )}
+
+      {running && (
+        // A full chronological backtest over the library — one fold per rated
+        // book, no per-fold progress reported back, so the bar is indeterminate.
+        <ProgressBar
+          className="mt-3"
+          label="Re-predicting every book from what was knowable at the time…"
+          hint="This runs the whole backtest — expect it to take a while on a large library."
+        />
       )}
 
       {error && (

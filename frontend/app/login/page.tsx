@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signUp } from "@/lib/api";
+import { ProgressBar } from "@/components/ProgressBar";
 
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -153,6 +154,13 @@ export default function LoginPage() {
                     ? "Create account"
                     : "Sign in"}
               </button>
+              {busy && (
+                // Sign-up validates the invite, creates the account and then
+                // signs in — a multi-round-trip wait behind one button.
+                <ProgressBar
+                  label={isSignup ? "Creating your account…" : "Signing you in…"}
+                />
+              )}
             </form>
 
             <p className="text-xs mt-4" style={{ color: "var(--color-muted)" }}>

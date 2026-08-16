@@ -19,6 +19,8 @@ import type {
   BookKind,
 } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
+import { ProgressBar } from "@/components/ProgressBar";
+import { Skeleton, SkeletonText } from "@/components/Skeleton";
 
 type Phase = "loading" | "upload" | "review" | "committed" | "rank";
 type Kind = "fiction" | "nonfiction";
@@ -392,6 +394,7 @@ export default function ImportClient({
   const [rows, setRows] = useState<ImportStagingRow[]>([]);
   const [enriching, setEnriching] = useState(false);
   const [enrichPending, setEnrichPending] = useState(0);
+  const [enrichTotal, setEnrichTotal] = useState(0);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const [committing, setCommitting] = useState(false);
@@ -463,6 +466,9 @@ export default function ImportClient({
       if (res.enriching) {
         setEnriching(true);
         setEnrichPending(res.staged);
+        // Frozen denominator for the progress bar: `pending` counts down from
+        // here, so total − pending is the number actually classified so far.
+        setEnrichTotal(res.staged);
         void pollEnrichment(res.batch_id);
       }
     } catch (err) {
@@ -570,8 +576,13 @@ export default function ImportClient({
         </p>
       </div>
 
+      {/* Resume check: the client asks whether an earlier session left staging
+          rows before it knows which screen to show. */}
       {phase === "loading" && (
-        <p className="text-sm" style={{ color: "var(--color-muted)" }}>Loading…</p>
+        <div className="rounded-xl p-5" style={cardStyle}>
+          <Skeleton h="0.9rem" w="12rem" className="mb-3" />
+          <SkeletonText lines={3} />
+        </div>
       )}
 
       {/* ── Upload ───────────────────────────────────────────────────────────── */}
@@ -588,6 +599,13 @@ export default function ImportClient({
             {uploading ? "Uploading…" : "Choose CSV file"}
             <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={uploading} className="hidden" />
           </label>
+          {uploading && (
+            <ProgressBar
+              className="mt-4"
+              label="Parsing your export and staging the books…"
+              hint="A large Goodreads library can take a few seconds."
+            />
+          )}
           {uploadError && <div className="rounded-lg px-4 py-3 text-sm mt-4" style={errorBox}>{uploadError}</div>}
         </section>
       )}
@@ -603,9 +621,17 @@ export default function ImportClient({
             </p>
           )}
           {enriching && (
-            <div className="rounded-lg px-4 py-3 text-sm mb-4"
-              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)", color: "var(--color-muted)" }}>
-              Classifying fiction/nonfiction + genre… {enrichPending} left. You can start reviewing now.
+            <div className="rounded-lg px-4 py-3 mb-4"
+              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}>
+              <ProgressBar
+                value={Math.max(0, enrichTotal - enrichPending)}
+                max={enrichTotal || 1}
+                label={
+                  `Classifying fiction/nonfiction + genre — ` +
+                  `${Math.max(0, enrichTotal - enrichPending)} of ${enrichTotal} done, ${enrichPending} left.`
+                }
+                hint="You can start reviewing now; rows fill in as they're classified."
+              />
             </div>
           )}
           {rowError && <div className="rounded-lg px-4 py-3 text-sm mb-4" style={errorBox}>{rowError}</div>}
@@ -656,6 +682,15 @@ export default function ImportClient({
               Discard import
             </button>
           </div>
+          {committing && (
+            // One server-side call fans out over every committable row, so the
+            // client sees no intermediate count — indeterminate is the truth.
+            <ProgressBar
+              className="mt-3"
+              label={`Adding ${committable} book${committable === 1 ? "" : "s"} to your predictions…`}
+              hint="Don't close this tab — the rows are written in one pass."
+            />
+          )}
         </div>
       )}
 

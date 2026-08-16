@@ -128,6 +128,67 @@ h1, h2, h3, h4 {
   line-height: 1;
 }
 
+/* ── Loading primitives ─────────────────────────────────────────────────────
+   Two shapes, both built entirely from existing Fable tokens (no new colours):
+
+   .skeleton     — a placeholder block for content that has not arrived yet. The
+                   sheen sweeps between --color-surface-2 and --color-rule, i.e.
+                   the same two greys the .comp-tile / card borders already use.
+   .progress-*   — the determinate bar the Predict page has always drawn inline
+                   (sage fill on a rule-coloured track), lifted into a token so
+                   every long operation can reuse one look, plus an
+                   indeterminate variant for work whose total is unknowable.
+
+   Both honour prefers-reduced-motion: the shapes stay, the motion stops.
+   ──────────────────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-rule) 37%,
+    var(--color-surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-sheen 1.4s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+@keyframes skeleton-sheen {
+  from { background-position: 100% 50%; }
+  to   { background-position: 0 50%; }
+}
+
+.progress-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--color-rule);
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--color-sage);
+  transition: width 200ms ease;
+}
+/* Unknown-duration work: a sage segment sweeping the track. */
+.progress-fill-indeterminate {
+  width: 40%;
+  animation: progress-sweep 1.3s ease-in-out infinite;
+}
+@keyframes progress-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .progress-fill { transition: none; }
+  .progress-fill-indeterminate {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -6,6 +6,7 @@ import type { NonfictionReadQueueResponse, NonfictionRecommendation, RepredictOn
 import { saveNonfictionQueue, deleteNonfictionRecommendation, repredictNonfictionRecommendation } from "@/lib/api";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
+import { ProgressBar } from "@/components/ProgressBar";
 
 /* ── Nonfiction schema: 12 components across 5 categories (2026 redesign; mirrors
  *    nonfiction_engine.NONFICTION_CATEGORY_ORDER + the DB component→category map). ── */
@@ -371,9 +372,10 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
             returned the same scores on a genuinely fresh look — not that the
             baseline sat still (nonfiction has no baseline to move). */}
         {repredicting && (
-          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-            Re-researching this book — this usually takes under a minute.
-          </p>
+          <ProgressBar
+            label="Re-researching this book…"
+            hint="A forced fresh research call — this usually takes under a minute."
+          />
         )}
         {repredictReport && !repredicting && (
           <div className="text-xs space-y-1" style={{ color: "var(--color-muted)" }}>

@@ -7,6 +7,7 @@ import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommen
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
+import { ProgressBar } from "@/components/ProgressBar";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -363,6 +364,7 @@ function RecExpandedPanel({
           >
             {isPending ? "Generating…" : "Generate blurb & keywords"}
           </button>
+          {isPending && <ProgressBar className="mt-2" label="Writing a blurb and keywords…" />}
           {genError && (
             <p className="mt-2 text-xs" style={{ color: "#B45309" }}>{genError}</p>
           )}
@@ -516,10 +518,13 @@ function RecExpandedPanel({
         {/* Re-prediction outcome. "No change" is a real result, not a failure —
             the prediction was re-run and landed on the same answer. */}
         {repredicting && (
-          <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-            Re-running the prediction — this can take a minute or two if the book
-            hasn&apos;t been researched before.
-          </p>
+          // Indeterminate on purpose: a warm research cache returns in a second
+          // and a never-grounded book makes a live web call that can run past a
+          // minute, so there is no honest percentage to show.
+          <ProgressBar
+            label="Re-running the prediction…"
+            hint="This can take a minute or two if the book hasn't been researched before."
+          />
         )}
         {repredictReport && !repredicting && (
           <div className="text-xs space-y-1" style={{ color: "var(--color-muted)" }}>
@@ -1165,6 +1170,14 @@ function QueueTab({
             {seriesLoading ? "Adding…" : "Add series"}
           </button>
         </div>
+        {seriesLoading && (
+          // Resolving a series can research and predict several missing books
+          // before it returns, so the wait is long and its length unknown.
+          <ProgressBar
+            label="Resolving the series…"
+            hint="Books missing from your TBR are researched and predicted first."
+          />
+        )}
         {seriesStatus && (
           <p className="text-sm" style={{ color: seriesStatus.ok ? "var(--color-sage)" : "#c0392b" }}>
             {seriesStatus.ok ? "✓ " : "✗ "}{seriesStatus.msg}

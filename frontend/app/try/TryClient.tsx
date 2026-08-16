@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { demoPredict } from "@/lib/api";
 import type { DemoPrediction, ResearchResult } from "@/lib/types";
+import { ProgressBar } from "@/components/ProgressBar";
+import { Skeleton } from "@/components/Skeleton";
 
 // The static public showcase has no backend to answer /api/demo/predict, so the
 // live demo only runs on the hosted app. If someone lands here on the static build,
@@ -297,9 +299,33 @@ export default function TryClient() {
       {/* Result / states */}
       <div className="min-h-[2rem]">
         {loading && (
-          <p className="text-sm animate-pulse" style={{ color: "var(--color-muted)" }}>
-            Analyzing {title.trim() || "book"} against the library…
-          </p>
+          // A first-time book makes a live grounded research call, so this is
+          // the longest wait an anonymous visitor sits through — show the shape
+          // of the answer that's coming rather than a bare line of text.
+          <div className="space-y-4">
+            <ProgressBar
+              label={`Analyzing ${title.trim() || "book"} against the library…`}
+              hint="A book the engine has never researched can take a minute; a cached one returns at once."
+            />
+            <div
+              className="rounded-xl p-5 space-y-4"
+              style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+            >
+              <div className="flex items-center gap-4">
+                <Skeleton w="3.5rem" h="3.5rem" radius="9999px" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton h="0.9rem" w="60%" />
+                  <Skeleton h="0.7rem" w="35%" />
+                </div>
+              </div>
+              <Skeleton h="3rem" radius="0.5rem" />
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(5rem, 1fr))" }}>
+                {Array.from({ length: 14 }, (_, i) => (
+                  <Skeleton key={i} h="3.25rem" radius="0.5rem" />
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {!loading && error && (

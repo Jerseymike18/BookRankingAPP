@@ -29,6 +29,8 @@ function flattenScores(components: ScoredCandidate["components"]): Record<string
 }
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
+import { ProgressBar } from "@/components/ProgressBar";
+import { SkeletonCardList } from "@/components/Skeleton";
 
 /* Bounded-concurrency async pool: run `fn` over `items` with at most `limit`
    promises in flight at once. STEP 5 uses it to grounded-refine several Discover
@@ -302,6 +304,9 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [saveResults, setSaveResults] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  // Saves run through mapPool at SAVE_CONCURRENCY, so the count of finished
+  // saves is a real, countable progress signal (unlike a single LLM call).
+  const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 });
 
   async function handleGenerate() {
     if (!request.trim()) return;
@@ -498,6 +503,10 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   const unrefined = kept.filter(
     (r) => r.hybrid_available && r.sourcing !== "hybrid" && !refiningTitles.has(r.title),
   );
+  // Grounding progress across the whole kept set — the denominator for the
+  // refine bar. A book already grounded when it was scored counts as done.
+  const groundable = kept.filter((r) => r.hybrid_available || r.sourcing === "hybrid").length;
+  const grounded = kept.filter((r) => r.sourcing === "hybrid").length;
 
   // Opt-out: ✕ on a card drops it from the save set; everything else still saves.
   function removeBook(title: string) {
@@ -516,6 +525,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
     // stacked that cost linearly. Distinct titles write distinct keys of `newResults`,
     // so the concurrent writes don't race (single-threaded event loop, one key each).
     const targets = savable;
+    setSaveProgress({ done: 0, total: targets.length });
     const newResults: Record<string, string> = {};
     await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
       try {
@@ -524,6 +534,9 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
       } catch (e: unknown) {
         newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
       }
+      // Count every finished save, successful or not — the bar tracks work
+      // completed, and the per-card message carries the outcome.
+      setSaveProgress((p) => ({ ...p, done: p.done + 1 }));
     });
     // Merge (don't replace) so an earlier batch's ✓ results survive a second save.
     setSaveResults((prev) => ({ ...prev, ...newResults }));
@@ -561,6 +574,13 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
             {genLoading ? "Generating candidates…" : "Generate candidates"}
           </SageButton>
         </div>
+        {genLoading && (
+          <ProgressBar
+            className="mt-3"
+            label="Asking the model for candidates…"
+            hint="Usually a few seconds; longer when the request needs a web lookup for series order."
+          />
+        )}
         {genError && <div className="mt-3"><ErrorBox message={genError} /></div>}
       </Card>
 
@@ -618,23 +638,17 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           )}
 
           {scoringIdx !== null && (
-            <div className="mt-4">
-              <div
-                className="rounded-full h-2 overflow-hidden"
-                style={{ background: "var(--color-rule)" }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    background: "var(--color-sage)",
-                    width: `${((scoringIdx + 1) / candidates.length) * 100}%`,
-                  }}
-                />
-              </div>
-              <p className="text-xs mt-1" style={{ color: "var(--color-muted)" }}>
-                Scoring {scoringIdx + 1} / {candidates.length}: {candidates[scoringIdx].title}
-              </p>
-            </div>
+            <ProgressBar
+              className="mt-4"
+              value={scoringIdx + 1}
+              max={candidates.length}
+              label={`Scoring ${scoringIdx + 1} / ${candidates.length}: ${candidates[scoringIdx].title}`}
+              hint={
+                nNew > 0
+                  ? `${nNew} of these have never been researched — those calls are the slow ones.`
+                  : undefined
+              }
+            />
           )}
         </Card>
       )}
@@ -672,6 +686,17 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
                   Refining {refiningCount} with reviews — scores update live.
                 </span>
               )}
+              {groundable > 0 && (
+                // Determinate across the whole result set rather than per batch:
+                // grounded ÷ groundable is stable whether the refine came from
+                // the eager top-K pass, one card, or "Refine all".
+                <ProgressBar
+                  className="w-full order-last"
+                  value={grounded}
+                  max={groundable}
+                  label={`${grounded} of ${groundable} grounded with reviews`}
+                />
+              )}
               {unrefined.length > 0 && (
                 <button
                   onClick={refineRemaining}
@@ -705,6 +730,11 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
               repredictError={repredictErrors[r.title]}
             />
           ))}
+
+          {/* The card currently being scored, as a placeholder — the results
+              list grows one card at a time, so this shows where the next one
+              lands instead of the list just sitting still. */}
+          {scoringIdx !== null && <SkeletonCardList cards={1} />}
 
           {failedScored.length > 0 && (
             <div
@@ -741,6 +771,15 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
                 </SageButton>
               )}
             </div>
+          )}
+
+          {saving && saveProgress.total > 0 && (
+            <ProgressBar
+              value={saveProgress.done}
+              max={saveProgress.total}
+              label={`Saved ${saveProgress.done} / ${saveProgress.total}`}
+              hint="Each save writes the prediction and generates its blurb."
+            />
           )}
         </div>
       )}
@@ -902,6 +941,16 @@ function ScoredCard({
           </button>
         )}
       </div>
+
+      {/* Per-card work in flight. Sits under the header so it is visible whether
+          or not the card is expanded — a refine or re-predict rewrites the score
+          in the badge above it. */}
+      {(refining || repredicting) && (
+        <ProgressBar
+          className="px-5 pb-3"
+          label={repredicting ? "Predicting this book again from scratch…" : "Grounding with reader reviews…"}
+        />
+      )}
 
       {/* Expanded detail */}
       {open && (

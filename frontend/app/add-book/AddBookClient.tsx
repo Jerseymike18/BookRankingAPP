@@ -5,6 +5,7 @@ import { useState, useRef } from "react";
 import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
+import { ProgressBar } from "@/components/ProgressBar";
 
 function fmtDelta(d: number): string {
   return `${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
@@ -522,6 +523,13 @@ export default function AddBookClient({
           </div>
         </div>
 
+        {lookupLoading && (
+          <ProgressBar
+            className="mt-2"
+            label="Looking up this book's metadata…"
+          />
+        )}
+
         {lookupError && (
           <div className="rounded-lg px-4 py-3 text-sm mt-2"
             style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}>
@@ -663,9 +671,14 @@ export default function AddBookClient({
         </div>
       )}
       {repredictStatus === "running" && (
-        <div className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)", color: "var(--color-muted)" }}>
-          Re-predicting related unread books…
+        <div className="rounded-lg px-4 py-3 mb-4"
+          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}>
+          {/* The backend reports only pending/done for this pass — no partial
+              count exists to drive a percentage, so the bar is indeterminate. */}
+          <ProgressBar
+            label="Re-predicting related unread books…"
+            hint="Your book is already saved — this runs in the background and reports below."
+          />
         </div>
       )}
       {repredictStatus === "done" && repredictReport && (

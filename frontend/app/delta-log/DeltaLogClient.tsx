@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { fetchDeltaLog } from "@/lib/api";
 import type { DeltaLogResponse, DeltaLogEntry } from "@/lib/types";
+import { PageSkeleton, SkeletonTable } from "@/components/Skeleton";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -176,7 +177,12 @@ export default function DeltaLogClient() {
   }, []);
 
   if (error) return <p style={{ color: "var(--color-spine-c)" }}>{error}</p>;
-  if (!data) return <p style={{ color: "var(--color-muted)" }}>Loading…</p>;
+  if (!data)
+    return (
+      <PageSkeleton title="Delta Log" titleClassName="font-display text-2xl font-semibold">
+        <SkeletonTable rows={8} cols={6} />
+      </PageSkeleton>
+    );
 
   return (
     <div>

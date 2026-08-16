@@ -10,6 +10,7 @@ import { useReadOnly } from "@/lib/readonly-context";
 import { useSortable, SortableTable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
+import { ProgressBar } from "@/components/ProgressBar";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -635,6 +636,11 @@ function BookExpandedPanel({
               Cancel
             </button>
           </div>
+          {saving && (
+            // Saving a rating rewrites the row, then router.refresh() refetches
+            // the whole ranking — the table below is stale until both land.
+            <ProgressBar className="mt-3" label="Saving and re-ranking your library…" />
+          )}
         </>
       )}
 
@@ -677,7 +683,14 @@ function BookExpandedPanel({
               Cancel
             </button>
           </div>
+          {saving && (
+            <ProgressBar className="mt-3" label="Saving metadata and re-ranking…" />
+          )}
         </>
+      )}
+
+      {deleting && (
+        <ProgressBar className="mt-3" label="Removing the book and re-ranking…" />
       )}
     </div>
   );
