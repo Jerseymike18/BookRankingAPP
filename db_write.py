@@ -1769,6 +1769,19 @@ def set_series_number(table: str, title: str, number, user_id=None):
         _backup_once()
         val = float(number) if number != int(number) else int(number)
         con.execute(f"UPDATE {table} SET series_number=? WHERE user_id=? AND title=?", (val, uid, title))
+        # Round-trip guard. A fractional value written to an INTEGER column is
+        # SILENTLY ROUNDED by the server — no error, no warning — so the write
+        # "succeeds" while storing something else. Postgres did exactly this
+        # until migrate_series_number_float.py widened the column (2026-08-15):
+        # 1.5 came back as 2. Read it back inside the transaction so a column
+        # that cannot hold the value fails loudly instead of lying.
+        got = con.execute(
+            f"SELECT series_number FROM {table} WHERE user_id=? AND title=?",
+            (uid, title)).fetchone()[0]
+        if got is None or abs(float(got) - float(val)) > 1e-9:
+            raise ValidationError(
+                f"series_number {val} did not round-trip (stored {got!r}) — the "
+                f"{table}.series_number column cannot hold this value. Nothing was saved.")
         con.commit()
         print(f"  ✓ {table}.series_number = {val} for '{title}'.")
         return True

@@ -18736,46 +18736,6 @@
       "words": 150000
     },
     {
-      "author": "Colleen McCullough",
-      "blurb": "The opening movement of McCullough's sweeping Roman saga, this novel tracks the ferocious rise of Marius and Sulla through the blood-soaked institutions of a Republic already sliding toward the strongmen who will break it. Closest analog: The Lions of Al-Rassan for how Kay makes vast political tides turn on the choices of a handful of magnetic, doomed men, and Best Served Cold for its unsentimental appetite for power, ambition, and the machinery of vengeance dressed as statecraft. An exploration of how personal will and institutional decay feed each other until a civilization's virtues become the very tools of its unmaking. Confidence caveat: Prose is the highest-risk component — McCullough's dense, footnote-adjacent historical exposition can read as either immersive or ponderous depending on your tolerance for period detail.",
-      "category_avgs": {
-        "Aesthetics": 7.6206,
-        "Character": 8.1081,
-        "Story": 7.8394,
-        "Theme": 8.1466,
-        "Worldbuilding": 0.0
-      },
-      "components": {
-        "Action": 7.70814196772048,
-        "Depth": 8.37098666503543,
-        "Depth2": 8.07752170468783,
-        "Emotional Impact": 7.71000817134321,
-        "Ending": 7.79386496225868,
-        "Entertainment": 7.78225243331213,
-        "Insights": 8.0168678831974,
-        "Integration": 8.18918603995554,
-        "Motivations": 8.24340532710302,
-        "Narration": 7.63303280754784,
-        "Originality": 7.66061460619204,
-        "Plot": 7.9795201233606,
-        "Prose": 7.61318245796379,
-        "Thought-Provokingness": 8.24381158768116
-      },
-      "genre": "Historical Fiction",
-      "interval_label": "genre only",
-      "interval_stale": false,
-      "keywords": "historical fiction, ancient rome, political, epic, multi-pov, meticulous research, doorstopper, character-driven, republic-era",
-      "predicted_rank": 49,
-      "series": "Masters of Rome",
-      "series_number": null,
-      "title": "Masters of Rome",
-      "upside": 8.7279,
-      "wa": 8.1269,
-      "wa_high": 9.4625,
-      "wa_low": 6.7913,
-      "words": 300000
-    },
-    {
       "author": "Fortune's Favorites",
       "blurb": "The third movement of McCullough's Masters of Rome saga, Fortune's Favorites tracks the rise of a young Julius Caesar, the ruthless consolidation of Sulla's dictatorship, and the ambitions of Pompey and Crassus as the Republic grinds toward its self-devouring end. Closest analog: The Lions of Al-Rassan for the way personal loyalty and political maneuver braid into tragedy against a richly reconstructed historical world, and Best Served Cold for its cold-eyed appetite for how power is actually seized and kept. An exploration of how ambition wears the mask of duty, and how institutions built for freedom manufacture the strongmen who dismantle them. Confidence caveat: Prose is the highest-risk component — McCullough's dense, terminology-heavy Roman detail can read as either immersive or textbook-dry depending on your patience for it, so this could plausibly land either way for you.",
       "category_avgs": {
@@ -19567,7 +19527,7 @@
       "keywords": "science fiction, novella, ender's game universe, battle school, religion, coming-of-age, character-driven, quiet, thematic",
       "predicted_rank": 127,
       "series": "Ender's Saga",
-      "series_number": null,
+      "series_number": 1.5,
       "title": "A War of Gifts",
       "upside": 6.4302,
       "wa": 6.0158,
