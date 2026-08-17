@@ -3049,13 +3049,18 @@ def _series_terms(row):
     """The per-term breakdown of one series' score, so the UI can show WHY a
     series ranks where it does instead of just asserting a number. Avg WA plus
     these four reconstructs Adjusted WA exactly (up to the shared clamp)."""
+    weakest = row["Weakest Pct"]
     return {
-        "commitment": _clean(round(float(row["Commitment"]), 3)),
+        "consistency": _clean(round(float(row["Consistency"]), 3)),
         "peak": _clean(round(float(row["Peak"]), 3)),
-        "floor": _clean(round(float(row["Floor"]), 3)),
         "finale": _clean(round(float(row["Finale"]), 3)),
+        "evidence": _clean(round(float(row["Evidence"]), 3)),
+        # Share of the reader's rated books the series' WEAKEST volume beats.
+        # None for a one-book series, where there is nothing to be consistent
+        # about — the UI must show that as "n/a", never as 0.
+        "weakest_pct": (None if weakest is None or pd.isna(weakest)
+                        else _clean(round(float(weakest), 4))),
         "peak_lift": _clean(round(float(row["Peak Lift"]), 3)),
-        "floor_drop": _clean(round(float(row["Floor Drop"]), 3)),
         "finale_lift": _clean(round(float(row["Finale Lift"]), 3)),
         "complete": bool(row["Complete"]),
     }

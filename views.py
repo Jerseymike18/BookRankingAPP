@@ -124,46 +124,49 @@ _NON_SERIES = {"", "standalone", "none", "n/a"}
 
 
 # --- The series-quality model -----------------------------------------------
-# A series is scored as `Avg WA + Commitment + Peak - Floor + Finale`.
+# A series is scored as `Avg WA + Consistency + Peak + Finale`, minus an
+# insufficient-evidence penalty.
 #
 # Avg WA is the base: a series of great books should rank above a series of
-# mediocre ones, and that ordering is already correct. The four modifiers exist
-# because a mean over books is STRUCTURALLY BLIND to everything that makes a
-# series a series rather than a pile of novels — it is order-invariant and
-# spread-invariant. Each term below measures something the mean cannot see:
+# mediocre ones, and that ordering is already correct. The modifiers exist
+# because a mean over books is STRUCTURALLY BLIND to most of what makes a series
+# a series rather than a pile of novels — it is order-invariant and
+# spread-invariant. Each term measures something the mean cannot see:
 #
-#   Commitment  how long it sustained that quality        (mean ignores count)
-#   Peak        whether it ever produced a standout       (mean flattens the top)
-#   Floor       whether any volume was a slog             (mean hides the bottom)
-#   Finale      whether it stuck the landing              (mean ignores position)
+#   Consistency  whether it sustained EXCELLENCE, judged by its weakest volume
+#   Peak         whether it ever produced a standout   (mean flattens the top)
+#   Finale       whether it stuck the landing          (mean ignores position)
 #
-# Peak and Floor are deliberately ASYMMETRIC — a reward for the ceiling and a
-# penalty for the collapse, not one signed spread term. Together they say "a high
-# high is worth having, a bad book is worth avoiding", which is a real preference;
-# a single variance term would net them out to nothing.
+# WHY THERE IS NO LENGTH BONUS (owner decision, 2026-08-17). The model used to
+# carry a compounding "Commitment" bonus for long series. That was wrong for this
+# reader, who FINISHES every series they start: length is then a fact about how
+# much they read, not evidence that the series was good, and the exponential bonus
+# was the single largest modifier in the model (+0.532 for a 15-book series —
+# more than any other term's entire cap). It reliably lifted long, uneven series
+# above short excellent ones. Measured on this library the old term correlated
+# +0.880 with book count and only +0.240 with the series' average WA; Consistency
+# correlates -0.003 with count. Do not reintroduce a length reward.
 #
-# Every term is entered as a DEVIATION FROM THE SERIES' OWN AVERAGE, never as a
-# level. That is what keeps them from silently re-weighting Avg WA: measured
-# against this library, the level forms ("the finale's Ending score", "the best
-# book's WA") correlate 0.84-0.95 with Avg WA and would merely double-count it,
-# while the deviation forms correlate -0.14 to +0.45 and carry new information.
+# Consistency also ABSORBED a former "Floor" term (avg WA - min WA, a penalty for
+# containing a dud). Both are about the weakest volume, so keeping both charged a
+# bad book twice — they correlated -0.54. The absolute form is strictly stronger:
+# a relative floor scores a uniformly mediocre series as perfectly consistent,
+# while "your worst book still beat 72% of what you read" does not.
 
-# Commitment: the original spreadsheet length term, unchanged.
-_LENGTH_BONUS_K = 0.0582
-_LENGTH_BONUS_BASE = 1.18
-_SHORT_SERIES_FLOOR = 3        # books below this are penalised...
-_SHORT_SERIES_PENALTY = 0.2    # ...by this much per missing book
+# Consistency: where the series' WEAKEST volume lands in the reader's own rated
+# library, as a percentile centred on the median and rescaled to [-1, +1]. Using
+# a percentile rather than a raw WA gap makes the term scale-free — it means the
+# same thing for a harsh rater and a generous one. Shrunk by n/(n+K) because two
+# good books are weaker evidence of consistency than ten.
+_CONSISTENCY_K = 0.70
+_CONSISTENCY_CAP = 0.50
+_CONSISTENCY_SHRINK_K = 2.0
 
-# Peak: reward the best volume's rise above the series average.
+# Peak: reward the best volume's rise above the series average. Kept as a
+# DEVIATION from the series' own mean — the level form ("the best book's WA")
+# correlates ~0.95 with Avg WA and would merely double-count it.
 _PEAK_K = 0.30
 _PEAK_CAP = 0.35
-
-# Floor: penalise the worst volume's fall below the series average, forgiving
-# the first _FLOOR_TOL of it — books in any series vary, and only a real drop
-# should read as "this series has a dud in it".
-_FLOOR_TOL = 0.40
-_FLOOR_K = 0.25
-_FLOOR_CAP = 0.45
 
 # Finale: the last volume's Ending score against the series' own mean Ending, so
 # this asks "did it end better or worse than it had been ending all along" rather
@@ -173,42 +176,75 @@ _FINALE_K = 0.15
 _FINALE_CAP_UP = 0.30
 _FINALE_CAP_DOWN = 0.50
 
-# Total headroom for the three NEW terms (Peak/Floor/Finale) combined. Commitment
-# is outside this budget — it is the pre-existing behaviour and is unchanged.
+# Total headroom for the three quality terms combined, so no series is carried
+# (or buried) by structure alone — Avg WA still sets the broad shape.
 _QUALITY_CLAMP = 0.75
+
+# Insufficient evidence: a ONE-book "series" has no within-series information at
+# all — no spread, no ordering, nothing to be consistent about. It is held back
+# rather than allowed to rank on a single book's WA. Sits OUTSIDE the quality
+# clamp because it is an evidence guard, not a judgement about the series.
+# n>=2 is not penalised: the n/(n+K) shrinkage above already discounts thin
+# evidence smoothly, which is a better instrument than a cliff at n=3.
+_MIN_EVIDENCE_N = 2
+_INSUFFICIENT_EVIDENCE_PENALTY = 0.4
 
 
 def _clamp(value, low, high):
     return max(low, min(high, value))
 
 
-def _commitment_term(n):
-    """The original length adjustment: a compounding bonus for a series that
-    sustained itself, minus a penalty for one too short to have earned the name."""
-    bonus = (_LENGTH_BONUS_K * (_LENGTH_BONUS_BASE ** (n - 1) - 1)) if n > 1 else 0.0
-    penalty = max(0, _SHORT_SERIES_FLOOR - n) * _SHORT_SERIES_PENALTY
-    return bonus - penalty
+def library_reference(books):
+    """The sorted WA of every rated book — the yardstick Consistency measures a
+    series' weakest volume against. Pass to series_quality_terms/series_aggregate.
+    Returns None for an empty library, which disables the term rather than
+    inventing a reference."""
+    if books is None or "WA" not in books:
+        return None
+    wa = books["WA"].astype(float).dropna().to_numpy()
+    return np.sort(wa) if len(wa) else None
 
 
-def series_quality_terms(sub, complete=False):
-    """Compute the per-series quality modifiers for one series' books.
+def _weakest_percentile(min_wa, library_wa):
+    """Share of the reader's rated books that the series' worst volume beats."""
+    idx = int(np.searchsorted(library_wa, min_wa, side="left"))
+    return idx / len(library_wa)
 
-    `sub` is the series' rows (any order — this sorts by "Series #" itself);
-    `complete` says whether the reader has marked the series as finished, which
-    is what licenses the Finale term. Returns a dict of the four terms plus the
-    raw deviations they were computed from, so the UI can explain the score
-    rather than just assert it.
 
-    A one-book series gets zero for all three new terms: with a single volume
-    there is no spread to measure and no ordering to have a finale in. It keeps
-    the Commitment term (and therefore the short-series penalty) as before.
+def _evidence_penalty(n):
+    """Held-back amount for a series too thin to judge (currently only n=1)."""
+    return _INSUFFICIENT_EVIDENCE_PENALTY if n < _MIN_EVIDENCE_N else 0.0
+
+
+def series_quality_terms(sub, complete=False, library_wa=None):
+    """Compute the per-series modifiers for one series' books.
+
+    `sub` is the series' rows (any order — this sorts by "Series #" itself).
+    `complete` says whether the reader has marked the series finished, which is
+    what licenses the Finale term. `library_wa` is the sorted WA of every rated
+    book (see library_reference); without it Consistency is 0, because a
+    percentile has no meaning without the distribution behind it — the same
+    fail-quiet rule the Finale term follows for an unmarked series.
+
+    Returns the terms plus the raw quantities they were computed from, so the UI
+    can explain the score rather than just assert it. A one-book series scores
+    zero on all three terms — no spread, no ordering — and takes the
+    insufficient-evidence penalty instead.
     """
     n = int(len(sub))
     wa = sub["WA"].astype(float)
     avg_wa = float(wa.mean())
 
     peak_lift = float(wa.max()) - avg_wa if n >= 2 else 0.0
-    floor_drop = avg_wa - float(wa.min()) if n >= 2 else 0.0
+
+    # Consistency: how deep into the reader's library the WEAKEST volume sits.
+    weakest_pct = None
+    consistency = 0.0
+    if n >= 2 and library_wa is not None and len(library_wa):
+        weakest_pct = _weakest_percentile(float(wa.min()), library_wa)
+        shrink = n / (n + _CONSISTENCY_SHRINK_K)
+        consistency = _clamp(_CONSISTENCY_K * shrink * ((weakest_pct - 0.5) * 2.0),
+                             -_CONSISTENCY_CAP, _CONSISTENCY_CAP)
 
     # Finale: only for a finished, multi-book series whose volumes can be
     # ordered and whose last volume actually carries an Ending score.
@@ -221,34 +257,35 @@ def series_quality_terms(sub, complete=False):
             finale_lift = float(last - endings.mean())
 
     peak = _clamp(_PEAK_K * peak_lift, 0.0, _PEAK_CAP)
-    floor = _clamp(_FLOOR_K * max(0.0, floor_drop - _FLOOR_TOL), 0.0, _FLOOR_CAP)
     finale = _clamp(_FINALE_K * finale_lift, -_FINALE_CAP_DOWN, _FINALE_CAP_UP)
-
-    # The three new terms share one budget, so no single series can be carried
-    # (or buried) by structure alone — Avg WA still sets the broad shape.
-    quality = _clamp(peak - floor + finale, -_QUALITY_CLAMP, _QUALITY_CLAMP)
+    quality = _clamp(consistency + peak + finale, -_QUALITY_CLAMP, _QUALITY_CLAMP)
 
     return {
-        "Commitment": _commitment_term(n),
+        "Consistency": consistency,
         "Peak": peak,
-        "Floor": -floor,
         "Finale": finale,
         "Quality": quality,
+        # Negated to a contribution; `or 0.0` keeps it a clean 0.0 rather than
+        # -0.0, which would render as "−0.000" in the UI.
+        "Evidence": -_evidence_penalty(n) or 0.0,
+        "Weakest Pct": weakest_pct,
         "Peak Lift": peak_lift,
-        "Floor Drop": floor_drop,
         "Finale Lift": finale_lift,
         "Complete": bool(complete),
     }
 
 
+_TERM_KEYS = ("Consistency", "Peak", "Finale", "Quality", "Evidence",
+              "Weakest Pct", "Peak Lift", "Finale Lift", "Complete")
+
+
 def _series_adjusted_wa(avg_wa, n, terms=None):
-    """The series score. With `terms` (from series_quality_terms) this is
-    `avg WA + Commitment + Quality`; without them it degrades to the original
-    length-only adjustment, which is what a caller holding nothing but a mean
-    and a count can honestly compute."""
+    """The series score: `avg WA + Quality + Evidence`. Without `terms` only the
+    evidence guard can be applied, which is all a caller holding nothing but a
+    mean and a count can honestly compute."""
     if terms is None:
-        return avg_wa + _commitment_term(n)
-    return avg_wa + terms["Commitment"] + terms["Quality"]
+        return avg_wa - _evidence_penalty(n)
+    return avg_wa + terms["Quality"] + terms["Evidence"]
 
 
 def series_aggregate(books, series_meta=None):
@@ -260,12 +297,16 @@ def series_aggregate(books, series_meta=None):
     which suppresses the Finale term everywhere — deliberately, so a caller that
     cannot supply the flags never invents an ending for a series that has none.
 
+    Consistency is measured against the WHOLE frame passed in, so a series is
+    judged relative to everything the reader has rated, not just other series.
+
     The returned frame carries each modifier as its own column, so the score is
-    auditable: Avg WA + Commitment + Peak + Floor + Finale reconstructs Adjusted
-    WA exactly, up to the shared Quality clamp.
+    auditable: Avg WA + Consistency + Peak + Finale + Evidence reconstructs
+    Adjusted WA exactly, up to the shared Quality clamp.
     """
     meta = series_meta or {}
     bt = add_total_average(books)
+    library_wa = library_reference(bt)
     rows = []
     for series, sub in bt.groupby("Series"):
         if (series or "").strip().lower() in _NON_SERIES:
@@ -273,7 +314,8 @@ def series_aggregate(books, series_meta=None):
         n = int(len(sub))
         avg_wa = float(sub["WA"].mean())
         terms = series_quality_terms(
-            sub, complete=bool(meta.get(series, {}).get("complete")))
+            sub, complete=bool(meta.get(series, {}).get("complete")),
+            library_wa=library_wa)
         rows.append({
             "Series": series,
             "Author": sub["Author"].mode().iloc[0] if n else "",
@@ -282,9 +324,7 @@ def series_aggregate(books, series_meta=None):
             "Avg Total Average": float(sub["Total Average"].mean()),
             "Avg WA": avg_wa,
             "Adjusted WA": _series_adjusted_wa(avg_wa, n, terms),
-            **{k: terms[k] for k in ("Commitment", "Peak", "Floor", "Finale",
-                                     "Quality", "Peak Lift", "Floor Drop",
-                                     "Finale Lift", "Complete")},
+            **{k: terms[k] for k in _TERM_KEYS},
         })
     out = pd.DataFrame(rows)
     if len(out):

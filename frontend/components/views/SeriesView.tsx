@@ -151,12 +151,14 @@ function ScoreBreakdown({
     <div className="px-3 py-4" style={{ background: "var(--color-surface-2)" }}>
       <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
         <Term
-          label="Commitment"
-          value={s.commitment}
+          label="Consistency"
+          value={s.consistency}
           detail={
-            s.books >= 3
-              ? `${s.books} books sustained at this level`
-              : `short series — ${3 - s.books} book${s.books === 2 ? "" : "s"} below the 3-book floor`
+            solo
+              ? "needs 2+ books"
+              : s.weakest_pct == null
+              ? "no library reference"
+              : `its weakest book still beats ${Math.round(s.weakest_pct * 100)}% of everything you've read`
           }
         />
         <Term
@@ -169,15 +171,6 @@ function ScoreBreakdown({
           }
         />
         <Term
-          label="Floor"
-          value={s.floor}
-          detail={
-            solo
-              ? "needs 2+ books"
-              : `worst volume falls ${s.floor_drop?.toFixed(2) ?? "—"} WA below it (first 0.40 forgiven)`
-          }
-        />
-        <Term
           label="Finale"
           value={s.finale}
           detail={
@@ -186,6 +179,15 @@ function ScoreBreakdown({
               : !complete
               ? "not counted — series not marked finished"
               : `last book's Ending is ${signed(s.finale_lift, 2)} against the series' own average ending`
+          }
+        />
+        <Term
+          label="Evidence"
+          value={s.evidence}
+          detail={
+            solo
+              ? "one book is nothing to be consistent about — held back until you read another"
+              : `${s.books} books is enough to judge`
           }
         />
       </div>
@@ -287,10 +289,10 @@ function RankingsTab({
         {scored ? (
           <>
             Ranked by a series score — the average WA of its books, adjusted for the
-            things an average can&apos;t see: how long it sustained that quality
-            (Commitment), whether it produced a standout (Peak), whether any volume
-            was a slog (Floor), and whether it stuck the landing (Finale). Click a
-            series to see its breakdown; click a column header to sort.
+            things an average can&apos;t see: whether even its weakest volume is
+            excellent (Consistency), whether it produced a standout (Peak), and
+            whether it stuck the landing (Finale). Length earns nothing on its own.
+            Click a series to see its breakdown; click a column header to sort.
           </>
         ) : (
           <>Ranked by average WA with a length adjustment. Click a column header to sort.</>

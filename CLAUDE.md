@@ -399,29 +399,45 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 - **WA:** weighted sum of `WStoryAvg × Story% + WCharAvg × Char% + WThemeAvg × Theme% +
   WAesAvg × Aes% + WWBAvg × WB%` per genre weights.
 - **Series score (`views.series_quality_terms` / `series_aggregate`):**
-  `avg_WA + Commitment + clamp(Peak − Floor + Finale, ±0.75)`. Each modifier prices
+  `avg_WA + clamp(Consistency + Peak + Finale, ±0.75) + Evidence`. Each modifier prices
   something a mean over books is structurally blind to (a mean is order- and
-  spread-invariant), and **every term is a deviation from the series' own average,
-  never a level** — that is what stops them re-weighting avg WA. Measured on the
-  reference library, the level forms ("the finale's Ending", "the best book's WA")
-  correlate 0.84–0.95 with avg WA; the deviation forms correlate −0.14 to +0.45.
-  - **Commitment** = `0.0582 × (1.18^(n−1) − 1) − max(0, 3−n) × 0.2` — the original
-    length bonus / short-series penalty, unchanged and **outside** the ±0.75 budget.
-  - **Peak** = `0.30 × (max_WA − avg_WA)`, capped +0.35 — it produced a standout.
-  - **Floor** = `0.25 × max(0, (avg_WA − min_WA) − 0.40)`, capped 0.45 — it contains a
-    dud, with the first 0.40 of drop forgiven as normal book-to-book variation.
+  spread-invariant).
+  - **NO LENGTH TERM — do not reintroduce one** (owner decision, 2026-08-17). The model
+    used to carry a compounding `Commitment` bonus for long series. The owner **finishes
+    every series they start**, so book count measures how much they read, not how good
+    it was; and the bonus was the largest modifier in the model (+0.532 for a 15-book
+    series, more than any other term's whole cap), reliably lifting long uneven series
+    over short excellent ones. Measured: the old term correlated **+0.88 with book
+    count** and only +0.24 with avg WA; Consistency correlates **−0.00** with count.
+  - **Consistency** = `0.70 × n/(n+2) × ((pct − 0.5) × 2)`, capped ±0.50, where `pct` is
+    the share of the reader's rated books that the series' **weakest volume** beats.
+    A percentile (not a raw WA gap) makes it scale-free across harsh and generous
+    raters; the `n/(n+2)` shrinkage discounts thin evidence smoothly. Needs the library
+    distribution — `series_aggregate` supplies it via `views.library_reference`; without
+    it the term is 0 and `Weakest Pct` is None rather than invented.
+  - This **absorbed a former `Floor` term** (`avg_WA − min_WA`). Both price the weakest
+    volume, so keeping both charged a bad book twice (they correlated −0.54), and the
+    absolute form is strictly stronger: a *relative* floor scores a uniformly mediocre
+    series as perfectly consistent.
+  - **Peak** = `0.30 × (max_WA − avg_WA)`, capped +0.35 — it produced a standout. Kept
+    as a **deviation from the series' own average**: the level form ("the best book's
+    WA") correlates ~0.95 with avg WA and would merely double-count it.
   - **Finale** = `0.15 × (final volume's Ending − mean Ending)`, capped +0.30 / −0.50
     (a botched ending costs more than a great one earns). **Only applied to a series
     the reader has marked complete** — see the `series_meta` note under HARD
     CONSTRAINT 3. An unmarked series gets no Finale term, so an ongoing series is
     never charged for an ending it hasn't written, and `series_aggregate` called
     without `series_meta` suppresses the term everywhere.
-  - Peak and Floor are deliberately **asymmetric** (a reward for the ceiling, a penalty
-    for the collapse), not one signed variance term — a single spread term would net
-    them out. n=1 gets zero for all three new terms; n≥2 is scored.
-  - Regression guard: `test_series_score.py` (34 checks).
+  - **Evidence** = `−0.4` at n=1, **outside** the ±0.75 budget — a one-book "series" has
+    no within-series information at all and is held back rather than ranked on a single
+    volume. n≥2 takes no penalty; the shrinkage above already handles thin evidence
+    without a cliff.
+  - Regression guard: `test_series_score.py` (43 checks), including the explicit
+    no-length-reward guard: a long series with a bad book must score below a short
+    excellent one, and `_commitment_term` must stay gone.
   - **Series Breakdown page** (`/series-breakdown`, under the "For Nerds" nav group)
-    documents this model term by term and shows every series' contributions. It reads
+    documents this model term by term, including a section on why there is no length
+    bonus, and shows every series' contributions. It reads
     the per-term fields off `GET /api/series` and the COEFFICIENTS off
     `GET /api/engine-parameters` → `series_model` (`engine_parameters._series_model_block`,
     read live from `views`), so a change to any constant here surfaces on the page

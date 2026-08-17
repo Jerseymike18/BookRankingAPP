@@ -339,12 +339,16 @@ export interface ReadingStatusResponse {
  *  series-quality model, so its rows carry none of these and the UI must render
  *  the breakdown only where it genuinely exists rather than fake a zero. */
 export interface SeriesTerms {
-  commitment?: number | null;
+  /** Where the series' WEAKEST volume lands in the reader's library. */
+  consistency?: number | null;
   peak?: number | null;
-  floor?: number | null;
   finale?: number | null;
+  /** Held back below the minimum book count — no within-series information. */
+  evidence?: number | null;
+  /** 0..1 share of rated books the weakest volume beats. null at n=1, where
+   *  there is nothing to be consistent about — render as "n/a", never 0. */
+  weakest_pct?: number | null;
   peak_lift?: number | null;
-  floor_drop?: number | null;
   finale_lift?: number | null;
   complete?: boolean;
 }
@@ -679,17 +683,10 @@ export interface EngineParameters {
    *  Series Breakdown page can never quote a constant the engine dropped. */
   series_model: {
     formula: string;
-    /** Shared budget for Peak + Floor + Finale. Commitment sits outside it. */
+    /** Shared budget for Consistency + Peak + Finale. Evidence sits outside it. */
     quality_clamp: number;
-    commitment: {
-      k: number;
-      base: number;
-      short_series_floor: number;
-      short_series_penalty: number;
-      in_quality_budget: boolean;
-    };
+    consistency: { k: number; cap: number; shrink_k: number; measures: string };
     peak: { k: number; cap: number; measures: string };
-    floor: { k: number; cap: number; tolerance: number; measures: string };
     finale: {
       k: number;
       cap_up: number;
@@ -697,6 +694,14 @@ export interface EngineParameters {
       measures: string;
       requires_complete: boolean;
     };
+    evidence: {
+      min_books: number;
+      penalty: number;
+      in_quality_budget: boolean;
+      measures: string;
+    };
+    /** Always null — there is deliberately no length reward. */
+    length_bonus: null;
   };
   models: {
     research: string;

@@ -207,24 +207,31 @@ def _series_model_block():
     model notes in views.py. Commitment is reported separately from the other three
     because it sits OUTSIDE their shared clamp."""
     return {
-        "formula": "avg_WA + Commitment + clamp(Peak - Floor + Finale, ±quality_clamp)",
+        "formula": "avg_WA + clamp(Consistency + Peak + Finale, ±quality_clamp) - Evidence",
         "quality_clamp": views._QUALITY_CLAMP,
-        "commitment": {
-            "k": views._LENGTH_BONUS_K,
-            "base": views._LENGTH_BONUS_BASE,
-            "short_series_floor": views._SHORT_SERIES_FLOOR,
-            "short_series_penalty": views._SHORT_SERIES_PENALTY,
-            "in_quality_budget": False,
+        "consistency": {
+            "k": views._CONSISTENCY_K,
+            "cap": views._CONSISTENCY_CAP,
+            "shrink_k": views._CONSISTENCY_SHRINK_K,
+            "measures": "library percentile of the series' WEAKEST volume, "
+                        "centred on the median, shrunk by n/(n+shrink_k)",
         },
         "peak": {"k": views._PEAK_K, "cap": views._PEAK_CAP,
                  "measures": "max_WA - avg_WA"},
-        "floor": {"k": views._FLOOR_K, "cap": views._FLOOR_CAP,
-                  "tolerance": views._FLOOR_TOL,
-                  "measures": "avg_WA - min_WA, first `tolerance` forgiven"},
         "finale": {"k": views._FINALE_K, "cap_up": views._FINALE_CAP_UP,
                    "cap_down": views._FINALE_CAP_DOWN,
                    "measures": "final volume's Ending - mean Ending",
                    "requires_complete": True},
+        "evidence": {
+            "min_books": views._MIN_EVIDENCE_N,
+            "penalty": views._INSUFFICIENT_EVIDENCE_PENALTY,
+            "in_quality_budget": False,
+            "measures": "held back below min_books — no within-series information",
+        },
+        # There is deliberately NO length term: this reader finishes every series
+        # they start, so book count measures how much they read, not how good it
+        # was. The retired bonus correlated +0.88 with count; Consistency ≈ 0.00.
+        "length_bonus": None,
     }
 
 

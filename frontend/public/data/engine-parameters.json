@@ -689,12 +689,17 @@
     "customized": false
   },
   "series_model": {
-    "commitment": {
-      "base": 1.18,
+    "consistency": {
+      "cap": 0.5,
+      "k": 0.7,
+      "measures": "library percentile of the series' WEAKEST volume, centred on the median, shrunk by n/(n+shrink_k)",
+      "shrink_k": 2.0
+    },
+    "evidence": {
       "in_quality_budget": false,
-      "k": 0.0582,
-      "short_series_floor": 3,
-      "short_series_penalty": 0.2
+      "measures": "held back below min_books — no within-series information",
+      "min_books": 2,
+      "penalty": 0.4
     },
     "finale": {
       "cap_down": 0.5,
@@ -703,13 +708,8 @@
       "measures": "final volume's Ending - mean Ending",
       "requires_complete": true
     },
-    "floor": {
-      "cap": 0.45,
-      "k": 0.25,
-      "measures": "avg_WA - min_WA, first `tolerance` forgiven",
-      "tolerance": 0.4
-    },
-    "formula": "avg_WA + Commitment + clamp(Peak - Floor + Finale, ±quality_clamp)",
+    "formula": "avg_WA + clamp(Consistency + Peak + Finale, ±quality_clamp) - Evidence",
+    "length_bonus": null,
     "peak": {
       "cap": 0.35,
       "k": 0.3,

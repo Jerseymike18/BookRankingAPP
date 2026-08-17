@@ -22,10 +22,10 @@ const adjustment = (s: SeriesEntry) => (s.adjusted_wa ?? 0) - (s.avg_wa ?? 0);
  *  here and not where its average would put it". */
 function dominantTerm(s: SeriesEntry): { label: string; value: number } {
   const terms: [string, number][] = [
-    ["Commitment", s.commitment ?? 0],
+    ["Consistency", s.consistency ?? 0],
     ["Peak", s.peak ?? 0],
-    ["Floor", s.floor ?? 0],
     ["Finale", s.finale ?? 0],
+    ["Evidence", s.evidence ?? 0],
   ];
   terms.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
   return { label: terms[0][0], value: terms[0][1] };
@@ -71,16 +71,18 @@ function AdjustmentBar({ value, max }: { value: number; max: number }) {
 
 /* ── columns ──────────────────────────────────────────────────────────────── */
 
+const TERM_KEYS = ["consistency", "peak", "finale", "evidence"] as const;
+
 const COLS: ColDef<SeriesEntry>[] = [
-  { key: "series",      label: "Series",     type: "string",  getValue: (s) => s.series,      align: "left"  },
-  { key: "books",       label: "n",          type: "numeric", getValue: (s) => s.books,       align: "right" },
-  { key: "avg_wa",      label: "Avg WA",     type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
-  { key: "commitment",  label: "Commitment", type: "numeric", getValue: (s) => s.commitment ?? 0, align: "right" },
-  { key: "peak",        label: "Peak",       type: "numeric", getValue: (s) => s.peak ?? 0,   align: "right" },
-  { key: "floor",       label: "Floor",      type: "numeric", getValue: (s) => s.floor ?? 0,  align: "right" },
-  { key: "finale",      label: "Finale",     type: "numeric", getValue: (s) => s.finale ?? 0, align: "right" },
-  { key: "adjustment",  label: "Net ±",      type: "numeric", getValue: adjustment,           align: "right" },
-  { key: "adjusted_wa", label: "Score",      type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
+  { key: "series",      label: "Series",      type: "string",  getValue: (s) => s.series,      align: "left"  },
+  { key: "books",       label: "n",           type: "numeric", getValue: (s) => s.books,       align: "right" },
+  { key: "avg_wa",      label: "Avg WA",      type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
+  { key: "consistency", label: "Consistency", type: "numeric", getValue: (s) => s.consistency ?? 0, align: "right" },
+  { key: "peak",        label: "Peak",        type: "numeric", getValue: (s) => s.peak ?? 0,   align: "right" },
+  { key: "finale",      label: "Finale",      type: "numeric", getValue: (s) => s.finale ?? 0, align: "right" },
+  { key: "evidence",    label: "Evidence",    type: "numeric", getValue: (s) => s.evidence ?? 0, align: "right" },
+  { key: "adjustment",  label: "Net ±",       type: "numeric", getValue: adjustment,           align: "right" },
+  { key: "adjusted_wa", label: "Score",       type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
 ];
 
 /* ── small presentational pieces ──────────────────────────────────────────── */
@@ -194,9 +196,10 @@ export default function SeriesBreakdownClient({
         <p className="mt-2 text-sm max-w-3xl" style={{ color: "var(--color-muted)" }}>
           A series is more than the mean of its books. A mean is order-invariant and
           spread-invariant — it cannot tell a series that built to something from one
-          that limped, or a consistent run from one with a dud in the middle. This page
-          shows the four terms that price what the mean is blind to, and exactly what
-          each one did to each series.
+          that limped, or a run of uniformly excellent books from one carried by a single
+          great volume. This page shows the terms that price what the mean is blind to,
+          and exactly what each one did to each series. Notably, length is not one of
+          them.
         </p>
       </header>
 
@@ -206,30 +209,31 @@ export default function SeriesBreakdownClient({
           style={{ background: "var(--color-surface-2)", color: "var(--color-ink)" }}
         >
           <code style={{ fontVariantNumeric: "tabular-nums" }}>
-            Score = Avg WA + Commitment + clamp(Peak − Floor + Finale, ±
-            {m ? m.quality_clamp.toFixed(2) : "0.75"})
+            Score = Avg WA + clamp(Consistency + Peak + Finale, ±
+            {m ? m.quality_clamp.toFixed(2) : "0.75"}) + Evidence
           </code>
         </div>
         <p className="text-sm" style={{ color: "var(--color-muted)" }}>
           Avg WA sets the broad shape — a series of great books should outrank a series of
           mediocre ones, and that part was already right. The modifiers only re-order
-          neighbours. Peak, Floor and Finale share one budget so no series can be carried
-          or buried by structure alone; Commitment sits outside it, because it is the
-          original length adjustment and was not changed.
+          neighbours. Consistency, Peak and Finale share one budget so no series can be
+          carried or buried by structure alone; Evidence sits outside it, because it is a
+          guard against judging a series on too few books rather than a judgement about
+          the series itself.
         </p>
       </Section>
 
-      <Section title="The four terms">
+      <Section title="The terms">
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
           <TermCard
-            name="Commitment"
-            question="How long did it sustain that quality?"
-            measures="book count"
-            coefficient={m ? `${m.commitment.k} × (${m.commitment.base}^(n−1) − 1)` : "—"}
-            cap={m?.commitment.in_quality_budget === false ? "outside the shared budget" : "—"}
+            name="Consistency"
+            question="Is even its weakest book excellent?"
+            measures="library percentile of the worst volume"
+            coefficient={m ? `× ${m.consistency.k}` : "—"}
+            cap={m ? `±${m.consistency.cap.toFixed(2)}` : "—"}
             note={
               m
-                ? `Minus ${m.commitment.short_series_penalty} per book below ${m.commitment.short_series_floor} — a two-book "series" has not yet earned the name.`
+                ? `Centred on your median book and shrunk by n/(n+${m.consistency.shrink_k}) — two good books are weaker evidence of consistency than ten.`
                 : undefined
             }
           />
@@ -242,18 +246,6 @@ export default function SeriesBreakdownClient({
             note="A mean flattens the top: one transcendent volume and a uniformly good run average out the same."
           />
           <TermCard
-            name="Floor"
-            question="Is there a book you had to slog through?"
-            measures="avg WA − min WA"
-            coefficient={m ? `× ${m.floor.k}` : "—"}
-            cap={m ? `−${m.floor.cap.toFixed(2)}` : "—"}
-            note={
-              m
-                ? `The first ${m.floor.tolerance.toFixed(2)} of drop is forgiven as ordinary book-to-book variation — only a real collapse reads as a dud.`
-                : undefined
-            }
-          />
-          <TermCard
             name="Finale"
             question="Did it stick the landing?"
             measures="final volume's Ending − mean Ending"
@@ -261,14 +253,37 @@ export default function SeriesBreakdownClient({
             cap={m ? `+${m.finale.cap_up.toFixed(2)} / −${m.finale.cap_down.toFixed(2)}` : "—"}
             note="Asymmetric on purpose: a botched ending damages a series more than a great one redeems it. Only applied to a series marked finished."
           />
+          <TermCard
+            name="Evidence"
+            question="Are there enough books to judge at all?"
+            measures="book count"
+            coefficient={m ? `−${m.evidence.penalty.toFixed(2)} below ${m.evidence.min_books}` : "—"}
+            cap="outside the shared budget"
+            note="One book has no spread and no ordering — nothing to be consistent about. It is held back rather than ranked on a single volume."
+          />
         </div>
+      </Section>
+
+      <Section title="Why there is no length bonus">
+        <p className="text-sm max-w-3xl" style={{ color: "var(--color-muted)" }}>
+          This model used to pay a compounding bonus for long series. That was wrong for a
+          reader who finishes everything they start: book count then measures how much you
+          read, not how good it was. The bonus was also the largest modifier in the model —
+          a 15-book series collected <strong>+0.532</strong>, more than any other term&apos;s
+          entire cap — so it reliably lifted long, uneven series above short excellent ones.
+          Measured here, that term correlated <strong>+0.88</strong> with book count and only
+          +0.24 with the series&apos; average WA. Consistency correlates{" "}
+          <strong>−0.00</strong> with count. Length now earns nothing; sustained quality does.
+        </p>
       </Section>
 
       <Section title="Why deviations, not levels">
         <p className="text-sm mb-4 max-w-3xl" style={{ color: "var(--color-muted)" }}>
-          Every term is measured against the series&apos; <em>own</em> average. That is not a
-          stylistic choice — it is what stops the modifiers from quietly re-weighting Avg WA
-          and calling it new information. Measured on this library:
+          Peak and Finale are measured against the series&apos; <em>own</em> average, not as
+          raw levels. That is not a stylistic choice — it is what stops them from quietly
+          re-weighting Avg WA and calling it new information. (Consistency is the deliberate
+          exception: judging the weakest volume against your <em>whole library</em> is the
+          point of it, so it is expected to track quality.) Measured on this library:
         </p>
         <div style={{ overflowX: "auto" }}>
           <table className="w-full text-sm" style={{ borderCollapse: "collapse", maxWidth: 620 }}>
@@ -286,7 +301,6 @@ export default function SeriesBreakdownClient({
                 ["worst book's WA", "+0.90", "redundant", false],
                 ["finale lift (vs own mean Ending)", "+0.45", "carries new information", true],
                 ["peak lift (vs own average)", "+0.03", "carries new information", true],
-                ["floor drop (vs own average)", "−0.14", "carries new information", true],
               ].map(([label, r, verdict, good], i) => (
                 <tr key={i} style={{ borderTop: "1px solid var(--color-rule)" }}>
                   <td className="px-3 py-2" style={{ color: "var(--color-ink)" }}>{label as string}</td>
@@ -349,7 +363,7 @@ export default function SeriesBreakdownClient({
                     </td>
                     <td className="px-3 py-2.5 text-right" style={{ color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>{s.books}</td>
                     <td className="px-3 py-2.5 text-right" style={{ color: "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>{num(s.avg_wa)}</td>
-                    {(["commitment", "peak", "floor", "finale"] as const).map((k) => {
+                    {TERM_KEYS.map((k) => {
                       const v = s[k] ?? 0;
                       return (
                         <td key={k} className="px-3 py-2.5 text-right" style={{ color: tone(v), fontVariantNumeric: "tabular-nums" }}>
@@ -378,7 +392,7 @@ export default function SeriesBreakdownClient({
           <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--color-surface-2)", borderBottom: "1px solid var(--color-rule)" }}>
-                {["Series", "Peak lift (WA)", "Floor drop (WA)", "Finale lift (Ending pts)"].map((h, i) => (
+                {["Series", "Worst book beats", "Peak lift (WA)", "Finale lift (Ending pts)"].map((h, i) => (
                   <th key={h} className={`px-3 py-2.5 font-semibold text-xs uppercase tracking-wider ${i === 0 ? "text-left" : "text-right"}`} style={{ color: "var(--color-muted)" }}>{h}</th>
                 ))}
               </tr>
@@ -387,8 +401,10 @@ export default function SeriesBreakdownClient({
               {sorted.map((s, i) => (
                 <tr key={s.series} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
                   <td className="px-3 py-2.5" style={{ color: "var(--color-ink)" }}>{s.series}</td>
+                  <td className="px-3 py-2.5 text-right" style={{ color: s.weakest_pct == null ? "var(--color-faint)" : "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>
+                    {s.weakest_pct == null ? "n/a" : `${Math.round(s.weakest_pct * 100)}%`}
+                  </td>
                   <td className="px-3 py-2.5 text-right" style={{ color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>{num(s.peak_lift)}</td>
-                  <td className="px-3 py-2.5 text-right" style={{ color: "var(--color-muted)", fontVariantNumeric: "tabular-nums" }}>{num(s.floor_drop)}</td>
                   <td className="px-3 py-2.5 text-right" style={{ color: s.complete ? "var(--color-muted)" : "var(--color-faint)", fontVariantNumeric: "tabular-nums" }}>
                     {s.complete ? signed(s.finale_lift, 2) : "not finished"}
                   </td>
@@ -398,9 +414,12 @@ export default function SeriesBreakdownClient({
           </table>
         </div>
         <p className="text-xs mt-3 max-w-3xl" style={{ color: "var(--color-faint)" }}>
-          These are the quantities the coefficients above are applied to. Finale lift is in
-          Ending points (0–10), not WA — which is why its coefficient is the smallest.
-          A one-book series has no spread and no ordering, so it scores zero on all three.
+          These are the quantities the coefficients above are applied to. &quot;Worst book
+          beats&quot; is the share of your rated books the series&apos; weakest volume
+          outscores — the raw input to Consistency. Finale lift is in Ending points (0–10),
+          not WA, which is why its coefficient is the smallest. A one-book series has no
+          spread and no ordering, so it scores zero on all three and takes the Evidence
+          penalty instead.
         </p>
       </Section>
 
