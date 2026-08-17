@@ -409,7 +409,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     series, more than any other term's whole cap), reliably lifting long uneven series
     over short excellent ones. Measured: the old term correlated **+0.88 with book
     count** and only +0.24 with avg WA; Consistency correlates **−0.00** with count.
-  - **Consistency** = `0.45 × n/(n+2) × ((pct − 0.5) × 2)`, capped ±0.50, where `pct` is
+  - **Consistency** = `0.50 × n/(n+2) × ((pct − 0.5) × 2)`, capped ±0.50, where `pct` is
     the share of the reader's rated books that the series' **weakest volume** beats.
     A percentile (not a raw WA gap) makes it scale-free across harsh and generous
     raters; the `n/(n+2)` shrinkage discounts thin evidence smoothly. Needs the library
@@ -432,12 +432,19 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     no within-series information at all and is held back rather than ranked on a single
     volume. n≥2 takes no penalty; the shrinkage above already handles thin evidence
     without a cliff.
-  - The Consistency coefficient was softened 0.70 → 0.55 → 0.45 (owner, 2026-08-17).
-    **0.45 is the floor**: below it The Wheel of Time (15 books, weakest volume at the
-    39th percentile) climbs back over Lord of the Rings, which is the long-series
-    inflation this replaced the length bonus to fix. Re-measure that pair before going
-    lower. At 0.45 the per-term ±0.50 cap is **inert** (the term self-bounds near 0.44);
-    it is kept as a guard-rail in case K rises, and `_QUALITY_CLAMP` bounds the sum.
+  - The Consistency coefficient settled at **0.50** (0.70 → 0.55 → 0.45 → 0.50, owner,
+    2026-08-17), the last move on robustness rather than taste. **There is no
+    statistically optimal K** — this is a preference composition with no ground truth to
+    fit — but a 0→1 sweep on the live library shows the ranking is *identical across
+    0.50–0.80*, a plateau 3× wider than any other, and 0.50 is its lowest point: the
+    smallest coefficient that isn't on a cliff. (0.45 sat between order changes at
+    0.40→0.45 and 0.45→0.50.) The same sweep ruled out two worries: the term never
+    dominates (avg WA has ~8× its spread even at K=1.0; it owns 1.5% of score variance
+    here), and rating-noise fragility is flat across 0.25–0.70. The real floor is lower:
+    below ~0.45 The Wheel of Time (15 books, weakest volume at the 39th percentile)
+    climbs back over Lord of the Rings — the long-series inflation this replaced the
+    length bonus to fix. At 0.50 the per-term ±0.50 cap is **inert** (largest real value
+    0.338); it is kept as a guard-rail in case K rises, and `_QUALITY_CLAMP` bounds the sum.
   - Regression guard: `test_series_score.py` (45 checks), including the explicit
     no-length-reward guard: a long series with a bad book must score below a short
     excellent one, and `_commitment_term` must stay gone. The cap checks are decoupled

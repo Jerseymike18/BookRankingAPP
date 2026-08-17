@@ -160,20 +160,37 @@ _NON_SERIES = {"", "standalone", "none", "n/a"}
 # good books are weaker evidence of consistency than ten.
 #
 #
-# K was softened 0.70 -> 0.55 -> 0.45 (owner decisions, 2026-08-17). On the live
-# library 0.45 moves four series by a single place (Stormlight above The
-# Hierarchy, Ender's Game above The First Law) and leaves the correction that
-# motivated the rework intact: The Wheel of Time stays at #4.
 #
-# 0.45 IS THE FLOOR. Below it the term stops doing its job — WoT (15 books,
-# weakest volume in the 39th percentile) climbs back over Lord of the Rings,
-# which is exactly the long-series inflation this replaced the length bonus to
+# K was tuned 0.70 -> 0.55 -> 0.45 -> 0.50 (owner decisions, 2026-08-17), the last
+# move on a robustness argument rather than taste.
+#
+# THERE IS NO STATISTICALLY OPTIMAL K. This is a preference composition, not a
+# predictive model: no ground truth exists to fit against, so no value is
+# "correct". What IS measurable is which values the ranking does not depend on.
+# Sweeping K from 0 to 1 on the live library, the ordering is IDENTICAL across
+# 0.50-0.80 — a plateau three times wider than any other — and 0.50 is its lowest
+# point, so it is the smallest coefficient that does not sit on a cliff. 0.45, by
+# contrast, was a singleton between order changes at 0.40->0.45 and 0.45->0.50:
+# defensible, but the one setting where nudging an arbitrary constant reshuffles
+# the list.
+#
+# Two things the same sweep ruled OUT as concerns:
+#   * The term never dominates. avg WA has ~8x its spread even at K=1.0; the
+#     consistency column owns 1.5% of the score's variance here, 3.8% at K=1.0.
+#   * Rating-noise fragility is flat across K=0.25-0.70 (perturbing every WA by
+#     N(0, 0.10) moves 0.28 places/series at K=0.45 and 0.28 at K=0.55). The worry
+#     that the MINIMUM, as the least stable order statistic, makes a large K
+#     fragile is not supported at this scale.
+#
+# The real floor is lower down: below ~0.45 the term stops doing its job and The
+# Wheel of Time (15 books, weakest volume in the 39th percentile) climbs back over
+# Lord of the Rings — the long-series inflation this replaced the length bonus to
 # prevent. Re-measure that pair before reducing further.
 #
-# Note the per-term cap below is now INERT: 0.45 x max shrink x max raw is about
-# 0.44, so the term self-bounds before reaching it. It is kept as a guard-rail in
-# case K rises again; the ±_QUALITY_CLAMP budget is what actually bounds the sum.
-_CONSISTENCY_K = 0.45
+# Note the per-term cap below is INERT at this K: 0.50 x max shrink x max raw is
+# under the cap, so the term self-bounds (largest real value 0.338). It is kept as
+# a guard-rail in case K rises; ±_QUALITY_CLAMP is what actually bounds the sum.
+_CONSISTENCY_K = 0.50
 _CONSISTENCY_CAP = 0.50
 _CONSISTENCY_SHRINK_K = 2.0
 
