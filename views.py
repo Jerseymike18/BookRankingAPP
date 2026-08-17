@@ -158,7 +158,15 @@ _NON_SERIES = {"", "standalone", "none", "n/a"}
 # a percentile rather than a raw WA gap makes the term scale-free — it means the
 # same thing for a harsh rater and a generous one. Shrunk by n/(n+K) because two
 # good books are weaker evidence of consistency than ten.
-_CONSISTENCY_K = 0.70
+#
+# K was softened 0.70 -> 0.55 (owner decision, 2026-08-17). Measured on the live
+# library that is a pure de-emphasis: the term's span narrows from 0.758 to 0.615
+# and NO series changes rank, while Ender's Shadow comes off the cap so nothing is
+# pinned at the limit any more. It is also close to the floor — below about 0.45
+# the term stops doing its job and The Wheel of Time (15 books, weakest volume in
+# the 39th percentile) climbs back over Lord of the Rings, which is exactly the
+# long-series inflation this replaced the length bonus to prevent.
+_CONSISTENCY_K = 0.55
 _CONSISTENCY_CAP = 0.50
 _CONSISTENCY_SHRINK_K = 2.0
 

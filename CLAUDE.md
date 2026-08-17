@@ -409,7 +409,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     series, more than any other term's whole cap), reliably lifting long uneven series
     over short excellent ones. Measured: the old term correlated **+0.88 with book
     count** and only +0.24 with avg WA; Consistency correlates **−0.00** with count.
-  - **Consistency** = `0.70 × n/(n+2) × ((pct − 0.5) × 2)`, capped ±0.50, where `pct` is
+  - **Consistency** = `0.55 × n/(n+2) × ((pct − 0.5) × 2)`, capped ±0.50, where `pct` is
     the share of the reader's rated books that the series' **weakest volume** beats.
     A percentile (not a raw WA gap) makes it scale-free across harsh and generous
     raters; the `n/(n+2)` shrinkage discounts thin evidence smoothly. Needs the library
@@ -432,9 +432,15 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     no within-series information at all and is held back rather than ranked on a single
     volume. n≥2 takes no penalty; the shrinkage above already handles thin evidence
     without a cliff.
-  - Regression guard: `test_series_score.py` (43 checks), including the explicit
+  - The Consistency coefficient was softened 0.70 → 0.55 (owner, 2026-08-17): on the
+    live library that changed **no ranks** and took the last series off the cap. It is
+    near the floor, though — below ~0.45 the term stops working and The Wheel of Time
+    (15 books, weakest volume at the 39th percentile) climbs back over Lord of the
+    Rings, which is the long-series inflation this replaced the length bonus to fix.
+  - Regression guard: `test_series_score.py` (44 checks), including the explicit
     no-length-reward guard: a long series with a bad book must score below a short
-    excellent one, and `_commitment_term` must stay gone.
+    excellent one, and `_commitment_term` must stay gone. The cap checks size their
+    fixture off the live constants, so tuning K can't make them pass vacuously.
   - **Series Breakdown page** (`/series-breakdown`, under the "For Nerds" nav group)
     documents this model term by term, including a section on why there is no length
     bonus, and shows every series' contributions. It reads

@@ -178,14 +178,20 @@ def main():
           f"{long_worse['Consistency']:+.3f} < {short_good['Consistency']:+.3f} "
           "— the regression guard for the retired length bonus")
 
-    check("Consistency is capped both ways",
-          views.series_quality_terms(
-              make_series("Best", [10.0] * 8), library_wa=LIB)["Consistency"]
-          == views._CONSISTENCY_CAP
-          and views.series_quality_terms(
-              make_series("Worst", [0.0] * 8), library_wa=LIB)["Consistency"]
-          == -views._CONSISTENCY_CAP,
-          f"±{views._CONSISTENCY_CAP}")
+    # Long enough that n/(n+k) is ~1, so the raw term saturates its cap at the
+    # current K. Two separate claims: the cap is never exceeded (must hold at ANY
+    # K), and it actually binds at the extremes (only meaningful while the cap is
+    # reachable — if K is ever cut far enough that it isn't, this is the check
+    # that should fail and prompt a rethink, rather than passing vacuously).
+    _best = views.series_quality_terms(
+        make_series("Best", [10.0] * 200), library_wa=LIB)["Consistency"]
+    _worst = views.series_quality_terms(
+        make_series("Worst", [0.0] * 200), library_wa=LIB)["Consistency"]
+    check("Consistency never exceeds its cap",
+          max(abs(_best), abs(_worst)) <= views._CONSISTENCY_CAP + 1e-12)
+    check("the cap binds at both extremes",
+          _best == views._CONSISTENCY_CAP and _worst == -views._CONSISTENCY_CAP,
+          f"±{views._CONSISTENCY_CAP} at K={views._CONSISTENCY_K}")
     check("thin evidence is shrunk, not trusted",
           abs(views.series_quality_terms(make_series("Two", [10.0, 10.0]),
                                          library_wa=LIB)["Consistency"])

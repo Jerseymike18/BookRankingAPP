@@ -691,7 +691,7 @@
   "series_model": {
     "consistency": {
       "cap": 0.5,
-      "k": 0.7,
+      "k": 0.55,
       "measures": "library percentile of the series' WEAKEST volume, centred on the median, shrunk by n/(n+shrink_k)",
       "shrink_k": 2.0
     },
