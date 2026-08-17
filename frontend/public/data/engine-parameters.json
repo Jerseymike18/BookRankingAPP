@@ -688,6 +688,35 @@
     ],
     "customized": false
   },
+  "series_model": {
+    "commitment": {
+      "base": 1.18,
+      "in_quality_budget": false,
+      "k": 0.0582,
+      "short_series_floor": 3,
+      "short_series_penalty": 0.2
+    },
+    "finale": {
+      "cap_down": 0.5,
+      "cap_up": 0.3,
+      "k": 0.15,
+      "measures": "final volume's Ending - mean Ending",
+      "requires_complete": true
+    },
+    "floor": {
+      "cap": 0.45,
+      "k": 0.25,
+      "measures": "avg_WA - min_WA, first `tolerance` forgiven",
+      "tolerance": 0.4
+    },
+    "formula": "avg_WA + Commitment + clamp(Peak - Floor + Finale, ±quality_clamp)",
+    "peak": {
+      "cap": 0.35,
+      "k": 0.3,
+      "measures": "max_WA - avg_WA"
+    },
+    "quality_clamp": 0.75
+  },
   "shrinkage": {
     "corr_blend": 0.2,
     "estimator": "n / (n + k)",

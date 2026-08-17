@@ -59,6 +59,7 @@ const READING_ITEMS: NavItem[] = [
 const NERD_ITEMS: NavItem[] = [
   { href: "/methodology", label: "Methodology" },
   { href: "/track-record", label: "Track Record" },
+  { href: "/series-breakdown", label: "Series Breakdown" },
   { href: "/calibration", label: "Calibration" },
   { href: "/analytics", label: "Taste Lab" },
   ...(READONLY

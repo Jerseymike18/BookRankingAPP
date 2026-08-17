@@ -45,6 +45,7 @@ import intervals
 import research_predict as rp
 import reresearch_and_measure as rm
 import score_anchors as sa
+import views
 
 # Canonical category display order (matches db_loader.CATEGORY_OF_INTEREST).
 CATEGORY_ORDER = ["Story", "Character", "Aesthetics", "Theme", "Worldbuilding"]
@@ -198,6 +199,35 @@ def _score_anchor_block(anchors):
     }
 
 
+def _series_model_block():
+    """The series-quality model's constants, read LIVE off views so the Series
+    Breakdown page can never quote a coefficient the engine no longer uses.
+
+    Each term is a deviation from the series' own average, never a level — see the
+    model notes in views.py. Commitment is reported separately from the other three
+    because it sits OUTSIDE their shared clamp."""
+    return {
+        "formula": "avg_WA + Commitment + clamp(Peak - Floor + Finale, ±quality_clamp)",
+        "quality_clamp": views._QUALITY_CLAMP,
+        "commitment": {
+            "k": views._LENGTH_BONUS_K,
+            "base": views._LENGTH_BONUS_BASE,
+            "short_series_floor": views._SHORT_SERIES_FLOOR,
+            "short_series_penalty": views._SHORT_SERIES_PENALTY,
+            "in_quality_budget": False,
+        },
+        "peak": {"k": views._PEAK_K, "cap": views._PEAK_CAP,
+                 "measures": "max_WA - avg_WA"},
+        "floor": {"k": views._FLOOR_K, "cap": views._FLOOR_CAP,
+                  "tolerance": views._FLOOR_TOL,
+                  "measures": "avg_WA - min_WA, first `tolerance` forgiven"},
+        "finale": {"k": views._FINALE_K, "cap_up": views._FINALE_CAP_UP,
+                   "cap_down": views._FINALE_CAP_DOWN,
+                   "measures": "final volume's Ending - mean Ending",
+                   "requires_complete": True},
+    }
+
+
 def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
                             cold_term=None, model_source="own", min_own_fit=None,
                             blend_weight=None, anchors=None):
@@ -271,6 +301,7 @@ def build_engine_parameters(books, gw, gcw, r2, resid_sd, residuals=None,
         },
         "cold_start": _cold_start_block(cold_term),
         "score_anchors": _score_anchor_block(anchors),
+        "series_model": _series_model_block(),
         "models": {
             "research": rm.MODEL,
             "discover": rp.DISCOVER_MODEL,

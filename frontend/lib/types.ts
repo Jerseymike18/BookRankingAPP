@@ -675,6 +675,29 @@ export interface EngineParameters {
     customized: boolean;
     applied_to: string;
   };
+  /** The series-quality model's coefficients, read live off views.py so the
+   *  Series Breakdown page can never quote a constant the engine dropped. */
+  series_model: {
+    formula: string;
+    /** Shared budget for Peak + Floor + Finale. Commitment sits outside it. */
+    quality_clamp: number;
+    commitment: {
+      k: number;
+      base: number;
+      short_series_floor: number;
+      short_series_penalty: number;
+      in_quality_budget: boolean;
+    };
+    peak: { k: number; cap: number; measures: string };
+    floor: { k: number; cap: number; tolerance: number; measures: string };
+    finale: {
+      k: number;
+      cap_up: number;
+      cap_down: number;
+      measures: string;
+      requires_complete: boolean;
+    };
+  };
   models: {
     research: string;
     discover: string;

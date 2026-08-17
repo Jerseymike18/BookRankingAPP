@@ -420,6 +420,13 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     for the collapse), not one signed variance term — a single spread term would net
     them out. n=1 gets zero for all three new terms; n≥2 is scored.
   - Regression guard: `test_series_score.py` (34 checks).
+  - **Series Breakdown page** (`/series-breakdown`, under the "For Nerds" nav group)
+    documents this model term by term and shows every series' contributions. It reads
+    the per-term fields off `GET /api/series` and the COEFFICIENTS off
+    `GET /api/engine-parameters` → `series_model` (`engine_parameters._series_model_block`,
+    read live from `views`), so a change to any constant here surfaces on the page
+    automatically — same anti-drift rule as the Methodology page. Fiction only:
+    nonfiction series have no quality model, so there would be no terms to break down.
 - **Tier bands:** S+ fixed at Total Average ≥ 9.5 (≥ 9.0 for series); remaining books split
   S/A/B/C/D/F by percentile (~9% / 15% / 25% / 25% / 15% / 10%).
 - **Tier spine colors:** S+ #2D6A4F · S #4A7C59 · A #7BA87B · B #D4A853 · C #C07C5A ·
@@ -428,7 +435,8 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 ## Pages (frontend/app/)
 
 Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` ·
-`analytics` · `calibration` · `track-record` · `methodology` · `delta-log` · `weights`
+`analytics` · `calibration` · `track-record` · `methodology` · `series-breakdown` ·
+`delta-log` · `weights`
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth) ·
 `import` (Goodreads onboarding import) · `try` (public no-login prediction demo) ·
 `directory` + `profile` + `u` — the `/u/[handle]` public-profile viewer (see below),
