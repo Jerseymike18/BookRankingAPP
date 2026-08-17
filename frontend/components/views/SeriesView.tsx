@@ -182,6 +182,15 @@ function ScoreBreakdown({
           }
         />
         <Term
+          label="Unfinished"
+          value={s.unfinished}
+          detail={
+            complete
+              ? "finished — no charge"
+              : "hasn't ended yet, so you can't commit to it knowing how it turns out"
+          }
+        />
+        <Term
           label="Evidence"
           value={s.evidence}
           detail={
@@ -291,7 +300,8 @@ function RankingsTab({
             Ranked by a series score — the average WA of its books, adjusted for the
             things an average can&apos;t see: whether even its weakest volume is
             excellent (Consistency), whether it produced a standout (Peak), and
-            whether it stuck the landing (Finale). Length earns nothing on its own.
+            whether it stuck the landing (Finale) — plus a small charge if it
+            hasn&apos;t ended yet. Length earns nothing on its own.
             Click a series to see its breakdown; click a column header to sort.
           </>
         ) : (

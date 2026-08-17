@@ -708,14 +708,19 @@
       "measures": "final volume's Ending - mean Ending",
       "requires_complete": true
     },
-    "formula": "avg_WA + clamp(Consistency + Peak + Finale, ±quality_clamp) - Evidence",
+    "formula": "avg_WA + clamp(Consistency + Peak + Finale + Unfinished, ±quality_clamp) + Evidence",
     "length_bonus": null,
     "peak": {
       "cap": 0.35,
       "k": 0.3,
       "measures": "max_WA - avg_WA"
     },
-    "quality_clamp": 0.75
+    "quality_clamp": 0.75,
+    "unfinished": {
+      "applies_when": "completeness is KNOWN and the series is ongoing; a caller with no completeness data charges nothing",
+      "measures": "standing charge on a series that has not ended — distinct from a suppressed Finale, which only means 'no evidence about the ending'",
+      "penalty": 0.1
+    }
   },
   "shrinkage": {
     "corr_blend": 0.2,

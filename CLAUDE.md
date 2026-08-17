@@ -58,9 +58,11 @@ pipeline — see **Publishing** below and `README.md`.
      about a series AS A WHOLE can live — a series is only a grouping of `books` rows by the
      free-text `series` column, so there is no row to hang it on. Sparse per-tenant
      (`user_id, series, complete`), self-healing via `db_write._ensure_series_meta`, written
-     only through `db_write.set_series_complete`. **No row means not complete**, which is the
-     safe default: it suppresses the Finale term rather than penalising a series for an
-     ending it hasn't written. Unmarking deletes the row instead of storing a zero.
+     only through `db_write.set_series_complete`. **No row means not complete** — which now
+     suppresses the Finale term *and* applies the small Unfinished charge, so the flag is
+     load-bearing: an unmarked-but-actually-finished series is scored as ongoing. (A caller
+     that supplies no `series_meta` at all is a different case and charges nothing — see the
+     tri-state note under the series score.) Unmarking deletes the row rather than storing a zero.
 
 4. **`test_engine.py` must stay at a clean pass (every check PASSES, no `[FAIL]` lines —
    currently 38/38).** The DB is the source of truth; the Excel workbook is import-only, so
@@ -399,7 +401,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 - **WA:** weighted sum of `WStoryAvg × Story% + WCharAvg × Char% + WThemeAvg × Theme% +
   WAesAvg × Aes% + WWBAvg × WB%` per genre weights.
 - **Series score (`views.series_quality_terms` / `series_aggregate`):**
-  `avg_WA + clamp(Consistency + Peak + Finale, ±0.75) + Evidence`. Each modifier prices
+  `avg_WA + clamp(Consistency + Peak + Finale + Unfinished, ±0.75) + Evidence`. Each prices
   something a mean over books is structurally blind to (a mean is order- and
   spread-invariant).
   - **NO LENGTH TERM — do not reintroduce one** (owner decision, 2026-08-17). The model
@@ -428,6 +430,17 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     CONSTRAINT 3. An unmarked series gets no Finale term, so an ongoing series is
     never charged for an ending it hasn't written, and `series_aggregate` called
     without `series_meta` suppresses the term everywhere.
+  - **Unfinished** = `−0.10` while a series has not ended (owner, 2026-08-17). Small on
+    purpose: 0.10 moves two series on the live library, 0.20 moves seven by up to three
+    places. It is **separate from the suppressed Finale and both apply** — Finale going
+    to 0 means "no evidence about the ending", this means "not having one is itself a
+    mark against it".
+  - **`complete` is TRI-STATE and the third state is load-bearing.** `True` = finished
+    (Finale applies, no charge); `False` = known ongoing (no Finale, charge applies);
+    **`None` = the caller had no completeness data at all → no Finale AND no charge**.
+    `series_aggregate` passes None exactly when `series_meta` is omitted, so a caller
+    that cannot supply the flags never marks the whole library down for missing data it
+    never had. Within a supplied `series_meta`, an absent row still means ongoing.
   - **Evidence** = `−0.4` at n=1, **outside** the ±0.75 budget — a one-book "series" has
     no within-series information at all and is held back rather than ranked on a single
     volume. n≥2 takes no penalty; the shrinkage above already handles thin evidence
@@ -445,7 +458,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     climbs back over Lord of the Rings — the long-series inflation this replaced the
     length bonus to fix. At 0.50 the per-term ±0.50 cap is **inert** (largest real value
     0.338); it is kept as a guard-rail in case K rises, and `_QUALITY_CLAMP` bounds the sum.
-  - Regression guard: `test_series_score.py` (45 checks), including the explicit
+  - Regression guard: `test_series_score.py` (52 checks), including the explicit
     no-length-reward guard: a long series with a bad book must score below a short
     excellent one, and `_commitment_term` must stay gone. The cap checks are decoupled
     from the tuned K — one asserts the shipped K never exceeds the cap, the other forces

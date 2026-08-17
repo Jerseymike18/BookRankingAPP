@@ -4,7 +4,7 @@ test_series_score.py — the series-quality model
 Guards the scoring of a SERIES as an object in its own right, rather than as a
 plain mean over its books. The score is
 
-    Avg WA + clamp(Consistency + Peak + Finale, ±budget) + Evidence
+    Avg WA + clamp(Consistency + Peak + Finale + Unfinished, ±budget) + Evidence
 
 where each modifier measures something a mean is structurally blind to: whether
 even the weakest volume is excellent, whether the series produced a standout, and
@@ -26,9 +26,14 @@ What this locks down:
     average, so they add information instead of re-weighting Avg WA. Shifting a
     series' books up by a constant must leave them untouched. Consistency is the
     deliberate exception — tracking level is its whole purpose.
-  * FINALE IS GATED ON COMPLETENESS. An unmarked (ongoing) series gets no Finale
-    term at all — it is never charged for an ending it hasn't written. This is
-    the default, so a caller that passes no series_meta can't invent endings.
+  * FINALE IS GATED ON COMPLETENESS. An ongoing series gets no Finale term at
+    all — it is never charged for an ending it hasn't written.
+  * THE UNFINISHED CHARGE IS SEPARATE, and both apply: Finale going to 0 means
+    "no evidence about the ending", the charge means "not having one is itself a
+    mark against it".
+  * COMPLETENESS IS TRI-STATE. True/False/None, and None (the caller had no data)
+    must charge NOTHING — otherwise a caller that simply cannot supply the flags
+    would silently mark down every series in the library.
   * FINALE READS SERIES ORDER, not row order or read order — it is the last
     VOLUME's Ending that matters.
   * EDGE CASES: a one-book series scores zero on every quality term and takes the
@@ -252,6 +257,29 @@ def main():
           views.series_quality_terms(stuck, complete=False)["Finale"] == 0.0
           and views.series_quality_terms(botched, complete=False)["Finale"] == 0.0,
           "never charged for an ending it hasn't written")
+
+    # ── 3b. the unfinished charge, and the tri-state ─────────────────────────
+    print("\nSERIES QUALITY — the unfinished charge")
+    done = views.series_quality_terms(stuck, complete=True, library_wa=LIB)
+    ongoing = views.series_quality_terms(stuck, complete=False, library_wa=LIB)
+    unknown = views.series_quality_terms(stuck, complete=None, library_wa=LIB)
+    check("a KNOWN-ongoing series takes the unfinished charge",
+          abs(ongoing["Unfinished"] + views._UNFINISHED_PENALTY) < 1e-9,
+          f"{ongoing['Unfinished']:+.3f}")
+    check("a finished series takes none",
+          done["Unfinished"] == 0.0)
+    check("UNKNOWN completeness takes none either",
+          unknown["Unfinished"] == 0.0,
+          "'we have no data' must not be billed as 'it hasn't ended'")
+    check("the charge is separate from the suppressed Finale — both apply",
+          ongoing["Finale"] == 0.0 and ongoing["Unfinished"] < 0.0,
+          "finale=0 means no evidence about the ending; the charge means not "
+          "having one is itself a mark against it")
+    check("the charge is small relative to the other terms",
+          views._UNFINISHED_PENALTY < views._CONSISTENCY_CAP
+          and views._UNFINISHED_PENALTY < views._FINALE_CAP_DOWN,
+          f"{views._UNFINISHED_PENALTY} vs consistency cap "
+          f"{views._CONSISTENCY_CAP}, finale cap {views._FINALE_CAP_DOWN}")
     check("a finished series that lands it is rewarded",
           views.series_quality_terms(stuck, complete=True)["Finale"] > 0)
     check("a finished series that bottles it is penalised",
@@ -316,9 +344,12 @@ def main():
           f"(budget +/-{views._QUALITY_CLAMP})")
     check("the clamp actually binds on an extreme series",
           abs(raw) > views._QUALITY_CLAMP)
+    # complete=None isolates Evidence: with completeness KNOWN-ongoing the
+    # Unfinished charge would also land in Quality and mask the claim.
+    _solo = views.series_quality_terms(
+        make_series("Solo2", [8.0]), complete=None, library_wa=LIB)
     check("the evidence penalty sits OUTSIDE the quality budget",
-          views.series_quality_terms(
-              make_series("Solo2", [8.0]), library_wa=LIB)["Quality"] == 0.0,
+          _solo["Quality"] == 0.0 and _solo["Evidence"] < 0.0,
           "it is a guard against thin data, not a judgement about the series")
 
     # ── 6. aggregation + auditability ────────────────────────────────────────
@@ -341,9 +372,10 @@ def main():
           "Standalone" not in set(agg["Series"]), f"{len(agg)} series")
 
     recon = (agg["Avg WA"] + agg["Consistency"] + agg["Peak"]
-             + agg["Finale"] + agg["Evidence"])
+             + agg["Finale"] + agg["Unfinished"] + agg["Evidence"])
     unclamped = (agg["Quality"]
-                 - (agg["Consistency"] + agg["Peak"] + agg["Finale"])).abs() < 1e-9
+                 - (agg["Consistency"] + agg["Peak"] + agg["Finale"]
+                    + agg["Unfinished"])).abs() < 1e-9
     check("the per-term columns reconstruct the score exactly",
           bool(((recon - agg["Adjusted WA"]).abs()[unclamped] < 1e-9).all()),
           f"{int(unclamped.sum())} of {len(agg)} rows unclamped")
@@ -367,6 +399,16 @@ def main():
     check("series_aggregate with no meta suppresses every finale term",
           bool((bare["Finale"] == 0.0).all()) and bool((~bare["Complete"]).all()),
           "a caller that can't supply the flags never invents an ending")
+    check("series_aggregate with no meta charges NOBODY for being unfinished",
+          bool((bare["Unfinished"] == 0.0).all()),
+          "unknown completeness is not the same claim as 'ongoing' — otherwise a "
+          "caller with no flags would mark the whole library down")
+    with_meta = views.series_aggregate(lib, series_meta={"Even": {"complete": True}})
+    check("with meta supplied, a series with no row IS charged",
+          float(with_meta[with_meta["Series"] == "Even"].iloc[0]["Unfinished"]) == 0.0
+          and float(with_meta[with_meta["Series"] == "Built"].iloc[0]["Unfinished"])
+          == -views._UNFINISHED_PENALTY,
+          "no row means ongoing once completeness is known")
     check("the terms-less signature applies only the evidence guard",
           views._series_adjusted_wa(8.0, 3) == 8.0
           and abs(views._series_adjusted_wa(8.0, 1)

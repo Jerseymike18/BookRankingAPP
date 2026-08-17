@@ -25,6 +25,7 @@ function dominantTerm(s: SeriesEntry): { label: string; value: number } {
     ["Consistency", s.consistency ?? 0],
     ["Peak", s.peak ?? 0],
     ["Finale", s.finale ?? 0],
+    ["Unfinished", s.unfinished ?? 0],
     ["Evidence", s.evidence ?? 0],
   ];
   terms.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
@@ -71,7 +72,7 @@ function AdjustmentBar({ value, max }: { value: number; max: number }) {
 
 /* ── columns ──────────────────────────────────────────────────────────────── */
 
-const TERM_KEYS = ["consistency", "peak", "finale", "evidence"] as const;
+const TERM_KEYS = ["consistency", "peak", "finale", "unfinished", "evidence"] as const;
 
 const COLS: ColDef<SeriesEntry>[] = [
   { key: "series",      label: "Series",      type: "string",  getValue: (s) => s.series,      align: "left"  },
@@ -80,6 +81,7 @@ const COLS: ColDef<SeriesEntry>[] = [
   { key: "consistency", label: "Consistency", type: "numeric", getValue: (s) => s.consistency ?? 0, align: "right" },
   { key: "peak",        label: "Peak",        type: "numeric", getValue: (s) => s.peak ?? 0,   align: "right" },
   { key: "finale",      label: "Finale",      type: "numeric", getValue: (s) => s.finale ?? 0, align: "right" },
+  { key: "unfinished",  label: "Unfinished",  type: "numeric", getValue: (s) => s.unfinished ?? 0, align: "right" },
   { key: "evidence",    label: "Evidence",    type: "numeric", getValue: (s) => s.evidence ?? 0, align: "right" },
   { key: "adjustment",  label: "Net ±",       type: "numeric", getValue: adjustment,           align: "right" },
   { key: "adjusted_wa", label: "Score",       type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
@@ -209,15 +211,15 @@ export default function SeriesBreakdownClient({
           style={{ background: "var(--color-surface-2)", color: "var(--color-ink)" }}
         >
           <code style={{ fontVariantNumeric: "tabular-nums" }}>
-            Score = Avg WA + clamp(Consistency + Peak + Finale, ±
+            Score = Avg WA + clamp(Consistency + Peak + Finale + Unfinished, ±
             {m ? m.quality_clamp.toFixed(2) : "0.75"}) + Evidence
           </code>
         </div>
         <p className="text-sm" style={{ color: "var(--color-muted)" }}>
           Avg WA sets the broad shape — a series of great books should outrank a series of
           mediocre ones, and that part was already right. The modifiers only re-order
-          neighbours. Consistency, Peak and Finale share one budget so no series can be
-          carried or buried by structure alone; Evidence sits outside it, because it is a
+          neighbours. Consistency, Peak, Finale and Unfinished share one budget so no series
+          can be carried or buried by structure alone; Evidence sits outside it, because it is a
           guard against judging a series on too few books rather than a judgement about
           the series itself.
         </p>
@@ -252,6 +254,14 @@ export default function SeriesBreakdownClient({
             coefficient={m ? `× ${m.finale.k}` : "—"}
             cap={m ? `+${m.finale.cap_up.toFixed(2)} / −${m.finale.cap_down.toFixed(2)}` : "—"}
             note="Asymmetric on purpose: a botched ending damages a series more than a great one redeems it. Only applied to a series marked finished."
+          />
+          <TermCard
+            name="Unfinished"
+            question="Has it actually ended?"
+            measures="completeness flag"
+            coefficient={m ? `−${m.unfinished.penalty.toFixed(2)} while ongoing` : "—"}
+            cap={m ? `−${m.unfinished.penalty.toFixed(2)}` : "—"}
+            note="Not the same as a suppressed Finale, and both apply: Finale going to zero means there's no evidence about the ending, while this prices the fact that a series you can't finish is worth less than one you can commit to."
           />
           <TermCard
             name="Evidence"

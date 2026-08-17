@@ -207,7 +207,8 @@ def _series_model_block():
     model notes in views.py. Commitment is reported separately from the other three
     because it sits OUTSIDE their shared clamp."""
     return {
-        "formula": "avg_WA + clamp(Consistency + Peak + Finale, ±quality_clamp) - Evidence",
+        "formula": "avg_WA + clamp(Consistency + Peak + Finale + Unfinished, "
+                   "±quality_clamp) + Evidence",
         "quality_clamp": views._QUALITY_CLAMP,
         "consistency": {
             "k": views._CONSISTENCY_K,
@@ -222,6 +223,14 @@ def _series_model_block():
                    "cap_down": views._FINALE_CAP_DOWN,
                    "measures": "final volume's Ending - mean Ending",
                    "requires_complete": True},
+        "unfinished": {
+            "penalty": views._UNFINISHED_PENALTY,
+            "measures": "standing charge on a series that has not ended — distinct "
+                        "from a suppressed Finale, which only means 'no evidence "
+                        "about the ending'",
+            "applies_when": "completeness is KNOWN and the series is ongoing; a "
+                            "caller with no completeness data charges nothing",
+        },
         "evidence": {
             "min_books": views._MIN_EVIDENCE_N,
             "penalty": views._INSUFFICIENT_EVIDENCE_PENALTY,

@@ -343,6 +343,9 @@ export interface SeriesTerms {
   consistency?: number | null;
   peak?: number | null;
   finale?: number | null;
+  /** Standing charge for a series that has not ended. Distinct from finale === 0,
+   *  which only means there is no evidence about the ending. */
+  unfinished?: number | null;
   /** Held back below the minimum book count — no within-series information. */
   evidence?: number | null;
   /** 0..1 share of rated books the weakest volume beats. null at n=1, where
@@ -694,6 +697,7 @@ export interface EngineParameters {
       measures: string;
       requires_complete: boolean;
     };
+    unfinished: { penalty: number; measures: string; applies_when: string };
     evidence: {
       min_books: number;
       penalty: number;

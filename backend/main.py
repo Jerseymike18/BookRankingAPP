@@ -3054,6 +3054,9 @@ def _series_terms(row):
         "consistency": _clean(round(float(row["Consistency"]), 3)),
         "peak": _clean(round(float(row["Peak"]), 3)),
         "finale": _clean(round(float(row["Finale"]), 3)),
+        # Standing charge for a series that has not ended. Distinct from finale=0,
+        # which only means "no evidence about the ending".
+        "unfinished": _clean(round(float(row["Unfinished"]), 3)),
         "evidence": _clean(round(float(row["Evidence"]), 3)),
         # Share of the reader's rated books the series' WEAKEST volume beats.
         # None for a one-book series, where there is nothing to be consistent

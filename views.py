@@ -208,6 +208,16 @@ _FINALE_K = 0.15
 _FINALE_CAP_UP = 0.30
 _FINALE_CAP_DOWN = 0.50
 
+# Unfinished: a small standing charge on a series that has not ended (owner
+# decision, 2026-08-17). A series you can commit to is worth more than one that
+# may never conclude, and this prices that directly rather than leaving it implicit.
+#
+# It is NOT the same thing as the suppressed Finale term, and both apply. Finale
+# going to 0 means "no evidence about the ending"; this means "not having an
+# ending is itself a mark against it". Kept small on purpose: at 0.10 it moves two
+# series on the live library, where 0.20 moves seven by up to three places.
+_UNFINISHED_PENALTY = 0.10
+
 # Total headroom for the three quality terms combined, so no series is carried
 # (or buried) by structure alone — Avg WA still sets the broad shape.
 _QUALITY_CLAMP = 0.75
@@ -252,11 +262,18 @@ def series_quality_terms(sub, complete=False, library_wa=None):
     """Compute the per-series modifiers for one series' books.
 
     `sub` is the series' rows (any order — this sorts by "Series #" itself).
-    `complete` says whether the reader has marked the series finished, which is
-    what licenses the Finale term. `library_wa` is the sorted WA of every rated
-    book (see library_reference); without it Consistency is 0, because a
-    percentile has no meaning without the distribution behind it — the same
-    fail-quiet rule the Finale term follows for an unmarked series.
+
+    `complete` is TRI-STATE, and the third state matters:
+      True  — finished: the Finale term applies, no Unfinished charge.
+      False — known to be ongoing: no Finale, and the Unfinished charge applies.
+      None  — UNKNOWN, because the caller had no completeness data at all. No
+              Finale and NO charge: "we don't know" must not be billed as "it
+              hasn't ended", or a caller that simply can't supply the flags would
+              silently mark down every series in the library.
+
+    `library_wa` is the sorted WA of every rated book (see library_reference);
+    without it Consistency is 0, because a percentile has no meaning without the
+    distribution behind it — the same fail-quiet rule.
 
     Returns the terms plus the raw quantities they were computed from, so the UI
     can explain the score rather than just assert it. A one-book series scores
@@ -278,6 +295,10 @@ def series_quality_terms(sub, complete=False, library_wa=None):
         consistency = _clamp(_CONSISTENCY_K * shrink * ((weakest_pct - 0.5) * 2.0),
                              -_CONSISTENCY_CAP, _CONSISTENCY_CAP)
 
+    # Known-ongoing only: `complete is None` means the caller had no data, which
+    # is not the same claim and must not be charged for.
+    unfinished = -_UNFINISHED_PENALTY if complete is False else 0.0
+
     # Finale: only for a finished, multi-book series whose volumes can be
     # ordered and whose last volume actually carries an Ending score.
     finale_lift = 0.0
@@ -290,12 +311,14 @@ def series_quality_terms(sub, complete=False, library_wa=None):
 
     peak = _clamp(_PEAK_K * peak_lift, 0.0, _PEAK_CAP)
     finale = _clamp(_FINALE_K * finale_lift, -_FINALE_CAP_DOWN, _FINALE_CAP_UP)
-    quality = _clamp(consistency + peak + finale, -_QUALITY_CLAMP, _QUALITY_CLAMP)
+    quality = _clamp(consistency + peak + finale + unfinished,
+                     -_QUALITY_CLAMP, _QUALITY_CLAMP)
 
     return {
         "Consistency": consistency,
         "Peak": peak,
         "Finale": finale,
+        "Unfinished": unfinished,
         "Quality": quality,
         # Negated to a contribution; `or 0.0` keeps it a clean 0.0 rather than
         # -0.0, which would render as "−0.000" in the UI.
@@ -307,7 +330,7 @@ def series_quality_terms(sub, complete=False, library_wa=None):
     }
 
 
-_TERM_KEYS = ("Consistency", "Peak", "Finale", "Quality", "Evidence",
+_TERM_KEYS = ("Consistency", "Peak", "Finale", "Unfinished", "Quality", "Evidence",
               "Weakest Pct", "Peak Lift", "Finale Lift", "Complete")
 
 
@@ -325,17 +348,21 @@ def series_aggregate(books, series_meta=None):
     score (see the model notes above). Standalones are excluded.
 
     `series_meta` is the optional {series_name: {"complete": bool}} map from
-    db_write.get_series_meta. When it is None every series is treated as unfinished,
-    which suppresses the Finale term everywhere — deliberately, so a caller that
-    cannot supply the flags never invents an ending for a series that has none.
+    db_write.get_series_meta. Passing it makes completeness KNOWN: a series with a
+    row is finished, one without is ongoing and takes the Unfinished charge.
+    Passing None instead means completeness is UNKNOWN — the Finale term is
+    suppressed everywhere AND no series is charged for being unfinished, so a
+    caller that cannot supply the flags neither invents an ending nor marks the
+    whole library down for missing data it never had.
 
     Consistency is measured against the WHOLE frame passed in, so a series is
     judged relative to everything the reader has rated, not just other series.
 
     The returned frame carries each modifier as its own column, so the score is
-    auditable: Avg WA + Consistency + Peak + Finale + Evidence reconstructs
-    Adjusted WA exactly, up to the shared Quality clamp.
+    auditable: Avg WA + Consistency + Peak + Finale + Unfinished + Evidence
+    reconstructs Adjusted WA exactly, up to the shared Quality clamp.
     """
+    known = series_meta is not None
     meta = series_meta or {}
     bt = add_total_average(books)
     library_wa = library_reference(bt)
@@ -346,7 +373,8 @@ def series_aggregate(books, series_meta=None):
         n = int(len(sub))
         avg_wa = float(sub["WA"].mean())
         terms = series_quality_terms(
-            sub, complete=bool(meta.get(series, {}).get("complete")),
+            sub,
+            complete=(bool(meta.get(series, {}).get("complete")) if known else None),
             library_wa=library_wa)
         rows.append({
             "Series": series,
