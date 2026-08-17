@@ -1,0 +1,83 @@
+name: constraints
+
+# The remote half of the hard-constraint gate (CLAUDE.md HARD CONSTRAINTS).
+#
+# The local hooks (pre-commit + commit-msg + pre-push) can all be skipped:
+# `git commit --no-verify` skips the first two, `git push --no-verify` skips the
+# third, and a clone that never ran scripts/setup-hooks.sh has none of them
+# active at all (core.hooksPath is per-clone config and cannot be committed).
+# This workflow is the backstop none of that can bypass, and the only gate that
+# also covers commits pushed from the GitHub web UI or the API.
+#
+# It runs the SAME scripts/lint_commits.sh the pre-push hook runs, per commit, so
+# local and CI can never disagree about what passes. lint_constraints.py is
+# stdlib-only, so there is nothing to install.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-constraints:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the lint diffs each commit against its parent, and the
+          # engine-change marker is read from real commit messages.
+          fetch-depth: 0
+          # On a pull_request, checkout defaults to the ephemeral merge commit;
+          # we want the branch's actual commits, since those carry the messages.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Work out which commits this push actually adds
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          have() { git cat-file -e "$1^{commit}" 2>/dev/null; }
+
+          if [ "$EVENT" = "pull_request" ] && [ -n "${BASE_SHA:-}" ] && have "$BASE_SHA"; then
+            # Only the commits the PR proposes, not the whole branch history.
+            ARGS="$BASE_SHA..$HEAD_SHA"
+          elif [ -n "${BEFORE:-}" ] && [ -n "${BEFORE//0/}" ] && have "$BEFORE"; then
+            # Ordinary push. Works for a force-push too: A..B is "reachable from B,
+            # not from A", so a rewritten history still yields the new commits.
+            ARGS="$BEFORE..$HEAD_SHA"
+          elif have "origin/$DEFAULT_BRANCH" \
+               && [ "$(git rev-parse "origin/$DEFAULT_BRANCH")" != "$HEAD_SHA" ]; then
+            # New branch (before = all zeros), or a base that no longer exists
+            # after a rewrite: everything not already on the default branch.
+            ARGS="$HEAD_SHA --not origin/$DEFAULT_BRANCH"
+          else
+            # Nothing better to compare against (e.g. the very first push, or a
+            # push that IS the default branch tip): check the tip commit alone.
+            ARGS="--no-walk $HEAD_SHA"
+          fi
+
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+          echo "Linting rev-list selection: $ARGS"
+          # shellcheck disable=SC2086
+          git log --oneline --no-decorate $ARGS | sed 's/^/  /' || true
+
+      - name: Hard-constraint lint (per commit)
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          bash scripts/lint_commits.sh ${{ steps.range.outputs.args }}
+
+      - name: Whole-tree invariants
+        # The global checks (raw SQL outside db_write, a leaked key, a resid_sd
+        # interval on a served surface) as they stand on this commit — a diff-only
+        # view can miss a violation introduced before this range.
+        run: python3 scripts/lint_constraints.py --all

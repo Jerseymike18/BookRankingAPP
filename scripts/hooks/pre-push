@@ -65,39 +65,22 @@ done
 # reads commit messages: over a range, one commit's 'engine-change: <reason>'
 # would license a DIFFERENT commit's unexplained engine edit. Per commit, each
 # engine change must carry its own justification.
-if command -v python3 >/dev/null 2>&1 && [ -n "$outgoing" ]; then
-  # Newest first, de-duplicated (several refs can share commits).
+#
+# The per-commit loop itself lives in scripts/lint_commits.sh, shared with the
+# constraints CI workflow — one implementation, so the local gate and the remote
+# gate cannot quietly disagree about what passes.
+if [ -n "$outgoing" ]; then
+  # De-duplicated (several refs can share commits) and passed as explicit revs.
   commits="$(printf '%s' "$outgoing" | grep . | awk '!seen[$0]++' || true)"
-  n_out="$(printf '%s\n' "$commits" | grep -c . || true)"
-  max_lint=50
-  if [ "$n_out" -gt "$max_lint" ]; then
-    echo "⚠ pre-push: $n_out outgoing commits — constraint-linting the newest $max_lint." >&2
-    echo "  The older $((n_out - max_lint)) are NOT checked here; run" >&2
-    echo "  'python3 scripts/lint_constraints.py --range <base>..HEAD' for the full sweep." >&2
-    commits="$(printf '%s\n' "$commits" | head -n "$max_lint")"
-  fi
-  constraint_failed=0
-  for sha in $commits; do
-    # A root commit has no parent, so there is no A..B range to diff against.
-    # Say so rather than skipping silently.
-    if ! git -C "$REPO_ROOT" rev-parse -q --verify "$sha^1" >/dev/null 2>&1; then
-      echo "⚠ pre-push: $(git -C "$REPO_ROOT" log --format=%h -1 "$sha") is a root commit — not constraint-linted." >&2
-      continue
+  if [ -n "$commits" ]; then
+    # shellcheck disable=SC2086  # intentional word-split: one rev-list arg per sha
+    if ! "$REPO_ROOT/scripts/lint_commits.sh" --no-walk $commits; then
+      echo "✗ pre-push: hard-constraint lint FAILED — push blocked." >&2
+      echo "  Each ERROR above prints its own fix. A SANCTIONED engine change needs" >&2
+      echo "  an 'engine-change: <reason>' line in that commit's own message body;" >&2
+      echo "  amend it ('git commit --amend') or rebase to add one, then push." >&2
+      exit 1
     fi
-    if ! python3 "$REPO_ROOT/scripts/lint_constraints.py" \
-           --range "$sha~1..$sha" >/dev/null 2>&1; then
-      # Re-run visibly so the findings print with their own fixes.
-      echo "── constraint violations in $(git -C "$REPO_ROOT" log --format=%h\ %s -1 "$sha") ──" >&2
-      python3 "$REPO_ROOT/scripts/lint_constraints.py" --range "$sha~1..$sha" >&2 || true
-      constraint_failed=1
-    fi
-  done
-  if [ "$constraint_failed" -ne 0 ]; then
-    echo "✗ pre-push: hard-constraint lint FAILED — push blocked." >&2
-    echo "  Each ERROR above prints its own fix. A SANCTIONED engine change needs" >&2
-    echo "  an 'engine-change: <reason>' line in that commit's own message body;" >&2
-    echo "  amend it ('git commit --amend') or rebase to add one, then push." >&2
-    exit 1
   fi
 fi
 
