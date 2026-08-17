@@ -178,20 +178,37 @@ def main():
           f"{long_worse['Consistency']:+.3f} < {short_good['Consistency']:+.3f} "
           "— the regression guard for the retired length bonus")
 
-    # Long enough that n/(n+k) is ~1, so the raw term saturates its cap at the
-    # current K. Two separate claims: the cap is never exceeded (must hold at ANY
-    # K), and it actually binds at the extremes (only meaningful while the cap is
-    # reachable — if K is ever cut far enough that it isn't, this is the check
-    # that should fail and prompt a rethink, rather than passing vacuously).
+    # Two separate claims, deliberately decoupled from the tuned K.
+    #
+    # (1) At the SHIPPED K the term never exceeds its cap. Must hold always.
     _best = views.series_quality_terms(
         make_series("Best", [10.0] * 200), library_wa=LIB)["Consistency"]
     _worst = views.series_quality_terms(
         make_series("Worst", [0.0] * 200), library_wa=LIB)["Consistency"]
-    check("Consistency never exceeds its cap",
-          max(abs(_best), abs(_worst)) <= views._CONSISTENCY_CAP + 1e-12)
-    check("the cap binds at both extremes",
-          _best == views._CONSISTENCY_CAP and _worst == -views._CONSISTENCY_CAP,
-          f"±{views._CONSISTENCY_CAP} at K={views._CONSISTENCY_K}")
+    check("Consistency never exceeds its cap at the shipped K",
+          max(abs(_best), abs(_worst)) <= views._CONSISTENCY_CAP + 1e-12,
+          f"|max| {max(abs(_best), abs(_worst)):.3f} <= {views._CONSISTENCY_CAP} "
+          f"at K={views._CONSISTENCY_K}")
+
+    # (2) The clamp MECHANISM still works, tested by forcing K high enough that
+    # the cap must bind. Asserting the cap binds at the shipped K would be wrong:
+    # once K is tuned low the term self-bounds below the cap (it is inert at
+    # K=0.45), and that check would either fail spuriously or, worse, be
+    # "fixed" by deleting a real guard. This form survives any tuning.
+    _orig_k = views._CONSISTENCY_K
+    try:
+        views._CONSISTENCY_K = 10.0
+        hi = views.series_quality_terms(
+            make_series("Hi", [10.0] * 8), library_wa=LIB)["Consistency"]
+        lo = views.series_quality_terms(
+            make_series("Lo", [0.0] * 8), library_wa=LIB)["Consistency"]
+    finally:
+        views._CONSISTENCY_K = _orig_k
+    check("the cap clamps both directions when the raw term would exceed it",
+          hi == views._CONSISTENCY_CAP and lo == -views._CONSISTENCY_CAP,
+          f"forced K=10 → ±{views._CONSISTENCY_CAP}")
+    check("restoring K leaves the module untouched",
+          views._CONSISTENCY_K == _orig_k, f"K={views._CONSISTENCY_K}")
     check("thin evidence is shrunk, not trusted",
           abs(views.series_quality_terms(make_series("Two", [10.0, 10.0]),
                                          library_wa=LIB)["Consistency"])
