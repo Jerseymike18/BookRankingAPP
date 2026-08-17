@@ -359,3 +359,5 @@ def timeline(books):
                             if sub["Words"].notna().any() else float("nan"))
         rows.append(rec)
     return pd.DataFrame(rows).sort_values("Year").reset_index(drop=True)
+
+# TEST ONLY — unexplained engine edit, verifying the merge block. Branch is deleted.
