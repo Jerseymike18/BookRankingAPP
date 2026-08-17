@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 #
-# pre-push — the final gate. Blocks any push whose outgoing commits touch book
-# data (or the snapshot) unless the committed snapshot is up to date and valid.
-# This is the safety net for edits made with 'git commit --no-verify' (which
-# skips the pre-commit auto-export) or for a db edited after it was committed.
+# pre-push — the final gate, and the safety net for 'git commit --no-verify'
+# (which skips pre-commit AND commit-msg). Two jobs:
+#
+#   * hard-constraint lint on EVERY push, per outgoing commit — engine edits
+#     without a justification, raw SQL outside db_write, leaked keys. Runs above
+#     the data fast path, because those violations usually carry no data change.
+#   * for a push that DOES touch book data (or the snapshot): block unless the
+#     committed snapshot is up to date and valid.
 #
 # git feeds ref lines on stdin: "<local-ref> <local-sha> <remote-ref> <remote-sha>".
 # Non-interactive: aborts with the exact fix command, never prompts.
@@ -15,8 +19,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_common.sh"
 
 # 1–3) Decide whether any outgoing commit touches data-affecting files or the
-#      snapshot tree. If not, this push needs no Python/node (fast path).
+#      snapshot tree. If not, this push needs no Python/node (fast path). The same
+#      pass collects the outgoing commits for the hard-constraint backstop below.
 needs_check=0
+outgoing=""
 # Fields: <local-ref> <local-sha> <remote-ref> <remote-sha>. The refs are
 # unused here, so read them into throwaway `_`.
 while read -r _ local_sha _ remote_sha; do
@@ -25,20 +31,75 @@ while read -r _ local_sha _ remote_sha; do
     continue
   fi
   if [ -z "${remote_sha:-}" ] || [ -z "${remote_sha//0/}" ]; then
-    # New branch on the remote: no range to diff — check the tip commit's tree.
+    # New branch on the remote: no range to diff — check the tip commit's tree,
+    # and treat everything not yet on ANY remote as outgoing.
     if changed="$(git -C "$REPO_ROOT" diff-tree --no-commit-id --name-only -r "$local_sha" 2>/dev/null)"; then
       if printf '%s\n' "$changed" | paths_need_export; then needs_check=1; fi
     else
       needs_check=1   # couldn't determine — validate to be safe
     fi
+    revs="$(git -C "$REPO_ROOT" rev-list "$local_sha" --not --remotes 2>/dev/null || true)"
   else
     if changed="$(git -C "$REPO_ROOT" diff --name-only "$remote_sha..$local_sha" 2>/dev/null)"; then
       if printf '%s\n' "$changed" | paths_need_export; then needs_check=1; fi
     else
       needs_check=1   # couldn't determine — validate to be safe
     fi
+    revs="$(git -C "$REPO_ROOT" rev-list "$remote_sha..$local_sha" 2>/dev/null || true)"
+  fi
+  if [ -n "$revs" ]; then
+    outgoing="${outgoing}${revs}
+"
   fi
 done
+
+# 3.5) HARD-CONSTRAINT BACKSTOP (CLAUDE.md HARD CONSTRAINTS).
+#
+# Deliberately ABOVE the data fast path: the violations this catches — an engine
+# edit, raw SQL outside db_write, a leaked key, a resid_sd interval — usually
+# carry no data change at all, so gating it behind needs_check would let exactly
+# the wrong things through. This is the net for `git commit --no-verify`, which
+# skips pre-commit AND commit-msg.
+#
+# Linted PER COMMIT, not across the whole push range, because the marker check
+# reads commit messages: over a range, one commit's 'engine-change: <reason>'
+# would license a DIFFERENT commit's unexplained engine edit. Per commit, each
+# engine change must carry its own justification.
+if command -v python3 >/dev/null 2>&1 && [ -n "$outgoing" ]; then
+  # Newest first, de-duplicated (several refs can share commits).
+  commits="$(printf '%s' "$outgoing" | grep . | awk '!seen[$0]++' || true)"
+  n_out="$(printf '%s\n' "$commits" | grep -c . || true)"
+  max_lint=50
+  if [ "$n_out" -gt "$max_lint" ]; then
+    echo "⚠ pre-push: $n_out outgoing commits — constraint-linting the newest $max_lint." >&2
+    echo "  The older $((n_out - max_lint)) are NOT checked here; run" >&2
+    echo "  'python3 scripts/lint_constraints.py --range <base>..HEAD' for the full sweep." >&2
+    commits="$(printf '%s\n' "$commits" | head -n "$max_lint")"
+  fi
+  constraint_failed=0
+  for sha in $commits; do
+    # A root commit has no parent, so there is no A..B range to diff against.
+    # Say so rather than skipping silently.
+    if ! git -C "$REPO_ROOT" rev-parse -q --verify "$sha^1" >/dev/null 2>&1; then
+      echo "⚠ pre-push: $(git -C "$REPO_ROOT" log --format=%h -1 "$sha") is a root commit — not constraint-linted." >&2
+      continue
+    fi
+    if ! python3 "$REPO_ROOT/scripts/lint_constraints.py" \
+           --range "$sha~1..$sha" >/dev/null 2>&1; then
+      # Re-run visibly so the findings print with their own fixes.
+      echo "── constraint violations in $(git -C "$REPO_ROOT" log --format=%h\ %s -1 "$sha") ──" >&2
+      python3 "$REPO_ROOT/scripts/lint_constraints.py" --range "$sha~1..$sha" >&2 || true
+      constraint_failed=1
+    fi
+  done
+  if [ "$constraint_failed" -ne 0 ]; then
+    echo "✗ pre-push: hard-constraint lint FAILED — push blocked." >&2
+    echo "  Each ERROR above prints its own fix. A SANCTIONED engine change needs" >&2
+    echo "  an 'engine-change: <reason>' line in that commit's own message body;" >&2
+    echo "  amend it ('git commit --amend') or rebase to add one, then push." >&2
+    exit 1
+  fi
+fi
 
 if [ "$needs_check" -eq 0 ]; then
   exit 0

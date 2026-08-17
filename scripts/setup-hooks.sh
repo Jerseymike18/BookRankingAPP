@@ -25,7 +25,8 @@ echo "    • pre-commit — hard-constraint lint (lint_constraints.py), then a 
 echo "                   change auto-regenerates & stages the snapshot"
 echo "    • commit-msg — verifies the 'engine-change: <reason>' marker against the"
 echo "                   real message (pre-commit runs too early to see it)"
-echo "    • pre-push   — blocks a stale/invalid snapshot, then a doc-drift audit"
-echo "                   (lint_docs.py --no-run-tests)"
+echo "    • pre-push   — hard-constraint lint per outgoing commit (the --no-verify"
+echo "                   net), blocks a stale/invalid snapshot, then a doc-drift"
+echo "                   audit (lint_docs.py --no-run-tests)"
 echo
 echo "  Publish from now on with just: git commit + git push  (or scripts/publish.sh)"
