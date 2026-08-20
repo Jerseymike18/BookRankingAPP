@@ -414,9 +414,14 @@ def _invalidate_engine(user_id=None) -> None:
     # correct. Startup warms the seed explicitly via _get_engine() (see lifespan).
     uid = _uid(user_id)
     _engine_cache.pop(uid, None)
-    _cold_term_cache.pop(uid, None)          # refit the cold-start term on next read
     _engine_epoch[uid] = _engine_epoch.get(uid, 0) + 1   # stale-keys _corr_statics
     _corr_statics_cache.pop(uid, None)
+    # The cold-start term is NOT evicted here. It costs ~2s to fit (a full LOO pass
+    # over the library), and evicting it charged that to the next reader — on a
+    # single-process, GIL-bound server that stalled EVERY concurrent request, not
+    # just the one that needed the term. The epoch bump above already marks the
+    # cached term stale; _get_cold_term serves the previous fit and refreshes it off
+    # the request path. See _cold_term_cache.
 
 
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
@@ -453,7 +458,32 @@ def _invalidate_nf_engine(user_id=None) -> None:
 # only). Data-rich tenants get a fitted term; cold-start tenants (too few books to fit) fall
 # back to their onboarding word-count preference if set, else None (term off / unchanged).
 # Kill switch: COLD_START_TERM=0.
+# STALE-WHILE-REVALIDATE. The fit is a leave-one-out pass over the whole library
+# (~140 correct_and_predict calls, ~2s), so it must never sit in a request path that
+# a write has just invalidated. Each entry is (epoch, term): the _engine_epoch this
+# term was fitted at, and the fitted coefs (or None — a legitimate "too few books to
+# fit" result, which is why absence and None must stay distinguishable).
+#
+#   fresh (epoch matches)  -> serve it
+#   stale (epoch moved on) -> serve it anyway, refit in the background
+#   absent (never fitted)  -> fit synchronously; there is no previous value and one
+#                             is never invented (same rule as the conformal interval)
+#
+# Consequence, accepted deliberately (owner decision, 2026-08-20): for the ~2s after
+# a write, the served term is the one fitted on the library as it stood one write
+# ago. It is an OLS slope over the whole library, so a single book moves it by a
+# hair — and the alternative was a multi-second stall of the entire backend on the
+# first read after every write.
 _cold_term_cache: dict = {}
+# One condition variable guards the cache, the in-flight set, and the wait/notify a
+# first-ever fit uses to make concurrent callers share one fit instead of racing.
+_cold_term_cv = threading.Condition()
+_cold_term_refitting: set = set()          # uids with a refit in flight
+# Single worker: the refit is CPU-bound Python, so widening this would only add GIL
+# contention. Serializing refits across tenants is fine — each is best-effort and the
+# stale value keeps serving until its own refit lands.
+_cold_term_executor = _ThreadPoolExecutor(max_workers=1,
+                                          thread_name_prefix="coldterm")
 COLD_START_TERM_ENABLED = os.environ.get("COLD_START_TERM", "1") != "0"
 # New-user favorite-author prior (Part B): a positive WA bump on the cold slice
 # (n_author==0) when the unread book's author is a stated favorite (weight 1.0) or an
@@ -592,6 +622,64 @@ def _build_genre_prior(fav_genres, genre_offsets=None):
     return _genre_prior_cache[favs]
 
 
+def _fitted_cold_term(uid):
+    """The tenant's fitted word-count term, stale-while-revalidate (see _cold_term_cache).
+
+    Fits synchronously ONLY when the tenant has no previously fitted term at all;
+    otherwise the stored value is served immediately and a refit is scheduled off the
+    request path. Refits are single-flighted per tenant, so a page that fans out to
+    several cold-term endpoints at once triggers one fit, not one per request."""
+    want = _engine_epoch.get(uid, 0)
+    with _cold_term_cv:
+        entry = _cold_term_cache.get(uid)
+        if entry is not None and entry[0] == want:
+            return entry[1]                          # fresh
+        if entry is not None:                        # stale: serve it, refresh behind
+            schedule = uid not in _cold_term_refitting
+            if schedule:
+                _cold_term_refitting.add(uid)
+            if schedule:
+                try:
+                    _cold_term_executor.submit(_refit_cold_term, uid)
+                except Exception:                    # executor shut down / rejected
+                    _cold_term_refitting.discard(uid)
+            return entry[1]
+        # Never fitted for this tenant. There is nothing honest to serve but the real
+        # thing, so fit it here — but only once: a concurrent first-request waits for
+        # the in-flight fit rather than starting a second one.
+        while uid in _cold_term_refitting:
+            _cold_term_cv.wait()
+            entry = _cold_term_cache.get(uid)
+            if entry is not None:
+                return entry[1]
+        _cold_term_refitting.add(uid)
+    return _refit_cold_term(uid)
+
+
+def _refit_cold_term(uid):
+    """Fit the term for `uid`, store it against the epoch it was fitted at, and return it.
+
+    Reads the epoch BEFORE fitting: if a write lands mid-fit, the result is stored as
+    belonging to the older epoch, so the next read sees it as stale and schedules another
+    refit rather than pinning a value that never saw the newer data. A failed fit never
+    clobbers a good previous value — the tenant keeps serving the older term."""
+    at = _engine_epoch.get(uid, 0)
+    failed = False
+    try:
+        term = _fit_cold_term_for(uid)               # fitted coefs, or None (too few books)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "cold-start term refit failed for a tenant", exc_info=True)
+        term, failed = None, True
+    with _cold_term_cv:
+        prev = _cold_term_cache.get(uid)
+        if not (failed and prev is not None):
+            _cold_term_cache[uid] = (at, term)
+        _cold_term_refitting.discard(uid)
+        _cold_term_cv.notify_all()
+        return _cold_term_cache.get(uid, (at, term))[1]
+
+
 def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_genres=None,
                    genre_offsets=None):
     """Per-tenant cold-start term — INDEPENDENT components, each applied only on its own
@@ -609,9 +697,7 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_gen
     if not COLD_START_TERM_ENABLED or _rp is None:
         return None
     uid = _uid(user_id)
-    if uid not in _cold_term_cache:
-        _cold_term_cache[uid] = _fit_cold_term_for(uid)     # fitted coefs or None
-    fitted = _cold_term_cache[uid]
+    fitted = _fitted_cold_term(uid)
     # Word-count component: fitted (data-rich) else the stated preference (new user).
     # dict(...) copies so attaching a prior never mutates the cached fitted term.
     term = dict(fitted if fitted is not None
@@ -743,6 +829,15 @@ def _corr_statics(user_id, corr_pool):
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
     _get_engine()  # warm the seed engine at startup (build + cache; invalidate is now lazy)
+    # Warm the seed's cold-start term off the request path too. Without this the first
+    # reader after a deploy pays the whole ~2s fit synchronously (there is no previous
+    # value to serve), which is exactly the stall the stale-while-revalidate cache
+    # exists to avoid. Best-effort: a failure here just restores the old behaviour.
+    if COLD_START_TERM_ENABLED and _rp is not None:
+        try:
+            _cold_term_executor.submit(_fitted_cold_term, _uid(None))
+        except Exception:
+            pass
     yield
 
 
@@ -2277,9 +2372,18 @@ Rules:
 
 
 @app.get("/api/read-queue")
-def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
+def get_read_queue(blurbs: bool = True,
+                   user_id: str = Depends(auth.get_current_user_id),
                    user_md: dict = Depends(auth.get_current_user_metadata)):
-    """Return all not-done recommendations with flat component scores and predicted rank."""
+    """Return all not-done recommendations with flat component scores and predicted rank.
+
+    `blurbs=0` OMITS the `blurb` field from every row. Blurbs are a paragraph each and
+    only render inside an expanded card, but they are ~40% of this response on a large
+    TBR (221 KB of 262 KB of prose here) — so the read-queue page asks for the list
+    without them and fetches one on expand (GET /api/recommendations/{title}/blurb).
+    `keywords` is NOT droppable: the page's keyword filter searches it client-side over
+    the whole list. Default True, so every other caller — the static export, the
+    public-profile delegation — keeps the response shape it already had."""
     books, gw, gcw = _get_engine(user_id)[:3]
     rated_wa = books["WA"].values
     # Same-author analog counts drive the conformal interval bucket (author is the
@@ -2335,13 +2439,14 @@ def get_read_queue(user_id: str = Depends(auth.get_current_user_id),
             "series": (series or "").strip().strip("'\""),
             "series_number": _norm_snum(series_number),
             "words": words,
-            "blurb": blurb or "",
             "keywords": keywords or "",
             "components": components,
             "wa": round(wa, 4),
             "predicted_rank": predicted_rank,
             "category_avgs": category_avgs,
         }
+        if blurbs:
+            rec["blurb"] = blurb or ""
         # Honest 80% prediction interval — the SAME density-bucketed LOO residual
         # table served on the Predict page, keyed by how many same-author books the
         # library holds. The point estimate is a shrunk expected value; this is the
@@ -2809,6 +2914,28 @@ class GenerateMetaRequest(BaseModel):
     title: _CleanText
     author: _CleanText
     genre: str
+
+
+@app.get("/api/recommendations/{title}/blurb")
+def get_recommendation_blurb(title: str,
+                             user_id: str = Depends(auth.get_current_user_id)):
+    """One recommendation's stored blurb — the lazy half of `/api/read-queue?blurbs=0`.
+
+    Read-only and tenant-scoped, so it can never surface another reader's prose. Returns
+    an empty string (not 404) when the row exists but has no blurb yet, which is exactly
+    what the card needs to decide between rendering a blurb and offering to generate one.
+    404 only when the reader has no such active recommendation. Unthrottled, like the
+    other tenant-scoped data GETs — it is one indexed row read, auth-gated, and only
+    reachable for the caller's own recommendations."""
+    con = db_backend.connect(db_write.DB)
+    row = con.execute(
+        "SELECT blurb FROM recommendations "
+        "WHERE LOWER(title)=LOWER(?) AND done=0 AND user_id=? ORDER BY id DESC LIMIT 1",
+        (title.strip(), user_id)).fetchone()
+    con.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such recommendation.")
+    return {"blurb": row[0] or ""}
 
 
 @app.post("/api/recommendations/generate-meta")
