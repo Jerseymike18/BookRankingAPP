@@ -222,7 +222,11 @@ export interface Recommendation {
   series: string;
   series_number: number | null;
   words: number | null;
-  blurb: string;
+  /** Omitted when the list was fetched with `blurbs=0` (the read-queue page, which
+   *  lazy-loads one blurb per expanded card). `undefined` = not loaded yet;
+   *  `""` = loaded and there isn't one. The static snapshot and the public-profile
+   *  delegation both still carry it inline, so it is a string there. */
+  blurb?: string;
   keywords: string;
   components: Record<string, number | null>;
   wa: number;

@@ -20,7 +20,7 @@ export default async function ReadQueuePage({
   const token = await getServerAccessToken();
   const { type } = await searchParams;
   const [fData, fQueue, nData, nQueue] = await Promise.all([
-    fetchReadQueue(token),
+    fetchReadQueue(token, false),   // blurbs lazy-load per expanded card
     fetchQueue(token),
     fetchNonfictionReadQueue(token),
     fetchNonfictionQueue(token),

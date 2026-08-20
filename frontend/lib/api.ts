@@ -491,11 +491,34 @@ export async function fetchTiers(year?: number, kind: BookKind = "fiction", toke
   return res.json();
 }
 
-export async function fetchReadQueue(token?: ServerToken): Promise<ReadQueueResponse> {
+/** The fiction TBR list. `withBlurbs: false` drops the per-row blurb paragraph —
+ *  ~40% of the response on a large TBR, and only ever rendered inside an expanded
+ *  card — so the read-queue page fetches the list lean and pulls one blurb on
+ *  expand via fetchRecommendationBlurb(). Static mode always carries them inline
+ *  (there is no backend to lazy-fetch from), which is why the card keys its lazy
+ *  load on `blurb === undefined` rather than on a mode flag. */
+export async function fetchReadQueue(
+  token?: ServerToken,
+  withBlurbs = true,
+): Promise<ReadQueueResponse> {
   if (STATIC) return getJSON<ReadQueueResponse>("fiction/read-queue.json");
-  const res = await apiFetch(`${API}/api/read-queue`, { cache: "no-store" }, token);
+  const qs = withBlurbs ? "" : "?blurbs=0";
+  const res = await apiFetch(`${API}/api/read-queue${qs}`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+/** One recommendation's stored blurb, fetched on card expand. Returns "" when the
+ *  row has no blurb yet (so the card can offer to generate one) and throws only on
+ *  a real failure. */
+export async function fetchRecommendationBlurb(title: string): Promise<string> {
+  const res = await apiFetch(
+    `${API}/api/recommendations/${encodeURIComponent(title)}/blurb`,
+    { cache: "no-store" },
+  );
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  return typeof data.blurb === "string" ? data.blurb : "";
 }
 
 // ── Nonfiction TBR (recommendations) ──

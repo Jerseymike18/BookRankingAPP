@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useRef, useTransition } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ReadQueueResponse, Recommendation, RepredictOneReport } from "@/lib/types";
-import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, repredictRecommendation } from "@/lib/api";
+import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, repredictRecommendation, fetchRecommendationBlurb } from "@/lib/api";
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -178,6 +178,23 @@ function RecExpandedPanel({
   const router = useRouter();
   const [blurb, setBlurb] = useState(rec.blurb);
   const [keywords, setKeywords] = useState(rec.keywords);
+  // The list is fetched without blurbs (they are ~40% of that payload and only ever
+  // shown here), so pull this book's one blurb when the card opens. `undefined` means
+  // "not loaded"; `""` means "loaded, there isn't one" — the distinction is what keeps
+  // the Generate button from flashing before the real answer arrives. Callers that DO
+  // ship blurbs inline — the static snapshot, the public-profile view — hand us a
+  // string, so this never fires for them (and must not: it would read the VIEWER's own
+  // recommendations, not the profile owner's).
+  const [blurbLoading, setBlurbLoading] = useState(rec.blurb === undefined);
+  useEffect(() => {
+    if (rec.blurb !== undefined) return;
+    let live = true;
+    fetchRecommendationBlurb(rec.title)
+      .then((b) => { if (live) setBlurb(b); })
+      .catch(() => { if (live) setBlurb(""); })   // fall back to "no blurb yet"
+      .finally(() => { if (live) setBlurbLoading(false); });
+    return () => { live = false; };
+  }, [rec.title, rec.blurb]);
   const [genError, setGenError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -349,8 +366,10 @@ function RecExpandedPanel({
         </div>
       )}
 
-      {/* Generate blurb & keywords (LLM spend — hidden on a read-only deploy) */}
-      {!ro && !blurb && !keywords && (
+      {/* Generate blurb & keywords (LLM spend — hidden on a read-only deploy).
+          Withheld while the blurb is still loading, so a book that HAS one never
+          flashes an offer to generate a second. */}
+      {!ro && !blurbLoading && !blurb && !keywords && (
         <div>
           <button
             onClick={handleGenerate}
