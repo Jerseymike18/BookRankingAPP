@@ -480,6 +480,14 @@ export default function WelcomeClient({
           },
         });
         if (metaErr) throw new Error(metaErr.message);
+        // updateUser writes the metadata server-side but does NOT mint a new access
+        // token — the JWT keeps the old claims until the session next refreshes on
+        // its own. Both the proxy's onboarding gate and the backend's cold-start
+        // priors read user_metadata FROM THE CLAIMS, so without this the reader would
+        // be bounced straight back here (and their stated preferences would sit
+        // unused for up to a token lifetime). Force the refresh so the very next
+        // request carries them.
+        await supabase.auth.refreshSession();
         stepDone();
       }
       // Hard navigation so the proxy re-runs against the refreshed session and

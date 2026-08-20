@@ -12,6 +12,22 @@ import { NextResponse, type NextRequest } from "next/server";
  *   2. Gate the app behind login — an unauthenticated request to any app route
  *      is redirected to /login; /login itself is exempt.
  *
+ * LATENCY: this runs BEFORE the page render on EVERY navigation, so whatever it
+ * does is added to every tab switch. It used to call `getUser()`, which is a round
+ * trip to the Supabase auth server each time. `getClaims()` verifies the JWT
+ * locally against the cached JWKS instead — this project signs with ES256, i.e.
+ * asymmetric keys, which is the case getClaims handles without a network call. It
+ * still refreshes a near-expiry session first, so job 1 is unaffected, and on a
+ * symmetric-secret project it silently falls back to a server call — the old
+ * behaviour, never a weaker check.
+ *
+ * The trade is that `claims.user_metadata` is the metadata as of token issue, not
+ * as of now. That matters for exactly one flag here (`onboarded`), so the welcome
+ * wizard forces a token refresh right after it writes the flag — see
+ * app/welcome/WelcomeClient.tsx. The backend already reads user_metadata from the
+ * same JWT claims, so this makes the two agree rather than introducing a new
+ * staleness.
+ *
  * When the Supabase env is ABSENT (local dev + the static public build, which
  * set neither NEXT_PUBLIC_SUPABASE_URL nor _ANON_KEY) this is a transparent
  * pass-through, so those deployments run exactly as before — no auth.
@@ -42,9 +58,10 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Locally-verified JWT claims (see the note above). `sub` present == signed in.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  const user = claims?.sub ? claims : null;
 
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login" || path.startsWith("/login/");
@@ -57,7 +74,8 @@ export async function proxy(request: NextRequest) {
   const isTry = path === "/try" || path.startsWith("/try/");
   // First-run signal: a Supabase user_metadata flag set when the tutorial is
   // completed (see app/welcome). Absent → treat as not-yet-onboarded.
-  const onboarded = user?.user_metadata?.onboarded === true;
+  const onboarded =
+    (user?.user_metadata as { onboarded?: boolean } | undefined)?.onboarded === true;
 
   if (!user && !isLogin && !isTry) {
     const redirectUrl = request.nextUrl.clone();

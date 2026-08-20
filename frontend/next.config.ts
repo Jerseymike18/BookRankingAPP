@@ -39,6 +39,24 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Client-side router cache. Every page here is `force-dynamic`, and Next's
+  // default for a dynamic route is `staleTimes.dynamic: 0` — so switching BACK to
+  // a tab you were just on discards the rendered payload and refetches the whole
+  // page (SSR + several backend calls) from scratch. 30s means a revisit inside
+  // that window renders instantly from memory and revalidates in the background.
+  //
+  // Chosen at 30s because the data behind these pages only changes when the reader
+  // themselves writes something, and every mutation path already calls
+  // `router.refresh()`, which busts this cache regardless of age. So the staleness
+  // this can actually show is limited to a change made in ANOTHER tab or on another
+  // device within the last 30 seconds.
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

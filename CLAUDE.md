@@ -320,6 +320,59 @@ the fresh-research force actually bypasses a warm cache, that no `delta_log` row
 that the reported WA/rank agree with the read-queue). A dry-run CLI is
 `python3 repredict_on_add.py "<title>" --one --dry-run`.
 
+## Serving latency — what is allowed to be stale, and what is not
+
+Three costs dominated page latency before 2026-08-20; the fixes are load-bearing enough
+that undoing one silently re-slows the whole site.
+
+- **The cold-start term is STALE-WHILE-REVALIDATE, on purpose (owner decision,
+  2026-08-20).** `_fit_cold_term_for` is a leave-one-out pass over the entire library
+  (~140 `correct_and_predict` calls, ~2s on the seed), and five endpoints need it
+  (`/api/read-queue`, `/api/reading/stats`, `/api/predict/research`, `/api/delta-log`,
+  `/api/recommendations/{title}/repredict`). It used to be **evicted by every write** and
+  refitted synchronously by the next reader — and because the backend is a single
+  GIL-bound process, that stalled *every concurrent request*, not just the one that
+  needed the term. Measured: the read-queue page cost 100ms warm and **2015ms after any
+  write**; it is now **324ms**.
+  `backend/main.py` now keys `_cold_term_cache` on the `_engine_epoch` the term was
+  fitted at and serves the previous fit while a refit runs on its own single-thread
+  executor. **So for a second or two after a write, the served term is the one fitted on
+  the library as it stood one write ago** — an OLS slope over the whole library, which a
+  single book moves by a hair. Three properties keep that honest and must survive any
+  rework: a tenant with **no** previous fit is still fitted synchronously (nothing is
+  invented — same rule as the omitted conformal interval); a **failed** refit never
+  clobbers the last good value; and a legitimate `None` fit ("too few books") is cached
+  as None, so absence and None stay distinguishable. Regression guard:
+  `test_cold_term_cache.py` (11 checks). Do NOT reintroduce a
+  `_cold_term_cache.pop(...)` into `_invalidate_engine` — the epoch bump already marks
+  the term stale.
+- **`/api/read-queue?blurbs=0` drops the blurb paragraphs** (221 KB of 262 KB of prose on
+  this TBR; 205 KB → 119 KB gzipped on the wire, paid twice — Railway→Vercel and
+  Vercel→browser). Only the read-queue *page* passes it; the default keeps blurbs inline,
+  so the static export and the public-profile delegation are unchanged. The card
+  lazy-loads one blurb on expand via `GET /api/recommendations/{title}/blurb`, keyed on
+  `blurb === undefined` — **not** on a mode flag, because the public-profile view renders
+  the same component against another reader's rows and must never fetch the viewer's own.
+  `keywords` is NOT droppable: the page's keyword filter searches it client-side across
+  the whole list.
+- **`proxy.ts` verifies the JWT locally (`getClaims`), not over the network
+  (`getUser`).** The proxy runs before the render on every navigation, so a round trip
+  there is added to every tab switch; this project signs with ES256, the asymmetric case
+  `getClaims` verifies against a cached JWKS. The trade is that `claims.user_metadata` is
+  as of token issue — which is why the welcome wizard calls `refreshSession()` right
+  after `updateUser()` (`updateUser` does **not** mint a new token, so without it the
+  reader would be bounced straight back to `/welcome`, and their stated preferences would
+  sit unused for up to a token lifetime). The backend already reads `user_metadata` from
+  the same claims, so the two now agree.
+
+**Still single-process — `--workers` is NOT a drop-in.** Three pieces of state live in
+the process, not the database: `repredict_on_add._REPORTS` (the add-book "re-predicting…"
+panel polls `GET /api/repredict/recent?token=…`, which would miss whenever the poll
+landed on a different worker), the `_rate_limit` buckets (every budget, including the
+`_RL_DEMO_LIVE` / `_DEMO_LIVE_DAILY_CAP` pair that bounds **paid Anthropic spend** from
+the unauthenticated `/try` demo, would loosen by the worker count), and `_repred_lock`.
+Adding workers means making those shared first.
+
 ## Security posture
 
 The app runs in **two postures** (full detail in `ARCHITECTURE.md`):
