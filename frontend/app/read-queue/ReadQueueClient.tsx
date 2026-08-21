@@ -2,8 +2,9 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ReadQueueResponse, Recommendation, RepredictOneReport } from "@/lib/types";
-import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, repredictRecommendation, fetchRecommendationBlurb } from "@/lib/api";
+import type { ReadQueueResponse, Recommendation } from "@/lib/types";
+import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, fetchRecommendationBlurb } from "@/lib/api";
+import { usePredictJobs, queueRepredictKey } from "@/lib/predict-jobs";
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -202,27 +203,41 @@ function RecExpandedPanel({
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ── Re-predict this one book (granular, on demand) ──────────────────────
-  const [repredicting, setRepredicting] = useState(false);
-  const [repredictReport, setRepredictReport] = useState<RepredictOneReport | null>(null);
-  const [repredictError, setRepredictError] = useState<string | null>(null);
+  // The job itself lives in the root-layout provider, not here: it is a
+  // synchronous server call that can run past a minute on a book that has never
+  // been web-grounded, and this card unmounts the moment the reader collapses it
+  // or leaves the page. Keeping the work here meant the answer had nowhere to
+  // land. Now the card is just a view of the job, and the reader gets a banner
+  // (and an OS notification, if they turned those on) wherever they have gone.
+  const jobs = usePredictJobs();
+  const repredictJob = jobs.queueRepredicts[queueRepredictKey("fiction", rec.title)];
+  const repredicting = repredictJob?.status === "running";
+  const repredictReport = repredictJob?.status === "done" ? repredictJob.report : null;
+  const repredictError = repredictJob?.status === "error" ? repredictJob.error : null;
 
-  async function handleRepredict() {
-    setRepredicting(true);
-    setRepredictError(null);
-    setRepredictReport(null);
-    try {
-      const { report } = await repredictRecommendation(rec.title);
-      setRepredictReport(report);
-      // Only refetch when the stored row actually moved — an unchanged
-      // re-prediction has nothing to re-render, and a refresh would collapse
-      // this panel (and its result) for no reason.
-      if (report.written) router.refresh();
-    } catch (e) {
-      setRepredictError(e instanceof Error ? e.message : "Re-prediction failed.");
-    } finally {
-      setRepredicting(false);
-    }
+  function handleRepredict() {
+    jobs.startQueueRepredict("fiction", rec.title);
   }
+
+  // Refresh the route once, when a finished job actually rewrote the stored row.
+  // An unchanged re-prediction has nothing to re-render, and a needless refresh
+  // would collapse this panel (and its result) for no reason. Keyed on the job's
+  // settle timestamp so remounting the card — which happens every time the reader
+  // comes back to this page — cannot trigger the refresh a second time.
+  // Seeded from the job as it stands AT MOUNT: a job that finished before this
+  // card instance existed is already reflected in the server data this render
+  // came from, so it must not trigger another refresh. Only a job that settles
+  // while this instance is watching does.
+  const refreshedAt = useRef<number | null>(
+    repredictJob?.status === "done" ? repredictJob.at : null,
+  );
+  useEffect(() => {
+    if (!repredictJob || repredictJob.status !== "done") return;
+    if (!repredictJob.report?.written) return;
+    if (refreshedAt.current === repredictJob.at) return;
+    refreshedAt.current = repredictJob.at;
+    router.refresh();
+  }, [repredictJob, router]);
 
   // ── Edit metadata (author/genre/series/series_number/words — no title/year) ──
   const [editing, setEditing] = useState(false);
@@ -542,7 +557,7 @@ function RecExpandedPanel({
           // minute, so there is no honest percentage to show.
           <ProgressBar
             label="Re-running the prediction…"
-            hint="This can take a minute or two if the book hasn't been researched before."
+            hint="This can take a minute or two if the book hasn't been researched before. You can collapse this card or leave the page — it keeps running, and you'll be told when it lands."
           />
         )}
         {repredictReport && !repredicting && (
@@ -587,6 +602,18 @@ function RecExpandedPanel({
         )}
         {repredictError && (
           <p className="text-xs" style={{ color: "#c0392b" }}>{repredictError}</p>
+        )}
+        {/* The result now outlives this panel — it lives in the job provider, so
+            collapsing the card or leaving the page no longer discards it. That is
+            the point, but it also means the reader needs a way to put it away. */}
+        {repredictJob && !repredicting && (
+          <button
+            onClick={() => jobs.clearQueueRepredict("fiction", rec.title)}
+            className="text-xs underline self-start"
+            style={{ color: "var(--color-faint)" }}
+          >
+            Dismiss
+          </button>
         )}
       </div>
       )}

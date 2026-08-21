@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { NonfictionReadQueueResponse, NonfictionRecommendation, RepredictOneReport } from "@/lib/types";
-import { saveNonfictionQueue, deleteNonfictionRecommendation, repredictNonfictionRecommendation } from "@/lib/api";
+import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
+import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
+import { usePredictJobs, queueRepredictKey } from "@/lib/predict-jobs";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -203,26 +204,45 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
   // Gated behind a confirm step, unlike the fiction button: nonfiction has no
   // correction layer, so this ALWAYS re-researches and always costs an API call.
   // A one-click spend would be too easy to trigger by accident.
+  // The CONFIRM step stays local — it is a question to this card, not a job.
+  // It matters more here than on the fiction side: a nonfiction re-predict has no
+  // cached path and always spends one Opus call (a nonfiction book's scores don't
+  // depend on the library, so re-running the cached path would return a
+  // byte-identical vector forever). Backgrounding the work must not make it
+  // easier to fire by accident.
   const [repredictConfirm, setRepredictConfirm] = useState(false);
-  const [repredicting, setRepredicting] = useState(false);
-  const [repredictReport, setRepredictReport] = useState<RepredictOneReport | null>(null);
-  const [repredictError, setRepredictError] = useState<string | null>(null);
 
-  async function handleRepredict() {
-    setRepredicting(true);
+  // The work itself lives in the root-layout provider, so it survives this card
+  // collapsing or the reader leaving the page — and it always makes a live web
+  // call here, so it is the slow one by construction.
+  const jobs = usePredictJobs();
+  const repredictJob = jobs.queueRepredicts[queueRepredictKey("nonfiction", rec.title)];
+  const repredicting = repredictJob?.status === "running";
+  const repredictReport = repredictJob?.status === "done" ? repredictJob.report : null;
+  const repredictError = repredictJob?.status === "error" ? repredictJob.error : null;
+
+  function handleRepredict() {
     setRepredictConfirm(false);
-    setRepredictError(null);
-    setRepredictReport(null);
-    try {
-      const { report } = await repredictNonfictionRecommendation(rec.title);
-      setRepredictReport(report);
-      if (report.written) router.refresh();
-    } catch (e) {
-      setRepredictError(e instanceof Error ? e.message : "Re-prediction failed.");
-    } finally {
-      setRepredicting(false);
-    }
+    jobs.startQueueRepredict("nonfiction", rec.title);
   }
+
+  // Refresh the route once, when a finished job actually rewrote the stored row.
+  // Keyed on the job's settle timestamp so remounting this card cannot fire it
+  // again.
+  // Seeded from the job as it stands AT MOUNT: a job that finished before this
+  // card instance existed is already reflected in the server data this render
+  // came from, so it must not trigger another refresh. Only a job that settles
+  // while this instance is watching does.
+  const refreshedAt = useRef<number | null>(
+    repredictJob?.status === "done" ? repredictJob.at : null,
+  );
+  useEffect(() => {
+    if (!repredictJob || repredictJob.status !== "done") return;
+    if (!repredictJob.report?.written) return;
+    if (refreshedAt.current === repredictJob.at) return;
+    refreshedAt.current = repredictJob.at;
+    router.refresh();
+  }, [repredictJob, router]);
 
   return (
     <div className="px-5 py-4 space-y-4" style={{ background: "var(--color-surface-2)", borderTop: "1px solid var(--color-rule)" }}>
@@ -374,7 +394,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
         {repredicting && (
           <ProgressBar
             label="Re-researching this book…"
-            hint="A forced fresh research call — this usually takes under a minute."
+            hint="A forced fresh research call — this usually takes under a minute. You can collapse this card or leave the page — it keeps running, and you'll be told when it lands."
           />
         )}
         {repredictReport && !repredicting && (
@@ -420,6 +440,18 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
           </div>
         )}
         {repredictError && <p className="text-xs" style={{ color: DANGER }}>{repredictError}</p>}
+        {/* The result now outlives this panel — it lives in the job provider, so
+            collapsing the card or leaving the page no longer discards it. That is
+            the point, but it also means the reader needs a way to put it away. */}
+        {repredictJob && !repredicting && (
+          <button
+            onClick={() => jobs.clearQueueRepredict("nonfiction", rec.title)}
+            className="text-xs underline self-start"
+            style={{ color: "var(--color-faint)" }}
+          >
+            Dismiss
+          </button>
+        )}
         </div>
       )}
     </div>

@@ -59,17 +59,42 @@ export function PredictJobPill() {
   const busy = (["fiction", "nonfiction"] as BookKind[])
     .map((kind) => ({ kind, label: busyLabel(jobs.runs[kind]) }))
     .filter((x): x is { kind: BookKind; label: string } => x.label !== null);
-  if (busy.length === 0) return null;
 
-  // Two runs at once is possible (each kind has its own state), and the pill has
-  // room for one line — so name the count rather than truncating one of them.
-  const text =
-    busy.length === 1 ? `${busy[0].label}…` : `${busy.length} predictions running…`;
+  // Saved-book re-predictions from the read-queue are their own jobs, on their
+  // own page — they belong in the same pill because from the reader's side there
+  // is only one question ("is anything still working?").
+  const repredicting = Object.values(jobs.queueRepredicts).filter(
+    (j) => j.status === "running",
+  );
+  if (busy.length === 0 && repredicting.length === 0) return null;
+
+  // Where the pill points has to follow what is actually running, or it drops
+  // the reader on a page with nothing happening on it.
+  const onlyRepredicts = busy.length === 0;
+  const href = onlyRepredicts
+    ? repredicting[0].kind === "nonfiction"
+      ? "/read-queue?type=nonfiction"
+      : "/read-queue"
+    : "/predict";
+
+  // The pill has room for one line, and several jobs at once is normal — so name
+  // the count rather than truncating one of them.
+  const jobCount = busy.length + repredicting.length;
+  let text: string;
+  if (jobCount > 1) {
+    text = `${jobCount} predictions running…`;
+  } else if (onlyRepredicts) {
+    text = `Re-predicting ${repredicting[0].title}…`;
+  } else {
+    text = `${busy[0].label}…`;
+  }
 
   return (
     <Link
-      href="/predict"
-      onClick={() => jobs.setActiveKind(busy[0].kind)}
+      href={href}
+      onClick={() => {
+        if (!onlyRepredicts) jobs.setActiveKind(busy[0].kind);
+      }}
       title="A prediction is running in the background — click to watch it"
       className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium no-underline whitespace-nowrap"
       style={{
@@ -91,8 +116,41 @@ export function PredictJobPill() {
 /** The one place a finished run is put into words. The banner and the OS
  *  notification both render from this, so the two can never disagree about what
  *  happened — they are the same announcement on two surfaces. */
-function noticeSummary(notice: PredictNotice): { title: string; body: string } {
+function noticeSummary(notice: PredictNotice): {
+  title: string;
+  body: string;
+  href: string;
+} {
   const kindLabel = notice.kind === "nonfiction" ? "Nonfiction" : "Fiction";
+
+  if (notice.type === "repredict") {
+    const r = notice.report;
+    // The read-queue is one route with a type toggle, so a nonfiction result has
+    // to name its scope or the link would land the reader on the fiction list.
+    const href =
+      notice.kind === "nonfiction" ? "/read-queue?type=nonfiction" : "/read-queue";
+    if (!r.changed) {
+      return {
+        title: `Re-predicted ${notice.title}`,
+        // "No change" is a real outcome, not a failure — the prediction was
+        // re-run and landed on the same answer. Say which answer.
+        body: `No change — still WA ${r.new_wa.toFixed(2)}.`,
+        href,
+      };
+    }
+    const delta =
+      r.d_wa != null ? ` (${r.d_wa >= 0 ? "+" : ""}${r.d_wa.toFixed(2)})` : "";
+    const rank =
+      r.old_rank != null
+        ? ` · rank #${r.old_rank} → #${r.new_rank} of ${r.total}`
+        : "";
+    return {
+      title: `Re-predicted ${notice.title}`,
+      body: `WA ${r.old_wa?.toFixed(2) ?? "—"} → ${r.new_wa.toFixed(2)}${delta}${rank}.`,
+      href,
+    };
+  }
+
   const parts: string[] = [
     `${notice.scored} book${notice.scored === 1 ? "" : "s"} scored`,
   ];
@@ -102,7 +160,11 @@ function noticeSummary(notice: PredictNotice): { title: string; body: string } {
   if (notice.failed > 0) {
     parts.push(`${notice.failed} could not be scored`);
   }
-  return { title: `${kindLabel} prediction finished`, body: `${parts.join(" · ")}.` };
+  return {
+    title: `${kindLabel} prediction finished`,
+    body: `${parts.join(" · ")}.`,
+    href: "/predict",
+  };
 }
 
 /* ── The reader-facing permission control ────────────────────────────────── */
@@ -193,12 +255,15 @@ export function PredictJobBanner() {
     void showPredictNotification(title, body);
   }, [notice]);
 
-  // On the Predict page with the tab actually in front, the results are already
-  // on screen — the banner would just be noise covering them. Anywhere else (or
-  // in a background tab) it is the whole point, so it stays until dismissed.
-  const onPredictPage = path === "/predict";
+  // A notice is redundant only on the page that already shows its result, with
+  // the tab actually in front — there the banner would just cover the thing it is
+  // announcing. That page differs per job type: a re-predict belongs to the
+  // read-queue, so being on /predict must NOT silence it. Anywhere else, or in a
+  // background tab, the banner is the whole point and stays until dismissed.
+  const noticeHome = notice?.type === "repredict" ? "/read-queue" : "/predict";
+  const onNoticeHome = path === noticeHome;
   useEffect(() => {
-    if (!notice || !dismissNotice || !onPredictPage) return;
+    if (!notice || !dismissNotice || !onNoticeHome) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") {
       const onVisible = () => {
         if (document.visibilityState === "visible") dismissNotice();
@@ -207,14 +272,14 @@ export function PredictJobBanner() {
       return () => document.removeEventListener("visibilitychange", onVisible);
     }
     dismissNotice();
-  }, [notice, dismissNotice, onPredictPage]);
+  }, [notice, dismissNotice, onNoticeHome]);
 
   if (!jobs || !notice) return null;
-  if (onPredictPage && typeof document !== "undefined" && document.visibilityState === "visible") {
+  if (onNoticeHome && typeof document !== "undefined" && document.visibilityState === "visible") {
     return null;
   }
 
-  const { title, body } = noticeSummary(notice);
+  const { title, body, href } = noticeSummary(notice);
 
   return (
     <div
@@ -242,15 +307,17 @@ export function PredictJobBanner() {
             {body}
           </p>
           <Link
-            href="/predict"
+            href={href}
             onClick={() => {
-              jobs.setActiveKind(notice.kind);
+              // Only the Predict page has a toggle this can pre-set; the
+              // read-queue carries its scope in the href instead.
+              if (notice.type === "run") jobs.setActiveKind(notice.kind);
               jobs.dismissNotice();
             }}
             className="inline-block mt-2 text-xs font-semibold underline"
             style={{ color: "var(--color-sage)" }}
           >
-            View results
+            {notice.type === "repredict" ? "View in your queue" : "View results"}
           </Link>
         </div>
         <button

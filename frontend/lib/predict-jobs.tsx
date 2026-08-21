@@ -37,8 +37,26 @@ import {
   useState,
 } from "react";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
-import { repredictRecommendation } from "@/lib/api";
-import type { BookKind, Candidate, ScoredCandidate } from "@/lib/types";
+import { repredictRecommendation, repredictNonfictionRecommendation } from "@/lib/api";
+import type {
+  BookKind,
+  Candidate,
+  ScoredCandidate,
+  RepredictOneReport,
+} from "@/lib/types";
+
+/* The read-queue's per-book Re-predict, by kind. Deliberately NOT part of
+   PredictRunner: that describes the Discover flow's calls, and these two are a
+   different operation on a different page (and, for nonfiction, a materially
+   different one — it forces a fresh Opus call because a nonfiction book's scores
+   don't depend on the library, so there is no cheap cached path). */
+const SAVED_REPREDICT: Record<
+  BookKind,
+  (title: string) => Promise<{ report: RepredictOneReport }>
+> = {
+  fiction: repredictRecommendation,
+  nonfiction: repredictNonfictionRecommendation,
+};
 
 /* Bounded-concurrency async pool: run `fn` over `items` with at most `limit`
    promises in flight at once. Used to grounded-refine several Discover
@@ -158,19 +176,57 @@ export function isRunBusy(r: PredictRunState): boolean {
   );
 }
 
-/** The finished-run announcement the banner renders. One at a time — a newer
- *  completion replaces an unread older one rather than queueing. */
-export interface PredictNotice {
+/** The finished-work announcement the banner + OS notification render. One at a
+ *  time — a newer completion replaces an unread older one rather than queueing.
+ *
+ *  A union rather than two channels: both job types finish the same way (tell the
+ *  reader wherever they are), so they share one banner, one notification path,
+ *  and one "have I already announced this" guard. */
+export type PredictNotice =
+  | {
+      type: "run";
+      kind: BookKind;
+      at: number;
+      scored: number;
+      failed: number;
+      grounded: number;
+      groundable: number;
+    }
+  | {
+      type: "repredict";
+      kind: BookKind;
+      at: number;
+      title: string;
+      report: RepredictOneReport;
+    };
+
+type NoticeInput =
+  | { type: "run"; kind: BookKind; scored: number; failed: number; grounded: number; groundable: number }
+  | { type: "repredict"; kind: BookKind; title: string; report: RepredictOneReport };
+
+/** One saved book being re-predicted from the read-queue. Keyed by kind+title so
+ *  several can run at once and each card watches only its own. */
+export interface QueueRepredictJob {
   kind: BookKind;
-  scored: number;
-  failed: number;
-  grounded: number;
-  groundable: number;
+  title: string;
+  status: "running" | "done" | "error";
+  report: RepredictOneReport | null;
+  error: string | null;
+  /** Bumped when the job settles, so a card can refresh the route exactly once. */
   at: number;
+}
+
+export function queueRepredictKey(kind: BookKind, title: string): string {
+  return `${kind}:${title}`;
 }
 
 interface PredictJobsValue {
   runs: AllRuns;
+  /** Saved-book re-predictions in flight or recently finished, by
+   *  queueRepredictKey(kind, title). */
+  queueRepredicts: Record<string, QueueRepredictJob>;
+  startQueueRepredict: (kind: BookKind, title: string) => void;
+  clearQueueRepredict: (kind: BookKind, title: string) => void;
   /** Which kind the Predict page's toggle is showing. Held here rather than in
    *  the page so the finish banner can open the page on the kind that finished,
    *  and so the toggle choice survives navigation like everything else. */
@@ -268,6 +324,9 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
   const [runs, setRuns] = useState<AllRuns>(EMPTY_ALL);
   const [notice, setNotice] = useState<PredictNotice | null>(null);
   const [activeKind, setActiveKind] = useState<BookKind>("fiction");
+  const [queueRepredicts, setQueueRepredicts] = useState<
+    Record<string, QueueRepredictJob>
+  >({});
 
   // Mirrors of state that an action handler must read SYNCHRONOUSLY at the
   // moment it starts, where a render-time closure would be stale. The in-flight
@@ -281,6 +340,10 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     fiction: new Set(), nonfiction: new Set(),
   });
   const busyRef = useRef<Record<BookKind, boolean>>({ fiction: false, nonfiction: false });
+  // Synchronous mirror of queueRepredicts: the double-click guard has to read it
+  // in the click handler, before any render has committed. Every writer updates
+  // both, so the two cannot drift.
+  const queueRepredictsRef = useRef<Record<string, QueueRepredictJob>>({});
   const runsRef = useRef<AllRuns>(EMPTY_ALL);
   useEffect(() => {
     runsRef.current = runs;
@@ -322,8 +385,8 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
 
   /* ── Completion announcement ───────────────────────────────────────────── */
 
-  const announce = useCallback((n: Omit<PredictNotice, "at">) => {
-    setNotice({ ...n, at: Date.now() });
+  const announce = useCallback((n: NoticeInput) => {
+    setNotice({ ...n, at: Date.now() } as PredictNotice);
   }, []);
 
   const dismissNotice = useCallback(() => setNotice(null), []);
@@ -503,6 +566,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
             grounded += await refineSet(kind, eager);
           }
           announce({
+            type: "run",
             kind,
             scored: ok.length,
             failed: results.length - ok.length,
@@ -543,6 +607,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         const newly = await refineSet(kind, targets);
         if (newly === 0) return; // nothing actually ran — don't announce a no-op
         announce({
+          type: "run",
           kind,
           scored: before.filter((r) => !r.error).length,
           failed: before.filter((r) => !!r.error).length,
@@ -674,9 +739,71 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [patch],
   );
 
+  /** Re-predict ONE saved book from the read-queue, in the background.
+   *
+   *  This is the read-queue's own operation, not the Predict page's: it hits
+   *  POST /api/{nonfiction/}recommendations/{title}/repredict, which re-predicts
+   *  the stored row against the library as it stands now and PERSISTS the result.
+   *  It is synchronous server-side and can run past a minute on a book that has
+   *  never been web-grounded, which is exactly why it belongs here rather than in
+   *  the card: the card unmounts the moment the reader collapses it or leaves the
+   *  page, and the answer would have had nowhere to land.
+   *
+   *  In-flight jobs are keyed by kind+title, so several books can re-predict at
+   *  once and a second click on the same book is a no-op rather than a second
+   *  paid call. */
+  const startQueueRepredict = useCallback(
+    (kind: BookKind, title: string) => {
+      const key = queueRepredictKey(kind, title);
+      if (queueRepredictsRef.current[key]?.status === "running") return;
+      const patchJob = (job: QueueRepredictJob) =>
+        setQueueRepredicts((prev) => {
+          const next = { ...prev, [key]: job };
+          queueRepredictsRef.current = next;
+          return next;
+        });
+      patchJob({ kind, title, status: "running", report: null, error: null, at: 0 });
+      void (async () => {
+        try {
+          const { report } = await SAVED_REPREDICT[kind](title);
+          patchJob({
+            kind, title, status: "done", report, error: null, at: Date.now(),
+          });
+          announce({ type: "repredict", kind, title, report });
+        } catch (e) {
+          patchJob({
+            kind,
+            title,
+            status: "error",
+            report: null,
+            error: e instanceof Error ? e.message : "Re-prediction failed.",
+            at: Date.now(),
+          });
+        }
+      })();
+    },
+    [announce],
+  );
+
+  /** Drop a finished job's result — the card's dismiss, and what stops a stale
+   *  report from reappearing when the reader expands that card again later. */
+  const clearQueueRepredict = useCallback((kind: BookKind, title: string) => {
+    const key = queueRepredictKey(kind, title);
+    setQueueRepredicts((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      queueRepredictsRef.current = next;
+      return next;
+    });
+  }, []);
+
   const value = useMemo<PredictJobsValue>(
     () => ({
       runs,
+      queueRepredicts,
+      startQueueRepredict,
+      clearQueueRepredict,
       activeKind,
       setActiveKind,
       notice,
@@ -693,9 +820,9 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       restoreAll,
     }),
     [
-      runs, activeKind, notice, dismissNotice, setRequest, dismissInterrupted,
-      generate, score, refineOne, refineRemaining, repredictOne, save, removeBook,
-      restoreAll,
+      runs, queueRepredicts, startQueueRepredict, clearQueueRepredict, activeKind,
+      notice, dismissNotice, setRequest, dismissInterrupted, generate, score,
+      refineOne, refineRemaining, repredictOne, save, removeBook, restoreAll,
     ],
   );
 
