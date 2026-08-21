@@ -57,6 +57,7 @@ import pandas as pd
 import numpy as np
 import db_loader
 import db_write
+import cache_sync
 import goodreads_import
 import import_enrich
 import star_priors
@@ -95,10 +96,18 @@ try:
 except Exception:
     _repred = None
 
+# How many uvicorn worker PROCESSES this deployment runs (Procfile:
+# --workers ${WEB_CONCURRENCY:-2}). Read here, not to spawn anything, but because
+# several in-process budgets have to be divided by it to keep their AGGREGATE the
+# same — see _rate_limit and the background-grounding executor below.
+WORKERS = max(1, int(os.environ.get("WEB_CONCURRENCY", "1")))
+
 # Serializes background cohort re-predictions so overlapping adds never contend on
-# the SQLite writer (localhost single-user, so contention is rare, but cheap to be
-# safe). The work runs off the request thread; the add-book response returns first.
-_repred_lock = threading.Lock()
+# the writer. The work runs off the request thread; the add-book response returns
+# first. CrossProcessLock, not threading.Lock: under --workers this has to hold
+# across PROCESSES too, which on Postgres it does via a session advisory lock (on
+# SQLite it degrades to exactly the threading.Lock it replaced).
+_repred_lock = db_write.CrossProcessLock("repredict")
 
 # After-save background grounding (Phase 3 of the latency work): when a book is
 # saved to recommendations with memory-only scores, ground it server-side and
@@ -111,7 +120,13 @@ _repred_lock = threading.Lock()
 # LOW (default 3) to leave rate-budget headroom for a user's live Discover refine.
 # BACKGROUND_GROUND_CONCURRENCY=0 disables the feature (saves stay memory-scored).
 from concurrent.futures import ThreadPoolExecutor as _ThreadPoolExecutor
+# Divided by the worker count: this bound is a rate-budget bound against the
+# Anthropic API, and the 2026-07-21 A/B found grounded calls self-throttle past
+# ~5-6 concurrent. Each worker owns its own executor, so N workers at the full
+# width would be N x the concurrency the A/B actually validated.
 _BG_GROUND_CONCURRENCY = int(os.environ.get("BACKGROUND_GROUND_CONCURRENCY", "3"))
+_BG_GROUND_CONCURRENCY = (max(1, _BG_GROUND_CONCURRENCY // max(1, int(
+    os.environ.get("WEB_CONCURRENCY", "1")))) if _BG_GROUND_CONCURRENCY > 0 else 0)
 _ground_executor = (_ThreadPoolExecutor(max_workers=_BG_GROUND_CONCURRENCY,
                                         thread_name_prefix="bg-ground")
                     if _BG_GROUND_CONCURRENCY > 0 else None)
@@ -412,7 +427,20 @@ def _invalidate_engine(user_id=None) -> None:
     # the write request path. A burst of writes then costs ONE rebuild (on the next
     # read), not one per write. The rebuild is deterministic, so read-after-write is
     # correct. Startup warms the seed explicitly via _get_engine() (see lifespan).
-    uid = _uid(user_id)
+    _invalidate_engine_local(_uid(user_id))
+    # Tell the OTHER worker processes (see cache_sync). Local first, published
+    # second, so this worker is already correct before anyone else is told — and
+    # so a publish failure degrades to single-worker behaviour rather than to a
+    # worker serving a library it knows is stale.
+    cache_sync.publish("fiction", _uid(user_id))
+
+
+def _invalidate_engine_local(uid) -> None:
+    """Drop one tenant's fiction caches in THIS process only.
+
+    The local half of _invalidate_engine, split out because cache_sync calls it for
+    an invalidation that originated on another worker — where re-publishing would
+    make two workers notify each other in a loop."""
     _engine_cache.pop(uid, None)
     _engine_epoch[uid] = _engine_epoch.get(uid, 0) + 1   # stale-keys _corr_statics
     _corr_statics_cache.pop(uid, None)
@@ -444,7 +472,12 @@ def _get_nf_engine(user_id=None) -> tuple:
 
 def _invalidate_nf_engine(user_id=None) -> None:
     # LAZY (P2), mirroring _invalidate_engine: drop → rebuild on next nonfiction read.
-    uid = _uid(user_id)
+    _invalidate_nf_engine_local(_uid(user_id))
+    cache_sync.publish("nf", _uid(user_id))
+
+
+def _invalidate_nf_engine_local(uid) -> None:
+    """The local half — see _invalidate_engine_local."""
     _nf_engine_cache.pop(uid, None)
 
 
@@ -826,6 +859,15 @@ def _corr_statics(user_id, corr_pool):
     return pairs, corr_models
 
 
+def _apply_remote_invalidation(scope, user_id) -> None:
+    """cache_sync callback: another worker wrote, so drop this process's caches for
+    that tenant. LOCAL ONLY — it must never publish, or workers would ping-pong."""
+    if scope == "nf":
+        _invalidate_nf_engine_local(user_id)
+    else:
+        _invalidate_engine_local(user_id)
+
+
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
     _get_engine()  # warm the seed engine at startup (build + cache; invalidate is now lazy)
@@ -838,6 +880,17 @@ async def lifespan(app_: FastAPI):
             _cold_term_executor.submit(_fitted_cold_term, _uid(None))
         except Exception:
             pass
+    # Listen for writes handled by OTHER worker processes. No-op on SQLite/local
+    # dev (one process, nothing to synchronise) — see cache_sync.
+    try:
+        if cache_sync.start(_apply_remote_invalidation):
+            logging.getLogger("uvicorn.error").info(
+                "cache_sync: cross-process invalidation active (worker %s)",
+                cache_sync.WORKER_ID)
+    except Exception:
+        logging.getLogger("uvicorn.error").warning(
+            "cache_sync failed to start; caches are per-process only",
+            exc_info=True)
     yield
 
 
@@ -976,8 +1029,38 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
     if not _RATE_LIMIT_ENABLED:
         return True
     principal = f"user:{user_id}" if user_id else f"ip:{_client_ip(request)}"
+
+    # SHARED buckets go to the database so the budget is the deployment's, not each
+    # worker's. Only the money gates qualify (see _SHARED_BUCKETS): they are
+    # low-volume and each guards a multi-second paid API call, so a round trip is
+    # free next to what it protects. Everything else stays in memory below with its
+    # budget divided by the worker count.
+    if bucket in _SHARED_BUCKETS and _shared_state():
+        try:
+            if db_write.rate_limit_try(bucket, principal, max_calls, window_s):
+                return True
+        except Exception:
+            # The limiter must never take the endpoint down with it. Fall through to
+            # the in-process bucket, which still caps this worker.
+            logging.getLogger(__name__).warning(
+                "shared rate-limit check failed for %s; using the local bucket",
+                bucket, exc_info=True)
+        else:
+            if not raise_on_limit:
+                return False
+            try:
+                retry = db_write.rate_limit_retry_after(bucket, principal, window_s)
+            except Exception:
+                retry = int(window_s) + 1
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests — please slow down and try again shortly.",
+                headers={"Retry-After": str(retry)},
+            )
+
     key = f"{bucket}:{principal}"
     now = time.monotonic()
+    max_calls = _local_budget(bucket, max_calls)
     with _rl_lock:
         dq = _rl_hits[key]
         cutoff = now - window_s
@@ -1007,6 +1090,45 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
                 if not d:
                     del _rl_hits[k]
     return True
+
+
+# Buckets whose budget is enforced in the DATABASE rather than per worker process.
+# The rule is "does exceeding it cost money": each of these gates a paid Anthropic
+# call, so N workers each honouring the full budget would mean up to N times the
+# spend. They are also the cheapest to share — the demo's daily cap is a few dozen
+# rows a day, and every one of them sits in front of a multi-second API call, so the
+# round trip is not measurable. `signup` joins them for the same reason in kind: it
+# is a security gate on account creation, a handful of calls ever, and an N-times
+# looser one is not something to accept for free. Read-path buckets are deliberately
+# NOT here: a DB write on every list request would spend exactly the latency this
+# release recovers.
+_SHARED_BUCKETS = frozenset({"llm", "demo_live", "demo_live_global", "signup"})
+
+
+def _shared_state():
+    """True when this deployment actually has shared storage to coordinate through.
+
+    Gates every write to the `app_state` / `rate_limit_hits` tables. It is not just
+    an optimisation: on local dev the database IS the tracked `books.db`, so a
+    rate-limit row per LLM call would churn the file that the autopublish watcher
+    commits and the static snapshot is built from. Local dev is one process and has
+    nothing to share, so it takes the in-memory path exactly as it always did."""
+    return cache_sync.enabled()
+
+
+def _local_budget(bucket, max_calls):
+    """Divide an in-process budget by the worker count so the AGGREGATE cap across
+    workers stays what it says on the tin.
+
+    The trade is visible and worth naming: a client that happens to keep landing on
+    the same worker gets throttled at its share rather than the whole budget. That
+    is the right way round for these buckets (they guard cheap reads, and the
+    budgets are generous), but it is an approximation, not an exact cap — which is
+    precisely why the money buckets went to the database instead. Never divides
+    below 1."""
+    if WORKERS <= 1 or bucket in _SHARED_BUCKETS:
+        return max_calls
+    return max(1, int(max_calls) // WORKERS)
 
 
 # Per-route budgets. LLM routes are generous enough for a real session (predicting
@@ -1566,7 +1688,7 @@ def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict
                   "affected": [], "suppressed_genre_peers": [],
                   "capped_genre_peers": [], "cohort_mean_d_wa": None,
                   "note": "no changes"}
-    _repred.record_report(token, report)
+    _record_repredict_report(token, user_id, report)
 
 
 def _submit_background_ground(title: str, author: str, genre: str, user_id: str) -> None:
@@ -1673,6 +1795,61 @@ def repredict_recommendation(title: str, request: Request,
     return {"ok": True, "report": report}
 
 
+# The add-book panel polls for its background re-prediction report by token. The
+# report used to live in a module-level dict in repredict_on_add, which under
+# `--workers` is per PROCESS: the POST that started the work and the GET that polls
+# for it land on whichever worker the load balancer picks, so the poll would miss
+# roughly (N-1)/N of the time and the panel would silently time out.
+#
+# So the report is written to the shared `app_state` table, keyed by the token AND
+# the tenant — the token alone would let anyone who guessed one read another
+# reader's report. The in-process store is still written as a fallback, which is
+# what serves local dev and any deployment where the shared write fails.
+#
+# 15 minutes is far longer than the client polls (it gives up in well under a
+# minute) and short enough that these rows never accumulate; the sweeper in
+# cache_sync clears expired ones.
+_REPREDICT_REPORT_TTL_S = 900
+
+
+def _repredict_report_key(token: str, user_id: str) -> str:
+    return f"repredict:{user_id}:{token}"
+
+
+def _record_repredict_report(token: str, user_id: str, report: dict) -> None:
+    """Stash a finished report where ANY worker can serve it. Best-effort on the
+    shared write — the local store always gets it, so a DB hiccup costs the panel
+    only when the poll lands on a different worker."""
+    _repred.record_report(token, report)
+    if not _shared_state():
+        return                      # one process: the local store IS the store
+    try:
+        db_write.app_state_put(_repredict_report_key(token, user_id),
+                               json.dumps(report), ttl_s=_REPREDICT_REPORT_TTL_S)
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "could not share a re-prediction report across workers", exc_info=True)
+
+
+def _read_repredict_report(token: str, user_id: str):
+    """The report for `token`, or None while it is still pending. Checks this
+    worker's own memory first (free, and the common case when there is one worker),
+    then the shared table (only when there is one — see _shared_state)."""
+    report = _repred.get_report(token)
+    if report is not None or not _shared_state():
+        return report
+    try:
+        raw = db_write.app_state_get(_repredict_report_key(token, user_id))
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+
 @app.get("/api/repredict/recent")
 def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id)):
     """Poll for a background cohort re-prediction's report by its token. Returns
@@ -1681,7 +1858,7 @@ def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id
     (the client stops polling on its own timeout)."""
     if _repred is None:
         return {"status": "done", "report": None}
-    report = _repred.get_report(token)
+    report = _read_repredict_report(token, user_id)
     if report is None:
         return {"status": "pending"}
     return {"status": "done", "report": report}

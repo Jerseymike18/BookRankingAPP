@@ -92,7 +92,16 @@ def _database_url():
 # Kill switch: DB_POOL=0 restores the prior connect-per-call behavior.
 _PG_POOL = None
 _PG_POOL_LOCK = threading.Lock()
-DB_POOL_MAX = int(os.environ.get("DB_POOL_MAX", "10"))
+# Per-PROCESS pool ceiling, so it is divided by the worker count: under
+# `--workers N` each worker builds its own pool, and N x 10 session-mode
+# connections plus each worker's dedicated cache_sync listener and advisory-lock
+# connection can exhaust a Supabase pooler's session-connection budget — which
+# fails as a connect error on every request, not as a slowdown. The floor of 4
+# keeps a worker from starving itself: FastAPI serves sync handlers on a
+# threadpool, so one worker genuinely needs a handful of concurrent connections.
+_DB_POOL_MAX_TOTAL = int(os.environ.get("DB_POOL_MAX", "10"))
+DB_POOL_MAX = max(4, _DB_POOL_MAX_TOTAL // max(1, int(
+    os.environ.get("WEB_CONCURRENCY", "1"))))
 
 
 def _pool_enabled():

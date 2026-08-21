@@ -37,7 +37,11 @@ import os
 import re
 import json
 import math
+import time
 import uuid
+import hashlib
+import logging
+import threading
 import shutil
 import sqlite3
 import db_backend
@@ -3452,6 +3456,298 @@ _ensure_nonfiction_seed()
 # read_month spans BOTH the fiction (books) and nonfiction (nonfiction_books)
 # tables, so it must run after the nonfiction schema exists (above).
 _ensure_read_month()
+
+
+# ---------------------------------------------------------------------------
+# Cross-process coordination (multi-worker deployments)
+# ---------------------------------------------------------------------------
+# The backend used to run as ONE uvicorn process, so a pile of coordination state
+# could live in module globals: the per-tenant engine-cache epoch, the background
+# re-prediction reports the add-book panel polls for, the rate-limit buckets, and
+# the re-prediction write lock. Under `--workers N` every one of those is per
+# PROCESS, and three of them break outright — most seriously the engine epoch,
+# where a write handled by worker A would leave worker B serving the pre-write
+# library forever (its cache has no TTL and never hears about the write).
+#
+# These two tables are the shared substitute. They hold OPERATIONAL state only —
+# nothing here is reader data, nothing here is derived from the scoring model, and
+# losing the whole contents costs at most one cache rebuild, one un-collected
+# re-prediction report, and one rate-limit window. Both are portable DDL (SQLite
+# for local dev, Postgres for the hosted app) and self-heal on first use, like
+# `research_cache` and `series_meta` before them.
+#
+#   app_state        small key/value with an optional expiry. Two prefixes today:
+#                    'epoch:<scope>:<user_id>' (permanent; the invalidation
+#                    counter cache_sync reconciles against) and
+#                    'repredict:<user_id>:<token>' (expiring; one finished report).
+#   rate_limit_hits  one row per counted call, for the buckets that gate MONEY.
+#                    See rate_limit_try for why only those.
+_app_state_ensured = False
+
+
+def _ensure_app_state():
+    global _app_state_ensured
+    if _app_state_ensured:
+        return
+    con = _connect()
+    # DOUBLE PRECISION is deliberate over REAL: these columns hold unix timestamps
+    # (~1.8e9), and Postgres REAL is float4 — about 7 significant digits, which
+    # would quantise a timestamp to the nearest ~100 seconds and silently break
+    # every window comparison. SQLite gives any "DOUB..." type REAL affinity, so
+    # one spelling is correct on both.
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS app_state (
+            key        TEXT PRIMARY KEY,
+            value      TEXT NOT NULL,
+            expires_at DOUBLE PRECISION,
+            updated_at TEXT
+        )""")
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS rate_limit_hits (
+            bucket    TEXT NOT NULL,
+            principal TEXT NOT NULL,
+            ts        DOUBLE PRECISION NOT NULL
+        )""")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_rl_hits ON "
+                "rate_limit_hits (bucket, principal, ts)")
+    con.commit()
+    con.close()
+    _app_state_ensured = True
+
+
+def app_state_put(key, value, ttl_s=None):
+    """UPSERT one operational key/value. `ttl_s` sets an expiry; None = permanent."""
+    _ensure_app_state()
+    exp = (time.time() + float(ttl_s)) if ttl_s else None
+    con = _connect()
+    con.execute(
+        "INSERT INTO app_state (key,value,expires_at,updated_at) VALUES (?,?,?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value, "
+        "expires_at=excluded.expires_at, updated_at=excluded.updated_at",
+        (key, value, exp, dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
+    con.commit()
+    con.close()
+
+
+def app_state_get(key):
+    """The stored value, or None when absent OR expired. Expiry is enforced on READ
+    as well as by the sweeper, so a value is never served past its lifetime just
+    because nothing has swept yet."""
+    _ensure_app_state()
+    con = _connect()
+    row = con.execute("SELECT value, expires_at FROM app_state WHERE key=?",
+                      (key,)).fetchone()
+    con.close()
+    if row is None:
+        return None
+    if row[1] is not None and float(row[1]) <= time.time():
+        return None
+    return row[0]
+
+
+def app_state_prefix(prefix):
+    """{key: value} for every unexpired key starting with `prefix`. Used by
+    cache_sync's reconciliation sweep to read all tenants' epochs in one query."""
+    _ensure_app_state()
+    con = _connect()
+    rows = con.execute(
+        "SELECT key, value, expires_at FROM app_state WHERE key LIKE ?",
+        (prefix.replace("%", "") + "%",)).fetchall()
+    con.close()
+    now = time.time()
+    return {r[0]: r[1] for r in rows
+            if r[2] is None or float(r[2]) > now}
+
+
+def app_state_delete(key):
+    _ensure_app_state()
+    con = _connect()
+    con.execute("DELETE FROM app_state WHERE key=?", (key,))
+    con.commit()
+    con.close()
+
+
+def app_state_sweep():
+    """Drop expired rows and stale rate-limit hits. Cheap; called from cache_sync's
+    reconciliation loop rather than from any request path."""
+    _ensure_app_state()
+    now = time.time()
+    con = _connect()
+    con.execute("DELETE FROM app_state WHERE expires_at IS NOT NULL AND expires_at<=?",
+                (now,))
+    # Nothing counts a window longer than a day, so anything older is unreachable.
+    con.execute("DELETE FROM rate_limit_hits WHERE ts < ?", (now - 86400.0,))
+    con.commit()
+    con.close()
+
+
+def bump_cache_epoch(scope, user_id):
+    """Atomically increment the shared invalidation counter for (scope, user_id)
+    and return its new value.
+
+    The increment happens INSIDE the statement (`app_state.value + 1`), not as a
+    read-modify-write in Python, so two workers invalidating at once can never
+    lose one of the bumps and leave a third worker on a stale cache."""
+    _ensure_app_state()
+    key = f"epoch:{scope}:{user_id}"
+    con = _connect()
+    con.execute(
+        "INSERT INTO app_state (key,value,expires_at,updated_at) VALUES (?,'1',NULL,?) "
+        "ON CONFLICT(key) DO UPDATE SET "
+        "value = CAST(CAST(app_state.value AS INTEGER) + 1 AS TEXT), "
+        "updated_at = excluded.updated_at",
+        (key, dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")))
+    con.commit()
+    row = con.execute("SELECT value FROM app_state WHERE key=?", (key,)).fetchone()
+    con.close()
+    try:
+        return int(row[0]) if row else 1
+    except (TypeError, ValueError):
+        return 1
+
+
+def rate_limit_try(bucket, principal, max_calls, window_s, now=None):
+    """Record a call against a SHARED budget; return True if it was within it.
+
+    Only the buckets that gate MONEY go through here — the per-user LLM bucket and
+    the two that cap Anthropic spend from the unauthenticated /try demo. Those are
+    low-volume (the daily demo cap is at most a few dozen rows a day), so one round
+    trip costs nothing next to the multi-second API call it guards. The cheap
+    read-path buckets stay in process memory with their budgets divided by the
+    worker count — a DB write on every list request would spend exactly the latency
+    this whole change set exists to recover.
+
+    The count and the insert are ONE statement, so the common case is atomic. Under
+    READ COMMITTED two genuinely simultaneous callers can both see the pre-insert
+    count, so the budget may overshoot by at most the number of requests in flight
+    at that instant (bounded by the worker count). That is acceptable here and
+    stated rather than hidden: for a 50/day spend cap it means at most ~51, never a
+    multiple. Being off by one beats putting a lock on the spend path."""
+    _ensure_app_state()
+    now = time.time() if now is None else float(now)
+    cutoff = now - float(window_s)
+    con = _connect()
+    try:
+        cur = con.execute(
+            "INSERT INTO rate_limit_hits (bucket, principal, ts) "
+            "SELECT ?,?,? WHERE (SELECT COUNT(*) FROM rate_limit_hits "
+            "WHERE bucket=? AND principal=? AND ts > ?) < ?",
+            (bucket, principal, now, bucket, principal, cutoff, int(max_calls)))
+        allowed = (cur.rowcount == 1)
+        con.commit()
+        return allowed
+    finally:
+        con.close()
+
+
+def rate_limit_retry_after(bucket, principal, window_s, now=None):
+    """Seconds until the oldest counted call in the window ages out (>=1), for the
+    Retry-After header on a shared-budget rejection."""
+    _ensure_app_state()
+    now = time.time() if now is None else float(now)
+    con = _connect()
+    row = con.execute(
+        "SELECT MIN(ts) FROM rate_limit_hits WHERE bucket=? AND principal=? AND ts > ?",
+        (bucket, principal, now - float(window_s))).fetchone()
+    con.close()
+    if not row or row[0] is None:
+        return 1
+    return max(1, int(float(window_s) - (now - float(row[0])) + 1))
+
+
+# ---------------------------------------------------------------------------
+# Cross-process write lock
+# ---------------------------------------------------------------------------
+class CrossProcessLock:
+    """A `with`-block mutex that holds across BOTH threads and worker processes.
+
+    `repredict_on_add`'s write lock has to serialise the re-prediction write burst.
+    A `threading.Lock` did that when the backend was one process; under `--workers`
+    it only serialises the threads inside one worker, and two workers can interleave
+    their bursts. On Postgres this adds a session-level advisory lock on top; on
+    SQLite it IS just the threading.Lock, so local dev behaves exactly as before.
+
+    Both layers are taken, in that order, and the local one is taken first on
+    purpose: threads within a process then queue on a cheap in-memory lock instead
+    of all piling onto the single shared Postgres connection this holds.
+
+    NOT re-entrant — matching the `threading.Lock` it replaces, so an accidental
+    nested acquire fails loudly here rather than deadlocking only in production.
+
+    The advisory-lock connection is dedicated and long-lived rather than borrowed
+    from the pool: a session-level advisory lock outlives a transaction, so leaving
+    one on a pooled connection would hand the next borrower a lock it never took."""
+
+    def __init__(self, name):
+        self.name = name
+        # 63-bit signed key for pg_advisory_lock(bigint), derived from the name so
+        # two processes running this code agree without any shared registry.
+        digest = hashlib.sha256(name.encode("utf-8")).digest()
+        self._key = int.from_bytes(digest[:8], "big") & 0x7FFFFFFFFFFFFFFF
+        self._local = threading.Lock()
+        self._conn = None
+        self._held_remote = False
+
+    def _pg(self):
+        return db_backend.backend() == "postgres"
+
+    def _connection(self):
+        if self._conn is None:
+            import psycopg2
+            import psycopg2.extensions as ext
+            conn = psycopg2.connect(os.environ["DATABASE_URL"])
+            conn.set_isolation_level(ext.ISOLATION_LEVEL_AUTOCOMMIT)
+            self._conn = conn
+        return self._conn
+
+    def acquire(self):
+        self._local.acquire()
+        if not self._pg():
+            return
+        try:
+            with self._connection().cursor() as cur:
+                cur.execute("SELECT pg_advisory_lock(%s)", (self._key,))
+            self._held_remote = True
+        except Exception:
+            # A dead lock connection must not wedge the feature: drop it so the
+            # next acquire reconnects, and fall back to the in-process lock we
+            # already hold — i.e. the pre-multi-worker guarantee, not none at all.
+            logging.getLogger(__name__).warning(
+                "CrossProcessLock(%s): advisory lock unavailable; "
+                "falling back to in-process serialisation", self.name, exc_info=True)
+            self._drop_conn()
+            self._held_remote = False
+
+    def release(self):
+        try:
+            if self._held_remote:
+                self._held_remote = False
+                try:
+                    with self._connection().cursor() as cur:
+                        cur.execute("SELECT pg_advisory_unlock(%s)", (self._key,))
+                except Exception:
+                    # Could not unlock: discard the connection so the session — and
+                    # with it the lock — is closed by the server rather than left
+                    # held by a connection we keep reusing.
+                    self._drop_conn()
+        finally:
+            self._local.release()
+
+    def _drop_conn(self):
+        conn, self._conn = self._conn, None
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.release()
+        return False
 
 
 if __name__ == "__main__":

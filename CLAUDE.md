@@ -365,13 +365,61 @@ that undoing one silently re-slows the whole site.
   sit unused for up to a token lifetime). The backend already reads `user_metadata` from
   the same claims, so the two now agree.
 
-**Still single-process — `--workers` is NOT a drop-in.** Three pieces of state live in
-the process, not the database: `repredict_on_add._REPORTS` (the add-book "re-predicting…"
-panel polls `GET /api/repredict/recent?token=…`, which would miss whenever the poll
-landed on a different worker), the `_rate_limit` buckets (every budget, including the
-`_RL_DEMO_LIVE` / `_DEMO_LIVE_DAILY_CAP` pair that bounds **paid Anthropic spend** from
-the unauthenticated `/try` demo, would loosen by the worker count), and `_repred_lock`.
-Adding workers means making those shared first.
+### Multi-worker: `--workers ${WEB_CONCURRENCY:-2}` and the state it needed shared
+
+The backend runs **two uvicorn worker processes** (Procfile; `WEB_CONCURRENCY` is
+*exported* there, not just read, so the number uvicorn forks on and the number the app
+divides its budgets by can never disagree). Everything below existed because module
+globals are per PROCESS.
+
+- **Engine-cache invalidation is the load-bearing one.** `_invalidate_engine` bumps an
+  in-memory epoch, and the engine/cold-term/correction caches have **no TTL** — so under
+  workers, a write handled by worker A left worker B serving the **pre-write library
+  forever**. `cache_sync.py` fixes it: a write calls `publish(scope, user_id)`, which
+  atomically increments a shared epoch row and issues a Postgres **NOTIFY**; every worker
+  holds one dedicated listening connection and drops that tenant's caches on receipt, plus
+  re-reads all epochs every 10s as a **reconciliation** safety net. Both halves are needed
+  — NOTIFY can be missed across a reconnect or a redeploy, and polling alone would leave a
+  window where a worker serves the pre-write library right after an add.
+  - `_invalidate_engine_local` / `_invalidate_nf_engine_local` are the local-only halves.
+    **cache_sync's callback must call those, never the publishing ones**, or two workers
+    notify each other in a loop.
+  - The listener connection is deliberately **not** pooled (a session-long LISTEN is the
+    opposite of a borrow-and-return connection), and **Supabase must stay on the SESSION
+    pooler** — transaction-mode pgbouncer does not carry LISTEN/NOTIFY. If it ever moved,
+    the reconciliation sweep silently becomes the whole mechanism (correct, just slower).
+- **Re-prediction reports** move to the shared `app_state` table, keyed by token **and
+  tenant** (a token alone would let a guessed token read someone else's report). The POST
+  that starts the work and the poll that collects it land on different workers otherwise.
+- **Rate limits: only the buckets that gate MONEY are shared** (`llm`, `demo_live`,
+  `demo_live_global`, `signup`) — each fronts a paid Anthropic call, so N workers each
+  honouring the full budget would mean N× the spend. They go through
+  `db_write.rate_limit_try`, whose count-and-insert is one statement; under concurrency it
+  can overshoot by at most the number of in-flight requests (~51 on a 50/day cap, never a
+  multiple) — stated, not hidden. Every other bucket stays in memory with its budget
+  **divided by the worker count** (`_local_budget`), because a DB write per list request
+  would spend exactly the latency this release recovered.
+- **`_repred_lock` is a `db_write.CrossProcessLock`** — a local `threading.Lock` plus a
+  Postgres session advisory lock, on a dedicated connection (an advisory lock outlives a
+  transaction, so leaving one on a pooled connection would hand the next borrower a lock it
+  never took). Not re-entrant, matching the lock it replaced.
+- **Two other per-process budgets are divided by the worker count** for the same reason:
+  the background-grounding executor width (the 2026-07-21 A/B found grounded calls
+  self-throttle past ~5–6 concurrent) and `db_backend.DB_POOL_MAX` (N×10 session
+  connections plus each worker's listener and lock connection can exhaust the Supabase
+  pooler — which fails as a connect error on every request, not as a slowdown).
+
+**Local dev is untouched, on purpose.** `cache_sync.enabled()` is false on SQLite, and
+`_shared_state()` gates every write to the new tables on it. That is not just an
+optimisation: on local dev the database **is the tracked `books.db`**, so a rate-limit row
+per LLM call would churn the file the autopublish watcher commits and the snapshot is
+built from. One process has nothing to share, so it takes the in-memory path exactly as
+before.
+
+Two new **operational** tables back all of this (`app_state`, `rate_limit_hits` — HARD
+CONSTRAINT 3 authorization, owner, 2026-08-20). Neither holds reader data or anything
+derived from the scoring model; losing both costs one cache rebuild, one uncollected
+report, and one rate-limit window. Regression guard: `test_multiworker.py` (20 checks).
 
 ## Security posture
 

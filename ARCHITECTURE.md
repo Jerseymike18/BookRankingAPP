@@ -44,7 +44,8 @@ Consequences worth memorizing:
 - `backend/main.py` — FastAPI app; all HTTP routes; per-tenant engine cache (`_get_engine(user_id)` → `_build_engine_for`); `Depends(auth.get_current_user_id)` on data routes.
 - **Read-only engine — DO NOT reimplement/modify the math:** `predict_engine.py`, `db_loader.py`, `views.py` (+ `nonfiction_engine.py`). WA, shrinkage, tiers, series math live here.
 - `db_write.py` — the ONLY write path (validated functions; every one takes `user_id`).
-- `db_backend.py` — SQLite⇄Postgres switch (`DB_BACKEND`); `DEFAULT_USER_ID` (Michael) is the auth-off / local / export fallback.
+- `db_backend.py` — SQLite⇄Postgres switch (`DB_BACKEND`); `DEFAULT_USER_ID` (Michael) is the auth-off / local / export fallback. Connection pool ceiling is **per worker process**.
+- `cache_sync.py` — cross-process cache invalidation (Postgres LISTEN/NOTIFY + a reconciliation sweep). The backend runs `--workers ${WEB_CONCURRENCY:-2}`, so a write on one worker has to drop the *other* workers' engine caches; without this they serve the pre-write library indefinitely. Inert on SQLite. See CLAUDE.md → "Serving latency".
 - `auth.py` — Supabase JWT verify → `user_id`. `signup.py` — invite-gated account creation.
 - Prediction support: `research_predict.py`, `reresearch_and_measure.py`, `intervals.py` (conformal band), `repredict_on_add.py` (auto re-predict), `research_layer.py` (LLM key).
 - Validation/reporting: `validate_engine.py`, `walkforward.py`, `track_record.py`, `engine_parameters.py`; **`test_engine.py` is the health gate — must stay 38/38.**
