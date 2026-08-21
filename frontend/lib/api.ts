@@ -65,6 +65,42 @@ const AUTH_ON = !STATIC && !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
  * a signed-out call, or a global/unauthenticated endpoint). */
 export type ServerToken = string | undefined;
 
+/**
+ * Thrown when a request was deliberately aborted — the reader pressed Stop.
+ *
+ * This is NOT an error condition and must never be rendered as one. It exists so
+ * a caller can tell "you cancelled this" apart from "this failed", which matters
+ * because the two want opposite treatment: a failure is worth reporting and
+ * retrying, a cancellation is what was asked for.
+ *
+ * What it does NOT mean: that the server stopped. Aborting a fetch closes the
+ * browser's end of an HTTP request; the handler on the other side runs to
+ * completion, and an Anthropic call already in flight is already paid for. The
+ * real saving from cancelling is the calls that are never STARTED.
+ */
+export class RequestCancelled extends Error {
+  constructor() {
+    super("Cancelled.");
+    this.name = "RequestCancelled";
+  }
+}
+
+export function isCancelled(e: unknown): boolean {
+  if (e instanceof RequestCancelled) return true;
+  // apiFetch only wraps a rejection from fetch() itself. An abort that lands in
+  // the gap between the response arriving and res.json() finishing rejects the
+  // body read instead, outside that try — so the raw AbortError has to count too,
+  // or a cancel in that window would be reported to the reader as a failure.
+  return !!e && typeof e === "object" && (e as { name?: string }).name === "AbortError";
+}
+
+/** An abort can surface as a DOMException named AbortError, or (in some engines)
+ *  as a bare rejection — so the signal's own state is checked as well. */
+function isAbort(e: unknown, signal?: AbortSignal | null): boolean {
+  if (signal?.aborted) return true;
+  return !!e && typeof e === "object" && (e as { name?: string }).name === "AbortError";
+}
+
 /** fetch() for every LIVE-backend call. Attaches the Supabase bearer token —
  * `serverToken` when rendering on the server, otherwise the browser session —
  * and, in the browser, bounces to /login on a 401. In static mode it is never
@@ -87,7 +123,11 @@ async function apiFetch(
   let res: Response;
   try {
     res = await fetch(input, { ...init, headers });
-  } catch {
+  } catch (e) {
+    // A deliberate abort rejects here too, and it is NOT a failure — reporting
+    // it as one would tell the reader the connection dropped when in fact they
+    // pressed Stop. Re-throw it as its own type so callers can tell them apart.
+    if (isAbort(e, init.signal)) throw new RequestCancelled();
     // fetch() rejects with a bare "Failed to fetch" for BOTH a genuine
     // connectivity failure AND a response the browser refuses to expose (a
     // server error missing CORS headers looks identical from here). Neither the
@@ -369,13 +409,15 @@ export async function predictResearch(
   author: string,
   genre?: string,
   grounded = false,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<ResearchResult> {
   assertWritable();
   const res = await apiFetch(`${API}/api/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre: genre ?? null, grounded, force }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -412,13 +454,15 @@ export async function predictNonfiction(
   title: string,
   author: string,
   genre?: string,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<import("./types").NonfictionPrediction> {
   assertWritable();
   const res = await apiFetch(`${base("nonfiction")}/predict/research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, author, genre: genre ?? null, force }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -427,13 +471,15 @@ export async function predictNonfiction(
 
 export async function discoverNonfictionCandidates(
   request: string,
-  n?: number
+  n?: number,
+  signal?: AbortSignal
 ): Promise<import("./types").NonfictionDiscoverResponse> {
   assertWritable();
   const res = await apiFetch(`${base("nonfiction")}/discover/candidates`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ request, n: n ?? null }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -442,7 +488,8 @@ export async function discoverNonfictionCandidates(
 
 export async function discoverCandidates(
   request: string,
-  maxCandidates?: number
+  maxCandidates?: number,
+  signal?: AbortSignal
 ): Promise<DiscoverCandidatesResponse> {
   assertWritable();
   const res = await apiFetch(`${API}/api/discover/candidates`, {
@@ -452,6 +499,7 @@ export async function discoverCandidates(
       request,
       max_candidates: maxCandidates ?? null,
     }),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -549,13 +597,15 @@ export interface SaveNonfictionRecPayload {
 }
 
 export async function saveNonfictionRecommendation(
-  payload: SaveNonfictionRecPayload
+  payload: SaveNonfictionRecPayload,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; message: string }> {
   assertWritable();
   const res = await apiFetch(`${base("nonfiction")}/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -708,12 +758,13 @@ export async function generateRecommendationMeta(
  *  grounded research call) the first time a book is grounded; near-instant once
  *  its research is cached — so the caller must not impose a short timeout. */
 export async function repredictRecommendation(
-  title: string
+  title: string,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; report: RepredictOneReport }> {
   assertWritable();
   const res = await apiFetch(
     `${API}/api/recommendations/${encodeURIComponent(title)}/repredict`,
-    { method: "POST" }
+    { method: "POST", signal }
   );
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -725,12 +776,13 @@ export async function repredictRecommendation(
  *  would return an identical vector and the only real re-prediction is a fresh
  *  research call. Always slow; never free. */
 export async function repredictNonfictionRecommendation(
-  title: string
+  title: string,
+  signal?: AbortSignal
 ): Promise<{ ok: boolean; report: RepredictOneReport }> {
   assertWritable();
   const res = await apiFetch(
     `${API}/api/nonfiction/recommendations/${encodeURIComponent(title)}/repredict`,
-    { method: "POST" }
+    { method: "POST", signal }
   );
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
@@ -1096,12 +1148,13 @@ export async function saveRecommendation(payload: {
   keywords?: string;
   series?: string;
   series_number?: number;
-}): Promise<{ ok: boolean; message: string }> {
+}, signal?: AbortSignal): Promise<{ ok: boolean; message: string }> {
   assertWritable();
   const res = await apiFetch(`${API}/api/recommendations`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);

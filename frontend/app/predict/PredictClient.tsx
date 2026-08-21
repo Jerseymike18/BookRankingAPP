@@ -141,6 +141,36 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
+/* ── Stop control ────────────────────────────────────────────────────────────
+   Quiet on purpose: stopping should be findable but never look like the primary
+   action next to a bar that is making progress. Reuses the existing rule/muted
+   tokens rather than introducing a destructive colour — nothing is destroyed by
+   pressing it, since everything already scored is kept. */
+function StopButton({
+  onClick,
+  label = "Stop",
+  className = "",
+}: {
+  onClick: () => void;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-2.5 py-1 rounded-md transition-colors ${className}`}
+      style={{
+        background: "var(--color-surface-2)",
+        color: "var(--color-muted)",
+        border: "1px solid var(--color-rule)",
+      }}
+      title="Stop making further calls. Anything already done is kept; a call already in flight may still finish on the server."
+    >
+      {label}
+    </button>
+  );
+}
+
 /* ── Sage button ─────────────────────────────────────────────────────────── */
 function SageButton({
   onClick,
@@ -217,7 +247,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   const {
     request, requestLabel, candidates, genNote, genSources, genLoading, genError,
     scored, scoringIdx, scoringDone, saveResults, saving, saveProgress,
-    repredictErrors, interrupted,
+    repredictErrors, interrupted, cancelled,
   } = run;
   // One run per kind: the provider refuses to start a second while this one is
   // live (an abandoned loop would write into the new run), so the buttons that
@@ -272,6 +302,28 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
         </div>
       )}
 
+      {/* The reader pressed Stop. Sage, not amber: a partial run is the outcome
+          they asked for, not something that went wrong. */}
+      {cancelled && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
+          style={{
+            background: "var(--color-sage-light)",
+            border: "1px solid var(--color-sage)",
+            color: "var(--color-sage)",
+          }}
+        >
+          <span className="flex-1">{cancelled}</span>
+          <button
+            onClick={() => jobs.dismissCancelled(kind)}
+            aria-label="Dismiss"
+            className="flex-shrink-0 text-sm leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Request input */}
       <Card>
         <h2
@@ -312,11 +364,14 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           </span>
         </div>
         {genLoading && (
-          <ProgressBar
-            className="mt-3"
-            label="Asking the model for candidates…"
-            hint="Usually a few seconds; longer when the request needs a web lookup for series order."
-          />
+          <>
+            <ProgressBar
+              className="mt-3"
+              label="Asking the model for candidates…"
+              hint="Usually a few seconds; longer when the request needs a web lookup for series order."
+            />
+            <StopButton onClick={() => jobs.cancelRun(kind)} className="mt-2" />
+          </>
         )}
         {genError && <div className="mt-3"><ErrorBox message={genError} /></div>}
       </Card>
@@ -391,6 +446,15 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           {/* The run is owned by the root layout, not this page, so leaving is
               genuinely safe — say so, since nothing on screen would suggest it. */}
           {scoringIdx !== null && (
+            <div className="mt-2">
+              <StopButton
+                onClick={() => jobs.cancelRun(kind)}
+                label={`Stop — skip the remaining ${candidates.length - scoringIdx - 1}`}
+              />
+            </div>
+          )}
+
+          {scoringIdx !== null && (
             <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
               This keeps running if you switch tabs — the nav shows its progress and
               you&rsquo;ll get a note here when it finishes. Turn on notifications
@@ -432,6 +496,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
                     style={{ background: "var(--color-sage)" }}
                   />
                   Refining {refiningCount} with reviews — scores update live.
+                  <StopButton onClick={() => jobs.cancelRun(kind)} />
                 </span>
               )}
               {groundable > 0 && (
@@ -522,12 +587,15 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           )}
 
           {saving && saveProgress.total > 0 && (
-            <ProgressBar
-              value={saveProgress.done}
-              max={saveProgress.total}
-              label={`Saved ${saveProgress.done} / ${saveProgress.total}`}
-              hint="Each save writes the prediction and generates its blurb."
-            />
+            <>
+              <ProgressBar
+                value={saveProgress.done}
+                max={saveProgress.total}
+                label={`Saved ${saveProgress.done} / ${saveProgress.total}`}
+                hint="Each save writes the prediction and generates its blurb."
+              />
+              <StopButton onClick={() => jobs.cancelRun(kind)} className="mt-2" />
+            </>
           )}
         </div>
       )}

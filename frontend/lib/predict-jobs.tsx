@@ -37,7 +37,11 @@ import {
   useState,
 } from "react";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
-import { repredictRecommendation, repredictNonfictionRecommendation } from "@/lib/api";
+import {
+  repredictRecommendation,
+  repredictNonfictionRecommendation,
+  isCancelled,
+} from "@/lib/api";
 import type {
   BookKind,
   Candidate,
@@ -52,7 +56,7 @@ import type {
    don't depend on the library, so there is no cheap cached path). */
 const SAVED_REPREDICT: Record<
   BookKind,
-  (title: string) => Promise<{ report: RepredictOneReport }>
+  (title: string, signal?: AbortSignal) => Promise<{ report: RepredictOneReport }>
 > = {
   fiction: repredictRecommendation,
   nonfiction: repredictNonfictionRecommendation,
@@ -138,6 +142,9 @@ export interface PredictRunState {
   saveProgress: { done: number; total: number };
   /** Set when a reload killed a run that was still in flight. */
   interrupted: string | null;
+  /** Set when the reader pressed Stop. Distinct from `interrupted`: that is
+   *  something that happened TO the run, this is something they chose. */
+  cancelled: string | null;
 }
 
 const EMPTY_RUN: PredictRunState = {
@@ -159,6 +166,7 @@ const EMPTY_RUN: PredictRunState = {
   saving: false,
   saveProgress: { done: 0, total: 0 },
   interrupted: null,
+  cancelled: null,
 };
 
 type AllRuns = Record<BookKind, PredictRunState>;
@@ -209,7 +217,7 @@ type NoticeInput =
 export interface QueueRepredictJob {
   kind: BookKind;
   title: string;
-  status: "running" | "done" | "error";
+  status: "running" | "done" | "error" | "cancelled";
   report: RepredictOneReport | null;
   error: string | null;
   /** Bumped when the job settles, so a card can refresh the route exactly once. */
@@ -227,6 +235,10 @@ interface PredictJobsValue {
   queueRepredicts: Record<string, QueueRepredictJob>;
   startQueueRepredict: (kind: BookKind, title: string) => void;
   clearQueueRepredict: (kind: BookKind, title: string) => void;
+  cancelQueueRepredict: (kind: BookKind, title: string) => void;
+  /** Stop everything in flight for this kind's Predict run. */
+  cancelRun: (kind: BookKind) => void;
+  dismissCancelled: (kind: BookKind) => void;
   /** Which kind the Predict page's toggle is showing. Held here rather than in
    *  the page so the finish banner can open the page on the kind that finished,
    *  and so the toggle choice survives navigation like everything else. */
@@ -313,6 +325,7 @@ function fromSnapshot(raw: string): AllRuns | null {
       saveResults: (s.saveResults as Record<string, string>) ?? {},
       repredictErrors: (s.repredictErrors as Record<string, string>) ?? {},
       interrupted: s.busy === true ? INTERRUPTED_MSG : null,
+      cancelled: null,
     };
   };
   return { fiction: one(src.fiction), nonfiction: one(src.nonfiction) };
@@ -344,6 +357,28 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
   // in the click handler, before any render has committed. Every writer updates
   // both, so the two cannot drift.
   const queueRepredictsRef = useRef<Record<string, QueueRepredictJob>>({});
+
+  // One AbortController per kind covers that kind's whole Predict run —
+  // discover, the scoring loop, the grounded refine, the save pass. One Stop
+  // that halts everything for the run the reader is looking at is clearer than
+  // per-phase controls, and the one-run-per-kind rule means nothing unrelated is
+  // ever caught by it. Saved-book re-predictions get their own controller each,
+  // since they are independent jobs on a different page.
+  const runAbort = useRef<Record<BookKind, AbortController | null>>({
+    fiction: null, nonfiction: null,
+  });
+  const repredictAbort = useRef<Record<string, AbortController>>({});
+
+  /** The signal for work starting now. Reuses the kind's live controller so a
+   *  save started after a completed run is still covered by the same Stop, and
+   *  mints a fresh one once the previous was aborted. */
+  const runSignal = useCallback((kind: BookKind): AbortSignal => {
+    const cur = runAbort.current[kind];
+    if (cur && !cur.signal.aborted) return cur.signal;
+    const next = new AbortController();
+    runAbort.current[kind] = next;
+    return next.signal;
+  }, []);
   const runsRef = useRef<AllRuns>(EMPTY_ALL);
   useEffect(() => {
     runsRef.current = runs;
@@ -393,6 +428,49 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
 
   /* ── Actions ──────────────────────────────────────────────────────────── */
 
+  /**
+   * Stop this kind's run.
+   *
+   * Precise about what this can and cannot do, because the difference is money:
+   *   - Calls NOT YET STARTED never happen. On a 12-book scoring run stopped at
+   *     book 4, that is 8 LLM calls saved. This is the real effect.
+   *   - The request IN FLIGHT is aborted at the browser's end, so the UI stops
+   *     waiting — but the handler on the other side runs to completion and its
+   *     Anthropic call is already paid for. Stopping is not a refund.
+   *   - Everything already scored STAYS. A stopped run is a partial result, not
+   *     a discarded one, so the reader keeps what they paid for and can save it.
+   */
+  const cancelRun = useCallback(
+    (kind: BookKind) => {
+      const c = runAbort.current[kind];
+      if (!c || c.signal.aborted) return;
+      c.abort();
+      runAbort.current[kind] = null;
+      busyRef.current[kind] = false;
+      refiningRef.current[kind].clear();
+      patch(kind, (r) => ({
+        ...r,
+        genLoading: false,
+        scoringIdx: null,
+        // Whatever was scored before the stop is a real result the reader can
+        // still act on, so reveal the save step rather than hiding it.
+        scoringDone: r.scored.length > 0 ? true : r.scoringDone,
+        refining: [],
+        saving: false,
+        cancelled:
+          "Stopped. Nothing further was requested — anything already scored is " +
+          "below and can still be saved. A call that was already in flight may " +
+          "still finish on the server.",
+      }));
+    },
+    [patch],
+  );
+
+  const dismissCancelled = useCallback(
+    (kind: BookKind) => patch(kind, (r) => ({ ...r, cancelled: null })),
+    [patch],
+  );
+
   const setRequest = useCallback(
     (kind: BookKind, request: string) => patch(kind, (r) => ({ ...r, request })),
     [patch],
@@ -425,6 +503,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       // navigating away abandoned everything: the old scoring loop would keep
       // writing its results into the freshly cleared run. One run per kind.
       if (!request || isRunBusy(runsRef.current[kind]) || busyRef.current[kind]) return;
+      const signal = runSignal(kind);
       patch(kind, (r) => ({
         ...EMPTY_RUN,
         request: r.request,
@@ -432,7 +511,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       }));
       void (async () => {
         try {
-          const result = await PREDICT_RUNNERS[kind].discover(request);
+          const result = await PREDICT_RUNNERS[kind].discover(request, signal);
           patch(kind, (r) => ({
             ...r,
             genLoading: false,
@@ -442,6 +521,8 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
             genSources: result.sources ?? [],
           }));
         } catch (e: unknown) {
+          // A cancel is not a failure: cancelRun has already written the note.
+          if (isCancelled(e)) return;
           patch(kind, (r) => ({
             ...r,
             genLoading: false,
@@ -450,7 +531,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         }
       })();
     },
-    [patch],
+    [patch, runSignal],
   );
 
   /** Progressive grounded (hybrid) refine: re-score the given candidates with the
@@ -465,6 +546,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     async (kind: BookKind, targets: ScoredCandidate[]): Promise<number> => {
       const refine = PREDICT_RUNNERS[kind].refine;
       if (!refine) return 0; // nonfiction has no grounded-refine path
+      const signal = runSignal(kind);
       const inFlight = refiningRef.current[kind];
       const todo = targets.filter(
         (r) =>
@@ -478,8 +560,15 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       }));
       let newlyGrounded = 0;
       await mapPool(todo, REFINE_CONCURRENCY, async (r) => {
+        // Checked per item, not just once: mapPool holds items in a queue behind
+        // REFINE_CONCURRENCY, so a Stop must prevent the queued ones from ever
+        // being requested. That is the whole saving.
+        if (signal.aborted) {
+          inFlight.delete(r.title);
+          return;
+        }
         try {
-          const g = await refine(r);
+          const g = await refine(r, signal);
           if (g.sourcing === "hybrid") newlyGrounded += 1;
           patch(kind, (prev) => ({
             ...prev,
@@ -496,7 +585,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       });
       return newlyGrounded;
     },
-    [patch],
+    [patch, runSignal],
   );
 
   /** Step 2 — score every candidate, then eagerly ground the top K. This whole
@@ -513,11 +602,13 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       // double-click can beat.
       if (busyRef.current[kind] || isRunBusy(current)) return;
       busyRef.current[kind] = true;
+      const signal = runSignal(kind);
       patch(kind, (r) => ({
         ...r,
         scored: [],
         scoringDone: false,
         scoringIdx: 0,
+        cancelled: null,
         refining: [],
         removed: [],
         saveResults: {},
@@ -528,11 +619,15 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         const results: ScoredCandidate[] = [];
         try {
           for (let i = 0; i < candidates.length; i++) {
+            if (signal.aborted) return;   // stop BEFORE spending the next call
             const c = candidates[i];
             patch(kind, (r) => ({ ...r, scoringIdx: i }));
             try {
-              results.push(await PREDICT_RUNNERS[kind].score(c));
+              results.push(await PREDICT_RUNNERS[kind].score(c, signal));
             } catch (e: unknown) {
+              // A cancelled call is not a failed book — recording it as an error
+              // card would put a book the reader stopped into the failed bucket.
+              if (isCancelled(e)) return;
               results.push({
                 title: c.title, author: c.author, genre: c.genre ?? "",
                 wa: 0, rank: 0, total: 0,
@@ -575,11 +670,15 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
           });
         } finally {
           busyRef.current[kind] = false;
-          patch(kind, (r) => ({ ...r, scoringIdx: null, scoringDone: true }));
+          // A cancelled run keeps the note cancelRun wrote and its partial
+          // results; scoringDone is already true there, set by the same call.
+          if (!signal.aborted) {
+            patch(kind, (r) => ({ ...r, scoringIdx: null, scoringDone: true }));
+          }
         }
       })();
     },
-    [patch, refineSet, announce],
+    [patch, refineSet, announce, runSignal],
   );
 
   /** Refine one candidate on demand. No completion banner — the reader asked for
@@ -642,9 +741,10 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
           Object.entries(prev.repredictErrors).filter(([k]) => k !== title),
         ),
       }));
+      const signal = runSignal(kind);
       void (async () => {
         try {
-          const fresh = await repredict(r);
+          const fresh = await repredict(r, signal);
           patch(kind, (prev) => ({
             ...prev,
             scored: prev.scored.map((x) => (x.title === title ? { ...fresh } : x)),
@@ -676,6 +776,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
             }
           }
         } catch (e) {
+          if (isCancelled(e)) return;   // cancelRun already said so
           // Keep the existing (good) prediction on screen and report the failure
           // beside it. Writing `error` onto the card would move it into the failed
           // bucket and throw away a result the reader already has.
@@ -695,7 +796,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         }
       })();
     },
-    [patch],
+    [patch, runSignal],
   );
 
   /** Step 3 — save the kept, not-yet-saved books with bounded concurrency instead
@@ -705,9 +806,11 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
   const save = useCallback(
     (kind: BookKind, targets: ScoredCandidate[]) => {
       if (targets.length === 0 || runsRef.current[kind].saving) return;
+      const signal = runSignal(kind);
       patch(kind, (r) => ({
         ...r,
         saving: true,
+        cancelled: null,
         saveProgress: { done: 0, total: targets.length },
       }));
       void (async () => {
@@ -715,10 +818,14 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         // writes don't race (single-threaded event loop, one key each).
         const newResults: Record<string, string> = {};
         await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
+          if (signal.aborted) return;   // never start a queued save after Stop
           try {
-            const res = await PREDICT_RUNNERS[kind].save(r);
+            const res = await PREDICT_RUNNERS[kind].save(r, signal);
             newResults[r.title] = res.message || "Saved.";
           } catch (e: unknown) {
+            // Leave a cancelled book with NO result rather than an error one, so
+            // it stays in `savable` and the reader can simply press Save again.
+            if (isCancelled(e)) return;
             newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
           }
           // Count every finished save, successful or not — the bar tracks work
@@ -736,7 +843,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         }));
       })();
     },
-    [patch],
+    [patch, runSignal],
   );
 
   /** Re-predict ONE saved book from the read-queue, in the background.
@@ -762,10 +869,12 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
           queueRepredictsRef.current = next;
           return next;
         });
+      const controller = new AbortController();
+      repredictAbort.current[key] = controller;
       patchJob({ kind, title, status: "running", report: null, error: null, at: 0 });
       void (async () => {
         try {
-          const { report } = await SAVED_REPREDICT[kind](title);
+          const { report } = await SAVED_REPREDICT[kind](title, controller.signal);
           patchJob({
             kind, title, status: "done", report, error: null, at: Date.now(),
           });
@@ -774,16 +883,33 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
           patchJob({
             kind,
             title,
-            status: "error",
+            status: isCancelled(e) ? "cancelled" : "error",
             report: null,
-            error: e instanceof Error ? e.message : "Re-prediction failed.",
+            error: isCancelled(e)
+              ? // Deliberately blunt. This endpoint PERSISTS: unlike a Discover
+                // run, where stopping simply means fewer calls, here the server
+                // may already have re-predicted and written the row. Saying
+                // "cancelled" flat would be a lie the reader could act on.
+                "Stopped waiting. This one saves its result, so if the server had " +
+                "already finished, the new prediction may still have been written — " +
+                "the row below is refreshed to show whatever actually landed."
+              : e instanceof Error ? e.message : "Re-prediction failed.",
             at: Date.now(),
           });
+        } finally {
+          delete repredictAbort.current[key];
         }
       })();
     },
     [announce],
   );
+
+  /** Stop waiting on one saved-book re-prediction. See the note the job carries:
+   *  the server write may still land, which is why the card refreshes its row on
+   *  a cancel exactly as it does on a completion. */
+  const cancelQueueRepredict = useCallback((kind: BookKind, title: string) => {
+    repredictAbort.current[queueRepredictKey(kind, title)]?.abort();
+  }, []);
 
   /** Drop a finished job's result — the card's dismiss, and what stops a stale
    *  report from reappearing when the reader expands that card again later. */
@@ -804,6 +930,9 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       queueRepredicts,
       startQueueRepredict,
       clearQueueRepredict,
+      cancelQueueRepredict,
+      cancelRun,
+      dismissCancelled,
       activeKind,
       setActiveKind,
       notice,
@@ -820,9 +949,10 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       restoreAll,
     }),
     [
-      runs, queueRepredicts, startQueueRepredict, clearQueueRepredict, activeKind,
-      notice, dismissNotice, setRequest, dismissInterrupted, generate, score,
-      refineOne, refineRemaining, repredictOne, save, removeBook, restoreAll,
+      runs, queueRepredicts, startQueueRepredict, clearQueueRepredict,
+      cancelQueueRepredict, cancelRun, dismissCancelled, activeKind, notice,
+      dismissNotice, setRequest, dismissInterrupted, generate, score, refineOne,
+      refineRemaining, repredictOne, save, removeBook, restoreAll,
     ],
   );
 

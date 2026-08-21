@@ -62,36 +62,40 @@ function nfToScored(p: NonfictionPrediction): ScoredCandidate {
 }
 
 export interface PredictRunner {
+  /* Every call takes the run's AbortSignal. Aborting stops the browser waiting
+     and, far more importantly, is what lets the driver stop STARTING the calls
+     that have not gone out yet — that is where cancelling actually saves money.
+     A request already in flight is already paid for server-side. */
   /** The score a card leads with, the ranked list sorts by, and the eager
    *  grounded-refine pass picks its top-K from: WA (fiction), Total Average
    *  (nonfiction). It lives here rather than in the page's presentation config
    *  because the background run needs it with no page mounted. */
   primaryScore: (r: ScoredCandidate) => number;
-  discover: (request: string) => Promise<{
+  discover: (request: string, signal?: AbortSignal) => Promise<{
     candidates: Candidate[]; request: string; note?: string; sources?: string[];
   }>;
-  score: (c: Candidate) => Promise<ScoredCandidate>;
-  save: (r: ScoredCandidate) => Promise<{ message?: string }>;
+  score: (c: Candidate, signal?: AbortSignal) => Promise<ScoredCandidate>;
+  save: (r: ScoredCandidate, signal?: AbortSignal) => Promise<{ message?: string }>;
   /** Grounded (hybrid) re-score. Fiction only — when omitted the eager pass, the
    *  per-card Refine button, and the refine banner all disable themselves. */
-  refine?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
+  refine?: (r: ScoredCandidate, signal?: AbortSignal) => Promise<ScoredCandidate>;
   /** No-cache re-score ("Re-predict"). Fiction only — omitted for nonfiction, whose
    *  re-predict lives on its read-queue instead, where it can persist the result. */
-  repredict?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
+  repredict?: (r: ScoredCandidate, signal?: AbortSignal) => Promise<ScoredCandidate>;
 }
 
 const FICTION_RUNNER: PredictRunner = {
   primaryScore: (r) => r.wa,
-  discover: (request) => discoverCandidates(request),
-  score: (c) => predictResearch(c.title, c.author, c.genre ?? undefined),
-  refine: (r) => predictResearch(r.title, r.author, r.genre, true),
+  discover: (request, signal) => discoverCandidates(request, undefined, signal),
+  score: (c, signal) => predictResearch(c.title, c.author, c.genre ?? undefined, false, false, signal),
+  refine: (r, signal) => predictResearch(r.title, r.author, r.genre, true, false, signal),
   // Re-predict = the no-cache refresh. Distinct from Refine: Refine upgrades
   // memory scores to grounded ones and is only offered until a book IS grounded;
   // this takes a genuinely fresh look at any book, grounded or not. Fiction only —
   // the nonfiction runner leaves it undefined so the button never appears there
   // (nonfiction's own re-predict lives on its read-queue, where it can persist).
-  repredict: (r) => predictResearch(r.title, r.author, r.genre, true, true),
-  save: (r) =>
+  repredict: (r, signal) => predictResearch(r.title, r.author, r.genre, true, true, signal),
+  save: (r, signal) =>
     saveRecommendation({
       title: r.title, genre: r.genre, author: r.author,
       scores: flattenScores(r.components),
@@ -100,13 +104,13 @@ const FICTION_RUNNER: PredictRunner = {
       series_number: r.series_number ?? undefined,
       blurb: r.blurb || undefined,
       keywords: r.keywords || undefined,
-    }),
+    }, signal),
 };
 
 const NONFICTION_RUNNER: PredictRunner = {
   primaryScore: (r) => r.total_average ?? 0,
-  discover: async (request) => {
-    const r = await discoverNonfictionCandidates(request);
+  discover: async (request, signal) => {
+    const r = await discoverNonfictionCandidates(request, undefined, signal);
     return {
       candidates: r.candidates.map((c) => ({
         title: c.title,
@@ -122,10 +126,10 @@ const NONFICTION_RUNNER: PredictRunner = {
       sources: r.sources ?? [],
     };
   },
-  score: async (c) =>
-    nfToScored(await predictNonfiction(c.title, c.author, c.genre ?? undefined)),
+  score: async (c, signal) =>
+    nfToScored(await predictNonfiction(c.title, c.author, c.genre ?? undefined, false, signal)),
   // no refine — nonfiction has no grounded-refine path
-  save: (r) =>
+  save: (r, signal) =>
     saveNonfictionRecommendation({
       title: r.title, author: r.author, genre: r.genre,
       scores: flattenScores(r.components),
@@ -134,7 +138,7 @@ const NONFICTION_RUNNER: PredictRunner = {
       series_number: r.series_number ?? undefined,
       blurb: r.blurb || undefined,
       keywords: r.keywords || undefined,
-    }),
+    }, signal),
 };
 
 export const PREDICT_RUNNERS: Record<BookKind, PredictRunner> = {

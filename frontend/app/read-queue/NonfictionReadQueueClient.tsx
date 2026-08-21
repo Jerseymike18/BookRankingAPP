@@ -220,6 +220,13 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
   const repredicting = repredictJob?.status === "running";
   const repredictReport = repredictJob?.status === "done" ? repredictJob.report : null;
   const repredictError = repredictJob?.status === "error" ? repredictJob.error : null;
+  // A cancel is not a failure — but for THIS endpoint it is not a clean nothing
+  // either, because it persists: the server may have finished and written the row
+  // before the browser stopped listening. The note says so, and the refresh below
+  // treats a cancel exactly like a completion so the row on screen is whatever
+  // actually landed.
+  const repredictCancelled =
+    repredictJob?.status === "cancelled" ? repredictJob.error : null;
 
   function handleRepredict() {
     setRepredictConfirm(false);
@@ -234,11 +241,15 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
   // came from, so it must not trigger another refresh. Only a job that settles
   // while this instance is watching does.
   const refreshedAt = useRef<number | null>(
-    repredictJob?.status === "done" ? repredictJob.at : null,
+    repredictJob && repredictJob.status !== "running" ? repredictJob.at : null,
   );
   useEffect(() => {
-    if (!repredictJob || repredictJob.status !== "done") return;
-    if (!repredictJob.report?.written) return;
+    if (!repredictJob) return;
+    if (repredictJob.status === "done") {
+      if (!repredictJob.report?.written) return;
+    } else if (repredictJob.status !== "cancelled") {
+      return;
+    }
     if (refreshedAt.current === repredictJob.at) return;
     refreshedAt.current = repredictJob.at;
     router.refresh();
@@ -397,6 +408,20 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
             hint="A forced fresh research call — this usually takes under a minute. You can collapse this card or leave the page — it keeps running, and you'll be told when it lands."
           />
         )}
+        {repredicting && (
+          <button
+            onClick={() => jobs.cancelQueueRepredict("nonfiction", rec.title)}
+            className="text-xs px-2.5 py-1 rounded-md self-start"
+            style={{
+              background: "var(--color-surface-2)",
+              color: "var(--color-muted)",
+              border: "1px solid var(--color-rule)",
+            }}
+            title="Stop waiting. The Opus call is already spent, and the server may already have saved the new prediction."
+          >
+            Stop
+          </button>
+        )}
         {repredictReport && !repredicting && (
           <div className="text-xs space-y-1" style={{ color: "var(--color-muted)" }}>
             {repredictReport.changed ? (
@@ -440,6 +465,9 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
           </div>
         )}
         {repredictError && <p className="text-xs" style={{ color: DANGER }}>{repredictError}</p>}
+        {repredictCancelled && (
+          <p className="text-xs" style={{ color: "var(--color-muted)" }}>{repredictCancelled}</p>
+        )}
         {/* The result now outlives this panel — it lives in the job provider, so
             collapsing the card or leaving the page no longer discards it. That is
             the point, but it also means the reader needs a way to put it away. */}

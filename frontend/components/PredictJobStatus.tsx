@@ -89,27 +89,56 @@ export function PredictJobPill() {
     text = `${busy[0].label}…`;
   }
 
+  // Stop is offered here ONLY when exactly one job is running. The pill is one
+  // line and the whole point of this feature is that the reader is somewhere
+  // else, so making them navigate back just to stop a run is the wrong answer —
+  // but with two jobs live there is no way to say WHICH this would stop, and
+  // cancelling the wrong one costs real money. Two jobs, and it stays a link to
+  // the page where each has its own labelled Stop.
+  const stopOne =
+    jobCount !== 1
+      ? null
+      : onlyRepredicts
+        ? () =>
+            jobs.cancelQueueRepredict(repredicting[0].kind, repredicting[0].title)
+        : () => jobs.cancelRun(busy[0].kind);
+
   return (
-    <Link
-      href={href}
-      onClick={() => {
-        if (!onlyRepredicts) jobs.setActiveKind(busy[0].kind);
-      }}
-      title="A prediction is running in the background — click to watch it"
-      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium no-underline whitespace-nowrap"
+    <span
+      className="inline-flex items-center gap-1 pr-1 rounded-md whitespace-nowrap"
       style={{
         background: "var(--color-sage-light)",
-        color: "var(--color-sage)",
         border: "1px solid var(--color-sage)",
       }}
     >
-      <span
-        className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0"
-        style={{ background: "var(--color-sage)" }}
-      />
-      <span className="hidden sm:inline">{text}</span>
-      <span className="sr-only sm:hidden">{text}</span>
-    </Link>
+      <Link
+        href={href}
+        onClick={() => {
+          if (!onlyRepredicts) jobs.setActiveKind(busy[0].kind);
+        }}
+        title="A prediction is running in the background — click to watch it"
+        className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium no-underline"
+        style={{ color: "var(--color-sage)" }}
+      >
+        <span
+          className="inline-block w-2 h-2 rounded-full animate-pulse flex-shrink-0"
+          style={{ background: "var(--color-sage)" }}
+        />
+        <span className="hidden sm:inline">{text}</span>
+        <span className="sr-only sm:hidden">{text}</span>
+      </Link>
+      {stopOne && (
+        <button
+          onClick={stopOne}
+          aria-label="Stop this prediction"
+          title="Stop making further calls. Anything already done is kept; a call already in flight may still finish on the server."
+          className="px-1.5 py-0.5 text-xs leading-none rounded"
+          style={{ color: "var(--color-sage)" }}
+        >
+          ✕
+        </button>
+      )}
+    </span>
   );
 }
 
