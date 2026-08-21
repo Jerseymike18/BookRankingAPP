@@ -116,3 +116,47 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(staleWhileRevalidate(event));
 });
+
+/* ── Notification clicks ─────────────────────────────────────────────────────
+ *
+ * The Predict flow raises a notification when a background prediction run
+ * finishes while the tab is hidden (see lib/notify.ts). Notifications shown
+ * through a registration are inert without this handler — clicking one would
+ * dismiss it and do nothing — and on Android Chrome the registration route is
+ * the ONLY one available, so this is what makes the notification useful there.
+ *
+ * Prefer focusing a tab this app already owns over opening another one: the run's
+ * results live in that tab's memory (the job provider is client-side), so a fresh
+ * tab would show an empty Predict page while the finished run sat in the old one.
+ * Only when no client is open do we open a window.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/predict";
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of clientList) {
+        let sameOrigin = false;
+        try {
+          sameOrigin = new URL(client.url).origin === self.location.origin;
+        } catch {
+          sameOrigin = false;
+        }
+        if (!sameOrigin) continue;
+        await client.focus();
+        // Only navigate when it isn't already there — a needless navigate would
+        // remount the app and throw away the very run this is announcing.
+        if (!new URL(client.url).pathname.startsWith(target) && "navigate" in client) {
+          await client.navigate(target).catch(() => undefined);
+        }
+        return;
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
+});

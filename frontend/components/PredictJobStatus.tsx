@@ -18,12 +18,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   useOptionalPredictJobs,
   isRunBusy,
   type PredictRunState,
+  type PredictNotice,
 } from "@/lib/predict-jobs";
+import {
+  subscribeNotify,
+  notifyState,
+  notifyMuted,
+  requestNotifyPermission,
+  setNotifyMuted,
+  showPredictNotification,
+  type NotifyState,
+} from "@/lib/notify";
 import type { BookKind } from "@/lib/types";
 
 /** What a busy run is doing, phrased for a one-line pill. Ordered by which phase
@@ -78,11 +88,110 @@ export function PredictJobPill() {
   );
 }
 
+/** The one place a finished run is put into words. The banner and the OS
+ *  notification both render from this, so the two can never disagree about what
+ *  happened — they are the same announcement on two surfaces. */
+function noticeSummary(notice: PredictNotice): { title: string; body: string } {
+  const kindLabel = notice.kind === "nonfiction" ? "Nonfiction" : "Fiction";
+  const parts: string[] = [
+    `${notice.scored} book${notice.scored === 1 ? "" : "s"} scored`,
+  ];
+  if (notice.groundable > 0) {
+    parts.push(`${notice.grounded} of ${notice.groundable} grounded with reviews`);
+  }
+  if (notice.failed > 0) {
+    parts.push(`${notice.failed} could not be scored`);
+  }
+  return { title: `${kindLabel} prediction finished`, body: `${parts.join(" · ")}.` };
+}
+
+/* ── The reader-facing permission control ────────────────────────────────── */
+
+function useNotifyState(): NotifyState {
+  return useSyncExternalStore(
+    subscribeNotify,
+    notifyState,
+    () => "unsupported" as NotifyState,
+  );
+}
+
+function useNotifyMuted(): boolean {
+  return useSyncExternalStore(subscribeNotify, notifyMuted, () => false);
+}
+
+/**
+ * Opt in to (or mute) the OS notification. Rendered on the Predict page.
+ *
+ * The permission prompt fires from this button and nowhere else: Safari refuses
+ * `requestPermission()` outside a user gesture, and asking unprompted on page
+ * load is the pattern browsers are actively penalising. Renders nothing at all
+ * where the API does not exist — notably iOS Safari in a normal tab, where the
+ * app must be installed to the home screen first.
+ */
+export function PredictNotifyToggle() {
+  const state = useNotifyState();
+  const muted = useNotifyMuted();
+
+  if (state === "unsupported") return null;
+
+  const linkish =
+    "text-xs underline decoration-dotted underline-offset-2";
+
+  if (state === "denied") {
+    return (
+      <span className={linkish.replace("underline", "")} style={{ color: "var(--color-faint)" }}>
+        Notifications are blocked for this site — the in-page banner still works.
+      </span>
+    );
+  }
+
+  if (state === "default") {
+    return (
+      <button
+        onClick={() => void requestNotifyPermission()}
+        className={linkish}
+        style={{ color: "var(--color-sage)" }}
+        title="Get a desktop notification when a run finishes while this tab is in the background"
+      >
+        Notify me when a run finishes
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setNotifyMuted(!muted)}
+      className={linkish}
+      style={{ color: muted ? "var(--color-faint)" : "var(--color-sage)" }}
+      title={
+        muted
+          ? "Turn desktop notifications back on"
+          : "Notifications fire only while this tab is in the background"
+      }
+    >
+      {muted ? "Notifications off" : "Notifications on"}
+    </button>
+  );
+}
+
 export function PredictJobBanner() {
   const jobs = useOptionalPredictJobs();
   const path = usePathname();
   const notice = jobs?.notice ?? null;
   const dismissNotice = jobs?.dismissNotice;
+
+  // Raise the OS notification for a run that landed while the tab was hidden.
+  // Keyed on `notice.at` so a re-render (or the auto-dismiss effect below firing
+  // first) can never announce the same run twice. shouldNotify() inside
+  // showPredictNotification is what enforces the hidden-tab rule, so a reader
+  // watching the app gets the banner and nothing else.
+  const lastNotifiedAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (!notice || lastNotifiedAt.current === notice.at) return;
+    lastNotifiedAt.current = notice.at;
+    const { title, body } = noticeSummary(notice);
+    void showPredictNotification(title, body);
+  }, [notice]);
 
   // On the Predict page with the tab actually in front, the results are already
   // on screen — the banner would just be noise covering them. Anywhere else (or
@@ -105,16 +214,7 @@ export function PredictJobBanner() {
     return null;
   }
 
-  const kindLabel = notice.kind === "nonfiction" ? "Nonfiction" : "Fiction";
-  const parts: string[] = [
-    `${notice.scored} book${notice.scored === 1 ? "" : "s"} scored`,
-  ];
-  if (notice.groundable > 0) {
-    parts.push(`${notice.grounded} of ${notice.groundable} grounded with reviews`);
-  }
-  if (notice.failed > 0) {
-    parts.push(`${notice.failed} could not be scored`);
-  }
+  const { title, body } = noticeSummary(notice);
 
   return (
     <div
@@ -136,10 +236,10 @@ export function PredictJobBanner() {
             className="font-display font-semibold text-sm leading-tight"
             style={{ color: "var(--color-ink)" }}
           >
-            {kindLabel} prediction finished
+            {title}
           </p>
           <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-            {parts.join(" · ")}.
+            {body}
           </p>
           <Link
             href="/predict"
