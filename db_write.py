@@ -1793,29 +1793,45 @@ def delete_user_genre(genre, user_id=None):
 # WRITE: change rating(s)
 # ---------------------------------------------------------------------------
 def change_rating(title, new_scores, user_id=None):
-    """Update one or more component scores on an existing book."""
-    con = _connect()
+    """Update one or more component scores on an existing book.
+
+    ONE statement, in autocommit. This used to SELECT the row purely to raise a
+    friendly "no such book" error, then UPDATE, then COMMIT — four round trips to
+    a database ~72ms away, for a write that is a single UPDATE. The row count says
+    exactly what the SELECT said, and Postgres already makes one statement atomic,
+    so the surrounding transaction bought nothing.
+
+    ONE ORDERING CHANGE, deliberate: validation now runs BEFORE the write rather
+    than after the existence check, so an invalid score is reported even when the
+    title is also wrong (previously "no such book" won). Same checks, same
+    messages, same ✓/✗ contract the API layer parses — but the database is never
+    touched with a value that was going to be rejected."""
     uid = user_id or db_backend.DEFAULT_USER_ID
+    con = None
     try:
-        row = con.execute("SELECT id FROM books WHERE user_id=? AND title=?",
-                          (uid, title)).fetchone()
-        if not row:
-            raise ValidationError(f"No book titled '{title}' found.")
         _validate_scores(new_scores, require_all=False)
 
         _backup_once()
         sets = ",".join(f'"{c}"=?' for c in new_scores)
-        con.execute(f"UPDATE books SET {sets} WHERE user_id=? AND title=?",
-                    list(new_scores.values()) + [uid, title])
+        # autocommit: single statement, so there is nothing for a transaction to
+        # protect (see db_backend.connect). commit() below is a no-op there and is
+        # what actually commits on sqlite.
+        con = db_backend.connect(DB, autocommit=True)
+        cur = con.execute(f"UPDATE books SET {sets} WHERE user_id=? AND title=?",
+                          list(new_scores.values()) + [uid, title])
+        if not cur.rowcount:
+            raise ValidationError(f"No book titled '{title}' found.")
         con.commit()
         changed = ", ".join(f"{c}={v}" for c, v in new_scores.items())
         print(f"  ✓ Updated '{title}': {changed}")
         _show_computed_wa(con, title)
     except ValidationError as e:
-        con.rollback()
+        if con is not None:
+            con.rollback()          # no-op under autocommit; matters on sqlite
         print(f"  ✗ Not updated — {e}")
     finally:
-        con.close()
+        if con is not None:
+            con.close()
 
 
 def delete_book(title, user_id=None):
@@ -3651,7 +3667,10 @@ def bump_cache_epoch_and_notify(scope, user_id, channel, worker_id):
     best-effort (it has already invalidated its own caches)."""
     _ensure_app_state()
     key = f"epoch:{scope}:{user_id}"
-    con = _connect()
+    # autocommit: one statement, and NOTIFY is delivered on commit — which under
+    # autocommit is the statement itself, so the peer hears about it a round trip
+    # sooner than it would after a separate COMMIT.
+    con = db_backend.connect(DB, autocommit=True)
     try:
         # ONE statement: the epoch bump and the NOTIFY that announces it travel
         # together in a single CTE, so this whole publish is one round trip rather

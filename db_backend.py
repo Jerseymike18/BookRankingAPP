@@ -333,7 +333,7 @@ def readonly():
         _readonly_state.on = prev
 
 
-def connect(path=None, uri=False, readonly=False):
+def connect(path=None, uri=False, readonly=False, autocommit=False):
     """Return a DB connection for the configured backend.
 
     sqlite   -> a genuine sqlite3.Connection (unchanged behavior). `path` overrides
@@ -343,6 +343,13 @@ def connect(path=None, uri=False, readonly=False):
     `readonly=True` is the inline form of the readonly() scope above — use it at a
     call site that only SELECTs, to skip the transaction its query would otherwise
     have to open. Ignored on sqlite. NEVER pass it on a path that writes.
+
+    `autocommit=True` is the same mechanism for a call site that writes with ONE
+    statement, where Postgres already guarantees atomicity and the surrounding
+    transaction buys nothing but round trips. It is spelled differently from
+    `readonly` on purpose: they do the same thing to the connection but mean
+    opposite things about the caller, and a writer marked `readonly` would read as
+    a bug. NEVER pass it where more than one statement must land together.
 
     postgres -> a PgConnection proxy that speaks the sqlite3 surface the app uses,
                 backed by a pooled server connection (see above; DB_POOL=0 for a
@@ -366,10 +373,11 @@ def connect(path=None, uri=False, readonly=False):
             try:
                 raw, pool = _borrow_pg()
                 return PgConnection(raw=raw, pool=pool,
-                                    autocommit=readonly or in_readonly())
+                                    autocommit=autocommit or readonly or in_readonly())
             except Exception:
                 pass                        # pool trouble -> unpooled fallback
-        return PgConnection(query_dsn(), autocommit=readonly or in_readonly())
+        return PgConnection(query_dsn(),
+                            autocommit=autocommit or readonly or in_readonly())
     raise ValueError(f"Unknown DB_BACKEND={b!r} (expected 'sqlite' or 'postgres').")
 
 
