@@ -2308,8 +2308,19 @@ def health(db: int = 0):
             con.execute("SELECT 1").fetchone()
             t2 = time.perf_counter()
             con.close()
+            # The same query on a READ-ONLY connection. Reported alongside the
+            # transactional one because the difference IS the cost of the implicit
+            # BEGIN a pooled connection needs after its return rollback — roughly
+            # 2 of every 3 round trips. Without both numbers this probe measures a
+            # path most reads no longer take (see db_backend.readonly()).
+            t3 = time.perf_counter()
+            rcon = db_backend.connect(db_write.DB, readonly=True)
+            rcon.execute("SELECT 1").fetchone()
+            t4 = time.perf_counter()
+            rcon.close()
             out["connect_ms"] = round((t1 - t0) * 1000, 1)
             out["query_ms"] = round((t2 - t1) * 1000, 1)
+            out["query_readonly_ms"] = round((t4 - t3) * 1000, 1)
             out["backend"] = db_backend.backend()
             out["pool"] = {"min": getattr(db_backend, "DB_POOL_MIN", None),
                            "max": db_backend.DB_POOL_MAX,
