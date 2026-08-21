@@ -3,6 +3,8 @@ import { Lora, Inter } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import { PredictJobsProvider } from "@/lib/predict-jobs";
+import { PredictJobBanner } from "@/components/PredictJobStatus";
 
 const lora = Lora({
   variable: "--font-lora",
@@ -58,13 +60,21 @@ export default function RootLayout({
     <html lang="en" className={`${lora.variable} ${inter.variable}`}>
       <body className="min-h-screen flex flex-col" suppressHydrationWarning>
         <ServiceWorkerRegistrar />
-        <Nav />
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
-          {children}
-        </main>
-        <footer className="text-center py-6 text-xs" style={{ color: "var(--color-faint)" }}>
-          The Reading Ledger — {new Date().getFullYear()}
-        </footer>
+        {/* A prediction run is minutes of LLM calls. Its state lives in this
+            provider — ABOVE {children} — so switching tabs unmounts the Predict
+            page but not the work: the run keeps going, the nav shows a live
+            pill, and the banner announces the finish from whatever page the
+            reader has wandered to. Inert (and free) until a run is started. */}
+        <PredictJobsProvider>
+          <Nav />
+          <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
+            {children}
+          </main>
+          <footer className="text-center py-6 text-xs" style={{ color: "var(--color-faint)" }}>
+            The Reading Ledger — {new Date().getFullYear()}
+          </footer>
+          <PredictJobBanner />
+        </PredictJobsProvider>
       </body>
     </html>
   );

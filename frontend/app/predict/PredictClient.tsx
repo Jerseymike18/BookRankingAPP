@@ -1,90 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  predictResearch,
-  discoverCandidates,
-  saveRecommendation,
-  predictNonfiction,
-  saveNonfictionRecommendation,
-  discoverNonfictionCandidates,
-  repredictRecommendation,
-} from "@/lib/api";
-import type {
-  ResearchResult,
-  Candidate,
-  ScoredCandidate,
-  NonfictionPrediction,
-  BookKind,
-} from "@/lib/types";
-
-/** Flatten a scored book's grouped-by-category components into the flat score map
- *  the save endpoints expect. Shared by the fiction and nonfiction save paths. */
-function flattenScores(components: ScoredCandidate["components"]): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const cat of Object.values(components)) {
-    for (const [c, v] of Object.entries(cat)) if (v != null) out[c] = v;
-  }
-  return out;
-}
+import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
+import { PREDICT_RUNNERS } from "@/lib/predict-runners";
+import type { ResearchResult, ScoredCandidate, Candidate, BookKind } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SkeletonCardList } from "@/components/Skeleton";
-
-/* Bounded-concurrency async pool: run `fn` over `items` with at most `limit`
-   promises in flight at once. STEP 5 uses it to grounded-refine several Discover
-   candidates in parallel (each ~110s) instead of one-at-a-time, while capping
-   concurrency to respect API rate limits. For large NON-interactive re-score
-   jobs the Anthropic Message Batches API is the cheaper bulk path — not used
-   here (this flow is interactive and small-N). */
-async function mapPool<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<void>,
-): Promise<void> {
-  let next = 0;
-  const run = async () => {
-    while (true) {
-      const i = next++;
-      if (i >= items.length) break;
-      await fn(items[i], i);
-    }
-  };
-  await Promise.all(
-    Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run),
-  );
-}
-
-/* Max grounded refines in flight at once. MEASURED, not assumed (2026-07-21):
-   grounding 15 cold books took 333s at concurrency 8 but 386s at 15 — the wider
-   fan-out is 16% SLOWER, not faster. Each grounded call is one Opus web_search
-   turn, and firing more at once trips the server rate limiter harder: at 15,
-   10/15 calls ate a ~60s Retry-After backoff (vs 8/15 at concurrency 8) and one
-   badly-throttled straggler in the single big wave set the whole batch's
-   wall-clock. So "one wave instead of two" is a false economy here — the one
-   wave is throttle-bound. 8 is the measured-better default; the rate limiter
-   starts biting around ~5-6 concurrent (the first few calls in any wave clear
-   at the ~30s fast path, the rest queue behind backoff), so lower may be
-   marginally better still, but 8 is the known-good value. Do NOT raise without
-   re-measuring total wall — per-call latency is NOT independent of concurrency. */
-const REFINE_CONCURRENCY = 8;
-
-/* How many top candidates (by predicted WA) are grounded-refined automatically after
-   scoring. The rest refine ON DEMAND (per card, or "Refine all"). Raised to 10 to match
-   the opt-out save flow — the reader now keeps most candidates, so ground most of them
-   up front rather than leaving them base-only. Still capped so a max-size Discover run
-   (DISCOVER_MAX=15) doesn't fire a slow ~tens-of-seconds web_search for EVERY candidate;
-   the eager batch runs bounded at REFINE_CONCURRENCY and progressively (scores stream in). */
-const EAGER_REFINE_K = 10;
-
-/* Max recommendation saves in flight at once. Each /api/recommendations save is
-   server-side ~2 LLM calls (series/ordinal lookup + rich house-style blurb,
-   deferred from scoring so they're only paid for kept books), so saving a
-   multi-book selection one-at-a-time was the slowest step in the flow. Bounded
-   like REFINE_CONCURRENCY; the Anthropic SDK auto-retries 429s and each save is
-   reported per-book, so a burst can't corrupt the batch. */
-const SAVE_CONCURRENCY = 8;
 
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
@@ -280,210 +203,28 @@ function InfoBox({ message }: { message: string }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function PredictFlow({ config }: { config: PredictFlowConfig }) {
-  const { categoryOrder } = config;
-  const [request, setRequest] = useState("");
+  const { kind, categoryOrder } = config;
+  const jobs = usePredictJobs();
+  const run = jobs.runs[kind];
 
-  // Step 1: generate candidates
-  const [candidates, setCandidates] = useState<Candidate[] | null>(null);
-  const [requestLabel, setRequestLabel] = useState("");
-  const [genNote, setGenNote] = useState("");
-  const [genSources, setGenSources] = useState<string[]>([]);
-  const [genLoading, setGenLoading] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
-
-  // Step 2: scoring (runs sequentially, one per candidate)
-  const [scored, setScored] = useState<ScoredCandidate[]>([]);
-  const [scoringIdx, setScoringIdx] = useState<number | null>(null); // which candidate is being scored now
-  const [scoringDone, setScoringDone] = useState(false);
-  const [refiningTitles, setRefiningTitles] = useState<Set<string>>(new Set()); // titles being grounded-refined now
-  const [repredictingTitles, setRepredictingTitles] = useState<Set<string>>(new Set()); // titles being re-predicted now
-  const [repredictErrors, setRepredictErrors] = useState<Record<string, string>>({});
-
-  // Step 3: save. Opt-out model — every scored book is queued to save unless the
-  // reader removes it with the ✕ (`removed`), so a "save most of them" run is one click.
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
-  const [saveResults, setSaveResults] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  // Saves run through mapPool at SAVE_CONCURRENCY, so the count of finished
-  // saves is a real, countable progress signal (unlike a single LLM call).
-  const [saveProgress, setSaveProgress] = useState({ done: 0, total: 0 });
-
-  async function handleGenerate() {
-    if (!request.trim()) return;
-    setGenLoading(true);
-    setGenError(null);
-    setGenNote("");
-    setGenSources([]);
-    setCandidates(null);
-    setScored([]);
-    setScoringDone(false);
-    setRefiningTitles(new Set());
-    setRemoved(new Set());
-    setSaveResults({});
-    try {
-      const result = await config.discover(request.trim());
-      setCandidates(result.candidates);
-      setRequestLabel(result.request);
-      setGenNote(result.note ?? "");
-      setGenSources(result.sources ?? []);
-    } catch (e: unknown) {
-      setGenError(e instanceof Error ? e.message : "Generation failed.");
-    } finally {
-      setGenLoading(false);
-    }
-  }
-
-  async function handleScore() {
-    if (!candidates || candidates.length === 0) return;
-    setScored([]);
-    setScoringDone(false);
-    setRefiningTitles(new Set());
-    setRemoved(new Set());
-    setSaveResults({});
-    const results: ScoredCandidate[] = [];
-    for (let i = 0; i < candidates.length; i++) {
-      const c = candidates[i];
-      setScoringIdx(i);
-      try {
-        const res = await config.score(c);
-        results.push(res);
-      } catch (e: unknown) {
-        results.push({
-          title: c.title, author: c.author, genre: c.genre ?? "",
-          wa: 0, rank: 0, total: 0,
-          n_genre: 0, n_author: 0, conf: "?",
-          from_cache: false, words: null, series: "", series_number: null,
-          blurb: "", keywords: "",
-          components: {}, category_order: [],
-          genre_auto_detected: false,
-          error: e instanceof Error ? e.message : "Scoring failed",
-        });
-      }
-      setScored([...results]);
-    }
-    setScoringIdx(null);
-    setScoringDone(true);
-    // Eager pass (fiction only — nonfiction has no grounded upgrade): grounded-refine
-    // only the top few by predicted score; the rest refine on demand (per card, or
-    // "Refine all") so a large run doesn't fire N slow calls.
-    if (config.refine) {
-      const eager = [...results]
-        .filter((r) => !r.error)
-        .sort((a, b) => config.primaryScore(b) - config.primaryScore(a))
-        .slice(0, EAGER_REFINE_K);
-      void refineSet(eager);
-    }
-  }
-
-  // Progressive grounded (hybrid) refine: re-score the given candidates with the
-  // web-grounded upgrade and swap each in place as it lands, up to REFINE_CONCURRENCY
-  // at once. Skips any already grounded, currently refining, errored, or with no
-  // upgrade available — so it is safe to call repeatedly (eager top-K, per card, or
-  // "Refine all"). The memory scores are already on screen, so the reader can act
-  // immediately; grounded scores stream in and the list re-sorts. Functional
-  // setState updaters compose safely under interleaving.
-  async function refineSet(targets: ScoredCandidate[]) {
-    const refine = config.refine;
-    if (!refine) return;   // nonfiction has no grounded-refine path
-    const todo = targets.filter(
-      (r) => !r.error && r.hybrid_available && r.sourcing !== "hybrid"
-        && !refiningTitles.has(r.title),
-    );
-    if (todo.length === 0) return;
-    setRefiningTitles((prev) => {
-      const next = new Set(prev);
-      todo.forEach((r) => next.add(r.title));
-      return next;
-    });
-    await mapPool(todo, REFINE_CONCURRENCY, async (r) => {
-      try {
-        const g = await refine(r);
-        setScored((prev) => prev.map((x) => (x.title === r.title ? { ...g } : x)));
-      } catch {
-        // keep the memory result if the grounded refine fails
-      }
-      setRefiningTitles((prev) => {
-        const next = new Set(prev);
-        next.delete(r.title);
-        return next;
-      });
-    });
-  }
-
-  // Refine one candidate on demand (looks up its current scored object by title).
-  function refineOne(title: string) {
-    const r = scored.find((x) => x.title === title);
-    if (r) void refineSet([r]);
-  }
-
-  // Refine every candidate not yet grounded (the "Refine all remaining" escape hatch).
-  // Skips books the reader removed with ✕ — no point spending a web_search on a discard.
-  function refineRemaining() {
-    void refineSet(scored.filter((r) => !removed.has(r.title)));
-  }
-
-  // ── Re-predict ONE card: take a genuinely fresh look at this book ─────────
-  // Distinct from Refine. Refine upgrades memory scores to grounded ones and is
-  // only offered until a book IS grounded; this bypasses the research cache
-  // entirely, so it works on any card and is the escape hatch for a cached
-  // prediction the reader thinks is wrong.
-  //
-  // The saved-book step is the subtle part. A card can already be saved (the
-  // reader hit Save, or it's a book they typed that's on their TBR). Re-scoring
-  // only the card would leave the STORED prediction stale — the card and the
-  // read-queue would disagree about the same book. So for a saved book we follow
-  // with the re-predict endpoint, which is FREE here: the forced call above just
-  // overwrote that book's research-cache entry, so the (cache-first) endpoint
-  // re-corrects and persists exactly the vector now on screen. One LLM call total.
-  async function repredictOne(title: string) {
-    const repredict = config.repredict;
-    const r = scored.find((x) => x.title === title);
-    if (!repredict || !r || repredictingTitles.has(title)) return;
-    setRepredictingTitles((prev) => new Set(prev).add(title));
-    setRepredictErrors((prev) => {
-      if (!(title in prev)) return prev;
-      const next = { ...prev };
-      delete next[title];
-      return next;
-    });
-    try {
-      const fresh = await repredict(r);
-      setScored((prev) => prev.map((x) => (x.title === title ? { ...fresh } : x)));
-      const saved = saveResults[title];
-      if (saved && !saved.startsWith("Error")) {
-        try {
-          const { report } = await repredictRecommendation(title);
-          setSaveResults((prev) => ({
-            ...prev,
-            [title]: report.changed
-              ? `Saved · re-predicted, WA ${report.old_wa?.toFixed(2) ?? "—"} → ${report.new_wa.toFixed(2)}`
-              : "Saved · re-predicted, no change",
-          }));
-        } catch {
-          // The card is fresh but the stored row is not — say so rather than
-          // letting the two silently disagree.
-          setSaveResults((prev) => ({
-            ...prev,
-            [title]: "Error: re-predicted here, but your saved copy could not be updated.",
-          }));
-        }
-      }
-    } catch (e) {
-      // Keep the existing (good) prediction on screen and report the failure
-      // beside it. Writing `error` onto the card would move it into the failed
-      // bucket and throw away a result the reader already has.
-      setRepredictErrors((prev) => ({
-        ...prev,
-        [title]: e instanceof Error ? e.message : "Re-predict failed.",
-      }));
-    } finally {
-      setRepredictingTitles((prev) => {
-        const next = new Set(prev);
-        next.delete(title);
-        return next;
-      });
-    }
-  }
+  // Every piece of run state and every async driver lives in the provider (see
+  // lib/predict-jobs.tsx), which is mounted above the router in the root layout.
+  // That is the whole point: this component can unmount the instant the reader
+  // clicks another tab and the run carries on regardless. What is left here is
+  // presentation — plus the derived sets below, which are cheap to recompute and
+  // belong with the view that renders them.
+  const {
+    request, requestLabel, candidates, genNote, genSources, genLoading, genError,
+    scored, scoringIdx, scoringDone, saveResults, saving, saveProgress,
+    repredictErrors, interrupted,
+  } = run;
+  // One run per kind: the provider refuses to start a second while this one is
+  // live (an abandoned loop would write into the new run), so the buttons that
+  // start work say why instead of silently no-op-ing.
+  const busy = isRunBusy(run);
+  const refiningTitles = useMemo(() => new Set(run.refining), [run.refining]);
+  const repredictingTitles = useMemo(() => new Set(run.repredicting), [run.repredicting]);
+  const removed = useMemo(() => new Set(run.removed), [run.removed]);
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
   const nNew = (candidates?.length ?? 0) - nCached;
@@ -508,43 +249,28 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   const groundable = kept.filter((r) => r.hybrid_available || r.sourcing === "hybrid").length;
   const grounded = kept.filter((r) => r.sourcing === "hybrid").length;
 
-  // Opt-out: ✕ on a card drops it from the save set; everything else still saves.
-  function removeBook(title: string) {
-    setRemoved((prev) => new Set(prev).add(title));
-  }
-  function restoreAll() {
-    setRemoved(new Set());
-  }
-
-  async function handleSave() {
-    if (savable.length === 0) return;
-    setSaving(true);
-    // Opt-out save: everything scored is queued unless the reader removed it with ✕.
-    // Save the kept, not-yet-saved books with bounded concurrency instead of
-    // one-at-a-time — each save costs ~2 server-side LLM calls, so a sequential loop
-    // stacked that cost linearly. Distinct titles write distinct keys of `newResults`,
-    // so the concurrent writes don't race (single-threaded event loop, one key each).
-    const targets = savable;
-    setSaveProgress({ done: 0, total: targets.length });
-    const newResults: Record<string, string> = {};
-    await mapPool(targets, SAVE_CONCURRENCY, async (r) => {
-      try {
-        const res = await config.save(r);
-        newResults[r.title] = res.message || "Saved.";
-      } catch (e: unknown) {
-        newResults[r.title] = `Error: ${e instanceof Error ? e.message : "Failed"}`;
-      }
-      // Count every finished save, successful or not — the bar tracks work
-      // completed, and the per-card message carries the outcome.
-      setSaveProgress((p) => ({ ...p, done: p.done + 1 }));
-    });
-    // Merge (don't replace) so an earlier batch's ✓ results survive a second save.
-    setSaveResults((prev) => ({ ...prev, ...newResults }));
-    setSaving(false);
-  }
-
   return (
     <div className="space-y-6">
+      {/* A run that was still in flight when the page reloaded. The scores
+          already in hand were restored from the tab's snapshot; anything mid-call
+          died with the document. Say so plainly rather than presenting a
+          half-finished run as a finished one. */}
+      {interrupted && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
+          style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}
+        >
+          <span className="flex-1">{interrupted}</span>
+          <button
+            onClick={() => jobs.dismissInterrupted(kind)}
+            aria-label="Dismiss"
+            className="flex-shrink-0 text-sm leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Request input */}
       <Card>
         <h2
@@ -560,7 +286,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 resize-none"
           style={{ ...inputStyle, minHeight: "4rem" }}
           value={request}
-          onChange={(e) => setRequest(e.target.value)}
+          onChange={(e) => jobs.setRequest(kind, e.target.value)}
           placeholder={config.placeholder}
         />
         <p className="text-xs mt-2 mb-3" style={{ color: "var(--color-faint)" }}>
@@ -568,11 +294,16 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
         </p>
         <div className="flex items-center gap-4 mt-3">
           <SageButton
-            onClick={handleGenerate}
-            disabled={genLoading || !request.trim()}
+            onClick={() => jobs.generate(kind)}
+            disabled={busy || !request.trim()}
           >
             {genLoading ? "Generating candidates…" : "Generate candidates"}
           </SageButton>
+          {busy && !genLoading && (
+            <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+              Finish or leave the current run first.
+            </span>
+          )}
         </div>
         {genLoading && (
           <ProgressBar
@@ -630,7 +361,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
 
           {scoringIdx === null && !scoringDone && (
             <div className="mt-4">
-              <SageButton onClick={handleScore} disabled={scoringIdx !== null}>
+              <SageButton onClick={() => jobs.score(kind)} disabled={busy}>
                 Confirm & score {candidates.length} candidate
                 {candidates.length !== 1 ? "s" : ""}
               </SageButton>
@@ -649,6 +380,15 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
                   : undefined
               }
             />
+          )}
+
+          {/* The run is owned by the root layout, not this page, so leaving is
+              genuinely safe — say so, since nothing on screen would suggest it. */}
+          {scoringIdx !== null && (
+            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
+              This keeps running if you switch tabs — the nav shows its progress and
+              you&rsquo;ll get a note here when it finishes.
+            </p>
           )}
         </Card>
       )}
@@ -699,7 +439,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
               )}
               {unrefined.length > 0 && (
                 <button
-                  onClick={refineRemaining}
+                  onClick={() => jobs.refineRemaining(kind, kept)}
                   className="underline"
                   style={{ color: "var(--color-sage)" }}
                 >
@@ -721,12 +461,12 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
               primaryScore={config.primaryScore(r)}
               showGroundingBadge={config.showGroundingBadge}
               categoryOrder={r.category_order?.length ? r.category_order : categoryOrder}
-              onRemove={() => removeBook(r.title)}
+              onRemove={() => jobs.removeBook(kind, r.title)}
               saveMsg={saveResults[r.title]}
               refining={refiningTitles.has(r.title)}
-              onRefine={config.refine ? () => refineOne(r.title) : undefined}
+              onRefine={config.hasRefine ? () => jobs.refineOne(kind, r.title) : undefined}
               repredicting={repredictingTitles.has(r.title)}
-              onRepredict={config.repredict ? () => void repredictOne(r.title) : undefined}
+              onRepredict={config.hasRepredict ? () => jobs.repredictOne(kind, r.title) : undefined}
               repredictError={repredictErrors[r.title]}
             />
           ))}
@@ -758,7 +498,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
               </p>
               {nRemoved > 0 && (
                 <button
-                  onClick={restoreAll}
+                  onClick={() => jobs.restoreAll(kind)}
                   className="text-xs underline"
                   style={{ color: "var(--color-sage)" }}
                 >
@@ -766,7 +506,7 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
                 </button>
               )}
               {savable.length > 0 && (
-                <SageButton onClick={handleSave} disabled={saving}>
+                <SageButton onClick={() => jobs.save(kind, savable)} disabled={saving}>
                   {saving ? "Saving…" : `Save ${savable.length} to ${config.saveButtonNoun}`}
                 </SageButton>
               )}
@@ -1064,13 +804,23 @@ function ScoredCard({
    exactly (WA primary, grounded eager-refine, conformal interval when present).
    Nonfiction ranks by Total Average, has no grounded-refine and no residual
    interval, and shows the honest low-confidence note instead of a grounding badge.
+
+   This is now PRESENTATION ONLY. The calls a run actually makes live in
+   lib/predict-runners.ts, keyed by the same `kind`, because the background job
+   provider has to drive a run with no page mounted and therefore no config in
+   hand. Anything here that describes BEHAVIOUR (primaryScore, whether a refine
+   or re-predict path exists) is read off that runner rather than restated, so
+   the two can't drift.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 interface PredictFlowConfig {
+  /** Selects both the runner and this kind's slice of the job provider's state. */
+  kind: BookKind;
   categoryOrder: string[];
   /** Badge label + heading noun: "WA" (fiction) or "Total Average" (nonfiction). */
   primaryLabel: string;
-  /** The score a card leads with and the ranked list sorts by. */
+  /** The score a card leads with and the ranked list sorts by. Read off the
+   *  runner — the eager-refine pass ranks by the same function. */
   primaryScore: (r: ScoredCandidate) => number;
   /** Fiction shows the grounding badge; nonfiction shows the low-confidence note. */
   showGroundingBadge: boolean;
@@ -1082,44 +832,20 @@ interface PredictFlowConfig {
   newCostHint: string;
   savedNoun: string;       // "…will be saved to your {savedNoun}"
   saveButtonNoun: string;  // "Save N to {saveButtonNoun}"
-  discover: (request: string) => Promise<{
-    candidates: Candidate[]; request: string; note?: string; sources?: string[];
-  }>;
-  score: (c: Candidate) => Promise<ScoredCandidate>;
-  save: (r: ScoredCandidate) => Promise<{ message?: string }>;
-  /** Grounded (hybrid) re-score. Fiction only — when omitted the eager pass, the
-   *  per-card Refine button, and the refine banner all disable themselves. */
-  refine?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
-  /** No-cache re-score ("Re-predict"). Fiction only — omitted for nonfiction, whose
-   *  re-predict lives on its read-queue instead, where it can persist the result. */
-  repredict?: (r: ScoredCandidate) => Promise<ScoredCandidate>;
-}
-
-/** Adapt a nonfiction prediction into the fiction-shaped ScoredCandidate the shared
- *  card consumes. Nonfiction carries no conformal interval and no hybrid upgrade,
- *  so those fields stay absent and the card degrades gracefully (no interval row,
- *  no Refine affordance). */
-function nfToScored(p: NonfictionPrediction): ScoredCandidate {
-  return {
-    title: p.title, author: p.author, genre: p.genre,
-    wa: p.wa, total_average: p.total_average,
-    rank: p.rank, total: p.total,
-    n_genre: p.n_genre ?? 0, n_author: p.n_author ?? 0,
-    conf: p.confidence, from_cache: p.from_cache ?? false,
-    words: p.words ?? null, series: p.series ?? "", series_number: p.series_number ?? null,
-    blurb: p.blurb ?? "", keywords: p.keywords ?? "",
-    components: p.components, category_order: p.category_order,
-    genre_auto_detected: p.genre_auto_detected ?? false,
-    sourcing: p.sourcing ?? "memory",
-    hybrid_available: p.hybrid_available ?? false,
-  };
+  /** Whether this kind has a grounded-refine path at all (fiction only). When
+   *  false the refine banner and every per-card Refine affordance disappear. */
+  hasRefine: boolean;
+  /** Whether this kind offers the per-card no-cache Re-predict (fiction only —
+   *  nonfiction's lives on its read-queue, where it can persist the result). */
+  hasRepredict: boolean;
 }
 
 function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
   return {
+    kind: "fiction",
     categoryOrder,
     primaryLabel: "WA",
-    primaryScore: (r) => r.wa,
+    primaryScore: PREDICT_RUNNERS.fiction.primaryScore,
     showGroundingBadge: true,
     requestTitle: "What are you in the mood for?",
     requestHelp:
@@ -1134,33 +860,17 @@ function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
     newCostHint: "~1¢ and a few seconds each",
     savedNoun: "recommendations (TBR)",
     saveButtonNoun: "recommendations",
-    discover: (request) => discoverCandidates(request),
-    score: (c) => predictResearch(c.title, c.author, c.genre ?? undefined),
-    refine: (r) => predictResearch(r.title, r.author, r.genre, true),
-    // Re-predict = the no-cache refresh. Distinct from Refine: Refine upgrades
-    // memory scores to grounded ones and is only offered until a book IS grounded;
-    // this takes a genuinely fresh look at any book, grounded or not. Fiction only —
-    // the nonfiction config leaves it undefined so the button never appears there
-    // (nonfiction's own re-predict lives on its read-queue, where it can persist).
-    repredict: (r) => predictResearch(r.title, r.author, r.genre, true, true),
-    save: (r) =>
-      saveRecommendation({
-        title: r.title, genre: r.genre, author: r.author,
-        scores: flattenScores(r.components),
-        words: r.words ?? undefined,
-        series: r.series || undefined,
-        series_number: r.series_number ?? undefined,
-        blurb: r.blurb || undefined,
-        keywords: r.keywords || undefined,
-      }),
+    hasRefine: !!PREDICT_RUNNERS.fiction.refine,
+    hasRepredict: !!PREDICT_RUNNERS.fiction.repredict,
   };
 }
 
 function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
   return {
+    kind: "nonfiction",
     categoryOrder,
     primaryLabel: "Total Average",
-    primaryScore: (r) => r.total_average ?? 0,
+    primaryScore: PREDICT_RUNNERS.nonfiction.primaryScore,
     showGroundingBadge: false,
     requestTitle: "What are you in the mood for?",
     requestHelp:
@@ -1175,36 +885,8 @@ function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
     newCostHint: "one Opus call each",
     savedNoun: "nonfiction TBR",
     saveButtonNoun: "nonfiction TBR",
-    discover: async (request) => {
-      const r = await discoverNonfictionCandidates(request);
-      return {
-        candidates: r.candidates.map((c) => ({
-          title: c.title,
-          author: c.author,
-          genre: c.genre ?? "Nonfiction",
-          cached: c.cached ?? false,
-          series: c.series ?? null,
-          series_number: c.series_number ?? null,
-          requested: c.requested ?? false,
-        })),
-        request: r.request,
-        note: r.note,
-        sources: r.sources ?? [],
-      };
-    },
-    score: async (c) =>
-      nfToScored(await predictNonfiction(c.title, c.author, c.genre ?? undefined)),
-    // no refine — nonfiction has no grounded-refine path
-    save: (r) =>
-      saveNonfictionRecommendation({
-        title: r.title, author: r.author, genre: r.genre,
-        scores: flattenScores(r.components),
-        words: r.words ?? undefined,
-        series: r.series || undefined,
-        series_number: r.series_number ?? undefined,
-        blurb: r.blurb || undefined,
-        keywords: r.keywords || undefined,
-      }),
+    hasRefine: !!PREDICT_RUNNERS.nonfiction.refine,
+    hasRepredict: !!PREDICT_RUNNERS.nonfiction.repredict,
   };
 }
 
@@ -1219,7 +901,10 @@ export default function PredictClient({
   categoryOrder: string[];
   nonfictionCategoryOrder: string[];
 }) {
-  const [kind, setKind] = useState<BookKind>("fiction");
+  // The toggle's position lives in the job provider, not in local state: the
+  // finish banner opens this page on whichever kind actually finished, and the
+  // choice survives navigating away mid-run like everything else does.
+  const { activeKind: kind, setActiveKind: setKind } = usePredictJobs();
   const fictionConfig = useMemo(() => makeFictionConfig(categoryOrder), [categoryOrder]);
   const nonfictionConfig = useMemo(
     () => makeNonfictionConfig(nonfictionCategoryOrder),
@@ -1260,8 +945,10 @@ export default function PredictClient({
         ))}
       </div>
 
-      {/* key={kind} remounts the flow when the toggle flips, so fiction results
-          never leak into the nonfiction view (and vice-versa). */}
+      {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
+          can no longer leak into each other regardless (the provider keys them
+          separately), but this still resets the view-local card open/closed
+          state, which should not carry across the toggle. */}
       <PredictFlow key={kind} config={kind === "fiction" ? fictionConfig : nonfictionConfig} />
     </div>
   );

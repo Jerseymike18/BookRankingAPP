@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { READONLY } from "@/lib/readonly";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PredictJobPill } from "@/components/PredictJobStatus";
+import { clearPredictJobs } from "@/lib/predict-jobs";
 
 /** The Sign-out affordance renders only when Supabase is configured — i.e. the
  * hosted multi-tenant build. Local dev + the static public build leave the env
@@ -14,6 +16,10 @@ const AUTH_CONFIGURED =
   !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 async function signOut() {
+  // Drop the tab's stored prediction run first: it is sessionStorage, so it
+  // would otherwise outlive the sign-out and greet the next person to use this
+  // tab with the previous reader's predictions.
+  clearPredictJobs();
   try {
     await createSupabaseBrowserClient().auth.signOut();
   } catch {
@@ -295,35 +301,45 @@ export default function Nav() {
           )}
         </nav>
 
-        {/* Sign out (hosted multi-tenant build only) */}
-        {AUTH_CONFIGURED && (
-          <button
-            onClick={signOut}
-            className="hidden md:inline-flex ml-auto px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-            style={{ color: "var(--color-muted)" }}
-          >
-            Sign out
-          </button>
-        )}
+        {/* Right-hand cluster. The three items share ONE ml-auto container rather
+            than each carrying their own, because which of them renders varies
+            (the pill only while a run is in flight, Sign out only on the hosted
+            build, the toggle only on mobile) and per-item auto margins break
+            whenever the leading one disappears. */}
+        <div className="flex items-center gap-2 ml-auto">
+          {/* A background prediction run, visible from every page. */}
+          <PredictJobPill />
 
-        {/* Mobile menu toggle */}
-        <button
-          onClick={() => setMobileOpen((o) => !o)}
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          aria-expanded={mobileOpen}
-          className="md:hidden ml-auto -mr-2 flex items-center justify-center rounded-md p-2"
-          style={{ color: "var(--color-ink)" }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d={mobileOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"}
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+          {/* Sign out (hosted multi-tenant build only) */}
+          {AUTH_CONFIGURED && (
+            <button
+              onClick={signOut}
+              className="hidden md:inline-flex px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+              style={{ color: "var(--color-muted)" }}
+            >
+              Sign out
+            </button>
+          )}
+
+          {/* Mobile menu toggle */}
+          <button
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
+            className="md:hidden -mr-2 flex items-center justify-center rounded-md p-2"
+            style={{ color: "var(--color-ink)" }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d={mobileOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"}
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu panel */}
