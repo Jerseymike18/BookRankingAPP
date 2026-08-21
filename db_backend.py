@@ -45,6 +45,7 @@ INSERT OR REPLACE/IGNORE, ON CONFLICT, AUTOINCREMENT, lastrowid, executescript.
 import os
 import sqlite3
 import threading
+import time
 
 # Default sqlite path — mirrors the existing `DB = "books.db"` constant, resolved
 # relative to cwd (backend/main.py chdirs to project root before any connect).
@@ -93,20 +94,39 @@ def _database_url():
 # Kill switch: DB_POOL=0 restores the prior connect-per-call behavior.
 _PG_POOL = None
 _PG_POOL_LOCK = threading.Lock()
-# Per-PROCESS pool ceiling, so it is divided by the worker count: under
-# `--workers N` each worker builds its own pool, and N x 10 session-mode
-# connections plus each worker's dedicated cache_sync listener and advisory-lock
-# connection can exhaust a Supabase pooler's session-connection budget — which
-# fails as a connect error on every request, not as a slowdown. The floor of 4
-# keeps a worker from starving itself: FastAPI serves sync handlers on a
-# threadpool, so one worker genuinely needs a handful of concurrent connections.
-_DB_POOL_MAX_TOTAL = int(os.environ.get("DB_POOL_MAX", "10"))
-DB_POOL_MAX = max(4, _DB_POOL_MAX_TOTAL // max(1, int(
-    os.environ.get("WEB_CONCURRENCY", "1"))))
-# Connections the pool RETAINS (see the minconn note in _get_pg_pool — 0 disables
-# pooling entirely). Defaults to the ceiling so a returned connection is always
-# kept. psycopg2 opens these eagerly when the pool is first built, so the first
-# request in a worker pays the handshakes once instead of every request paying one.
+# ---------------------------------------------------------------------------
+# CONNECTION BUDGET — this is a HARD ceiling, and exceeding it is an OUTAGE.
+# ---------------------------------------------------------------------------
+# The Supabase SESSION pooler caps total clients. Measured 2026-08-21:
+#
+#   FATAL: (EMAXCONNSESSION) max clients reached in session mode
+#          - max clients are limited to pool_size: 15
+#
+# That is not backpressure — it is a refused connection, so once the app is at the
+# cap EVERY request fails, including the ones that would have been served from a
+# warm pool. So the budget is derived here rather than guessed, and it is derived
+# for the WORST moment, not the steady state.
+#
+# The worst moment is a redeploy: Railway starts the new container before the old
+# one exits, so both hold their connections at once. Budgeting a container to half
+# the pooler limit is what makes that overlap survivable.
+#
+# Per container, at rest:
+#     WORKERS               cache_sync listeners (one per worker, long-lived)
+#   + WORKERS * DB_POOL_MAX query connections
+# The advisory-lock connections are deliberately NOT counted: CrossProcessLock now
+# closes its connection on release, so it is transient rather than parked.
+DB_MAX_CLIENTS = int(os.environ.get("DB_MAX_CLIENTS", "15"))
+_WORKERS = max(1, int(os.environ.get("WEB_CONCURRENCY", "1")))
+# Half the pooler, so two overlapping containers still fit.
+_CONTAINER_BUDGET = max(2, DB_MAX_CLIENTS // 2)
+# What is left for query pools once every worker's listener is reserved.
+_QUERY_BUDGET = max(_WORKERS, _CONTAINER_BUDGET - _WORKERS)
+DB_POOL_MAX = max(1, int(os.environ.get("DB_POOL_MAX", "0")) or
+                  _QUERY_BUDGET // _WORKERS)
+# Connections the pool RETAINS. psycopg2's putconn keeps one only while
+# `len(pool) < minconn`, so minconn=0 means it pools NOTHING (see _get_pg_pool).
+# Retaining the whole ceiling is what makes a warm request cost no handshake.
 DB_POOL_MIN = max(1, int(os.environ.get("DB_POOL_MIN", str(DB_POOL_MAX))))
 
 
@@ -120,6 +140,10 @@ def _get_pg_pool():
         with _PG_POOL_LOCK:
             if _PG_POOL is None:
                 from psycopg2 import pool as _pgpool
+                # See the CONNECTION BUDGET block above for how the sizes are
+                # derived — exceeding the pooler's client cap is an outage, not a
+                # slowdown.
+                #
                 # minconn MUST NOT be 0. psycopg2's putconn keeps a returned
                 # connection only `if len(self._pool) < self.minconn` — with
                 # minconn=0 that is never true, so every putconn CLOSED the
@@ -136,6 +160,16 @@ def _get_pg_pool():
     return _PG_POOL
 
 
+# When a pooled connection was last returned after a SUCCESSFUL use. A connection
+# handed back seconds ago is alive with near-certainty, so re-proving it with a
+# SELECT 1 spends a whole round trip to Supabase on every borrow — and endpoints
+# borrow one to three times per request. Past HEALTH_TTL_S we check again, which is
+# what still catches a pooler idle-timeout or a server restart. Supabase's pooler
+# idles connections out on the order of minutes, so 30s is comfortably conservative.
+_last_ok = {}
+HEALTH_TTL_S = float(os.environ.get("DB_HEALTH_TTL_S", "30"))
+
+
 def _borrow_pg():
     """A healthy raw psycopg2 connection from the pool (health-checked; one
     stale connection is replaced transparently). Raises on pool exhaustion or
@@ -143,11 +177,14 @@ def _borrow_pg():
     pool = _get_pg_pool()
     raw = pool.getconn()
     try:
+        if time.time() - _last_ok.get(id(raw), 0.0) < HEALTH_TTL_S:
+            return raw, pool    # verified recently — skip the round trip
         cur = raw.cursor()
         cur.execute("SELECT 1")
         cur.fetchone()
         cur.close()
         raw.rollback()          # leave the borrowed conn transaction-clean
+        _last_ok[id(raw)] = time.time()
         return raw, pool
     except Exception:
         try:
@@ -300,8 +337,13 @@ class PgConnection:
         try:
             self._conn.rollback()           # never park a conn mid-transaction
             self._pool.putconn(self._conn)
+            # It just served a request without erroring, so the next borrow within
+            # HEALTH_TTL_S can skip its SELECT 1 (see _borrow_pg).
+            _last_ok[id(self._conn)] = time.time()
         except Exception:
+            _last_ok.pop(id(self._conn), None)
             try:
+                _last_ok.pop(id(self._conn), None)
                 self._pool.putconn(self._conn, close=True)
             except Exception:
                 try:

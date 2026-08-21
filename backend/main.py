@@ -2280,8 +2280,37 @@ def delete_recommendation(title: str,
 
 
 @app.get("/health")
-def health():
-    return {"ok": True}
+def health(db: int = 0):
+    """Liveness. `?db=1` additionally measures the round trip to Postgres.
+
+    The DB probe is OPT-IN and must stay that way: this is the platform's health
+    check endpoint, so making it depend on the database would turn a transient
+    Postgres blip into a failed health check and a container restart — trading a
+    slow request for an outage.
+
+    `?db=1` exists because backend latency is dominated by how far the database is
+    and how many round trips a request makes, and neither is measurable from
+    outside the deployment. `connect_ms` is a pool borrow (near zero when the pool
+    is warm and the connection was verified recently); `query_ms` is one SELECT 1,
+    i.e. one round trip to Postgres. Read-only and cheap."""
+    out = {"ok": True}
+    if db:
+        try:
+            t0 = time.perf_counter()
+            con = db_backend.connect(db_write.DB)
+            t1 = time.perf_counter()
+            con.execute("SELECT 1").fetchone()
+            t2 = time.perf_counter()
+            con.close()
+            out["connect_ms"] = round((t1 - t0) * 1000, 1)
+            out["query_ms"] = round((t2 - t1) * 1000, 1)
+            out["backend"] = db_backend.backend()
+            out["pool"] = {"min": getattr(db_backend, "DB_POOL_MIN", None),
+                           "max": db_backend.DB_POOL_MAX,
+                           "health_ttl_s": getattr(db_backend, "HEALTH_TTL_S", None)}
+        except Exception as e:
+            out["db_error"] = type(e).__name__
+    return out
 
 
 def _resolve_version() -> dict:

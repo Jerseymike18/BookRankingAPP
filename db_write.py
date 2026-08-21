@@ -3653,18 +3653,23 @@ def bump_cache_epoch_and_notify(scope, user_id, channel, worker_id):
     key = f"epoch:{scope}:{user_id}"
     con = _connect()
     try:
+        # ONE statement: the epoch bump and the NOTIFY that announces it travel
+        # together in a single CTE, so this whole publish is one round trip rather
+        # than an UPSERT, then a notify, then a commit. On the write path each of
+        # those was a full hop to Supabase.
         row = con.execute(
-            "INSERT INTO app_state (key,value,expires_at,updated_at) VALUES (?,'1',NULL,?) "
-            "ON CONFLICT(key) DO UPDATE SET "
-            "value = CAST(CAST(app_state.value AS INTEGER) + 1 AS TEXT), "
-            "updated_at = excluded.updated_at "
-            "RETURNING value",
-            (key, dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))).fetchone()
-        epoch = int(row[0]) if row else 1
-        con.execute("SELECT pg_notify(?, ?)",
-                    (channel, f"{worker_id}|{scope}|{user_id}|{epoch}"))
+            "WITH bumped AS ("
+            "  INSERT INTO app_state (key,value,expires_at,updated_at)"
+            "  VALUES (?,'1',NULL,?)"
+            "  ON CONFLICT(key) DO UPDATE SET"
+            "    value = CAST(CAST(app_state.value AS INTEGER) + 1 AS TEXT),"
+            "    updated_at = excluded.updated_at"
+            "  RETURNING value"
+            ") SELECT value, pg_notify(?, ? || value) FROM bumped",
+            (key, dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+             channel, f"{worker_id}|{scope}|{user_id}|")).fetchone()
         con.commit()
-        return epoch
+        return int(row[0]) if row else 1
     finally:
         con.close()
 
@@ -3737,9 +3742,14 @@ class CrossProcessLock:
     NOT re-entrant — matching the `threading.Lock` it replaces, so an accidental
     nested acquire fails loudly here rather than deadlocking only in production.
 
-    The advisory-lock connection is dedicated and long-lived rather than borrowed
-    from the pool: a session-level advisory lock outlives a transaction, so leaving
-    one on a pooled connection would hand the next borrower a lock it never took."""
+    The advisory-lock connection is dedicated rather than borrowed from the pool: a
+    session-level advisory lock outlives a transaction, so leaving one on a pooled
+    connection would hand the next borrower a lock it never took. It is opened on
+    acquire and CLOSED on release rather than parked, because the Supabase session
+    pooler caps total clients (see db_backend's connection budget) and a permanently
+    held lock connection per worker is a slot that cannot be spent on serving
+    requests. The cost is one handshake per acquisition, paid only on the background
+    re-prediction path — which is already seconds long — and never on a read."""
 
     def __init__(self, name):
         self.name = name
@@ -3789,9 +3799,11 @@ class CrossProcessLock:
                     with self._connection().cursor() as cur:
                         cur.execute("SELECT pg_advisory_unlock(%s)", (self._key,))
                 except Exception:
-                    # Could not unlock: discard the connection so the session — and
-                    # with it the lock — is closed by the server rather than left
-                    # held by a connection we keep reusing.
+                    pass        # closing below ends the session and the lock anyway
+                finally:
+                    # Always hand the pooler its client slot back. Closing the
+                    # session also releases any advisory lock still held on it, so
+                    # this doubles as the failure path for the unlock above.
                     self._drop_conn()
         finally:
             self._local.release()
