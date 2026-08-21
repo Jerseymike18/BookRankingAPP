@@ -365,6 +365,51 @@ that undoing one silently re-slows the whole site.
   sit unused for up to a token lifetime). The backend already reads `user_metadata` from
   the same claims, so the two now agree.
 
+### The database is FAR, so round trips are the unit of latency
+
+Measured 2026-08-21 via `GET /health?db=1` (an opt-in probe on the live backend — opt-in
+because making the platform's health check depend on Postgres would turn a DB blip into a
+container restart):
+
+| | one round trip to Supabase |
+|---|---|
+| a laptop on residential broadband | **24 ms** |
+| **Railway** | **63 ms** |
+
+So latency here is not CPU — the engine rebuild is ~18 ms — it is **how many round trips a
+request makes**. Optimise the count, not the code. Three things follow, and each is easy to
+undo by accident:
+
+- **`db_backend`'s pool `minconn` must never be 0.** psycopg2's `putconn` keeps a returned
+  connection only `while len(pool) < minconn`, so `minconn=0` CLOSES every connection and
+  the pool pools nothing — every `connect()` becomes a fresh TCP+TLS+auth handshake
+  (measured 232 ms vs 73 ms). It shipped that way and the module's comment claimed
+  otherwise; `connect_ms` on the probe is how you tell (0.0 = warm).
+- **Reads run in autocommit** — `db_backend.readonly()` around a block, or
+  `connect(..., readonly=True)`. A pooled connection comes back rolled back, so the next
+  borrower's first statement must open a transaction: rollback + BEGIN + query. For a read
+  that protects nothing. Verified in production: **127 ms → 63 ms per query, 2×.**
+  It is SCOPED, and must stay scoped: blanket autocommit would break the multi-statement
+  writers (`update_queue` rewrites the whole queue; the metadata writers cascade across
+  tables), where each statement would commit alone and a mid-way failure would leave a
+  half-applied change. It is thread-local because FastAPI serves sync handlers on a
+  threadpool, and it is always cleared before the connection returns to the pool. The scope
+  is entered in the CALLER so `db_loader.py` stays untouched. Guard:
+  `test_multiworker.py`'s four readonly checks.
+- **The Supabase SESSION pooler caps total clients at 15**, and refuses rather than queues —
+  at the cap every request fails. `db_backend`'s connection budget derives the pool size
+  from `DB_MAX_CLIENTS`, budgeting a container to HALF the cap so a redeploy (Railway runs
+  the old and new containers together) still fits. Do not raise the pool without redoing
+  that arithmetic. Raising the client cap means moving query traffic to the TRANSACTION
+  pooler (port 6543) and leaving only `cache_sync`'s listener on the session pooler —
+  transaction mode does not carry LISTEN/NOTIFY.
+
+**Also removed from the write path, and worth not reintroducing:** `change_rating` /
+`add_book` called `_show_computed_wa`, which ran a FULL library load (own connection, full
+scan, whole pandas build) to print one line into a `StringIO` the API then discarded — it is
+now TTY-gated. And `_backup_once` copied a 1 MB file on Postgres, where `DB` names the stale
+`books.db` baked into the container image; it is now SQLite-only.
+
 ### Multi-worker: `--workers ${LEDGER_WORKERS:-2}` and the state it needed shared
 
 The backend runs **two uvicorn worker processes**, pinned in the Procfile. Two details
