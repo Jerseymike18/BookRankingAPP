@@ -35,6 +35,7 @@ functions from other scripts / the future website.
 
 import os
 import re
+import sys
 import json
 import math
 import time
@@ -230,7 +231,16 @@ _backed_up_this_session = False
 
 
 def _backup_once():
+    """Copy the SQLite file once per process before the first write.
+
+    SQLITE ONLY. On Postgres there is no file to back up — `DB` there names the
+    stale `books.db` that ships in the container image, so this used to copy a
+    1 MB file that backs up NOTHING, on the first write of every worker, and left
+    junk in the container filesystem. Guarded centrally rather than at the ~48
+    call sites."""
     global _backed_up_this_session
+    if db_backend.backend() != "sqlite":
+        return
     if not _backed_up_this_session and os.path.exists(DB):
         stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
         dst = f"{DB}.backup-{stamp}"
@@ -2279,7 +2289,25 @@ def _both(a, b):
 # Read helpers + a computed-WA preview (so you see the effect of a write)
 # ---------------------------------------------------------------------------
 def _show_computed_wa(con, title):
-    """Recompute and show this book's WA from the engine, so the write is visible."""
+    """Print this book's recomputed WA + rank — a CLI nicety, not part of the write.
+
+    SKIPPED when nothing is watching, which on the server is always: the API
+    handlers call these writers inside `contextlib.redirect_stdout(StringIO())`
+    and then discard everything except a ✓/✗ check. Producing that line costs a
+    FULL library load — its own connection, a full table scan, and the entire
+    pandas assembly — so every rating edit through the web app was paying for a
+    string it threw away. Measured against the live Postgres at ~210ms even after
+    the connection pool was fixed (~440ms before).
+
+    `sys.stdout.isatty()` is the discriminator: true for someone running db_write
+    from a terminal, false for the redirected server path (and for a piped CLI
+    run, which simply loses a cosmetic line). SHOW_WA_PREVIEW=1 forces it on."""
+    if os.environ.get("SHOW_WA_PREVIEW", "").strip() != "1":
+        try:
+            if not sys.stdout.isatty():
+                return
+        except Exception:
+            return                      # no real stdout at all -> nobody is watching
     try:
         import db_loader
         books, gw, gcw = db_loader.load_from_db()

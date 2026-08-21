@@ -84,7 +84,8 @@ def _database_url():
 # helper (a single repredict pass makes ~17 of them). Pooling reuses live
 # server connections across requests. Semantics are preserved:
 #   * each borrowed connection is health-checked (SELECT 1) so a server-side
-#     drop (pooler idle timeout, redeploy) is replaced, not surfaced;
+#     drop (pooler idle timeout, redeploy) is replaced, not surfaced — this is
+#     what makes retaining idle connections safe;
 #   * PgConnection.close() ROLLS BACK then returns the connection to the pool,
 #     so no transaction state or uncommitted write ever leaks to the next
 #     borrower — exactly what the old close() discarded;
@@ -102,6 +103,11 @@ _PG_POOL_LOCK = threading.Lock()
 _DB_POOL_MAX_TOTAL = int(os.environ.get("DB_POOL_MAX", "10"))
 DB_POOL_MAX = max(4, _DB_POOL_MAX_TOTAL // max(1, int(
     os.environ.get("WEB_CONCURRENCY", "1"))))
+# Connections the pool RETAINS (see the minconn note in _get_pg_pool — 0 disables
+# pooling entirely). Defaults to the ceiling so a returned connection is always
+# kept. psycopg2 opens these eagerly when the pool is first built, so the first
+# request in a worker pays the handshakes once instead of every request paying one.
+DB_POOL_MIN = max(1, int(os.environ.get("DB_POOL_MIN", str(DB_POOL_MAX))))
 
 
 def _pool_enabled():
@@ -114,8 +120,19 @@ def _get_pg_pool():
         with _PG_POOL_LOCK:
             if _PG_POOL is None:
                 from psycopg2 import pool as _pgpool
+                # minconn MUST NOT be 0. psycopg2's putconn keeps a returned
+                # connection only `if len(self._pool) < self.minconn` — with
+                # minconn=0 that is never true, so every putconn CLOSED the
+                # connection and the "pool" pooled nothing. Every connect() was a
+                # fresh TCP+TLS+auth handshake to Supabase: measured at ~234ms
+                # against a 28ms round trip, on a path every endpoint takes one to
+                # three times per request. Setting minconn = maxconn makes the
+                # condition true until the pool is full, i.e. connections are
+                # actually retained. A retained connection that the server or the
+                # pooler has since dropped is caught by the SELECT 1 health check
+                # in _borrow_pg and transparently replaced.
                 _PG_POOL = _pgpool.ThreadedConnectionPool(
-                    0, DB_POOL_MAX, _database_url())
+                    DB_POOL_MIN, DB_POOL_MAX, _database_url())
     return _PG_POOL
 
 
