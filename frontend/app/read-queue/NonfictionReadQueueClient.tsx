@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { NonfictionReadQueueResponse, NonfictionRecommendation } from "@/lib/types";
 import { saveNonfictionQueue, deleteNonfictionRecommendation } from "@/lib/api";
 import { usePredictJobs, queueRepredictKey } from "@/lib/predict-jobs";
+import { PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -408,6 +409,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
             hint="A forced fresh research call — this usually takes under a minute. You can collapse this card or leave the page — it keeps running, and you'll be told when it lands."
           />
         )}
+        {repredicting && <PredictNotifyPrompt className="self-start" />}
         {repredicting && (
           <button
             onClick={() => jobs.cancelQueueRepredict("nonfiction", rec.title)}

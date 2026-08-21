@@ -269,6 +269,35 @@ export function PredictNotifyToggle() {
 }
 
 /**
+ * The contextual opt-in, shown WHILE something is running.
+ *
+ * The standing toggle lives in the Predict page's request row, which is a fine
+ * home for a setting and a poor one for a discovery: it is a few words of small
+ * print, and a reader who never notices it gets a feature that does nothing and
+ * looks broken rather than switched off. This asks at the only moment the answer
+ * is obviously useful — a job is in flight and they are deciding whether to sit
+ * and watch it.
+ *
+ * Renders nothing once the question has been answered either way (granted or
+ * denied), so it can never become nagging, and the click is a real user gesture,
+ * which is what browsers require of requestPermission().
+ */
+export function PredictNotifyPrompt({ className = "" }: { className?: string }) {
+  const state = useNotifyState();
+  if (state !== "default") return null;
+  return (
+    <button
+      onClick={() => void requestNotifyPermission()}
+      className={`text-xs underline decoration-dotted underline-offset-2 ${className}`}
+      style={{ color: "var(--color-sage)" }}
+      title="Your browser will tell you when this finishes, even if you're in another tab or app"
+    >
+      Notify me when this finishes
+    </button>
+  );
+}
+
+/**
  * Fire one notification on demand.
  *
  * This exists because the feature is invisible when it is misconfigured: a

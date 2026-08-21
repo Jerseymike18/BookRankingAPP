@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ReadQueueResponse, Recommendation } from "@/lib/types";
 import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommendation, updateRecommendationMetadata, fetchRecommendationBlurb } from "@/lib/api";
 import { usePredictJobs, queueRepredictKey } from "@/lib/predict-jobs";
+import { PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -571,6 +572,7 @@ function RecExpandedPanel({
             hint="This can take a minute or two if the book hasn't been researched before. You can collapse this card or leave the page — it keeps running, and you'll be told when it lands."
           />
         )}
+        {repredicting && <PredictNotifyPrompt className="self-start" />}
         {repredicting && (
           <button
             onClick={() => jobs.cancelQueueRepredict("fiction", rec.title)}

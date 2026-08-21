@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
 import type { ResearchResult, ScoredCandidate, Candidate, BookKind } from "@/lib/types";
-import { PredictNotifyToggle } from "@/components/PredictJobStatus";
+import { PredictNotifyToggle, PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -457,9 +457,8 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
           {scoringIdx !== null && (
             <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
               This keeps running if you switch tabs — the nav shows its progress and
-              you&rsquo;ll get a note here when it finishes. Turn on notifications
-              above and your browser will tell you even when this tab is in the
-              background.
+              you&rsquo;ll get a note here when it finishes.{" "}
+              <PredictNotifyPrompt />
             </p>
           )}
         </Card>
