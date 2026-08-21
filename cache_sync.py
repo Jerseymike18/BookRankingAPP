@@ -105,11 +105,16 @@ def publish(scope, user_id):
     if not enabled():
         return
     try:
-        epoch = db_write.bump_cache_epoch(scope, user_id)
-        # Record it as already-applied so our own reconciliation sweep does not
-        # re-invalidate caches this process just rebuilt.
-        _record(scope, user_id, epoch)
-        _notify(f"{WORKER_ID}|{scope}|{user_id}|{epoch}")
+        # ONE connection, one round trip's worth of work — this is on the write
+        # request path, so the old bump-then-notify (two pool borrows, an UPSERT,
+        # a follow-up SELECT and two commits) was latency the reader paid on every
+        # rating edit.
+        epoch = db_write.bump_cache_epoch_and_notify(
+            scope, user_id, CHANNEL, WORKER_ID)
+        if epoch is not None:
+            # Record it as already-applied so our own reconciliation sweep does not
+            # re-invalidate caches this process just rebuilt.
+            _record(scope, user_id, epoch)
     except Exception:
         log.warning("cache_sync.publish failed for %s/%s", scope, user_id,
                     exc_info=True)

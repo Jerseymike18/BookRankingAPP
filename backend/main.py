@@ -250,6 +250,16 @@ class _LRUCache:
 _engine_cache = _LRUCache(_TENANT_CACHE_MAX)
 _nf_engine_cache = _LRUCache(_TENANT_CACHE_MAX)
 
+# Guards the single-flight in _get_engine: which (uid, epoch-key) pairs are being
+# built right now, and the condition concurrent callers wait on. The token carries
+# BOTH the uid and the epoch key — the uid because _build_engine_for recurses into
+# the seed's engine and a new tenant shares the seed's (0, 0) epoch key (see
+# _get_engine), and the epoch key so a caller waiting on a build that a fresh write
+# has already superseded rebuilds rather than accepting a stale tuple. Only the tiny
+# set operations happen under the lock — never the build itself.
+_engine_building: set = set()
+_engine_build_cv = threading.Condition()
+
 
 def _uid(user_id):
     return user_id or db_backend.DEFAULT_USER_ID
@@ -416,9 +426,35 @@ def _get_engine(user_id=None) -> tuple:
     hit = _engine_cache.get(uid)
     if hit is not None and hit[0] == key:
         return hit[1]
-    built = _build_engine_for(uid)
-    _engine_cache[uid] = (key, built)
-    return built
+    # SINGLE-FLIGHT. Every page fans out into several endpoint calls at once (the
+    # Stats page alone makes three), and a write invalidates the cache for all of
+    # them — so without this, N concurrent requests each ran a FULL rebuild of the
+    # identical object, and since the rebuild is CPU-bound Python they serialised
+    # on the GIL and each request waited for all N. Measured on the Stats page
+    # right after an inline rating edit: three requests, three rebuilds, every one
+    # of them blocked ~1470ms. One builder, the rest wait for its result.
+    #
+    # The token MUST include the uid. _build_engine_for recurses into
+    # _get_engine(SEED_USER_ID) to blend a data-poor tenant toward the seed's
+    # fitted model, and a fresh tenant's epoch key is (0, 0) — identical to the
+    # seed's. Keyed on the epoch pair alone, that recursive call finds its OWN
+    # token already present and the thread waits for itself, forever.
+    token = (uid, key)
+    with _engine_build_cv:
+        while token in _engine_building:
+            _engine_build_cv.wait()
+            hit = _engine_cache.get(uid)          # the builder finished — reuse it
+            if hit is not None and hit[0] == key:
+                return hit[1]
+        _engine_building.add(token)
+    try:
+        built = _build_engine_for(uid)
+        _engine_cache[uid] = (key, built)
+        return built
+    finally:
+        with _engine_build_cv:
+            _engine_building.discard(token)
+            _engine_build_cv.notify_all()
 
 
 def _invalidate_engine(user_id=None) -> None:

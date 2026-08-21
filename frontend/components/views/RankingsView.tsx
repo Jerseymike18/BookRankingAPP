@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
 import type { BookMetadataPayload } from "@/lib/api";
@@ -393,12 +393,15 @@ function BookExpandedPanel({
   categoryOrder,
   kind,
   onRefresh,
+  refreshing,
   onClose,
 }: {
   book: Book;
   categoryOrder: string[];
   kind: BookKind;
   onRefresh: () => void;
+  /** True while the post-save refetch is still in flight (see onRefresh). */
+  refreshing: boolean;
   onClose: () => void;
 }) {
   const ro = useReadOnly();
@@ -636,10 +639,15 @@ function BookExpandedPanel({
               Cancel
             </button>
           </div>
-          {saving && (
+          {(saving || refreshing) && (
             // Saving a rating rewrites the row, then router.refresh() refetches
-            // the whole ranking — the table below is stale until both land.
-            <ProgressBar className="mt-3" label="Saving and re-ranking your library…" />
+            // the whole ranking — the table below is stale until BOTH land, which
+            // is why this tracks `refreshing` too. Without it the bar disappeared
+            // when the POST returned, seconds before the numbers actually moved.
+            <ProgressBar
+              className="mt-3"
+              label={saving ? "Saving your scores…" : "Re-ranking your library…"}
+            />
           )}
         </>
       )}
@@ -902,7 +910,20 @@ function PerTypeRankings({
     [kind, category_order, componentsByCat, expandedCats],
   );
 
-  const onRefresh = useCallback(() => router.refresh(), [router]);
+  // router.refresh() is FIRE-AND-FORGET: it returns immediately and the refetch
+  // lands later. Running it inside a transition is what makes it observable —
+  // `refreshing` stays true until the new server payload has rendered, which does
+  // two things the previous bare call did not:
+  //   * the "Saving and re-ranking your library…" bar can cover the actual
+  //     re-rank instead of vanishing the moment the POST returns, leaving the
+  //     reader watching a stale table with no indication anything is happening;
+  //   * React keeps the CURRENT table on screen while the new one loads, instead
+  //     of tearing down to the route's loading.tsx skeleton and back.
+  const [refreshing, startRefresh] = useTransition();
+  const onRefresh = useCallback(
+    () => startRefresh(() => router.refresh()),
+    [router],
+  );
 
   // Year filter tabs derived from the data — any year the reader has, not a
   // hardcoded set. Offered only when there's more than one year to split by.
@@ -1214,6 +1235,7 @@ function PerTypeRankings({
                             categoryOrder={category_order}
                             kind={kind}
                             onRefresh={onRefresh}
+                            refreshing={refreshing}
                             onClose={() => setExpandedTitle(null)}
                           />
                         </td>

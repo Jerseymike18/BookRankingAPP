@@ -3606,6 +3606,41 @@ def bump_cache_epoch(scope, user_id):
         return 1
 
 
+def bump_cache_epoch_and_notify(scope, user_id, channel, worker_id):
+    """Increment the shared epoch AND fire the NOTIFY on ONE connection.
+
+    This runs INSIDE the write request, so its round trips are latency the reader
+    pays on every rating edit. Doing it as bump_cache_epoch() + a separate notify
+    cost about five: two pool borrows (each with its own health-check SELECT 1),
+    an UPSERT, a follow-up SELECT for the new value, and two commits. Measured at
+    ~1.5s from a laptop and a meaningful slice of a write from Railway.
+
+    One borrow, one UPSERT with RETURNING, one pg_notify, one commit. Postgres
+    only — the SQLite path never publishes (one process, nothing to tell), which
+    is also why RETURNING is safe to rely on here.
+
+    Returns the new epoch, or None if anything failed; the caller treats this as
+    best-effort (it has already invalidated its own caches)."""
+    _ensure_app_state()
+    key = f"epoch:{scope}:{user_id}"
+    con = _connect()
+    try:
+        row = con.execute(
+            "INSERT INTO app_state (key,value,expires_at,updated_at) VALUES (?,'1',NULL,?) "
+            "ON CONFLICT(key) DO UPDATE SET "
+            "value = CAST(CAST(app_state.value AS INTEGER) + 1 AS TEXT), "
+            "updated_at = excluded.updated_at "
+            "RETURNING value",
+            (key, dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))).fetchone()
+        epoch = int(row[0]) if row else 1
+        con.execute("SELECT pg_notify(?, ?)",
+                    (channel, f"{worker_id}|{scope}|{user_id}|{epoch}"))
+        con.commit()
+        return epoch
+    finally:
+        con.close()
+
+
 def rate_limit_try(bucket, principal, max_calls, window_s, now=None):
     """Record a call against a SHARED budget; return True if it was within it.
 

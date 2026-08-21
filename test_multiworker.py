@@ -17,6 +17,12 @@ coordination state used to be exactly that:
     the unauthenticated /try demo, which N workers would loosen N-fold.
   * the re-prediction write lock.
 
+It also covers the engine cache's SINGLE-FLIGHT, which is not multi-worker state but
+fails the same way if it regresses: without it every request in a page's fan-out
+rebuilt the engine independently after a write, and a first attempt at it deadlocked
+because `_build_engine_for` recurses into the seed's engine and a fresh tenant shares
+the seed's (0, 0) epoch key.
+
 These checks pin the shared substitutes (`db_write.app_state` / `rate_limit_hits`,
 `cache_sync`, `db_write.CrossProcessLock`). They run against a THROWAWAY database and
 simulate a second worker in-process, so nothing here touches books.db, the live data,
@@ -155,6 +161,41 @@ def run():
         check("the write lock never lets two holders overlap", not interleaved,
               " ".join(order))
 
+        # ── 6b. Engine single-flight: concurrent misses build ONCE, and the
+        #        recursive seed blend must not deadlock ─────────────────────────
+        import importlib
+        main = importlib.import_module("backend.main")
+        builds = {"n": 0}
+        real_build = main._build_engine_for
+
+        def counting_build(u):
+            builds["n"] += 1
+            time.sleep(0.3)                 # widen the window concurrent callers race in
+            return real_build(u)
+
+        main._build_engine_for = counting_build
+        try:
+            main._engine_cache.pop(main._uid(None), None)
+            main._engine_building.clear()
+            got = []
+            th = [threading.Thread(target=lambda: got.append(main._get_engine(None)))
+                  for _ in range(4)]
+            for t in th:
+                t.start()
+            done = []
+            for t in th:
+                t.join(timeout=30)
+                done.append(not t.is_alive())
+            check("4 concurrent engine misses trigger ONE build, not four",
+                  builds["n"] == 1, f"{builds['n']} build(s)")
+            check("no caller is left waiting (the seed-blend recursion cannot self-deadlock)",
+                  all(done) and len(got) == 4, f"finished={sum(done)}/4, results={len(got)}")
+            check("every concurrent caller gets the SAME engine object",
+                  len(got) == 4 and all(g is got[0] for g in got))
+        finally:
+            main._build_engine_for = real_build
+            main._engine_building.clear()
+
         # ── 7. Local dev is untouched ──────────────────────────────────────────
         check("cache_sync is inert on SQLite (one process, nothing to sync)",
               cache_sync.enabled() is False)
@@ -183,7 +224,7 @@ def run():
     if FAILED:
         print(f"  {len(FAILED)} CHECK(S) FAILED: {', '.join(FAILED)}")
     else:
-        print("  ALL 20 CHECKS PASSED — multi-worker shared state is healthy.")
+        print("  ALL 23 CHECKS PASSED — multi-worker shared state is healthy.")
     print("=" * 60)
     return 1 if FAILED else 0
 
