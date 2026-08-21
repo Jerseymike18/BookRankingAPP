@@ -149,6 +149,10 @@ function noticeSummary(notice: PredictNotice): {
   title: string;
   body: string;
   href: string;
+  /** Short form for the browser tab. A tab strip truncates hard — often to a
+   *  dozen characters — so the glanceable part (the ✓ and the first word) has to
+   *  come first, and the detail is expendable. */
+  tab: string;
 } {
   const kindLabel = notice.kind === "nonfiction" ? "Nonfiction" : "Fiction";
 
@@ -165,6 +169,7 @@ function noticeSummary(notice: PredictNotice): {
         // re-run and landed on the same answer. Say which answer.
         body: `No change — still WA ${r.new_wa.toFixed(2)}.`,
         href,
+        tab: `✓ Re-predicted ${notice.title}`,
       };
     }
     const delta =
@@ -177,6 +182,7 @@ function noticeSummary(notice: PredictNotice): {
       title: `Re-predicted ${notice.title}`,
       body: `WA ${r.old_wa?.toFixed(2) ?? "—"} → ${r.new_wa.toFixed(2)}${delta}${rank}.`,
       href,
+      tab: `✓ Re-predicted ${notice.title}`,
     };
   }
 
@@ -193,6 +199,7 @@ function noticeSummary(notice: PredictNotice): {
     title: `${kindLabel} prediction finished`,
     body: `${parts.join(" · ")}.`,
     href: "/predict",
+    tab: "✓ Prediction finished",
   };
 }
 
@@ -363,6 +370,36 @@ export function PredictJobBanner() {
     lastNotifiedAt.current = notice.at;
     const { title, body } = noticeSummary(notice);
     void showPredictNotification(title, body);
+  }, [notice]);
+
+  // ── Tab-title fallback ───────────────────────────────────────────────────
+  //
+  // The one signal that reaches a reader in another browser tab without asking
+  // anyone's permission. The OS notification is better when it works, but it can
+  // be switched off at three separate levels the page cannot see or influence —
+  // site permission, the browser's own OS entry, and Focus/Do Not Disturb — and
+  // in every one of those cases this still shows up in the tab strip.
+  //
+  // Only set while the tab is actually hidden; a visible tab has the banner.
+  // Restored on return, to exactly the title that was there before — captured
+  // once, because re-capturing on a second notice would save the ALREADY-MODIFIED
+  // title and leave the ✓ stuck there permanently.
+  const savedTitle = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof document === "undefined" || !notice) return;
+    if (document.visibilityState === "visible") return;
+
+    if (savedTitle.current === null) savedTitle.current = document.title;
+    document.title = noticeSummary(notice).tab;
+
+    const restore = () => {
+      if (document.visibilityState !== "visible") return;
+      if (savedTitle.current === null) return;
+      document.title = savedTitle.current;
+      savedTitle.current = null;
+    };
+    document.addEventListener("visibilitychange", restore);
+    return () => document.removeEventListener("visibilitychange", restore);
   }, [notice]);
 
   // A notice is redundant only on the page that already shows its result, with
