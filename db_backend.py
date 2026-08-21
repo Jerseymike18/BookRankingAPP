@@ -78,6 +78,72 @@ def _database_url():
     return url
 
 
+# ---------------------------------------------------------------------------
+# TWO POOLERS — query traffic and session traffic go to different ports
+# ---------------------------------------------------------------------------
+# Supabase offers the same database through two pgbouncer modes:
+#
+#   :5432  SESSION mode      one server connection per CLIENT connection, held for
+#                            the client's whole life. Carries session state, so
+#                            LISTEN/NOTIFY and session-level advisory locks work.
+#                            Capped at 15 clients total, and it REFUSES past that
+#                            (EMAXCONNSESSION) rather than queuing — hitting the cap
+#                            is an outage, not a slowdown.
+#   :6543  TRANSACTION mode  a server connection is assigned per TRANSACTION and
+#                            returned immediately, so an idle client costs nothing
+#                            and far more clients fit. Requests QUEUE instead of
+#                            failing. But session state does not survive between
+#                            transactions: LISTEN never delivers, and a session-level
+#                            advisory lock would be orphaned.
+#
+# So they are split by what each caller needs, not by preference:
+#
+#   query pool          -> TRANSACTION. Every ordinary read and write is one short
+#                          transaction, which is exactly what this mode is for, and
+#                          it lifts the 15-client ceiling that was forcing the pool
+#                          down to 2 connections per worker.
+#   cache_sync listener -> SESSION. It holds an open LISTEN for the process's life.
+#   CrossProcessLock    -> SESSION. pg_advisory_lock is session-scoped and is held
+#                          across several statements.
+#
+# The session pooler's tiny budget is then easy: one listener per worker plus a
+# transient lock connection — a handful, against a cap of 15.
+#
+# DATABASE_URL stays the SESSION url (it is what the platform provides and what the
+# session-mode users need). The query url is DATABASE_URL_TX when set, else the same
+# url with the port swapped. DB_TX_POOLER=0 sends everything back to the session
+# pooler — the pre-split behaviour, and the escape hatch if transaction mode ever
+# misbehaves.
+def session_dsn():
+    """DSN for connections that need SESSION semantics (LISTEN, advisory locks)."""
+    return _database_url()
+
+
+def _tx_pooler_enabled():
+    return os.environ.get("DB_TX_POOLER", "1") != "0"
+
+
+def query_dsn():
+    """DSN for ordinary query traffic — the transaction pooler when available."""
+    session = _database_url()
+    if not _tx_pooler_enabled():
+        return session
+    explicit = os.environ.get("DATABASE_URL_TX", "").strip()
+    if explicit:
+        return explicit
+    # Same host/credentials, transaction-mode port. Only rewritten when the url
+    # actually names the session port, so a DSN pointing somewhere else is left
+    # exactly as given rather than silently redirected.
+    if ":5432/" in session:
+        return session.replace(":5432/", ":6543/", 1)
+    return session
+
+
+def query_pooler_mode():
+    """'transaction' or 'session' — which pooler the query pool ended up on."""
+    return "transaction" if query_dsn() != _database_url() else "session"
+
+
 # --------------------------------------------------------------------------
 # Postgres connection pool (latency only; sqlite path untouched).
 # --------------------------------------------------------------------------
@@ -123,8 +189,29 @@ _WORKERS = max(1, int(os.environ.get("WEB_CONCURRENCY", "1")))
 _CONTAINER_BUDGET = max(2, DB_MAX_CLIENTS // 2)
 # What is left for query pools once every worker's listener is reserved.
 _QUERY_BUDGET = max(_WORKERS, _CONTAINER_BUDGET - _WORKERS)
-DB_POOL_MAX = max(1, int(os.environ.get("DB_POOL_MAX", "0")) or
-                  _QUERY_BUDGET // _WORKERS)
+
+
+def _default_pool_max():
+    """Per-worker query-pool ceiling, sized for whichever pooler the queries use.
+
+    On the SESSION pooler the ceiling is scarcity: 15 clients total, shared with the
+    listeners, and exceeded means refused connections — so the budget above splits
+    what little there is and leaves room for a redeploy overlap.
+
+    On the TRANSACTION pooler it is not scarcity at all: an idle client holds no
+    server connection, and excess demand QUEUES rather than failing. The ceiling
+    there is just how many statements a worker should have in flight at once, so it
+    is sized for the widest page fan-out (the read-queue's four calls) with room to
+    spare — not squeezed against a cap."""
+    override = int(os.environ.get("DB_POOL_MAX", "0"))
+    if override:
+        return max(1, override)
+    if _tx_pooler_enabled() and ":5432/" in os.environ.get("DATABASE_URL", ""):
+        return 6
+    return max(1, _QUERY_BUDGET // _WORKERS)
+
+
+DB_POOL_MAX = _default_pool_max()
 # Connections the pool RETAINS. psycopg2's putconn keeps one only while
 # `len(pool) < minconn`, so minconn=0 means it pools NOTHING (see _get_pg_pool).
 # Retaining the whole ceiling is what makes a warm request cost no handshake.
@@ -157,7 +244,7 @@ def _get_pg_pool():
                 # pooler has since dropped is caught by the SELECT 1 health check
                 # in _borrow_pg and transparently replaced.
                 _PG_POOL = _pgpool.ThreadedConnectionPool(
-                    DB_POOL_MIN, DB_POOL_MAX, _database_url())
+                    DB_POOL_MIN, DB_POOL_MAX, query_dsn())
     return _PG_POOL
 
 
@@ -282,7 +369,7 @@ def connect(path=None, uri=False, readonly=False):
                                     autocommit=readonly or in_readonly())
             except Exception:
                 pass                        # pool trouble -> unpooled fallback
-        return PgConnection(_database_url(), autocommit=readonly or in_readonly())
+        return PgConnection(query_dsn(), autocommit=readonly or in_readonly())
     raise ValueError(f"Unknown DB_BACKEND={b!r} (expected 'sqlite' or 'postgres').")
 
 

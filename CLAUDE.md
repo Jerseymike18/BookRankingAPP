@@ -399,10 +399,23 @@ undo by accident:
 - **The Supabase SESSION pooler caps total clients at 15**, and refuses rather than queues —
   at the cap every request fails. `db_backend`'s connection budget derives the pool size
   from `DB_MAX_CLIENTS`, budgeting a container to HALF the cap so a redeploy (Railway runs
-  the old and new containers together) still fits. Do not raise the pool without redoing
-  that arithmetic. Raising the client cap means moving query traffic to the TRANSACTION
-  pooler (port 6543) and leaving only `cache_sync`'s listener on the session pooler —
-  transaction mode does not carry LISTEN/NOTIFY.
+  the old and new containers together) still fits.
+- **Query traffic goes to the TRANSACTION pooler (`:6543`), session traffic to the SESSION
+  pooler (`:5432`)** — split by what each caller needs, not by preference. In transaction
+  mode a server connection is assigned per TRANSACTION and returned immediately, so an idle
+  client costs nothing, far more clients fit, and excess demand QUEUES rather than being
+  refused; that is what lifted the pool from 2 to 6 per worker. But session state does not
+  survive between transactions, so two callers must stay on `:5432`: `cache_sync`'s listener
+  (it holds an open LISTEN for the process's life) and `db_write.CrossProcessLock`
+  (`pg_advisory_lock` is session-scoped and held across statements). **The failure mode is
+  silent** — transaction mode ACCEPTS a `LISTEN` and simply never delivers — so both use
+  `db_backend.session_dsn()` explicitly. `DATABASE_URL` stays the session url; the query url
+  is `DATABASE_URL_TX`, else the same url port-swapped. `DB_TX_POOLER=0` reverts everything
+  to the session pooler. `GET /health?db=1` reports `pool.query_pooler`; if that ever reads
+  `session`, the split has fallen back and the query pool is sharing the 15-client cap
+  again. Verified against the live DB that multi-statement writes stay ATOMIC through
+  transaction pooling (pgbouncer pins the server for the duration of a transaction) —
+  guard: the four split checks in `test_multiworker.py`.
 
 **Also removed from the write path, and worth not reintroducing:** `change_rating` /
 `add_book` called `_show_computed_wa`, which ran a FULL library load (own connection, full

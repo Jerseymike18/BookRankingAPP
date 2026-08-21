@@ -3768,7 +3768,11 @@ class CrossProcessLock:
         if self._conn is None:
             import psycopg2
             import psycopg2.extensions as ext
-            conn = psycopg2.connect(os.environ["DATABASE_URL"])
+            # SESSION pooler explicitly: pg_advisory_lock is session-scoped and is
+            # held across several statements, so on the transaction pooler the
+            # server connection — and the lock with it — would be handed away
+            # mid-hold.
+            conn = psycopg2.connect(db_backend.session_dsn())
             conn.set_isolation_level(ext.ISOLATION_LEVEL_AUTOCOMMIT)
             self._conn = conn
         return self._conn

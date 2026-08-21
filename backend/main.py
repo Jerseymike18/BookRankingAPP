@@ -2324,7 +2324,12 @@ def health(db: int = 0):
             out["backend"] = db_backend.backend()
             out["pool"] = {"min": getattr(db_backend, "DB_POOL_MIN", None),
                            "max": db_backend.DB_POOL_MAX,
-                           "health_ttl_s": getattr(db_backend, "HEALTH_TTL_S", None)}
+                           "health_ttl_s": getattr(db_backend, "HEALTH_TTL_S", None),
+                           # Which pgbouncer mode query traffic is on. 'session'
+                           # here means the split silently fell back — the query
+                           # pool is then sharing the 15-client cap with the
+                           # listeners again. See db_backend's two-pooler note.
+                           "query_pooler": db_backend.query_pooler_mode()}
         except Exception as e:
             out["db_error"] = type(e).__name__
     return out

@@ -220,7 +220,12 @@ def _run(on_invalidate):
     while True:
         conn = None
         try:
-            conn = psycopg2.connect(os.environ["DATABASE_URL"])
+            # SESSION pooler explicitly: this connection holds an open LISTEN for
+            # the process's life, and the transaction pooler hands its server
+            # connection back after every transaction, so notifications would
+            # simply never arrive (it accepts the LISTEN without erroring, which
+            # is what makes getting this wrong so quiet).
+            conn = psycopg2.connect(db_backend.session_dsn())
             conn.set_isolation_level(ext.ISOLATION_LEVEL_AUTOCOMMIT)
             with conn.cursor() as cur:
                 cur.execute(f"LISTEN {CHANNEL}")

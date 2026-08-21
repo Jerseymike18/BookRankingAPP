@@ -226,6 +226,41 @@ def run():
         check("readonly() does NOT leak to another thread",
               seen.get("other_thread") is False)
 
+        # ── 6d. The two-pooler split ──────────────────────────────────────────
+        # Query traffic belongs on the TRANSACTION pooler (an idle client holds no
+        # server connection, and excess demand queues instead of being refused);
+        # LISTEN and session advisory locks must stay on the SESSION pooler, which
+        # is the quiet failure mode — transaction mode ACCEPTS a LISTEN and then
+        # never delivers.
+        prev_url = os.environ.get("DATABASE_URL")
+        prev_tx = os.environ.get("DB_TX_POOLER")
+        try:
+            os.environ["DATABASE_URL"] = (
+                "postgresql://u:p@aws-1-us-east-2.pooler.supabase.com:5432/postgres")
+            os.environ.pop("DB_TX_POOLER", None)
+            check("query traffic is routed to the transaction pooler",
+                  ":6543/" in dbb.query_dsn() and dbb.query_pooler_mode() == "transaction",
+                  dbb.query_dsn().rsplit("@", 1)[1])
+            check("session traffic (LISTEN, advisory locks) stays on :5432",
+                  ":5432/" in dbb.session_dsn())
+            os.environ["DB_TX_POOLER"] = "0"
+            check("DB_TX_POOLER=0 sends everything back to the session pooler",
+                  dbb.query_dsn() == dbb.session_dsn()
+                  and dbb.query_pooler_mode() == "session")
+            os.environ.pop("DB_TX_POOLER", None)
+            os.environ["DATABASE_URL"] = "postgresql://u:p@somewhere.example:7777/db"
+            check("a DSN on neither known port is left exactly as given",
+                  dbb.query_dsn() == dbb.session_dsn())
+        finally:
+            if prev_url is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = prev_url
+            if prev_tx is None:
+                os.environ.pop("DB_TX_POOLER", None)
+            else:
+                os.environ["DB_TX_POOLER"] = prev_tx
+
         # ── 7. Local dev is untouched ──────────────────────────────────────────
         check("cache_sync is inert on SQLite (one process, nothing to sync)",
               cache_sync.enabled() is False)
@@ -254,7 +289,7 @@ def run():
     if FAILED:
         print(f"  {len(FAILED)} CHECK(S) FAILED: {', '.join(FAILED)}")
     else:
-        print("  ALL 27 CHECKS PASSED — multi-worker shared state is healthy.")
+        print("  ALL 31 CHECKS PASSED — multi-worker shared state is healthy.")
     print("=" * 60)
     return 1 if FAILED else 0
 
