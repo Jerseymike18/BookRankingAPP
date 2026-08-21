@@ -42,6 +42,7 @@ INSERT OR REPLACE/IGNORE, ON CONFLICT, AUTOINCREMENT, lastrowid, executescript.
 ----------------------------------------------------------------------------
 """
 
+import contextlib
 import os
 import sqlite3
 import threading
@@ -194,13 +195,68 @@ def _borrow_pg():
         return pool.getconn(), pool         # one fresh retry; errors propagate
 
 
-def connect(path=None, uri=False):
+# ---------------------------------------------------------------------------
+# READ-ONLY SCOPE — autocommit for paths that only read
+# ---------------------------------------------------------------------------
+# A pooled connection is returned with a rollback(), so the NEXT borrower's first
+# statement has to open a transaction before it can run. Measured against Supabase:
+#
+#     SELECT 1 with a transaction already open      23.7ms   (1 round trip)
+#     SELECT 1 after a rollback (needs BEGIN)       72.1ms   (~3 round trips)
+#     SELECT 1 on an autocommit connection          24.8ms   (1 round trip)
+#
+# So every query was paying roughly three round trips to do the work of one — and a
+# round trip to this database costs ~45ms from Railway. For a READ that transaction
+# buys nothing: there is no atomicity to protect.
+#
+# This is scoped rather than global on purpose. Flipping the pool to autocommit
+# wholesale would silently break the multi-statement writers (update_queue rewrites
+# the whole queue, the metadata writers cascade across tables) — each statement
+# would commit on its own and a mid-way failure would leave a half-applied change.
+# So callers OPT IN around code they know only reads:
+#
+#     with db_backend.readonly():
+#         books, gw, gcw = db_loader.load_from_db(...)
+#
+# Scoping it in the CALLER also keeps the read-only engine files untouched — the
+# loader is on CLAUDE.md's do-not-modify list, and nothing about it changes here
+# anyway: same SQL, same rows, same numbers, only the transaction mode.
+#
+# WRITING inside a readonly() scope is a bug: the write would still succeed, but
+# statement-by-statement with no rollback. Wrap reads only.
+_readonly_state = threading.local()
+
+
+def in_readonly():
+    return getattr(_readonly_state, "on", False)
+
+
+@contextlib.contextmanager
+def readonly():
+    """Mark this thread's connections as read-only (autocommit) for the duration.
+
+    Re-entrant, and thread-scoped rather than global because FastAPI serves sync
+    handlers on a threadpool — a global flag would leak one request's read mode
+    onto another request's write."""
+    prev = in_readonly()
+    _readonly_state.on = True
+    try:
+        yield
+    finally:
+        _readonly_state.on = prev
+
+
+def connect(path=None, uri=False, readonly=False):
     """Return a DB connection for the configured backend.
 
     sqlite   -> a genuine sqlite3.Connection (unchanged behavior). `path` overrides
                 the default db file (callers pass db_write.DB / a test-db path so the
                 test_engine monkeypatch keeps working); `uri` passes through to
                 sqlite3.connect(..., uri=True) for read-only "file:...?mode=ro" opens.
+    `readonly=True` is the inline form of the readonly() scope above — use it at a
+    call site that only SELECTs, to skip the transaction its query would otherwise
+    have to open. Ignored on sqlite. NEVER pass it on a path that writes.
+
     postgres -> a PgConnection proxy that speaks the sqlite3 surface the app uses,
                 backed by a pooled server connection (see above; DB_POOL=0 for a
                 fresh connection per call). `path`/`uri` are sqlite-only and
@@ -222,10 +278,11 @@ def connect(path=None, uri=False):
         if _pool_enabled():
             try:
                 raw, pool = _borrow_pg()
-                return PgConnection(raw=raw, pool=pool)
+                return PgConnection(raw=raw, pool=pool,
+                                    autocommit=readonly or in_readonly())
             except Exception:
                 pass                        # pool trouble -> unpooled fallback
-        return PgConnection(_database_url())
+        return PgConnection(_database_url(), autocommit=readonly or in_readonly())
     raise ValueError(f"Unknown DB_BACKEND={b!r} (expected 'sqlite' or 'postgres').")
 
 
@@ -286,13 +343,25 @@ class PgConnection:
     private connection that close() really closes (the pre-pool behavior and
     the DB_POOL=0 / pool-failure fallback)."""
 
-    def __init__(self, dsn=None, raw=None, pool=None):
+    def __init__(self, dsn=None, raw=None, pool=None, autocommit=False):
         if raw is None:
             import psycopg2
             raw = psycopg2.connect(dsn)
         self._conn = raw
         self._pool = pool
         self._returned = False
+        # Read-only scope: run in autocommit so a plain SELECT costs one round trip
+        # instead of BEGIN + query (see readonly()). Setting the attribute is local
+        # — psycopg2 applies it to the next transaction — so this costs nothing. It
+        # raises if a transaction is somehow already open, in which case we simply
+        # stay transactional rather than fail the request.
+        self._autocommit = False
+        if autocommit:
+            try:
+                raw.autocommit = True
+                self._autocommit = True
+            except Exception:
+                pass
         # Assign `sqlite3.Row` (truthy) to get dict-style rows, mirroring the one
         # `con.row_factory = sqlite3.Row` site. None -> plain tuple rows (default).
         self.row_factory = None
@@ -335,7 +404,17 @@ class PgConnection:
             self._conn.close()
             return
         try:
-            self._conn.rollback()           # never park a conn mid-transaction
+            if self._autocommit:
+                # Nothing to roll back (that is the point), but the mode MUST be
+                # cleared before the connection goes back in the pool, or the next
+                # borrower — possibly a multi-statement writer — would silently run
+                # without a transaction.
+                try:
+                    self._conn.autocommit = False
+                except Exception:
+                    self._conn.rollback()
+            else:
+                self._conn.rollback()       # never park a conn mid-transaction
             self._pool.putconn(self._conn)
             # It just served a request without erroring, so the next borrow within
             # HEALTH_TTL_S can skip its SELECT 1 (see _borrow_pg).

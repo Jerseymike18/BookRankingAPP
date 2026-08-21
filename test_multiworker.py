@@ -196,6 +196,36 @@ def run():
             main._build_engine_for = real_build
             main._engine_building.clear()
 
+        # ── 6c. Read-only scope bookkeeping ───────────────────────────────────
+        # The autocommit itself is a Postgres behaviour (ignored on SQLite), but the
+        # SCOPE is what must never misbehave: it is thread-local because FastAPI
+        # serves sync handlers on a threadpool, and it must always restore — a
+        # leaked read-only flag would put a multi-statement WRITER into autocommit,
+        # where a mid-way failure leaves a half-applied change.
+        import db_backend as dbb
+        check("readonly() is off by default", dbb.in_readonly() is False)
+        with dbb.readonly():
+            inside = dbb.in_readonly()
+            with dbb.readonly():
+                nested = dbb.in_readonly()
+            still = dbb.in_readonly()
+        check("readonly() turns on, nests, and restores",
+              inside and nested and still and dbb.in_readonly() is False)
+        try:
+            with dbb.readonly():
+                raise RuntimeError("boom")
+        except RuntimeError:
+            pass
+        check("readonly() restores even when the body raises",
+              dbb.in_readonly() is False)
+        seen = {}
+        def worker():
+            seen["other_thread"] = dbb.in_readonly()
+        with dbb.readonly():
+            th = threading.Thread(target=worker); th.start(); th.join()
+        check("readonly() does NOT leak to another thread",
+              seen.get("other_thread") is False)
+
         # ── 7. Local dev is untouched ──────────────────────────────────────────
         check("cache_sync is inert on SQLite (one process, nothing to sync)",
               cache_sync.enabled() is False)
@@ -224,7 +254,7 @@ def run():
     if FAILED:
         print(f"  {len(FAILED)} CHECK(S) FAILED: {', '.join(FAILED)}")
     else:
-        print("  ALL 23 CHECKS PASSED — multi-worker shared state is healthy.")
+        print("  ALL 27 CHECKS PASSED — multi-worker shared state is healthy.")
     print("=" * 60)
     return 1 if FAILED else 0
 

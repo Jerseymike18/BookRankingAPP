@@ -383,8 +383,13 @@ def _build_engine_for(uid) -> tuple:
     tenant's own weight overrides (if any) are overlaid on the global weights
     before the load computes WA (see user_weights). A data-poor tenant shrinks
     toward the seed's fitted model (see SEED_USER_ID / _own_fit_weight)."""
-    books, gw, gcw = db_loader.load_from_db(
-        user_id=uid, weight_overrides=user_weights.load_overrides(uid))
+    # Read-only scope: this whole build only SELECTs, so its connections run in
+    # autocommit and each query costs one round trip instead of BEGIN + query. Same
+    # SQL, same rows, same numbers — see db_backend.readonly(). Wrapping it HERE
+    # rather than inside db_loader keeps the read-only engine file untouched.
+    with db_backend.readonly():
+        books, gw, gcw = db_loader.load_from_db(
+            user_id=uid, weight_overrides=user_weights.load_overrides(uid))
     if len(books) == 0:
         books = _shape_empty_books(books, db_loader.CATEGORY_OF_INTEREST)
 
@@ -491,8 +496,9 @@ def _invalidate_engine_local(uid) -> None:
 # Nonfiction engine cache — the (books, gw, gcw) tuple from the SEPARATE
 # nonfiction engine, per tenant. Built lazily; rebuilt after any nonfiction write.
 def _load_nf(uid) -> tuple:
-    books, gw, gcw = nfe.load_nonfiction_from_db(
-        user_id=uid, weight_overrides=user_weights.load_overrides_nf(uid))
+    with db_backend.readonly():             # SELECT-only, see _build_engine_for
+        books, gw, gcw = nfe.load_nonfiction_from_db(
+            user_id=uid, weight_overrides=user_weights.load_overrides_nf(uid))
     if len(books) == 0:  # brand-new tenant: shape the empty frame (see fiction)
         books = _shape_empty_books(books, nfe.NONFICTION_CATEGORY_ORDER)
     return books, gw, gcw
@@ -2651,7 +2657,7 @@ def get_read_queue(blurbs: bool = True,
 
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)   # SELECT only
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
         f'FROM recommendations WHERE done=0 AND user_id=?',
@@ -3180,7 +3186,7 @@ def get_recommendation_blurb(title: str,
     404 only when the reader has no such active recommendation. Unthrottled, like the
     other tenant-scoped data GETs — it is one indexed row read, auth-gated, and only
     reachable for the caller's own recommendations."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     row = con.execute(
         "SELECT blurb FROM recommendations "
         "WHERE LOWER(title)=LOWER(?) AND done=0 AND user_id=? ORDER BY id DESC LIMIT 1",
@@ -4074,7 +4080,7 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
 
     COMPONENTS = db_write.NONFICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)   # SELECT only
     rows = con.execute(
         f'SELECT title, author, genre, series, series_number, words, blurb, keywords, {comp_cols} '
         f'FROM nonfiction_recommendations WHERE done=0 AND user_id=?',
