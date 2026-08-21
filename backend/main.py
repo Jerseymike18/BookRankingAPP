@@ -2841,6 +2841,24 @@ class ResearchRequest(BaseModel):
                                   # cached entry (explicit refresh, never a purge).
 
 
+def _genre_has_weights(genre, allowed_genres) -> bool:
+    """Is this genre one the WA roll-up actually has weights for?
+
+    Load-bearing because of how the roll-up degrades. Every WA computation reads
+    `gw.get(genre, {}).get(cat, 0) or 0`, so a genre with no `genre_weights` row
+    does not raise — it contributes ZERO from every category and the book comes
+    back with a confident-looking full component breakdown and a WA of 0.00. That
+    is the worst kind of wrong: it looks like an answer.
+
+    Every other way a genre enters the engine is already guarded — the LLM
+    detection path checks it (research_predict), candidate generation constrains
+    each candidate to the list, the single-book injection drops an off-list genre,
+    and db_write.add_book refuses one outright. A genre supplied directly by the
+    CALLER was the one unchecked door.
+    """
+    return genre in set(allowed_genres)
+
+
 def _build_research_response(user_id, title, author, eff_genre, genre_auto_detected,
                              scores, conf, blurb, keywords, words, from_cache,
                              sourcing, hybrid_available, engine_data, cache, user_md):
@@ -2957,6 +2975,15 @@ def predict_research(req: ResearchRequest, request: Request,
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
+    # BEFORE the research call, not after: an unscoreable genre is knowable from
+    # the request alone, and rejecting it afterwards would still have spent the
+    # Anthropic call to produce a result that could only ever roll up to 0.00.
+    if req.genre is not None and not _genre_has_weights(req.genre, allowed_genres):
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{req.genre}' isn't one of your genres, so it has no weights "
+                   f"to score against. Pick one of: {', '.join(allowed_genres)}.")
+
     cache = _rp.load_cache()
     try:
         scores, conf, blurb, keywords, det_genre, words, from_cache = _rp.research_book(
@@ -2971,6 +2998,15 @@ def predict_research(req: ResearchRequest, request: Request,
     if eff_genre is None:
         raise HTTPException(status_code=422,
                             detail="Could not auto-detect a genre — pick one manually.")
+    # Belt-and-braces on the DETECTED genre. research_predict already constrains
+    # detection to this list, so this should be unreachable — but the roll-up
+    # fails silently rather than loudly, and that is exactly the class of bug
+    # worth paying one set lookup to make impossible.
+    if not _genre_has_weights(eff_genre, allowed_genres):
+        raise HTTPException(
+            status_code=422,
+            detail=f"'{eff_genre}' isn't one of your genres, so it has no weights "
+                   f"to score against. Pick one of: {', '.join(allowed_genres)}.")
 
     # HYBRID SOURCING (progressive): only when the caller asks for the grounded
     # upgrade (req.grounded). The default fast path returns memory scores so the
@@ -3062,6 +3098,22 @@ def demo_predict(req: DemoPredictRequest, request: Request):
         raise HTTPException(status_code=503, detail="Prediction service unavailable.")
 
     uid = SEED_USER_ID
+
+    # A caller-supplied genre is the one input here that nothing downstream
+    # checks (see _genre_has_weights). Validated ONLY when one is actually sent:
+    # with req.genre None the genre comes from the research cache, the seed
+    # library, or LLM detection — all already constrained — and this path stays
+    # free of the extra round trip, which matters because a cache hit is the
+    # demo's fast path.
+    if req.genre is not None:
+        con = db_backend.connect(db_write.DB, readonly=True)
+        _allowed = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
+        con.close()
+        if not _genre_has_weights(req.genre, _allowed):
+            return _demo_unavailable(
+                f"'{req.genre}' isn't a genre this library scores against — "
+                f"leave the genre blank and it will be detected automatically.", req)
+
     try:
         engine_data = _get_engine(uid)
     except Exception as e:
