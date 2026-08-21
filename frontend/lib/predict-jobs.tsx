@@ -248,6 +248,7 @@ interface PredictJobsValue {
   dismissNotice: () => void;
   setRequest: (kind: BookKind, request: string) => void;
   dismissInterrupted: (kind: BookKind) => void;
+  dismissGenError: (kind: BookKind) => void;
   generate: (kind: BookKind) => void;
   score: (kind: BookKind) => void;
   refineOne: (kind: BookKind, title: string) => void;
@@ -478,6 +479,23 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
 
   const dismissInterrupted = useCallback(
     (kind: BookKind) => patch(kind, (r) => ({ ...r, interrupted: null })),
+    [patch],
+  );
+
+  /**
+   * Drop a stale "couldn't generate candidates" banner.
+   *
+   * This exists because moving the run into this provider changed the lifetime
+   * of errors as well as results, and those two want opposite treatment. A run's
+   * RESULTS should survive navigation — that is the whole feature. An error
+   * banner should not: it reports a moment, usually an external and transient
+   * one, and the page has no way to know the moment has passed. The Predict view
+   * clears this on mount (restoring what unmounting used to do for free) and the
+   * banner carries a dismiss, so a failure can no longer outlive its cause and
+   * be read as current.
+   */
+  const dismissGenError = useCallback(
+    (kind: BookKind) => patch(kind, (r) => (r.genError === null ? r : { ...r, genError: null })),
     [patch],
   );
 
@@ -939,6 +957,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       dismissNotice,
       setRequest,
       dismissInterrupted,
+      dismissGenError,
       generate,
       score,
       refineOne,
@@ -951,7 +970,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [
       runs, queueRepredicts, startQueueRepredict, clearQueueRepredict,
       cancelQueueRepredict, cancelRun, dismissCancelled, activeKind, notice,
-      dismissNotice, setRequest, dismissInterrupted, generate, score, refineOne,
+      dismissNotice, setRequest, dismissInterrupted, dismissGenError, generate, score, refineOne,
       refineRemaining, repredictOne, save, removeBook, restoreAll,
     ],
   );

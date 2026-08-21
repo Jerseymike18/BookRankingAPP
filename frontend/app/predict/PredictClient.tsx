@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
 import type { ResearchResult, ScoredCandidate, Candidate, BookKind } from "@/lib/types";
@@ -203,13 +203,26 @@ function SageButton({
   );
 }
 
-function ErrorBox({ message }: { message: string }) {
+function ErrorBox({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  /** When given, the reader can clear the banner themselves — needed for a
+   *  failure whose cause is external and may already have been fixed. */
+  onDismiss?: () => void;
+}) {
   return (
     <div
-      className="rounded-lg px-4 py-3 text-sm"
+      className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
       style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
     >
-      {message}
+      <span className="flex-1">{message}</span>
+      {onDismiss && (
+        <button onClick={onDismiss} aria-label="Dismiss" className="flex-shrink-0 leading-none">
+          ✕
+        </button>
+      )}
     </div>
   );
 }
@@ -249,6 +262,22 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
     scored, scoringIdx, scoringDone, saveResults, saving, saveProgress,
     repredictErrors, interrupted, cancelled,
   } = run;
+  // Clear a stale generation error on arrival.
+  //
+  // Errors and results now have the same lifetime — the provider — but they want
+  // opposite ones. Results surviving navigation IS the feature. An error banner
+  // surviving it is a bug: it reports a moment, the page cannot know that moment
+  // has passed, and a reader who fixed the cause (topped up credits, reconnected)
+  // comes back to the app still insisting it is broken. Unmounting used to clear
+  // this for free; now it has to be done on purpose. Mount-only, so an error
+  // raised while the reader is watching stays put.
+  // `dismissGenError` is a stable useCallback over a stable `patch`, so listing it
+  // is honest rather than a re-fire hazard — no ref dance needed.
+  const { dismissGenError } = jobs;
+  useEffect(() => {
+    dismissGenError(kind);
+  }, [kind, dismissGenError]);
+
   // One run per kind: the provider refuses to start a second while this one is
   // live (an abandoned loop would write into the new run), so the buttons that
   // start work say why instead of silently no-op-ing.
@@ -373,7 +402,14 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
             <StopButton onClick={() => jobs.cancelRun(kind)} className="mt-2" />
           </>
         )}
-        {genError && <div className="mt-3"><ErrorBox message={genError} /></div>}
+        {genError && (
+          <div className="mt-3">
+            <ErrorBox
+              message={genError}
+              onDismiss={() => jobs.dismissGenError(kind)}
+            />
+          </div>
+        )}
       </Card>
 
       {/* Candidate list + confirm */}
