@@ -84,11 +84,24 @@ export function setNotifyMuted(muted: boolean): void {
   emit();
 }
 
-/** True when a finished run should raise an OS notification right now. */
+/**
+ * True when a finished run should raise an OS notification right now.
+ *
+ * "Away" is NOT just a hidden tab. `visibilityState` stays "visible" when the
+ * browser window is merely behind another application, or sitting unfocused
+ * beside it — so gating on hidden alone missed the most ordinary way of stepping
+ * away from a long job: switching to a different app entirely. `hasFocus()` is
+ * what catches that. Hidden covers a background tab and a minimised window;
+ * unfocused covers everything else.
+ *
+ * The reader who is actually looking at the page still gets the banner alone —
+ * a focused, visible document satisfies neither test.
+ */
 export function shouldNotify(): boolean {
   if (notifyState() !== "granted" || notifyMuted()) return false;
-  // Visible tab → the banner has it covered; a second announcement is noise.
-  return typeof document !== "undefined" && document.visibilityState === "hidden";
+  if (typeof document === "undefined") return false;
+  if (document.visibilityState === "hidden") return true;
+  return typeof document.hasFocus === "function" && !document.hasFocus();
 }
 
 /**
@@ -105,8 +118,13 @@ export function shouldNotify(): boolean {
 export async function showPredictNotification(
   title: string,
   body: string,
-): Promise<void> {
-  if (!shouldNotify()) return;
+  /** Skip the away-check. Only the "send a test" control passes this: the reader
+   *  is by definition looking at the page when they press it, so the normal gate
+   *  would swallow the very thing they asked to see. */
+  force = false,
+): Promise<boolean> {
+  if (!force && !shouldNotify()) return false;
+  if (notifyState() !== "granted") return false;
   const options: NotificationOptions = {
     body,
     icon: "/icons/icon-192.png",
@@ -115,18 +133,35 @@ export async function showPredictNotification(
     // than stacking, so stepping away for a while can't bury the reader.
     tag: "trl-predict-run",
     data: { url: "/predict" },
+    // The whole point is a job the reader walked away from. Desktop Chrome
+    // auto-hides a notification after a few seconds, which for a run they left
+    // ten minutes ago means it is gone before they look — indistinguishable from
+    // never having fired. Keep it up until they deal with it.
+    requireInteraction: true,
+  };
+  const viaWorker = async (): Promise<boolean> => {
+    if (!("serviceWorker" in navigator)) return false;
+    const reg = await navigator.serviceWorker.getRegistration();
+    // A registration whose worker is not active yet cannot show anything.
+    if (!reg || !reg.active) return false;
+    await reg.showNotification(title, options);
+    return true;
   };
   try {
-    const reg =
-      "serviceWorker" in navigator
-        ? await navigator.serviceWorker.getRegistration()
-        : undefined;
-    if (reg) {
-      await reg.showNotification(title, options);
-      return;
-    }
-    new Notification(title, options);
+    if (await viaWorker()) return true;
   } catch {
-    /* blocked, unsupported, or the constructor threw — the banner still stands */
+    /* fall through to the constructor — see below */
+  }
+  // Fallback, and it must be a real fallback rather than an else-branch: a
+  // registration can exist and still refuse to show (worker not yet active, or
+  // showNotification rejecting). Returning silently there left desktop Chrome —
+  // where the plain constructor works fine — with no notification at all.
+  try {
+    new Notification(title, options);
+    return true;
+  } catch {
+    // Android Chrome throws here by design; there the worker path is the only
+    // one, and if it failed there is nothing further to try. The banner stands.
+    return false;
   }
 }

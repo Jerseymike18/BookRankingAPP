@@ -18,7 +18,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   useOptionalPredictJobs,
   isRunBusy,
@@ -250,18 +250,70 @@ export function PredictNotifyToggle() {
   }
 
   return (
-    <button
-      onClick={() => setNotifyMuted(!muted)}
-      className={linkish}
-      style={{ color: muted ? "var(--color-faint)" : "var(--color-sage)" }}
-      title={
-        muted
-          ? "Turn desktop notifications back on"
-          : "Notifications fire only while this tab is in the background"
-      }
-    >
-      {muted ? "Notifications off" : "Notifications on"}
-    </button>
+    <span className="inline-flex items-center gap-2">
+      <button
+        onClick={() => setNotifyMuted(!muted)}
+        className={linkish}
+        style={{ color: muted ? "var(--color-faint)" : "var(--color-sage)" }}
+        title={
+          muted
+            ? "Turn notifications back on"
+            : "Notifications fire when you are away from this page — another tab, another app, or a minimised window"
+        }
+      >
+        {muted ? "Notifications off" : "Notifications on"}
+      </button>
+      {!muted && <NotifyTest />}
+    </span>
+  );
+}
+
+/**
+ * Fire one notification on demand.
+ *
+ * This exists because the feature is invisible when it is misconfigured: a
+ * missing permission, a browser that refuses, and "the run simply hasn't
+ * finished yet" all look exactly alike — nothing happens. One button turns that
+ * into an answer, and its result names which case it was.
+ *
+ * It forces past the away-check, since pressing it means the reader is looking
+ * right at the page.
+ */
+function NotifyTest() {
+  const [result, setResult] = useState<string | null>(null);
+
+  async function send() {
+    const shown = await showPredictNotification(
+      "Notifications are working",
+      "This is what you'll get when a prediction finishes.",
+      true,
+    );
+    setResult(
+      shown
+        ? // Genuinely possible: the call succeeded and the OS still showed
+          // nothing — Do Not Disturb / Focus, or notifications switched off for
+          // the browser itself. Neither is visible from in here.
+          "Sent. If nothing appeared, your OS is suppressing it (Do Not Disturb, or notifications turned off for this browser)."
+        : "This browser wouldn't show it. The in-page banner still works.",
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => void send()}
+        className="text-xs underline decoration-dotted underline-offset-2"
+        style={{ color: "var(--color-faint)" }}
+        title="Send a test notification now"
+      >
+        Test
+      </button>
+      {result && (
+        <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+          {result}
+        </span>
+      )}
+    </>
   );
 }
 
