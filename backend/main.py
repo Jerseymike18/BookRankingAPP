@@ -1225,7 +1225,7 @@ def _read_month_map(user_id, table):
     by-month Timeline. Reads directly (a read, not a write); titles with a NULL
     read_month are omitted. `table` is a trusted internal literal
     ('books' | 'nonfiction_books'), never user input."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     rows = con.execute(
         f"SELECT title, read_month FROM {table} WHERE user_id=?", (user_id,)
     ).fetchall()
@@ -1249,7 +1249,7 @@ def _series_number_map(table: str, user_id: str) -> dict:
     ordinals to engine-backed responses (db_loader is read-only and doesn't
     carry series_number). series_number may be int or float (0.5 prequels).
     Tenant-scoped: only the caller's own rows contribute ordinals."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         rows = con.execute(
             f"SELECT title, series_number FROM {table} "
@@ -1355,7 +1355,7 @@ def get_genres(user_id: str = Depends(auth.get_current_user_id)):
 def get_valid_genres(user_id: str = Depends(auth.get_current_user_id)):
     """Genres valid for adding a book: the global genre_weights set PLUS the
     caller's own private genres."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     genres = {r[0] for r in con.execute("SELECT genre FROM genre_weights")}
     genres |= {r[0] for r in con.execute(
         "SELECT DISTINCT genre FROM genre_weight_overrides WHERE user_id=?", (user_id,))}
@@ -1651,7 +1651,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
 
     # Remove the finished book from the queue so slots advance automatically.
     try:
-        con = db_backend.connect(db_write.DB)
+        con = db_backend.connect(db_write.DB, readonly=True)
         current_queue = [t for (t,) in con.execute(
             "SELECT title FROM read_queue WHERE user_id=? ORDER BY position",
             (user_id,))]
@@ -1671,7 +1671,7 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
     # set_done is then called with that row's exact title. Non-fatal: a failure
     # here never rolls back the successful add.
     try:
-        con = db_backend.connect(db_write.DB)
+        con = db_backend.connect(db_write.DB, readonly=True)
         rec = con.execute(
             "SELECT title FROM recommendations "
             "WHERE LOWER(title)=LOWER(?) AND done=0 AND user_id=? ORDER BY id DESC LIMIT 1",
@@ -1909,7 +1909,7 @@ def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id
 def _maybe_log_delta(title: str, act_scores: dict, user_id: str) -> None:
     """Check recommendations for a stored prediction and log delta if found.
     Tenant-scoped: only the caller's own prediction row is matched and logged."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     row = con.execute(
         "SELECT genre, author, words, "
         + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
@@ -2090,7 +2090,7 @@ def _lookup_from_prediction(title: str, user_id: str) -> Optional[dict]:
     with the same case-insensitive/trimmed title match _maybe_log_delta uses, so
     the canonical stored title flows back and the eventual add re-finds the
     prediction. Returns None when no prediction is on record."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         row = con.execute(
             "SELECT title, author, genre, words, series, series_number, blurb "
@@ -2147,7 +2147,7 @@ def lookup_book(req: LookupRequest, request: Request,
     except Exception as e:
         raise _server_error(e, "lookup: LLM client init")
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
@@ -2452,7 +2452,7 @@ def signup(req: SignupRequest, request: Request):
 @app.get("/api/queue")
 def get_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Return the ordered read-queue titles."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     titles = [r[0] for r in con.execute(
         "SELECT title FROM read_queue WHERE user_id=? ORDER BY position",
         (user_id,))]
@@ -2502,7 +2502,7 @@ def add_series_to_queue(req: AddSeriesRequest,
         raise HTTPException(status_code=503,
                             detail="apikey.txt not found — add your Anthropic API key.")
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
 
     # Fetch existing data for de-dupe checks (scoped to this tenant)
@@ -2953,7 +2953,7 @@ def predict_research(req: ResearchRequest, request: Request,
     except Exception as e:
         raise _server_error(e, "Engine build failed")
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
 
@@ -3039,7 +3039,7 @@ def _seed_library_genre(title: str) -> Optional[str]:
     famous title instead of asking a visitor to pick one. Read-only, tenant-fixed
     to SEED_USER_ID, case-insensitive; None if not found. `tbl` is a fixed literal,
     never user input (same pattern as _book_count)."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         for tbl in ("books", "recommendations"):
             r = con.execute(
@@ -3110,7 +3110,7 @@ def demo_predict(req: DemoPredictRequest, request: Request):
         return _demo_unavailable(
             "Live prediction is temporarily unavailable — try an example book.", req)
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     con.close()
     try:
@@ -3162,7 +3162,7 @@ def discover_candidates(req: DiscoverRequest, request: Request,
     books = _get_engine(user_id)[0]
     cache = _rp.load_cache()
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
     tbr_books = [(t or "", a or "") for t, a in con.execute(
         "SELECT title, author FROM recommendations WHERE user_id=?", (user_id,))]
@@ -3340,7 +3340,7 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
     COMPONENTS = db_write.FICTION_COMPONENTS
     comp_cols = ", ".join(f'"{c}"' for c in COMPONENTS)
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
 
     # Queue positions 1 and 2
     queue_titles = [r[0].strip() for r in con.execute(
@@ -3838,7 +3838,7 @@ def get_nf_reading_status(user_id: str = Depends(auth.get_current_user_id)):
                               for cat in NF_CAT_ORDER},
         }
 
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         cur = con.execute("SELECT title FROM nonfiction_books "
                           "WHERE status='currently-reading' AND user_id=? LIMIT 1",
@@ -3935,7 +3935,7 @@ def edit_nf_book_metadata(title: str, req: BookMetadataRequest,
 def get_nf_valid_genres(user_id: str = Depends(auth.get_current_user_id)):
     """Nonfiction genres valid for the metadata dropdown: the global set PLUS the
     caller's own private genres."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     genres = {r[0] for r in con.execute("SELECT genre FROM nonfiction_genre_weights")}
     genres |= {r[0] for r in con.execute(
         "SELECT DISTINCT genre FROM nonfiction_genre_weight_overrides WHERE user_id=?",
@@ -4069,7 +4069,7 @@ def discover_nf_candidates(req: NonfictionDiscoverRequest, request: Request,
     request = (req.request or "").strip()
     if not request:
         raise HTTPException(status_code=422, detail="Enter a request.")
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     have = {r[0].strip().lower() for r in con.execute(
         "SELECT title FROM nonfiction_books WHERE user_id=?", (user_id,)) if r[0]}
     have |= {r[0].strip().lower() for r in con.execute(
@@ -4295,7 +4295,7 @@ def set_nf_done(title: str, req: NfDoneRequest,
 @app.get("/api/nonfiction/queue")
 def get_nf_queue(user_id: str = Depends(auth.get_current_user_id)):
     """Ordered nonfiction read-queue titles."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     titles = [r[0] for r in con.execute(
         "SELECT title FROM nonfiction_read_queue WHERE user_id=? ORDER BY position",
         (user_id,))]
@@ -4551,7 +4551,7 @@ def _read_order_keys(user_id):
     sorted after known values in their group. The engine frame's schema is fixed
     (no read_seq/read_month columns), so these are fetched here read-only and
     passed alongside it. Uniform 4-tuples so keys always compare cleanly."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     rows = con.execute(
         'SELECT title, year_read, read_month, read_seq, id FROM books '
         'WHERE user_id=?', (user_id,)).fetchall()
@@ -4627,7 +4627,7 @@ def get_track_record(user_id: str = Depends(auth.get_current_user_id)):
     served-band coverage on the harness) moved to /api/engine-validation and
     feed the Methodology page; the two payloads are decoupled by design so a
     change to one can't silently redefine the other."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         # Match /api/delta-log's read shape, plus the mechanism columns the
         # per-user builder consumes (pred_genre/pred_author/corr_wa/n_author).
@@ -4792,7 +4792,7 @@ def get_delta_log(user_id: str = Depends(auth.get_current_user_id)):
     # `tag` is fetched only to classify rows (genuine vs re-prediction audit, and
     # backfill vs retro_sweep for dedup); it is stripped before the response.
     sel = ", ".join(base_cols + pred_cols + act_cols + d_cols + ["tag"])
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     rows = con.execute(
         f"SELECT {sel} FROM delta_log WHERE user_id=? ORDER BY id DESC",
         (user_id,)
@@ -4882,7 +4882,7 @@ def _book_count(table: str, user_id: str) -> int:
     """Cheap COUNT(*) for a tenant's rated library — used by the directory so it
     doesn't have to warm every public tenant's full engine just to show a count.
     `table` is a fixed literal ('books' / 'nonfiction_books'), never user input."""
-    con = db_backend.connect(db_write.DB)
+    con = db_backend.connect(db_write.DB, readonly=True)
     try:
         r = con.execute(
             f"SELECT COUNT(*) FROM {table} WHERE user_id=?", (user_id,)).fetchone()

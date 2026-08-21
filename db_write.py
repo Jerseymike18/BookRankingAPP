@@ -551,7 +551,7 @@ def get_score_anchors(user_id=None):
     changed (empty dict when they're on the canonical defaults). Callers wanting
     a complete, default-filled table use score_anchors.load_anchors."""
     uid = user_id or db_backend.DEFAULT_USER_ID
-    con = _connect()
+    con = db_backend.connect(DB, readonly=True)        # SELECT only
     try:
         rows = con.execute(
             "SELECT band, value FROM score_anchors WHERE user_id=?", (uid,)).fetchall()
@@ -665,7 +665,7 @@ def get_series_meta(user_id=None):
     as not complete."""
     uid = user_id or db_backend.DEFAULT_USER_ID
     _ensure_series_meta()
-    con = _connect()
+    con = db_backend.connect(DB, readonly=True)        # SELECT only
     try:
         rows = con.execute(
             "SELECT series, complete FROM series_meta WHERE user_id=?",

@@ -65,7 +65,7 @@ def _load_overrides(spec, user_id=None, path=DB):
        gw_over[genre][<gw-key>]              = weight   (gw-key per spec.gw_key)
        gcw_over[genre][category][component]  = weight   (category capitalized)
     Only overridden groups are present; empty dicts when the user has none."""
-    con = db_backend.connect(path)
+    con = db_backend.connect(path, readonly=True)      # SELECT only
     uid = user_id or db_backend.DEFAULT_USER_ID
     gw_key = spec["gw_key"]
     try:
@@ -90,7 +90,7 @@ def _effective_weights(spec, user_id=None, path=DB):
     categories = [cap for cap, _ in spec["gw_cols"]]
     comp_index = {c: i for i, c in enumerate(spec["comp_order"])}
     col_list = ",".join(col for _, col in spec["gw_cols"])
-    con = db_backend.connect(path)
+    con = db_backend.connect(path, readonly=True)      # SELECT only
     uid = user_id or db_backend.DEFAULT_USER_ID
     try:
         g_cat: dict = {}
