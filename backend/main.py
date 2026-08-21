@@ -2276,6 +2276,17 @@ def _resolve_version() -> dict:
         "short": sha[:7] if sha else "unknown",
         "branch": branch or "unknown",
         "source": source,
+        # Worker count AS THE PROCESS SEES IT. Without this the deployed worker
+        # count is only inferrable from the database side (counting cache_sync
+        # listener sessions), and that count is misleading behind the Supabase
+        # pooler — its server backends outlive a redeploy, so they report the
+        # POOLER's age and population rather than the app's. This is the number
+        # that actually matters: main.py and db_backend divide the per-process
+        # budgets by it, so if it ever disagrees with the Procfile's
+        # LEDGER_WORKERS, the Procfile is not the thing starting the server.
+        "workers": WORKERS,
+        "workers_pinned": bool(os.environ.get("LEDGER_WORKERS")
+                               or os.environ.get("WEB_CONCURRENCY")),
     }
 
 
