@@ -41,6 +41,11 @@ export interface TiersResponse {
   tier_counts: Record<string, number>;
   tier_order: string[];
   category_order: string[];
+  /** Present only when fetched with `years=all` (the Tier List page): the same
+   *  payload per year the reader has. Tier bands are computed within a year's
+   *  cohort, so the page needs one per year — this saves a second, dependent
+   *  round trip. Absent from the static snapshot, which keeps per-year files. */
+  by_year?: Record<string, TiersResponse>;
 }
 
 export interface BooksResponse {

@@ -478,15 +478,29 @@ export async function saveQueue(titles: string[]): Promise<{ ok: boolean; messag
   return data;
 }
 
-export async function fetchTiers(year?: number, kind: BookKind = "fiction", token?: ServerToken): Promise<TiersResponse> {
+/** Tier-banded books. `allYears` (fiction, and only without `year`) asks the backend
+ *  to include a `by_year` map in the SAME response — tier bands are per-year cohorts,
+ *  so the Tier List page needs one payload per year and could otherwise only learn
+ *  WHICH years exist from this response, making the per-year fetches a second,
+ *  dependent round trip. Ignored in static mode, where the per-year snapshots are
+ *  local files and a second read costs nothing. */
+export async function fetchTiers(
+  year?: number,
+  kind: BookKind = "fiction",
+  token?: ServerToken,
+  allYears = false,
+): Promise<TiersResponse> {
   if (STATIC) {
     // Nonfiction has no year_read (endpoint ignores the param), so it always
     // maps to the single file; fiction has a snapshot per year read.
     if (kind === "fiction" && year != null) return getJSON<TiersResponse>(`fiction/tiers-${year}.json`);
     return getJSON<TiersResponse>(`${kind}/tiers.json`);
   }
-  const params = kind === "fiction" && year != null ? `?year=${year}` : "";
-  const res = await apiFetch(`${base(kind)}/tiers${params}`, { cache: "no-store" }, token);
+  const qs =
+    kind === "fiction" && year != null ? `?year=${year}`
+    : kind === "fiction" && allYears ? "?years=all"
+    : "";
+  const res = await apiFetch(`${base(kind)}/tiers${qs}`, { cache: "no-store" }, token);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
 }

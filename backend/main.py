@@ -2177,13 +2177,36 @@ def lookup_book(req: LookupRequest, request: Request,
 
 
 @app.get("/api/tiers")
-def get_tiers(year: Optional[int] = None,
+def get_tiers(year: Optional[int] = None, years: Optional[str] = None,
               user_id: str = Depends(auth.get_current_user_id)):
-    """Return books with tier assignments (S+/S/A/B/C/D/F), optionally filtered by year_read."""
+    """Books with tier assignments (S+/S/A/B/C/D/F), optionally filtered by year_read.
+
+    `years=all` additionally returns a `by_year` map holding the same payload for
+    every year the reader has. Tier bands are computed within a year's cohort, so
+    the Tier List page needs one payload per year — and it could only learn WHICH
+    years exist from this response, making the per-year fetches a second, dependent
+    round trip to a database ~50ms away. One call now answers both questions.
+
+    Omitted by default, so the static snapshot and every other caller keep the exact
+    response they had; the static build has per-year files and reads them off local
+    disk, where a second hop costs nothing."""
     books = _get_engine(user_id)[0]
     category_components = books.attrs["category_components"]
     snum_map = _series_number_map("books", user_id)
 
+    payload = _tier_payload(books, category_components, snum_map, year)
+    if year is None and (years or "").strip().lower() == "all":
+        present = sorted({int(y) for y in books["Year"].dropna().unique()}, reverse=True)
+        payload["by_year"] = {
+            str(y): _tier_payload(books, category_components, snum_map, y)
+            for y in present
+        }
+    return payload
+
+
+def _tier_payload(books, category_components, snum_map, year=None):
+    """One tier-banded cohort. Extracted from the endpoint so `years=all` can build
+    several without re-reading the engine or re-deriving the series map."""
     if year is not None:
         books = books[books["Year"] == year]
 
