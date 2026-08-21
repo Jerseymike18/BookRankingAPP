@@ -365,12 +365,28 @@ that undoing one silently re-slows the whole site.
   sit unused for up to a token lifetime). The backend already reads `user_metadata` from
   the same claims, so the two now agree.
 
-### Multi-worker: `--workers ${WEB_CONCURRENCY:-2}` and the state it needed shared
+### Multi-worker: `--workers ${LEDGER_WORKERS:-2}` and the state it needed shared
 
-The backend runs **two uvicorn worker processes** (Procfile; `WEB_CONCURRENCY` is
-*exported* there, not just read, so the number uvicorn forks on and the number the app
-divides its budgets by can never disagree). Everything below existed because module
-globals are per PROCESS.
+The backend runs **two uvicorn worker processes**, pinned in the Procfile. Two details
+there are load-bearing:
+
+- **The count is `LEDGER_WORKERS`, not `WEB_CONCURRENCY`.** Railway sets
+  `WEB_CONCURRENCY` itself (observed **3** on 2026-08-20), so reading it handed the live
+  worker count to the hosting platform, where it would move silently if the box were
+  resized. The Procfile overrides it. Tune with `LEDGER_WORKERS` — a name no platform
+  sets — and never by setting `WEB_CONCURRENCY` in the environment, which the Procfile
+  overwrites anyway.
+- **`WEB_CONCURRENCY` is then exported from that same value**, because `backend/main.py`
+  and `db_backend.py` read it to divide per-process budgets. If the number uvicorn forks
+  on and the number the app divides by disagreed, those budgets would silently be several
+  times too generous and the Postgres connection ceiling would be wrong.
+
+Count the live workers without dashboard access: each holds exactly one `cache_sync`
+listener, so `SELECT count(*) FROM pg_stat_activity WHERE query ILIKE '%LISTEN
+ledger_cache%'` is the answer (a closed client listener leaves no parked session behind
+the Supabase session pooler, so your own probes don't inflate it).
+
+Everything below existed because module globals are per PROCESS.
 
 - **Engine-cache invalidation is the load-bearing one.** `_invalidate_engine` bumps an
   in-memory epoch, and the engine/cold-term/correction caches have **no TTL** — so under
