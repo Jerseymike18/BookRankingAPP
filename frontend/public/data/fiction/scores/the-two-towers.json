@@ -14,11 +14,11 @@
       "Action": 8.3,
       "Ending": 8.5,
       "Entertainment": 8.7,
-      "Plot": 8.9
+      "Plot": 8.6
     },
     "Theme": {
-      "Insights": 8.6,
-      "Thought-Provokingness": 8.2
+      "Insights": 8.1,
+      "Thought-Provokingness": 7.8
     },
     "Worldbuilding": {
       "Depth2": 9.8,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Two Towers",
-  "wa": 8.718
+  "wa": 8.6206
 }

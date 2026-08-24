@@ -1,0 +1,32 @@
+{
+  "author": "George R.R. Martin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 7.5,
+      "Prose": 7.8
+    },
+    "Character": {
+      "Depth": 8.5,
+      "Emotional Impact": 7.2,
+      "Motivations": 7.5
+    },
+    "Story": {
+      "Action": 6.3,
+      "Ending": 6.9,
+      "Entertainment": 6.8,
+      "Plot": 7.9
+    },
+    "Theme": {
+      "Insights": 7.9,
+      "Thought-Provokingness": 7.0
+    },
+    "Worldbuilding": {
+      "Depth2": 9.2,
+      "Integration": 9.0,
+      "Originality": 8.4
+    }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Feast for Crows",
+  "wa": 7.6221
+}

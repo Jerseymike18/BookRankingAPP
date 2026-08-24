@@ -2,55 +2,55 @@
   "currently_reading": {
     "author": "George R.R. Martin",
     "category_avgs": {
-      "Aesthetics": 7.63,
-      "Character": 7.88,
-      "Story": 6.44,
-      "Theme": 7.79,
-      "Worldbuilding": 7.48
+      "Aesthetics": 7.91,
+      "Character": 8.23,
+      "Story": 6.69,
+      "Theme": 7.85,
+      "Worldbuilding": 7.91
     },
     "genre": "Epic Fantasy",
     "has_prediction": true,
-    "rank": 96,
-    "series": "A Song of Ice and Fire",
-    "series_number": 4,
-    "title": "A Feast for Crows",
-    "total": 140,
-    "wa": 7.23
-  },
-  "last_read": {
-    "author": "Liu Cixin",
-    "category_avgs": {
-      "Aesthetics": 5.5,
-      "Character": 7.71,
-      "Story": 6.81,
-      "Theme": 9.27,
-      "Worldbuilding": 7.16
-    },
-    "genre": "Science Fiction (Hard)",
-    "has_prediction": false,
-    "rank": 64,
-    "series": "Remembrance of Earth's Past",
-    "series_number": 1,
-    "title": "The Three-Body Problem",
-    "total": 140,
-    "wa": 7.82
-  },
-  "reading_next": {
-    "author": "George R.R. Martin",
-    "category_avgs": {
-      "Aesthetics": 7.9,
-      "Character": 8.19,
-      "Story": 6.49,
-      "Theme": 7.91,
-      "Worldbuilding": 7.73
-    },
-    "genre": "Epic Fantasy",
-    "has_prediction": true,
-    "rank": 92,
+    "rank": 85,
     "series": "A Song of Ice and Fire",
     "series_number": 5,
     "title": "A Dance with Dragons",
-    "total": 140,
-    "wa": 7.4
+    "total": 141,
+    "wa": 7.5
+  },
+  "last_read": {
+    "author": "George R.R. Martin",
+    "category_avgs": {
+      "Aesthetics": 7.69,
+      "Character": 7.89,
+      "Story": 7.13,
+      "Theme": 7.39,
+      "Worldbuilding": 9.06
+    },
+    "genre": "Epic Fantasy",
+    "has_prediction": false,
+    "rank": 80,
+    "series": "A Song of Ice and Fire",
+    "series_number": 4,
+    "title": "A Feast for Crows",
+    "total": 141,
+    "wa": 7.62
+  },
+  "reading_next": {
+    "author": "Liu Cixin",
+    "category_avgs": {
+      "Aesthetics": 5.73,
+      "Character": 8.14,
+      "Story": 7.71,
+      "Theme": 9.51,
+      "Worldbuilding": 7.12
+    },
+    "genre": "Science Fiction (Hard)",
+    "has_prediction": true,
+    "rank": 46,
+    "series": "Remembrance of Earth's Past",
+    "series_number": 2,
+    "title": "The Dark Forest",
+    "total": 141,
+    "wa": 8.27
   }
 }

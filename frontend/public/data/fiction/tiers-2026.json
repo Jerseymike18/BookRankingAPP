@@ -16,7 +16,7 @@
           "Action": 9.3,
           "Ending": 10.0,
           "Entertainment": 9.8,
-          "Plot": 9.2
+          "Plot": 9.4
         },
         "Theme": {
           "Insights": 9.6,
@@ -34,7 +34,7 @@
       "series_number": 8,
       "tier": "S+",
       "title": "Toll the Hounds",
-      "wa": 9.6743,
+      "wa": 9.7023,
       "words": 389000,
       "year_read": 2026
     },
@@ -61,8 +61,8 @@
           "Thought-Provokingness": 9.7
         },
         "Worldbuilding": {
-          "Depth2": 9.6,
-          "Integration": 9.4,
+          "Depth2": 9.7,
+          "Integration": 9.1,
           "Originality": 9.5
         }
       },
@@ -72,7 +72,7 @@
       "series_number": 10,
       "tier": "S+",
       "title": "The Crippled God",
-      "wa": 9.6076,
+      "wa": 9.6054,
       "words": 385000,
       "year_read": 2026
     },
@@ -343,44 +343,6 @@
       "year_read": 2026
     },
     {
-      "author": "J.R.R. Tolkien",
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 9.0
-        },
-        "Character": {
-          "Depth": 8.8,
-          "Emotional Impact": 9.3,
-          "Motivations": 9.5
-        },
-        "Story": {
-          "Action": 8.0,
-          "Ending": 8.5,
-          "Entertainment": 8.6,
-          "Plot": 8.5
-        },
-        "Theme": {
-          "Insights": 8.0,
-          "Thought-Provokingness": 8.4
-        },
-        "Worldbuilding": {
-          "Depth2": 10.0,
-          "Integration": 9.5,
-          "Originality": 10.0
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 10,
-      "series": "Lord of the Rings",
-      "series_number": 3,
-      "tier": "A",
-      "title": "The Return of the King",
-      "wa": 8.7988,
-      "words": 137000,
-      "year_read": 2026
-    },
-    {
       "author": "Joe Abercrombie",
       "components": {
         "Aesthetics": {
@@ -409,7 +371,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 11,
+      "rank": 10,
       "series": "Standalone",
       "series_number": null,
       "tier": "A",
@@ -447,51 +409,13 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 12,
+      "rank": 11,
       "series": "Malazan: Book of the Fallen",
       "series_number": 9,
       "tier": "A",
       "title": "Dust of Dreams",
       "wa": 8.7744,
       "words": 382000,
-      "year_read": 2026
-    },
-    {
-      "author": "J.R.R. Tolkien",
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 8.9
-        },
-        "Character": {
-          "Depth": 8.3,
-          "Emotional Impact": 8.5,
-          "Motivations": 9.0
-        },
-        "Story": {
-          "Action": 8.3,
-          "Ending": 8.5,
-          "Entertainment": 8.7,
-          "Plot": 8.9
-        },
-        "Theme": {
-          "Insights": 8.6,
-          "Thought-Provokingness": 8.2
-        },
-        "Worldbuilding": {
-          "Depth2": 9.8,
-          "Integration": 9.6,
-          "Originality": 10.0
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 13,
-      "series": "Lord of the Rings",
-      "series_number": 2,
-      "tier": "A",
-      "title": "The Two Towers",
-      "wa": 8.718,
-      "words": 143000,
       "year_read": 2026
     },
     {
@@ -502,18 +426,18 @@
           "Prose": 8.8
         },
         "Character": {
-          "Depth": 9.1,
-          "Emotional Impact": 9.8,
+          "Depth": 9.2,
+          "Emotional Impact": 9.9,
           "Motivations": 8.8
         },
         "Story": {
           "Action": 8.4,
           "Ending": 8.9,
-          "Entertainment": 7.9,
+          "Entertainment": 8.3,
           "Plot": 7.4
         },
         "Theme": {
-          "Insights": 8.5,
+          "Insights": 9.2,
           "Thought-Provokingness": 8.8
         },
         "Worldbuilding": {
@@ -523,13 +447,51 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 14,
+      "rank": 12,
       "series": "Malazan: Book of the Fallen",
       "series_number": 7,
       "tier": "A",
       "title": "Reaper's Gale",
-      "wa": 8.6723,
+      "wa": 8.7734,
       "words": 382000,
+      "year_read": 2026
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.2,
+          "Prose": 8.7
+        },
+        "Character": {
+          "Depth": 8.8,
+          "Emotional Impact": 9.3,
+          "Motivations": 9.5
+        },
+        "Story": {
+          "Action": 8.0,
+          "Ending": 8.1,
+          "Entertainment": 8.6,
+          "Plot": 8.3
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 7.9
+        },
+        "Worldbuilding": {
+          "Depth2": 10.0,
+          "Integration": 9.5,
+          "Originality": 10.0
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 13,
+      "series": "Lord of the Rings",
+      "series_number": 3,
+      "tier": "A",
+      "title": "The Return of the King",
+      "wa": 8.6817,
+      "words": 137000,
       "year_read": 2026
     },
     {
@@ -561,13 +523,51 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 15,
+      "rank": 14,
       "series": "Malazan: Book of the Fallen",
       "series_number": 4,
       "tier": "A",
       "title": "House of Chains",
       "wa": 8.6267,
       "words": 302000,
+      "year_read": 2026
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.2,
+          "Prose": 8.9
+        },
+        "Character": {
+          "Depth": 8.3,
+          "Emotional Impact": 8.5,
+          "Motivations": 9.0
+        },
+        "Story": {
+          "Action": 8.3,
+          "Ending": 8.5,
+          "Entertainment": 8.7,
+          "Plot": 8.6
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 7.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.8,
+          "Integration": 9.6,
+          "Originality": 10.0
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 15,
+      "series": "Lord of the Rings",
+      "series_number": 2,
+      "tier": "A",
+      "title": "The Two Towers",
+      "wa": 8.6206,
+      "words": 143000,
       "year_read": 2026
     },
     {
@@ -678,7 +678,7 @@
       "rank": 18,
       "series": "A Song of Ice and Fire",
       "series_number": 1,
-      "tier": "B",
+      "tier": "A",
       "title": "A Game of Thrones",
       "wa": 8.5465,
       "words": 298000,
@@ -1286,7 +1286,7 @@
       "rank": 34,
       "series": "Standalone",
       "series_number": null,
-      "tier": "C",
+      "tier": "B",
       "title": "The Hobbit",
       "wa": 7.8073,
       "words": 95000,
@@ -1445,6 +1445,44 @@
       "year_read": 2026
     },
     {
+      "author": "George R.R. Martin",
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.5,
+          "Prose": 7.8
+        },
+        "Character": {
+          "Depth": 8.5,
+          "Emotional Impact": 7.2,
+          "Motivations": 7.5
+        },
+        "Story": {
+          "Action": 6.3,
+          "Ending": 6.9,
+          "Entertainment": 6.8,
+          "Plot": 7.9
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 7.0
+        },
+        "Worldbuilding": {
+          "Depth2": 9.2,
+          "Integration": 9.0,
+          "Originality": 8.4
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 39,
+      "series": "A Song of Ice and Fire",
+      "series_number": 4,
+      "tier": "C",
+      "title": "A Feast for Crows",
+      "wa": 7.6221,
+      "words": 300000,
+      "year_read": 2026
+    },
+    {
       "author": "Scott Lynch",
       "components": {
         "Aesthetics": {
@@ -1473,7 +1511,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 39,
+      "rank": 40,
       "series": "Gentleman Bastards",
       "series_number": 1,
       "tier": "C",
@@ -1511,7 +1549,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 40,
+      "rank": 41,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1549,7 +1587,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 41,
+      "rank": 42,
       "series": "Hyperion Cantos",
       "series_number": 3,
       "tier": "C",
@@ -1587,7 +1625,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 42,
+      "rank": 43,
       "series": "Dungeon Crawler Carl",
       "series_number": 8,
       "tier": "C",
@@ -1625,7 +1663,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 43,
+      "rank": 44,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1663,7 +1701,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 44,
+      "rank": 45,
       "series": "Dungeon Crawler Carl",
       "series_number": 6,
       "tier": "C",
@@ -1701,7 +1739,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 45,
+      "rank": 46,
       "series": "The Kingkiller Chronicle",
       "series_number": 1,
       "tier": "C",
@@ -1739,7 +1777,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 46,
+      "rank": 47,
       "series": "Dungeon Crawler Carl",
       "series_number": 4,
       "tier": "C",
@@ -1777,7 +1815,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 47,
+      "rank": 48,
       "series": "The Burning",
       "series_number": 2,
       "tier": "C",
@@ -1815,7 +1853,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 48,
+      "rank": 49,
       "series": "Dungeon Crawler Carl",
       "series_number": 3,
       "tier": "C",
@@ -1853,7 +1891,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 49,
+      "rank": 50,
       "series": "Ender's Shadow",
       "series_number": 4,
       "tier": "C",
@@ -1891,7 +1929,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 50,
+      "rank": 51,
       "series": "Dungeon Crawler Carl",
       "series_number": 2,
       "tier": "D",
@@ -1929,7 +1967,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 51,
+      "rank": 52,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -1967,7 +2005,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 52,
+      "rank": 53,
       "series": "The Broken Earth",
       "series_number": 1,
       "tier": "D",
@@ -2005,7 +2043,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 53,
+      "rank": 54,
       "series": "The Broken Earth",
       "series_number": 3,
       "tier": "D",
@@ -2043,7 +2081,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 54,
+      "rank": 55,
       "series": "The Burning",
       "series_number": 1,
       "tier": "D",
@@ -2081,7 +2119,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 55,
+      "rank": 56,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -2119,7 +2157,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 56,
+      "rank": 57,
       "series": "Gentleman Bastards",
       "series_number": 3,
       "tier": "D",
@@ -2157,7 +2195,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 57,
+      "rank": 58,
       "series": "Gentleman Bastards",
       "series_number": 2,
       "tier": "D",
@@ -2195,7 +2233,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 58,
+      "rank": 59,
       "series": "Ender's Shadow",
       "series_number": 3,
       "tier": "D",
@@ -2233,7 +2271,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 59,
+      "rank": 60,
       "series": "Dungeon Crawler Carl",
       "series_number": 1,
       "tier": "D",
@@ -2271,7 +2309,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 60,
+      "rank": 61,
       "series": "Ender's Shadow",
       "series_number": 2,
       "tier": "F",
@@ -2309,7 +2347,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 61,
+      "rank": 62,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 3,
       "tier": "F",
@@ -2347,7 +2385,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 62,
+      "rank": 63,
       "series": "Standalone",
       "series_number": null,
       "tier": "F",
@@ -2385,7 +2423,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 63,
+      "rank": 64,
       "series": "The Broken Earth",
       "series_number": 2,
       "tier": "F",
@@ -2423,7 +2461,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 64,
+      "rank": 65,
       "series": "Ready Player One",
       "series_number": 1,
       "tier": "F",
@@ -2461,7 +2499,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 65,
+      "rank": 66,
       "series": "Ready Player One",
       "series_number": 2,
       "tier": "F",
@@ -2499,7 +2537,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 66,
+      "rank": 67,
       "series": "Ender's Shadow",
       "series_number": 6,
       "tier": "F",
@@ -2517,7 +2555,7 @@
     "Worldbuilding"
   ],
   "tier_counts": {
-    "A": 9,
+    "A": 10,
     "B": 16,
     "C": 16,
     "D": 10,

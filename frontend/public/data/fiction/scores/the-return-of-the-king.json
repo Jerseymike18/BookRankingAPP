@@ -3,7 +3,7 @@
   "components": {
     "Aesthetics": {
       "Narration": 9.2,
-      "Prose": 9.0
+      "Prose": 8.7
     },
     "Character": {
       "Depth": 8.8,
@@ -12,13 +12,13 @@
     },
     "Story": {
       "Action": 8.0,
-      "Ending": 8.5,
+      "Ending": 8.1,
       "Entertainment": 8.6,
-      "Plot": 8.5
+      "Plot": 8.3
     },
     "Theme": {
-      "Insights": 8.0,
-      "Thought-Provokingness": 8.4
+      "Insights": 8.1,
+      "Thought-Provokingness": 7.9
     },
     "Worldbuilding": {
       "Depth2": 10.0,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Return of the King",
-  "wa": 8.7988
+  "wa": 8.6817
 }

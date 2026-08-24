@@ -6,18 +6,18 @@
       "Prose": 8.8
     },
     "Character": {
-      "Depth": 9.1,
-      "Emotional Impact": 9.8,
+      "Depth": 9.2,
+      "Emotional Impact": 9.9,
       "Motivations": 8.8
     },
     "Story": {
       "Action": 8.4,
       "Ending": 8.9,
-      "Entertainment": 7.9,
+      "Entertainment": 8.3,
       "Plot": 7.4
     },
     "Theme": {
-      "Insights": 8.5,
+      "Insights": 9.2,
       "Thought-Provokingness": 8.8
     },
     "Worldbuilding": {
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "Reaper's Gale",
-  "wa": 8.6723
+  "wa": 8.7734
 }

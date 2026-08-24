@@ -5,7 +5,7 @@
       "category_avgs": {
         "Aesthetics": 9.75,
         "Character": 9.8571,
-        "Story": 9.565,
+        "Story": 9.635,
         "Theme": 9.7714,
         "Worldbuilding": 9.4111
       },
@@ -23,7 +23,7 @@
           "Action": 9.3,
           "Ending": 10.0,
           "Entertainment": 9.8,
-          "Plot": 9.2
+          "Plot": 9.4
         },
         "Theme": {
           "Insights": 9.6,
@@ -41,7 +41,7 @@
       "series_number": 8,
       "slug": "toll-the-hounds",
       "title": "Toll the Hounds",
-      "wa": 9.6743,
+      "wa": 9.7023,
       "words": 389000,
       "year": 2026,
       "year_read": 2026
@@ -53,7 +53,7 @@
         "Character": 9.8357,
         "Story": 9.47,
         "Theme": 9.5714,
-        "Worldbuilding": 9.5333
+        "Worldbuilding": 9.5111
       },
       "components": {
         "Aesthetics": {
@@ -76,8 +76,8 @@
           "Thought-Provokingness": 9.7
         },
         "Worldbuilding": {
-          "Depth2": 9.6,
-          "Integration": 9.4,
+          "Depth2": 9.7,
+          "Integration": 9.1,
           "Originality": 9.5
         }
       },
@@ -87,7 +87,7 @@
       "series_number": 10,
       "slug": "the-crippled-god",
       "title": "The Crippled God",
-      "wa": 9.6076,
+      "wa": 9.6054,
       "words": 385000,
       "year": 2026,
       "year_read": 2026
@@ -737,52 +737,6 @@
       "year_read": 2025
     },
     {
-      "author": "J.R.R. Tolkien",
-      "category_avgs": {
-        "Aesthetics": 9.075,
-        "Character": 9.0786,
-        "Story": 8.45,
-        "Theme": 8.2286,
-        "Worldbuilding": 9.8611
-      },
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 9.0
-        },
-        "Character": {
-          "Depth": 8.8,
-          "Emotional Impact": 9.3,
-          "Motivations": 9.5
-        },
-        "Story": {
-          "Action": 8.0,
-          "Ending": 8.5,
-          "Entertainment": 8.6,
-          "Plot": 8.5
-        },
-        "Theme": {
-          "Insights": 8.0,
-          "Thought-Provokingness": 8.4
-        },
-        "Worldbuilding": {
-          "Depth2": 10.0,
-          "Integration": 9.5,
-          "Originality": 10.0
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 17,
-      "series": "Lord of the Rings",
-      "series_number": 3,
-      "slug": "the-return-of-the-king",
-      "title": "The Return of the King",
-      "wa": 8.7988,
-      "words": 137000,
-      "year": 2026,
-      "year_read": 2026
-    },
-    {
       "author": "Joe Abercrombie",
       "category_avgs": {
         "Aesthetics": 8.3875,
@@ -818,7 +772,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 18,
+      "rank": 17,
       "series": "Standalone",
       "series_number": null,
       "slug": "the-heroes",
@@ -864,12 +818,58 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 19,
+      "rank": 18,
       "series": "Malazan: Book of the Fallen",
       "series_number": 9,
       "slug": "dust-of-dreams",
       "title": "Dust of Dreams",
       "wa": 8.7744,
+      "words": 382000,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
+      "author": "Steven Erikson",
+      "category_avgs": {
+        "Aesthetics": 8.95,
+        "Character": 9.3929,
+        "Story": 8.15,
+        "Theme": 8.9714,
+        "Worldbuilding": 9.1389
+      },
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.2,
+          "Prose": 8.8
+        },
+        "Character": {
+          "Depth": 9.2,
+          "Emotional Impact": 9.9,
+          "Motivations": 8.8
+        },
+        "Story": {
+          "Action": 8.4,
+          "Ending": 8.9,
+          "Entertainment": 8.3,
+          "Plot": 7.4
+        },
+        "Theme": {
+          "Insights": 9.2,
+          "Thought-Provokingness": 8.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.0,
+          "Integration": 9.3,
+          "Originality": 9.5
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 19,
+      "series": "Malazan: Book of the Fallen",
+      "series_number": 7,
+      "slug": "reaper-s-gale",
+      "title": "Reaper's Gale",
+      "wa": 8.7734,
       "words": 382000,
       "year": 2026,
       "year_read": 2026
@@ -969,92 +969,46 @@
     {
       "author": "J.R.R. Tolkien",
       "category_avgs": {
-        "Aesthetics": 9.0125,
-        "Character": 8.4714,
-        "Story": 8.66,
-        "Theme": 8.3714,
-        "Worldbuilding": 9.7667
+        "Aesthetics": 8.8875,
+        "Character": 9.0786,
+        "Story": 8.28,
+        "Theme": 7.9857,
+        "Worldbuilding": 9.8611
       },
       "components": {
         "Aesthetics": {
           "Narration": 9.2,
-          "Prose": 8.9
+          "Prose": 8.7
         },
         "Character": {
-          "Depth": 8.3,
-          "Emotional Impact": 8.5,
-          "Motivations": 9.0
+          "Depth": 8.8,
+          "Emotional Impact": 9.3,
+          "Motivations": 9.5
         },
         "Story": {
-          "Action": 8.3,
-          "Ending": 8.5,
-          "Entertainment": 8.7,
-          "Plot": 8.9
+          "Action": 8.0,
+          "Ending": 8.1,
+          "Entertainment": 8.6,
+          "Plot": 8.3
         },
         "Theme": {
-          "Insights": 8.6,
-          "Thought-Provokingness": 8.2
+          "Insights": 8.1,
+          "Thought-Provokingness": 7.9
         },
         "Worldbuilding": {
-          "Depth2": 9.8,
-          "Integration": 9.6,
+          "Depth2": 10.0,
+          "Integration": 9.5,
           "Originality": 10.0
         }
       },
       "genre": "Epic Fantasy",
       "rank": 22,
       "series": "Lord of the Rings",
-      "series_number": 2,
-      "slug": "the-two-towers",
-      "title": "The Two Towers",
-      "wa": 8.718,
-      "words": 143000,
-      "year": 2026,
-      "year_read": 2026
-    },
-    {
-      "author": "Steven Erikson",
-      "category_avgs": {
-        "Aesthetics": 8.95,
-        "Character": 9.3071,
-        "Story": 8.05,
-        "Theme": 8.6714,
-        "Worldbuilding": 9.1389
-      },
-      "components": {
-        "Aesthetics": {
-          "Narration": 9.2,
-          "Prose": 8.8
-        },
-        "Character": {
-          "Depth": 9.1,
-          "Emotional Impact": 9.8,
-          "Motivations": 8.8
-        },
-        "Story": {
-          "Action": 8.4,
-          "Ending": 8.9,
-          "Entertainment": 7.9,
-          "Plot": 7.4
-        },
-        "Theme": {
-          "Insights": 8.5,
-          "Thought-Provokingness": 8.8
-        },
-        "Worldbuilding": {
-          "Depth2": 9.0,
-          "Integration": 9.3,
-          "Originality": 9.5
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 23,
-      "series": "Malazan: Book of the Fallen",
-      "series_number": 7,
-      "slug": "reaper-s-gale",
-      "title": "Reaper's Gale",
-      "wa": 8.6723,
-      "words": 382000,
+      "series_number": 3,
+      "slug": "the-return-of-the-king",
+      "title": "The Return of the King",
+      "wa": 8.6817,
+      "words": 137000,
       "year": 2026,
       "year_read": 2026
     },
@@ -1094,7 +1048,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 24,
+      "rank": 23,
       "series": "The Wheel of Time",
       "series_number": 11,
       "slug": "knife-of-dreams",
@@ -1140,7 +1094,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 25,
+      "rank": 24,
       "series": "Red Rising",
       "series_number": 6,
       "slug": "lightbringer",
@@ -1186,13 +1140,59 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 26,
+      "rank": 25,
       "series": "Malazan: Book of the Fallen",
       "series_number": 4,
       "slug": "house-of-chains",
       "title": "House of Chains",
       "wa": 8.6267,
       "words": 302000,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
+      "author": "J.R.R. Tolkien",
+      "category_avgs": {
+        "Aesthetics": 9.0125,
+        "Character": 8.4714,
+        "Story": 8.555,
+        "Theme": 7.9286,
+        "Worldbuilding": 9.7667
+      },
+      "components": {
+        "Aesthetics": {
+          "Narration": 9.2,
+          "Prose": 8.9
+        },
+        "Character": {
+          "Depth": 8.3,
+          "Emotional Impact": 8.5,
+          "Motivations": 9.0
+        },
+        "Story": {
+          "Action": 8.3,
+          "Ending": 8.5,
+          "Entertainment": 8.7,
+          "Plot": 8.6
+        },
+        "Theme": {
+          "Insights": 8.1,
+          "Thought-Provokingness": 7.8
+        },
+        "Worldbuilding": {
+          "Depth2": 9.8,
+          "Integration": 9.6,
+          "Originality": 10.0
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 26,
+      "series": "Lord of the Rings",
+      "series_number": 2,
+      "slug": "the-two-towers",
+      "title": "The Two Towers",
+      "wa": 8.6206,
+      "words": 143000,
       "year": 2026,
       "year_read": 2026
     },
@@ -3635,6 +3635,52 @@
       "year_read": 2025
     },
     {
+      "author": "George R.R. Martin",
+      "category_avgs": {
+        "Aesthetics": 7.6875,
+        "Character": 7.8929,
+        "Story": 7.135,
+        "Theme": 7.3857,
+        "Worldbuilding": 9.0556
+      },
+      "components": {
+        "Aesthetics": {
+          "Narration": 7.5,
+          "Prose": 7.8
+        },
+        "Character": {
+          "Depth": 8.5,
+          "Emotional Impact": 7.2,
+          "Motivations": 7.5
+        },
+        "Story": {
+          "Action": 6.3,
+          "Ending": 6.9,
+          "Entertainment": 6.8,
+          "Plot": 7.9
+        },
+        "Theme": {
+          "Insights": 7.9,
+          "Thought-Provokingness": 7.0
+        },
+        "Worldbuilding": {
+          "Depth2": 9.2,
+          "Integration": 9.0,
+          "Originality": 8.4
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 80,
+      "series": "A Song of Ice and Fire",
+      "series_number": 4,
+      "slug": "a-feast-for-crows",
+      "title": "A Feast for Crows",
+      "wa": 7.6221,
+      "words": 300000,
+      "year": 2026,
+      "year_read": 2026
+    },
+    {
       "author": "Scott Lynch",
       "category_avgs": {
         "Aesthetics": 8.4875,
@@ -3670,7 +3716,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 80,
+      "rank": 81,
       "series": "Gentleman Bastards",
       "series_number": 1,
       "slug": "the-lies-of-locke-lamora",
@@ -3716,7 +3762,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 81,
+      "rank": 82,
       "series": "Standalone",
       "series_number": null,
       "slug": "red-country",
@@ -3762,7 +3808,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 82,
+      "rank": 83,
       "series": "Hyperion Cantos",
       "series_number": 3,
       "slug": "endymion",
@@ -3808,7 +3854,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 83,
+      "rank": 84,
       "series": "The Wheel of Time",
       "series_number": 10,
       "slug": "crossroads-of-twilight",
@@ -3854,7 +3900,7 @@
         }
       },
       "genre": "Classical Drama",
-      "rank": 84,
+      "rank": 85,
       "series": "Standalone",
       "series_number": null,
       "slug": "the-oresteia",
@@ -3900,7 +3946,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 85,
+      "rank": 86,
       "series": "The Wheel of Time",
       "series_number": 0,
       "slug": "new-spring",
@@ -3946,7 +3992,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 86,
+      "rank": 87,
       "series": "Dungeon Crawler Carl",
       "series_number": 8,
       "slug": "a-parade-of-horribles",
@@ -3992,7 +4038,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 87,
+      "rank": 88,
       "series": "Standalone",
       "series_number": null,
       "slug": "there-is-no-antimemetics-division",
@@ -4038,7 +4084,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 88,
+      "rank": 89,
       "series": "Red Rising",
       "series_number": 4,
       "slug": "iron-gold",
@@ -4084,7 +4130,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 89,
+      "rank": 90,
       "series": "Dungeon Crawler Carl",
       "series_number": 6,
       "slug": "the-eye-of-the-bedlam-bride",
@@ -4130,7 +4176,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 90,
+      "rank": 91,
       "series": "Sun Eater",
       "series_number": 7,
       "slug": "shadows-upon-time",
@@ -4176,7 +4222,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 91,
+      "rank": 92,
       "series": "The Kingkiller Chronicle",
       "series_number": 1,
       "slug": "the-name-of-the-wind",
@@ -4222,7 +4268,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 92,
+      "rank": 93,
       "series": "Dungeon Crawler Carl",
       "series_number": 4,
       "slug": "the-gate-of-the-feral-gods",
@@ -4268,7 +4314,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 93,
+      "rank": 94,
       "series": "Standalone",
       "series_number": null,
       "slug": "project-hail-mary",
@@ -4314,7 +4360,7 @@
         }
       },
       "genre": "Classical Drama",
-      "rank": 94,
+      "rank": 95,
       "series": "Standalone",
       "series_number": null,
       "slug": "rosencrantz-and-guildenstern-are-dead",
@@ -4360,7 +4406,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 95,
+      "rank": 96,
       "series": "The Burning",
       "series_number": 2,
       "slug": "the-fires-of-vengeance",
@@ -4406,7 +4452,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 96,
+      "rank": 97,
       "series": "Dungeon Crawler Carl",
       "series_number": 3,
       "slug": "the-dungeon-anarchist-s-cookbook",
@@ -4452,7 +4498,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 97,
+      "rank": 98,
       "series": "Standalone",
       "series_number": null,
       "slug": "warbreaker",
@@ -4498,7 +4544,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 98,
+      "rank": 99,
       "series": "Ender's Shadow",
       "series_number": 4,
       "slug": "shadow-of-the-giant",
@@ -4544,7 +4590,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 99,
+      "rank": 100,
       "series": "Ender's Game",
       "series_number": 4,
       "slug": "children-of-the-mind",
@@ -4590,7 +4636,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 100,
+      "rank": 101,
       "series": "Ender's Game",
       "series_number": 3,
       "slug": "xenocide",
@@ -4636,7 +4682,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 101,
+      "rank": 102,
       "series": "Standalone",
       "series_number": null,
       "slug": "elantris",
@@ -4682,7 +4728,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 102,
+      "rank": 103,
       "series": "Mistborn Era 1",
       "series_number": 2,
       "slug": "the-well-of-ascension",
@@ -4728,7 +4774,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 103,
+      "rank": 104,
       "series": "Sun Eater",
       "series_number": 1,
       "slug": "empire-of-silence",
@@ -4774,7 +4820,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 104,
+      "rank": 105,
       "series": "Dungeon Crawler Carl",
       "series_number": 2,
       "slug": "carl-s-doomsday-scenario",
@@ -4820,7 +4866,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 105,
+      "rank": 106,
       "series": "Standalone",
       "series_number": null,
       "slug": "the-martian-chronicles",
@@ -4866,7 +4912,7 @@
         }
       },
       "genre": "Classical Epic",
-      "rank": 106,
+      "rank": 107,
       "series": "Standalone",
       "series_number": null,
       "slug": "inferno",
@@ -4912,7 +4958,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 107,
+      "rank": 108,
       "series": "Standalone",
       "series_number": null,
       "slug": "silence",
@@ -4958,7 +5004,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 108,
+      "rank": 109,
       "series": "Standalone",
       "series_number": null,
       "slug": "twenty-thousand-leagues-under-the-sea",
@@ -5004,7 +5050,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 109,
+      "rank": 110,
       "series": "The Stormlight Archive",
       "series_number": 5,
       "slug": "wind-and-truth",
@@ -5050,7 +5096,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 110,
+      "rank": 111,
       "series": "The Broken Earth",
       "series_number": 1,
       "slug": "the-fifth-season",
@@ -5096,7 +5142,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 111,
+      "rank": 112,
       "series": "The Broken Earth",
       "series_number": 3,
       "slug": "the-stone-sky",
@@ -5142,7 +5188,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 112,
+      "rank": 113,
       "series": "Ender's Game",
       "series_number": 2,
       "slug": "ender-in-exile",
@@ -5188,7 +5234,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 113,
+      "rank": 114,
       "series": "The Burning",
       "series_number": 1,
       "slug": "the-rage-of-dragons",
@@ -5234,7 +5280,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 114,
+      "rank": 115,
       "series": "Standalone",
       "series_number": null,
       "slug": "rendezvous-with-rama",
@@ -5280,7 +5326,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 115,
+      "rank": 116,
       "series": "Gentleman Bastards",
       "series_number": 3,
       "slug": "the-republic-of-thieves",
@@ -5326,7 +5372,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 116,
+      "rank": 117,
       "series": "Gentleman Bastards",
       "series_number": 2,
       "slug": "red-seas-under-red-skies",
@@ -5372,7 +5418,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 117,
+      "rank": 118,
       "series": "Ender's Shadow",
       "series_number": 3,
       "slug": "shadow-puppets",
@@ -5418,7 +5464,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 118,
+      "rank": 119,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 1,
       "slug": "the-dragonbone-chair",
@@ -5464,7 +5510,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 119,
+      "rank": 120,
       "series": "Dungeon Crawler Carl",
       "series_number": 1,
       "slug": "dungeon-crawler-carl",
@@ -5510,7 +5556,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 120,
+      "rank": 121,
       "series": "Ender's Shadow",
       "series_number": 5,
       "slug": "shadows-in-flight",
@@ -5556,7 +5602,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 121,
+      "rank": 122,
       "series": "Standalone",
       "series_number": null,
       "slug": "sister-carrie",
@@ -5602,7 +5648,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 122,
+      "rank": 123,
       "series": "Thrawn Trilogy",
       "series_number": 2,
       "slug": "dark-force-rising",
@@ -5648,7 +5694,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 123,
+      "rank": 124,
       "series": "Ender's Shadow",
       "series_number": 2,
       "slug": "shadow-of-the-hegemon",
@@ -5694,7 +5740,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 124,
+      "rank": 125,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 3,
       "slug": "to-green-angel-tower",
@@ -5740,7 +5786,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 125,
+      "rank": 126,
       "series": "Standalone",
       "series_number": null,
       "slug": "the-emperor-s-soul",
@@ -5786,7 +5832,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 126,
+      "rank": 127,
       "series": "Standalone",
       "series_number": null,
       "slug": "edgedancer",
@@ -5832,7 +5878,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 127,
+      "rank": 128,
       "series": "Thrawn Trilogy",
       "series_number": 1,
       "slug": "heir-to-the-empire",
@@ -5878,7 +5924,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 128,
+      "rank": 129,
       "series": "Standalone",
       "series_number": null,
       "slug": "einstein-s-dreams",
@@ -5924,7 +5970,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 129,
+      "rank": 130,
       "series": "Standalone",
       "series_number": null,
       "slug": "dawnshard",
@@ -5970,7 +6016,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 130,
+      "rank": 131,
       "series": "The Broken Earth",
       "series_number": 2,
       "slug": "the-obelisk-gate",
@@ -6016,7 +6062,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 131,
+      "rank": 132,
       "series": "Standalone",
       "series_number": null,
       "slug": "martin-eden",
@@ -6062,7 +6108,7 @@
         }
       },
       "genre": "Science Fantasy",
-      "rank": 132,
+      "rank": 133,
       "series": "Thrawn Trilogy",
       "series_number": 3,
       "slug": "the-last-command",
@@ -6108,7 +6154,7 @@
         }
       },
       "genre": "Speculative Literary Fiction",
-      "rank": 133,
+      "rank": 134,
       "series": "Standalone",
       "series_number": null,
       "slug": "station-11",
@@ -6154,7 +6200,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 134,
+      "rank": 135,
       "series": "Standalone",
       "series_number": null,
       "slug": "shadows-for-silence",
@@ -6200,7 +6246,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 135,
+      "rank": 136,
       "series": "Standalone",
       "series_number": null,
       "slug": "ironweed",
@@ -6246,7 +6292,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 136,
+      "rank": 137,
       "series": "Memory, Sorrow, Thorn",
       "series_number": 2,
       "slug": "the-stone-of-farewell",
@@ -6292,7 +6338,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 137,
+      "rank": 138,
       "series": "Ready Player One",
       "series_number": 1,
       "slug": "ready-player-one",
@@ -6338,7 +6384,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 138,
+      "rank": 139,
       "series": "Standalone",
       "series_number": null,
       "slug": "mistborn-secret-history",
@@ -6384,7 +6430,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 139,
+      "rank": 140,
       "series": "Ready Player One",
       "series_number": 2,
       "slug": "ready-player-two",
@@ -6430,7 +6476,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 140,
+      "rank": 141,
       "series": "Ender's Shadow",
       "series_number": 6,
       "slug": "the-last-shadow",

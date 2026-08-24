@@ -1,70 +1,32 @@
 {
   "series": [
     {
-      "adjusted_wa": 9.488,
+      "adjusted_wa": 9.507,
       "author": "Steven Erikson",
-      "avg_total_average": 9.04,
-      "avg_wa": 9.01,
+      "avg_total_average": 9.05,
+      "avg_wa": 9.02,
       "books": 10,
       "complete": true,
-      "consistency": 0.185,
+      "consistency": 0.186,
       "evidence": 0.0,
       "finale": 0.096,
       "finale_lift": 0.64,
       "genre": "Epic Fantasy",
-      "peak": 0.2,
-      "peak_lift": 0.667,
+      "peak": 0.205,
+      "peak_lift": 0.682,
       "series": "Malazan: Book of the Fallen",
       "tier": "S+",
       "unfinished": 0.0,
-      "weakest_pct": 0.7214
+      "weakest_pct": 0.7234
     },
     {
-      "adjusted_wa": 8.97,
-      "author": "George R.R. Martin",
-      "avg_total_average": 8.57,
-      "avg_wa": 8.79,
-      "books": 3,
-      "complete": false,
-      "consistency": 0.154,
-      "evidence": 0.0,
-      "finale": 0.0,
-      "finale_lift": 0.0,
-      "genre": "Epic Fantasy",
-      "peak": 0.128,
-      "peak_lift": 0.427,
-      "series": "A Song of Ice and Fire",
-      "tier": "S",
-      "unfinished": -0.1,
-      "weakest_pct": 0.7571
-    },
-    {
-      "adjusted_wa": 8.675,
-      "author": "J.R.R. Tolkien",
-      "avg_total_average": 8.7,
-      "avg_wa": 8.48,
-      "books": 3,
-      "complete": true,
-      "consistency": 0.051,
-      "evidence": 0.0,
-      "finale": 0.05,
-      "finale_lift": 0.333,
-      "genre": "Epic Fantasy",
-      "peak": 0.097,
-      "peak_lift": 0.322,
-      "series": "Lord of the Rings",
-      "tier": "S",
-      "unfinished": 0.0,
-      "weakest_pct": 0.5857
-    },
-    {
-      "adjusted_wa": 8.647,
+      "adjusted_wa": 8.644,
       "author": "Robert Jordan",
       "avg_total_average": 8.22,
       "avg_wa": 8.27,
       "books": 15,
       "complete": true,
-      "consistency": -0.095,
+      "consistency": -0.097,
       "evidence": 0.0,
       "finale": 0.171,
       "finale_lift": 1.14,
@@ -72,18 +34,56 @@
       "peak": 0.297,
       "peak_lift": 0.991,
       "series": "The Wheel of Time",
-      "tier": "A",
+      "tier": "S",
       "unfinished": 0.0,
-      "weakest_pct": 0.3929
+      "weakest_pct": 0.3901
     },
     {
-      "adjusted_wa": 8.53,
+      "adjusted_wa": 8.567,
+      "author": "George R.R. Martin",
+      "avg_total_average": 8.36,
+      "avg_wa": 8.5,
+      "books": 4,
+      "complete": false,
+      "consistency": -0.045,
+      "evidence": 0.0,
+      "finale": 0.0,
+      "finale_lift": 0.0,
+      "genre": "Epic Fantasy",
+      "peak": 0.216,
+      "peak_lift": 0.719,
+      "series": "A Song of Ice and Fire",
+      "tier": "S",
+      "unfinished": -0.1,
+      "weakest_pct": 0.4326
+    },
+    {
+      "adjusted_wa": 8.551,
+      "author": "J.R.R. Tolkien",
+      "avg_total_average": 8.63,
+      "avg_wa": 8.41,
+      "books": 3,
+      "complete": true,
+      "consistency": 0.053,
+      "evidence": 0.0,
+      "finale": 0.01,
+      "finale_lift": 0.067,
+      "genre": "Epic Fantasy",
+      "peak": 0.083,
+      "peak_lift": 0.277,
+      "series": "Lord of the Rings",
+      "tier": "A",
+      "unfinished": 0.0,
+      "weakest_pct": 0.5887
+    },
+    {
+      "adjusted_wa": 8.528,
       "author": "Dan Simmons",
       "avg_total_average": 8.34,
       "avg_wa": 8.33,
       "books": 4,
       "complete": true,
-      "consistency": -0.057,
+      "consistency": -0.059,
       "evidence": 0.0,
       "finale": 0.011,
       "finale_lift": 0.075,
@@ -93,16 +93,16 @@
       "series": "Hyperion Cantos",
       "tier": "A",
       "unfinished": 0.0,
-      "weakest_pct": 0.4143
+      "weakest_pct": 0.4113
     },
     {
-      "adjusted_wa": 8.219,
+      "adjusted_wa": 8.217,
       "author": "Pierce Brown",
       "avg_total_average": 8.1,
       "avg_wa": 8.21,
       "books": 6,
       "complete": false,
-      "consistency": -0.096,
+      "consistency": -0.098,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -112,16 +112,16 @@
       "series": "Red Rising",
       "tier": "A",
       "unfinished": -0.1,
-      "weakest_pct": 0.3714
+      "weakest_pct": 0.3688
     },
     {
-      "adjusted_wa": 8.106,
+      "adjusted_wa": 8.108,
       "author": "James Islington",
       "avg_total_average": 7.96,
       "avg_wa": 8.11,
       "books": 2,
       "complete": false,
-      "consistency": 0.007,
+      "consistency": 0.009,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -131,16 +131,16 @@
       "series": "The Hierarchy",
       "tier": "B",
       "unfinished": -0.1,
-      "weakest_pct": 0.5143
+      "weakest_pct": 0.5177
     },
     {
-      "adjusted_wa": 8.096,
+      "adjusted_wa": 8.095,
       "author": "Brandon Sanderson",
       "avg_total_average": 8.17,
       "avg_wa": 8.24,
       "books": 5,
       "complete": false,
-      "consistency": -0.199,
+      "consistency": -0.2,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -150,16 +150,16 @@
       "series": "The Stormlight Archive",
       "tier": "B",
       "unfinished": -0.1,
-      "weakest_pct": 0.2214
+      "weakest_pct": 0.2199
     },
     {
-      "adjusted_wa": 8.084,
+      "adjusted_wa": 8.085,
       "author": "Guy Gavriel Kay",
       "avg_total_average": 7.94,
       "avg_wa": 8.04,
       "books": 2,
       "complete": true,
-      "consistency": -0.014,
+      "consistency": -0.012,
       "evidence": 0.0,
       "finale": -0.037,
       "finale_lift": -0.25,
@@ -169,16 +169,16 @@
       "series": "The Sarantine Mosaic",
       "tier": "B",
       "unfinished": 0.0,
-      "weakest_pct": 0.4714
+      "weakest_pct": 0.4752
     },
     {
-      "adjusted_wa": 8.027,
+      "adjusted_wa": 8.028,
       "author": "Joe Abercrombie",
       "avg_total_average": 7.8,
       "avg_wa": 7.95,
       "books": 3,
       "complete": true,
-      "consistency": 0.03,
+      "consistency": 0.032,
       "evidence": 0.0,
       "finale": 0.015,
       "finale_lift": 0.1,
@@ -188,16 +188,16 @@
       "series": "The First Law",
       "tier": "B",
       "unfinished": 0.0,
-      "weakest_pct": 0.55
+      "weakest_pct": 0.5532
     },
     {
-      "adjusted_wa": 8.009,
+      "adjusted_wa": 8.008,
       "author": "Orson Scott Card",
       "avg_total_average": 7.73,
       "avg_wa": 7.9,
       "books": 5,
       "complete": true,
-      "consistency": -0.214,
+      "consistency": -0.215,
       "evidence": 0.0,
       "finale": -0.027,
       "finale_lift": -0.18,
@@ -207,16 +207,16 @@
       "series": "Ender's Game",
       "tier": "B",
       "unfinished": 0.0,
-      "weakest_pct": 0.2
+      "weakest_pct": 0.1986
     },
     {
-      "adjusted_wa": 7.745,
+      "adjusted_wa": 7.744,
       "author": "Christopher Ruocchio",
       "avg_total_average": 7.75,
       "avg_wa": 7.79,
       "books": 7,
       "complete": true,
-      "consistency": -0.183,
+      "consistency": -0.185,
       "evidence": 0.0,
       "finale": -0.039,
       "finale_lift": -0.257,
@@ -226,16 +226,16 @@
       "series": "Sun Eater",
       "tier": "B",
       "unfinished": 0.0,
-      "weakest_pct": 0.2643
+      "weakest_pct": 0.2624
     },
     {
-      "adjusted_wa": 7.679,
+      "adjusted_wa": 7.678,
       "author": "Patrick Rothfuss",
       "avg_total_average": 7.84,
       "avg_wa": 7.75,
       "books": 2,
       "complete": false,
-      "consistency": -0.075,
+      "consistency": -0.076,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -245,16 +245,16 @@
       "series": "The Kingkiller Chronicle",
       "tier": "C",
       "unfinished": -0.1,
-      "weakest_pct": 0.35
+      "weakest_pct": 0.3475
     },
     {
-      "adjusted_wa": 7.5,
+      "adjusted_wa": 7.499,
       "author": "Brandon Sanderson",
       "avg_total_average": 7.44,
       "avg_wa": 7.47,
       "books": 3,
       "complete": true,
-      "consistency": -0.137,
+      "consistency": -0.138,
       "evidence": 0.0,
       "finale": 0.115,
       "finale_lift": 0.767,
@@ -264,7 +264,7 @@
       "series": "Mistborn Era 1",
       "tier": "C",
       "unfinished": 0.0,
-      "weakest_pct": 0.2714
+      "weakest_pct": 0.2695
     },
     {
       "adjusted_wa": 7.316,
@@ -286,13 +286,13 @@
       "weakest_pct": null
     },
     {
-      "adjusted_wa": 7.14,
+      "adjusted_wa": 7.139,
       "author": "Matt Dinniman",
       "avg_total_average": 7.29,
       "avg_wa": 7.36,
       "books": 8,
       "complete": false,
-      "consistency": -0.28,
+      "consistency": -0.281,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -302,16 +302,16 @@
       "series": "Dungeon Crawler Carl",
       "tier": "C",
       "unfinished": -0.1,
-      "weakest_pct": 0.15
+      "weakest_pct": 0.1489
     },
     {
-      "adjusted_wa": 6.929,
+      "adjusted_wa": 6.928,
       "author": "Scott Lynch",
       "avg_total_average": 7.03,
       "avg_wa": 7.06,
       "books": 3,
       "complete": false,
-      "consistency": -0.197,
+      "consistency": -0.198,
       "evidence": 0.0,
       "finale": 0.0,
       "finale_lift": 0.0,
@@ -321,10 +321,10 @@
       "series": "Gentleman Bastards",
       "tier": "C",
       "unfinished": -0.1,
-      "weakest_pct": 0.1714
+      "weakest_pct": 0.1702
     },
     {
-      "adjusted_wa": 6.848,
+      "adjusted_wa": 6.847,
       "author": "Evan Winter",
       "avg_total_average": 6.97,
       "avg_wa": 7.05,
@@ -340,7 +340,7 @@
       "series": "The Burning",
       "tier": "D",
       "unfinished": -0.1,
-      "weakest_pct": 0.1929
+      "weakest_pct": 0.1915
     },
     {
       "adjusted_wa": 6.355,
@@ -359,7 +359,7 @@
       "series": "The Broken Earth",
       "tier": "D",
       "unfinished": 0.0,
-      "weakest_pct": 0.0714
+      "weakest_pct": 0.0709
     },
     {
       "adjusted_wa": 5.894,
@@ -397,10 +397,10 @@
       "series": "Memory, Sorrow, Thorn",
       "tier": "D",
       "unfinished": 0.0,
-      "weakest_pct": 0.0286
+      "weakest_pct": 0.0284
     },
     {
-      "adjusted_wa": 5.363,
+      "adjusted_wa": 5.362,
       "author": "Timothy Zahn",
       "avg_total_average": 5.97,
       "avg_wa": 5.95,
@@ -416,7 +416,7 @@
       "series": "Thrawn Trilogy",
       "tier": "F",
       "unfinished": 0.0,
-      "weakest_pct": 0.0571
+      "weakest_pct": 0.0567
     },
     {
       "adjusted_wa": 4.1,

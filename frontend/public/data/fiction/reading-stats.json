@@ -17,7 +17,7 @@
     },
     {
       "author": "Steven Erikson",
-      "avg_wa": 9.01,
+      "avg_wa": 9.02,
       "books": 10
     },
     {
@@ -41,23 +41,23 @@
       "books": 6
     },
     {
+      "author": "George R.R. Martin",
+      "avg_wa": 8.5,
+      "books": 4
+    },
+    {
       "author": "Dan Simmons",
       "avg_wa": 8.33,
       "books": 4
     },
     {
       "author": "J.R.R. Tolkien",
-      "avg_wa": 8.31,
+      "avg_wa": 8.26,
       "books": 4
     },
     {
       "author": "Robert Jordan & Brandon Sanderson",
       "avg_wa": 8.83,
-      "books": 3
-    },
-    {
-      "author": "George R.R. Martin",
-      "avg_wa": 8.79,
       "books": 3
     },
     {
@@ -252,10 +252,10 @@
       "genre": "Gothic Fiction"
     },
     {
-      "avg_total_average": 8.09,
-      "avg_wa": 8.1,
-      "avg_words": 284670.0,
-      "books": 58,
+      "avg_total_average": 8.08,
+      "avg_wa": 8.09,
+      "avg_words": 284930.0,
+      "books": 59,
       "genre": "Epic Fantasy"
     },
     {
@@ -332,16 +332,16 @@
     },
     {
       "avg_total_average": 7.51,
-      "avg_wa": 7.7,
-      "avg_words": 191618.0,
-      "books": 66,
+      "avg_wa": 7.69,
+      "avg_words": 193236.0,
+      "books": 67,
       "year": 2026
     }
   ],
   "summary": {
     "avg_total_average": 7.38,
     "avg_wa": 7.6,
-    "avg_words": 198490.0,
-    "total_books": 140
+    "avg_words": 199210.0,
+    "total_books": 141
   }
 }

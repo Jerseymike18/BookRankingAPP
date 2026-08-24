@@ -1,74 +1,74 @@
 {
   "coeffs": {
-    "aesthetics": 0.1094,
-    "character": 0.2317,
-    "intercept": 0.1287,
-    "story": 0.3979,
-    "theme": 0.2498
+    "aesthetics": 0.1102,
+    "character": 0.2341,
+    "intercept": 0.1335,
+    "story": 0.3961,
+    "theme": 0.2479
   },
   "genre_info": {
     "Classical Drama": {
-      "bias": 0.0163,
+      "bias": 0.0148,
       "n": 2,
       "trust": 0.2
     },
     "Classical Epic": {
-      "bias": -0.1542,
+      "bias": -0.1533,
       "n": 3,
       "trust": 0.2727
     },
     "Cyberpunk": {
-      "bias": -0.0224,
+      "bias": -0.0209,
       "n": 1,
       "trust": 0.1111
     },
     "Epic Fantasy": {
-      "bias": 0.0291,
-      "n": 58,
-      "trust": 0.8788
+      "bias": 0.0301,
+      "n": 59,
+      "trust": 0.8806
     },
     "Gothic Fiction": {
-      "bias": 0.0236,
+      "bias": 0.0214,
       "n": 2,
       "trust": 0.2
     },
     "Literary Fantasy": {
-      "bias": -0.0444,
+      "bias": -0.0473,
       "n": 14,
       "trust": 0.6364
     },
     "Literary Fiction": {
-      "bias": -0.0284,
+      "bias": -0.0285,
       "n": 4,
       "trust": 0.3333
     },
     "Russian Literature": {
-      "bias": 0.009,
+      "bias": 0.0079,
       "n": 3,
       "trust": 0.2727
     },
     "Science Fantasy": {
-      "bias": -0.0241,
+      "bias": -0.0251,
       "n": 13,
       "trust": 0.619
     },
     "Science Fiction (Hard)": {
-      "bias": -0.0055,
+      "bias": -0.0065,
       "n": 18,
       "trust": 0.6923
     },
     "Science Fiction (Soft)": {
-      "bias": -0.0107,
+      "bias": -0.0116,
       "n": 19,
       "trust": 0.7037
     },
     "Speculative Literary Fiction": {
-      "bias": 0.0139,
+      "bias": 0.0152,
       "n": 3,
       "trust": 0.2727
     }
   },
-  "n_books": 140,
-  "r2": 0.9874,
-  "resid_sd": 0.132
+  "n_books": 141,
+  "r2": 0.9872,
+  "resid_sd": 0.1327
 }

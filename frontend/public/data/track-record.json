@@ -1225,8 +1225,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.2249,
-      "actual_wa": 8.6723,
+      "abs_error": 0.1238,
+      "actual_wa": 8.7734,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 88,
@@ -1234,7 +1234,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 7,
-      "signed_error": 0.2249,
+      "signed_error": 0.1238,
       "title": "Reaper's Gale",
       "year_read": 2026
     },
@@ -1267,8 +1267,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.7771,
-      "actual_wa": 9.6743,
+      "abs_error": 0.8051,
+      "actual_wa": 9.7023,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 91,
@@ -1276,7 +1276,7 @@
       "predicted_wa": 8.8971,
       "series": "Malazan: Book of the Fallen",
       "series_number": 8,
-      "signed_error": -0.7771,
+      "signed_error": -0.8051,
       "title": "Toll the Hounds",
       "year_read": 2026
     },
@@ -1575,8 +1575,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.1777,
-      "actual_wa": 9.6076,
+      "abs_error": 0.1755,
+      "actual_wa": 9.6054,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 113,
@@ -1584,7 +1584,7 @@
       "predicted_wa": 9.4298,
       "series": "Malazan: Book of the Fallen",
       "series_number": 10,
-      "signed_error": -0.1777,
+      "signed_error": -0.1755,
       "title": "The Crippled God",
       "year_read": 2026
     },
@@ -1631,8 +1631,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.0755,
-      "actual_wa": 8.718,
+      "abs_error": 0.0219,
+      "actual_wa": 8.6206,
       "author": "J.R.R. Tolkien",
       "genre": "Epic Fantasy",
       "pool_size": 117,
@@ -1640,13 +1640,13 @@
       "predicted_wa": 8.6425,
       "series": "Lord of the Rings",
       "series_number": 2,
-      "signed_error": -0.0755,
+      "signed_error": 0.0219,
       "title": "The Two Towers",
       "year_read": 2026
     },
     {
-      "abs_error": 0.0281,
-      "actual_wa": 8.7988,
+      "abs_error": 0.1452,
+      "actual_wa": 8.6817,
       "author": "J.R.R. Tolkien",
       "genre": "Epic Fantasy",
       "pool_size": 118,
@@ -1654,7 +1654,7 @@
       "predicted_wa": 8.8269,
       "series": "Lord of the Rings",
       "series_number": 3,
-      "signed_error": 0.0281,
+      "signed_error": 0.1452,
       "title": "The Return of the King",
       "year_read": 2026
     },
@@ -1951,19 +1951,33 @@
       "signed_error": -0.2883,
       "title": "The Three-Body Problem",
       "year_read": 2026
+    },
+    {
+      "abs_error": 0.3954,
+      "actual_wa": 7.6221,
+      "author": "George R.R. Martin",
+      "genre": "Epic Fantasy",
+      "pool_size": 140,
+      "position": 140,
+      "predicted_wa": 7.2266,
+      "series": "A Song of Ice and Fire",
+      "series_number": 4,
+      "signed_error": -0.3954,
+      "title": "A Feast for Crows",
+      "year_read": 2026
     }
   ],
   "headline": {
-    "n_books": 139,
-    "naive_wa_mae": 0.8822,
-    "raw_wa_mae": 0.6272,
-    "wa_mae": 0.5049
+    "n_books": 140,
+    "naive_wa_mae": 0.8755,
+    "raw_wa_mae": 0.6287,
+    "wa_mae": 0.5041
   },
   "interval_coverage": {
     "served_conformal": {
       "label": "density-bucketed conformal band (served on Predict / Read-queue)",
-      "measured": 0.8777,
-      "n": 139,
+      "measured": 0.8786,
+      "n": 140,
       "nominal": 0.8
     }
   },
@@ -2000,9 +2014,9 @@
     },
     {
       "genre": "Epic Fantasy",
-      "honest_mae": 0.4718,
-      "n": 57,
-      "raw_mae": 0.6086
+      "honest_mae": 0.4702,
+      "n": 58,
+      "raw_mae": 0.6124
     },
     {
       "genre": "Science Fantasy",
@@ -3018,6 +3032,13 @@
         "pool_size": 139,
         "position": 139,
         "title": "The Three-Body Problem",
+        "window_n": 12
+      },
+      {
+        "honest_rolling_mae": 0.4899,
+        "pool_size": 140,
+        "position": 140,
+        "title": "A Feast for Crows",
         "window_n": 12
       }
     ],
