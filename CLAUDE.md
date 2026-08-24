@@ -341,10 +341,24 @@ separate page, both load-bearing:
   "Recommend → hand a request to Book Prediction → come back" is the normal path and is now
   a real navigation, so page-local state would discard a recommendation it had just spent a
   call to produce. The provider is mounted above the router in the root layout, which is the
-  same reason `activeKind` lives there. It is deliberately **NOT** in `toSnapshot`:
-  in-memory only, so it dies on reload and sign-out without `clearPredictJobs` needing to
-  know about it — the safe default for something derived wholly from one reader's library,
-  and one cheap call to rebuild.
+  same reason `activeKind` lives there. It **is** mirrored to the tab snapshot (owner
+  request, 2026-08-24), so a recommendation also survives a reload. Four rules keep that
+  safe, and each is easy to undo by accident:
+  - It rides the **same `STORAGE_KEY` as the runs**, so `clearPredictJobs` already wipes it
+    on sign-out. That is required, not incidental — this is derived wholly from one reader's
+    library, and a shared browser must never hand it to whoever signs in next.
+  - `clearPredictJobs` also **latches persistence off** (`signedOut`). Sign-out awaits the
+    Supabase call before navigating, and anything landing inside that window would setState →
+    fire the mirror effect → rewrite the snapshot that was just deleted.
+  - **`loading` and `error` are not persisted.** A reload kills the in-flight fetch, so
+    restoring `loading: true` leaves a spinner nothing will finish; and an error describes a
+    moment the reload already ended (the same reasoning that clears the Discover error banner
+    on arrival). A snapshot taken mid-call restores `interrupted` instead, which says so.
+  - The stored `result` is **shape-checked on restore** (`_isGenreResult`), not just
+    null-checked — a corrupt or stale-shaped blob would otherwise reach `result.genres.map`
+    and take the page down on load, recoverable only by clearing storage. `STORAGE_KEY` did
+    **not** need a version bump: `fromSnapshot` treats a missing `genreTab` as empty, and
+    bumping it would have discarded the in-flight runs of anyone mid-scoring at deploy.
 - **"Find books like this" hands off through the provider, not a query param.** It sets the
   fiction request, forces `activeKind` to fiction (landing on the nonfiction flow holding a
   fiction request is a dead end), flags `requestFocusOnArrival`, then pushes `/predict`.

@@ -211,14 +211,16 @@ function GenreRecommender({
   /** Hands a ready-made request to the Books tab and takes the reader there. */
   onUseRequest: (request: string) => void;
 }) {
-  const { focus, loading, error, result, showEvidence } = state;
+  const { focus, loading, error, result, showEvidence, interrupted } = state;
   const setFocus = (v: string) => patch({ focus: v });
   const setError = (v: string | null) => patch({ error: v });
   const setShowEvidence = (fn: (v: boolean) => boolean) =>
     patch({ showEvidence: fn(showEvidence) });
 
   async function run() {
-    patch({ loading: true, error: null });
+    // Clear the reload notice too: it describes the previous attempt, and the
+    // reader is visibly starting another one.
+    patch({ loading: true, error: null, interrupted: null });
     try {
       patch({ result: await recommendGenres(focus), loading: false });
     } catch (e) {
@@ -264,6 +266,14 @@ function GenreRecommender({
       {error && (
         <div className="mt-3">
           <ErrorBox message={error} onDismiss={() => setError(null)} />
+        </div>
+      )}
+
+      {/* A reload landed mid-call. Not an ErrorBox: nothing failed and nothing
+          was charged for twice — the page just cannot show what it was writing. */}
+      {interrupted && (
+        <div className="mt-3">
+          <InfoBox message={interrupted} />
         </div>
       )}
 

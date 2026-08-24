@@ -237,16 +237,27 @@ export function queueRepredictKey(kind: BookKind, title: string): string {
  *  navigation now that the two are separate pages, so page-local state would
  *  discard a recommendation it had just spent a call to produce.
  *
- *  Deliberately NOT in `toSnapshot`: it is in-memory only, so it dies on reload
- *  and on sign-out without `clearPredictJobs` having to know about it. That is
- *  the safe default for something derived entirely from one reader's library,
- *  and it costs a single cheap call to rebuild. */
+ *  It IS mirrored to the tab snapshot, so a recommendation survives a reload as
+ *  well as a navigation. Two consequences that are easy to get wrong:
+ *
+ *  - It rides the SAME `STORAGE_KEY` as the runs, so `clearPredictJobs` already
+ *    wipes it on sign-out. That is required, not incidental: this is derived
+ *    wholly from one reader's library, and a shared browser must never hand it
+ *    to whoever signs in next.
+ *  - `loading` and `error` are NOT persisted. A reload kills the in-flight
+ *    fetch, so restoring `loading: true` would leave a spinner nothing will ever
+ *    finish; and an error reports a moment that a reload has already ended —
+ *    the same reasoning that clears the Discover error banner on arrival. A
+ *    reload that lands mid-call restores `interrupted` instead, which says so. */
 export interface GenreTabState {
   focus: string;
   loading: boolean;
   error: string | null;
   result: GenreRecommendResponse | null;
   showEvidence: boolean;
+  /** Set on restore when the snapshot was taken mid-call. Without it the reader
+   *  reloads into an idle button and no result, with nothing saying why. */
+  interrupted: string | null;
 }
 
 export const EMPTY_GENRE_TAB: GenreTabState = {
@@ -255,7 +266,12 @@ export const EMPTY_GENRE_TAB: GenreTabState = {
   error: null,
   result: null,
   showEvidence: false,
+  interrupted: null,
 };
+
+const GENRE_INTERRUPTED_MSG =
+  "That recommendation was still being written when the page reloaded, so it was " +
+  "lost. Press Recommend genres again — nothing was saved either way.";
 
 interface PredictJobsValue {
   runs: AllRuns;
@@ -305,7 +321,14 @@ const STORAGE_KEY = "trl:predict-jobs:v1";
 
 /** Wipe any stored run. Called on sign-out so a shared browser never hands one
  *  reader's predictions to the next person to use the same tab. */
+let signedOut = false;
+
 export function clearPredictJobs(): void {
+  // Latch first. Sign-out awaits the Supabase call before navigating, and a run
+  // (or a genre recommendation) that lands inside that window would setState →
+  // fire the mirror effect → rewrite the snapshot we just deleted. The flag
+  // lives until the next full page load, which sign-out always performs.
+  signedOut = true;
   try {
     window.sessionStorage.removeItem(STORAGE_KEY);
   } catch {
@@ -315,7 +338,7 @@ export function clearPredictJobs(): void {
 
 /** The persisted shape: the durable half of each run, plus whether it was still
  *  working when the snapshot was taken (so a reload can say so). */
-function toSnapshot(runs: AllRuns) {
+function toSnapshot(runs: AllRuns, genreTab: GenreTabState) {
   const one = (r: PredictRunState) => ({
     request: r.request,
     requestLabel: r.requestLabel,
@@ -329,14 +352,35 @@ function toSnapshot(runs: AllRuns) {
     repredictErrors: r.repredictErrors,
     busy: isRunBusy(r),
   });
-  return { fiction: one(runs.fiction), nonfiction: one(runs.nonfiction) };
+  return {
+    fiction: one(runs.fiction),
+    nonfiction: one(runs.nonfiction),
+    // `busy` rather than `loading`, matching the runs above: the flag records
+    // that a call was in flight when the snapshot was taken, which the restore
+    // turns into a message rather than back into a spinner.
+    genreTab: {
+      focus: genreTab.focus,
+      result: genreTab.result,
+      showEvidence: genreTab.showEvidence,
+      busy: genreTab.loading,
+    },
+  };
 }
 
 const INTERRUPTED_MSG =
   "This run was interrupted when the page reloaded — the books already scored are " +
   "below, but anything still in flight was lost. Score again to finish it.";
 
-function fromSnapshot(raw: string): AllRuns | null {
+/** Is this stored blob still a usable recommendation payload? Checks only the
+ *  fields the page actually renders off — enough to keep a corrupt or
+ *  stale-shaped snapshot from crashing the load. */
+function _isGenreResult(v: unknown): v is GenreRecommendResponse {
+  if (!v || typeof v !== "object") return false;
+  const r = v as Record<string, unknown>;
+  return Array.isArray(r.genres) && Array.isArray(r.types) && Array.isArray(r.evidence);
+}
+
+function fromSnapshot(raw: string): { runs: AllRuns; genreTab: GenreTabState } | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -367,7 +411,25 @@ function fromSnapshot(raw: string): AllRuns | null {
       cancelled: null,
     };
   };
-  return { fiction: one(src.fiction), nonfiction: one(src.nonfiction) };
+  // Tolerant by design: a snapshot written before genre prediction existed simply
+  // has no `genreTab` key, and restores as empty rather than failing the whole
+  // hydrate. That is why the STORAGE_KEY did not need a version bump — bumping it
+  // would have thrown away the in-flight runs of anyone mid-scoring at deploy.
+  const g = src.genreTab;
+  const genreTab: GenreTabState = !g
+    ? EMPTY_GENRE_TAB
+    : {
+        ...EMPTY_GENRE_TAB,
+        focus: typeof g.focus === "string" ? g.focus : "",
+        // Shape-checked, not just null-checked — the runs above validate their
+        // arrays for the same reason. A stored `result` that is a string or a
+        // half-written object would otherwise reach `result.genres.map` and take
+        // the page down on load, with no way to recover but clearing storage.
+        result: _isGenreResult(g.result) ? g.result : null,
+        showEvidence: g.showEvidence === true,
+        interrupted: g.busy === true ? GENRE_INTERRUPTED_MSG : null,
+      };
+  return { runs: { fiction: one(src.fiction), nonfiction: one(src.nonfiction) }, genreTab };
 }
 
 /* ── Provider ────────────────────────────────────────────────────────────── */
@@ -446,19 +508,27 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     }
     if (!raw) return;
     const restored = fromSnapshot(raw);
-    if (restored) setRuns(restored);
+    if (restored) {
+      setRuns(restored.runs);
+      setGenreTab(restored.genreTab);
+    }
   }, []);
 
   /* ── Mirror to the tab's snapshot on every change ──────────────────────── */
   useEffect(() => {
     if (!hydrated.current) return;
-    if (runs === EMPTY_ALL) return; // nothing has happened yet
+    if (signedOut) return; // never re-create a snapshot after sign-out cleared it
+    // Nothing has happened yet in EITHER half. Checking only `runs` would skip
+    // the write for a reader who has asked for genres but never scored a book —
+    // which is exactly the first-use path for the genre page.
+    if (runs === EMPTY_ALL && genreTab === EMPTY_GENRE_TAB) return;
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(toSnapshot(runs)));
+      window.sessionStorage.setItem(
+        STORAGE_KEY, JSON.stringify(toSnapshot(runs, genreTab)));
     } catch {
       /* over quota or disabled — persistence is a bonus, never a blocker */
     }
-  }, [runs]);
+  }, [runs, genreTab]);
 
   /* ── Completion announcement ───────────────────────────────────────────── */
 
