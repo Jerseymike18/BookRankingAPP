@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
 import type {
@@ -298,11 +298,11 @@ function SurpriseNote({ surprise }: { surprise: GenreSurprise }) {
 
 function GenrePickCard({
   pick,
-  disabled,
+  handoffDisabled,
   onUse,
 }: {
   pick: GenrePick;
-  disabled: boolean;
+  handoffDisabled: boolean;
   onUse: () => void;
 }) {
   return (
@@ -349,7 +349,7 @@ function GenrePickCard({
       )}
 
       <div className="flex items-center gap-3 mt-3 flex-wrap">
-        <SageButton onClick={onUse} disabled={disabled} variant="secondary">
+        <SageButton onClick={onUse} disabled={handoffDisabled} variant="secondary">
           Find books like this
         </SageButton>
         <span className="text-xs italic flex-1 min-w-0" style={{ color: "var(--color-faint)" }}>
@@ -429,29 +429,59 @@ function EvidenceTable({ rows }: { rows: GenreEvidence[] }) {
   );
 }
 
+/** Everything the Genres tab remembers.
+ *
+ *  Owned by PredictClient, NOT by the card, and that is the point: the moment
+ *  this became a tab, "recommend genres → switch to Books to act on it → come
+ *  back" turned into the normal path. Local state would throw the whole
+ *  recommendation away on the first half of that, having just spent a call to
+ *  produce it. (It still resets on a full page navigation — the recommendation
+ *  is one cheap call and reads nothing that a run would leave half-finished, so
+ *  it does not need a slot in the job provider the way a scoring run does.) */
+export interface GenreTabState {
+  focus: string;
+  loading: boolean;
+  error: string | null;
+  result: GenreRecommendResponse | null;
+  showEvidence: boolean;
+}
+
+export const EMPTY_GENRE_TAB: GenreTabState = {
+  focus: "",
+  loading: false,
+  error: null,
+  result: null,
+  showEvidence: false,
+};
+
 function GenreRecommendCard({
-  disabled,
+  handoffDisabled,
+  state,
+  patch,
   onUseRequest,
 }: {
-  disabled: boolean;
-  /** Drops a ready-made request into the Discover box below and scrolls to it. */
+  /** A fiction scoring run is in flight, so handing it a NEW request would
+   *  overwrite the one it is using. Blocks only the hand-off buttons — asking
+   *  for a recommendation is read-only and never conflicts with a run. */
+  handoffDisabled: boolean;
+  state: GenreTabState;
+  patch: (p: Partial<GenreTabState>) => void;
+  /** Hands a ready-made request to the Books tab and takes the reader there. */
   onUseRequest: (request: string) => void;
 }) {
-  const [focus, setFocus] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<GenreRecommendResponse | null>(null);
-  const [showEvidence, setShowEvidence] = useState(false);
+  const { focus, loading, error, result, showEvidence } = state;
+  const setFocus = (v: string) => patch({ focus: v });
+  const setError = (v: string | null) => patch({ error: v });
+  const setShowEvidence = (fn: (v: boolean) => boolean) =>
+    patch({ showEvidence: fn(showEvidence) });
 
   async function run() {
-    setLoading(true);
-    setError(null);
+    patch({ loading: true, error: null });
     try {
-      setResult(await recommendGenres(focus));
+      patch({ result: await recommendGenres(focus), loading: false });
     } catch (e) {
-      if (!isCancelled(e)) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+      if (isCancelled(e)) patch({ loading: false });
+      else patch({ error: e instanceof Error ? e.message : String(e), loading: false });
     }
   }
 
@@ -461,9 +491,9 @@ function GenreRecommendCard({
         What should I read more of?
       </h2>
       <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-        Reads your own ratings — how each genre actually scores, how thin the evidence
-        is, and where the engine has been wrong about you — and argues for a few. One
-        cheap call; nothing is saved.
+        Reads your <strong>fiction</strong> ratings — how each genre actually scores, how
+        thin the evidence is, and where the engine has been wrong about you — and argues
+        for a few. One cheap call; nothing is saved.
       </p>
 
       <input
@@ -476,14 +506,9 @@ function GenreRecommendCard({
       />
 
       <div className="flex items-center gap-4 mt-3">
-        <SageButton onClick={run} disabled={loading || disabled}>
+        <SageButton onClick={run} disabled={loading}>
           {loading ? "Reading your ratings…" : "Recommend genres"}
         </SageButton>
-        {disabled && !loading && (
-          <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-            Finish or leave the current run first.
-          </span>
-        )}
       </div>
 
       {loading && (
@@ -510,7 +535,7 @@ function GenreRecommendCard({
             <GenrePickCard
               key={g.genre}
               pick={g}
-              disabled={disabled}
+              handoffDisabled={handoffDisabled}
               onUse={() => onUseRequest(g.discover_request)}
             />
           ))}
@@ -542,7 +567,7 @@ function GenreRecommendCard({
                   <div className="mt-3">
                     <SageButton
                       onClick={() => onUseRequest(t.discover_request)}
-                      disabled={disabled}
+                      disabled={handoffDisabled}
                       variant="secondary"
                     >
                       Find books like this
@@ -551,6 +576,13 @@ function GenreRecommendCard({
                 </div>
               ))}
             </>
+          )}
+
+          {handoffDisabled && (
+            <p className="text-xs" style={{ color: "var(--color-faint)" }}>
+              A scoring run is in flight on the Books tab — finish or stop it before
+              sending it a new request.
+            </p>
           )}
 
           {result.caution && (
@@ -591,7 +623,16 @@ function GenreRecommendCard({
    DISCOVER MODE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-function PredictFlow({ config }: { config: PredictFlowConfig }) {
+function PredictFlow({
+  config,
+  requestBoxRef,
+}: {
+  config: PredictFlowConfig;
+  /** Owned by PredictClient. The Genres tab fills this box and focuses it after
+   *  switching tabs, so the ref has to outlive this component's remounts (the
+   *  fiction/nonfiction toggle remounts it via `key`). */
+  requestBoxRef?: React.RefObject<HTMLTextAreaElement | null>;
+}) {
   const { kind, categoryOrder } = config;
   const jobs = usePredictJobs();
   const run = jobs.runs[kind];
@@ -627,8 +668,6 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
   // live (an abandoned loop would write into the new run), so the buttons that
   // start work say why instead of silently no-op-ing.
   const busy = isRunBusy(run);
-  // Target for the genre recommender's "Find books like this" hand-off.
-  const requestBoxRef = useRef<HTMLTextAreaElement>(null);
   const refiningTitles = useMemo(() => new Set(run.refining), [run.refining]);
   const repredictingTitles = useMemo(() => new Set(run.repredicting), [run.repredicting]);
   const removed = useMemo(() => new Set(run.removed), [run.removed]);
@@ -698,22 +737,6 @@ function PredictFlow({ config }: { config: PredictFlowConfig }) {
             ✕
           </button>
         </div>
-      )}
-
-      {/* What should I read MORE of — the step BEFORE the request box. Fiction
-          only; see PredictFlowConfig.hasGenreRecommend. */}
-      {config.hasGenreRecommend && (
-        <GenreRecommendCard
-          disabled={busy}
-          onUseRequest={(r) => {
-            jobs.setRequest(kind, r);
-            // Land the reader on the box they now have to press Generate in —
-            // silently filling a control below the fold reads as nothing having
-            // happened.
-            requestBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            requestBoxRef.current?.focus({ preventScroll: true });
-          }}
-        />
       )}
 
       {/* Request input */}
@@ -1313,12 +1336,6 @@ interface PredictFlowConfig {
   /** Whether this kind offers the per-card no-cache Re-predict (fiction only —
    *  nonfiction's lives on its read-queue, where it can persist the result). */
   hasRepredict: boolean;
-  /** Whether "what should I read more of" is offered (fiction only). Nonfiction
-   *  has one genre-weights row and a handful of rated books, so there is no
-   *  per-genre evidence to argue from — an empty recommender would be worse than
-   *  none. Same reasoning as the three fiction-only chips the nonfiction Predict
-   *  card omits rather than fakes. */
-  hasGenreRecommend: boolean;
 }
 
 function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
@@ -1343,7 +1360,6 @@ function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
     saveButtonNoun: "recommendations",
     hasRefine: !!PREDICT_RUNNERS.fiction.refine,
     hasRepredict: !!PREDICT_RUNNERS.fiction.repredict,
-    hasGenreRecommend: true,
   };
 }
 
@@ -1369,9 +1385,15 @@ function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
     saveButtonNoun: "nonfiction TBR",
     hasRefine: !!PREDICT_RUNNERS.nonfiction.refine,
     hasRepredict: !!PREDICT_RUNNERS.nonfiction.repredict,
-    hasGenreRecommend: false,
   };
 }
+
+type PredictTab = "books" | "genres";
+
+const PREDICT_TABS: { id: PredictTab; label: string }[] = [
+  { id: "books", label: "Books" },
+  { id: "genres", label: "Genres" },
+];
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ROOT PAGE COMPONENT
@@ -1387,12 +1409,61 @@ export default function PredictClient({
   // The toggle's position lives in the job provider, not in local state: the
   // finish banner opens this page on whichever kind actually finished, and the
   // choice survives navigating away mid-run like everything else does.
-  const { activeKind: kind, setActiveKind: setKind } = usePredictJobs();
+  const jobs = usePredictJobs();
+  const { activeKind: kind, setActiveKind: setKind } = jobs;
   const fictionConfig = useMemo(() => makeFictionConfig(categoryOrder), [categoryOrder]);
   const nonfictionConfig = useMemo(
     () => makeNonfictionConfig(nonfictionCategoryOrder),
     [nonfictionCategoryOrder],
   );
+
+  // Which question the page is answering. "books" is the original flow (find me
+  // books matching this request); "genres" is the step before it (what should
+  // the request BE). Two tabs rather than one stacked page because they are
+  // separate errands — the genre pass is occasional and the book pass is the
+  // daily one, and stacking them pushed the request box below the fold.
+  const [tab, setTab] = useState<PredictTab>("books");
+
+  // Lifted out of the card so a recommendation survives the trip to the Books
+  // tab and back — see GenreTabState.
+  const [genreTab, setGenreTab] = useState<GenreTabState>(EMPTY_GENRE_TAB);
+  const patchGenreTab = useCallback(
+    (p: Partial<GenreTabState>) => setGenreTab((s) => ({ ...s, ...p })),
+    [],
+  );
+
+  // The Discover box lives inside PredictFlow, which the kind toggle remounts —
+  // so the ref is held HERE, where the hand-off is performed.
+  const requestBoxRef = useRef<HTMLTextAreaElement>(null);
+  const booksRun = jobs.runs.fiction;
+
+  /** "Find books like this" — the whole point of the Genres tab.
+   *
+   *  Genre recommendation is fiction-only, so this forces the kind as well as
+   *  the tab; landing the reader on the nonfiction flow holding a fiction
+   *  request would be a dead end. The focus is deferred to the next frame
+   *  because the target textarea does not exist until React has committed the
+   *  tab switch. */
+  const useGenreRequest = useCallback(
+    (request: string) => {
+      jobs.setRequest("fiction", request);
+      setKind("fiction");
+      setTab("books");
+      requestAnimationFrame(() => {
+        requestBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        requestBoxRef.current?.focus({ preventScroll: true });
+      });
+    },
+    [jobs, setKind],
+  );
+
+  const subtitle =
+    tab === "genres"
+      ? "Which genres your own ratings actually favour — and where the engine has been wrong about you."
+      : kind === "nonfiction"
+        ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
+        : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them.";
+
   return (
     <div>
       {/* Page header */}
@@ -1404,35 +1475,78 @@ export default function PredictClient({
           Predict
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {kind === "nonfiction"
-            ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
-            : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."}
+          {subtitle}
         </p>
       </div>
 
-      {/* Fiction / Nonfiction toggle */}
-      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
+      {/* Books / Genres tabs — the SubTabs visual (surface-2 track, sage active
+          pill), same as the kind toggle below and TypeToggle elsewhere. */}
+      <div
+        className="flex gap-1 mb-4 p-1 rounded-xl inline-flex"
+        style={{ background: "var(--color-surface-2)" }}
+        role="tablist"
+        aria-label="What to predict"
+      >
+        {PREDICT_TABS.map(({ id, label }) => (
           <button
-            key={k}
-            onClick={() => setKind(k)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
             style={{
-              background: kind === k ? "var(--color-surface)" : "transparent",
-              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+              background: tab === id ? "var(--color-surface)" : "transparent",
+              color: tab === id ? "var(--color-sage)" : "var(--color-muted)",
+              boxShadow: tab === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
             }}
           >
-            {k}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
-          can no longer leak into each other regardless (the provider keys them
-          separately), but this still resets the view-local card open/closed
-          state, which should not carry across the toggle. */}
-      <PredictFlow key={kind} config={kind === "fiction" ? fictionConfig : nonfictionConfig} />
+      {tab === "books" ? (
+        <>
+          {/* Fiction / Nonfiction toggle. Books only: genre recommendation reads
+              the fiction library, so offering the kind switch on that tab would
+              promise a nonfiction answer that does not exist. */}
+          <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
+            {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setKind(k)}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
+                style={{
+                  background: kind === k ? "var(--color-surface)" : "transparent",
+                  color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
+                  boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                }}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+
+          {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
+              can no longer leak into each other regardless (the provider keys them
+              separately), but this still resets the view-local card open/closed
+              state, which should not carry across the toggle. */}
+          <PredictFlow
+            key={kind}
+            config={kind === "fiction" ? fictionConfig : nonfictionConfig}
+            requestBoxRef={requestBoxRef}
+          />
+        </>
+      ) : (
+        <div className="mt-4">
+          <GenreRecommendCard
+            handoffDisabled={isRunBusy(booksRun)}
+            state={genreTab}
+            patch={patchGenreTab}
+            onUseRequest={useGenreRequest}
+          />
+        </div>
+      )}
     </div>
   );
 }

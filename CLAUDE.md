@@ -327,10 +327,29 @@ matching this request". Neither answered the question that comes first: **what s
 the request be.** Discover's generator saw the reader's titles (to avoid them) and their
 genre list (to copy spellings from) and **not one number about how they actually rate
 genres** — genre choice was whatever they typed. `genre_affinity.py` is that missing
-evidence, served by `POST /api/discover/genres` and driven from a card above the request
-box on the Predict page (**fiction only** — `PredictFlowConfig.hasGenreRecommend`;
-nonfiction has one `nonfiction_genre_weights` row and 6 rated books, so there is no
-per-genre evidence to argue from, and an empty recommender is worse than none).
+evidence, served by `POST /api/discover/genres` and driven from the **Genres tab** of the
+Predict page. The page has two tabs — **Books** (the original Discover flow) and
+**Genres** — because they are separate errands: the genre pass is occasional, the book
+pass is daily, and stacking them pushed the request box below the fold.
+
+**Genres is fiction-only, and structurally so** — the fiction/nonfiction toggle renders on
+the Books tab only, so the Genres tab can never promise a nonfiction answer. (Nonfiction
+has one `nonfiction_genre_weights` row and 6 rated books; there is no per-genre evidence
+to argue from, and an empty recommender is worse than none.) Two consequences of it being
+a tab rather than an inline card, both load-bearing:
+
+- **The tab's state is owned by `PredictClient`, not the card** (`GenreTabState`).
+  "Recommend → switch to Books to act on it → come back" is the normal path once this is a
+  tab, and card-local state would discard a recommendation it had just spent a call to
+  produce. It still resets on a full page navigation, which is fine: it is one cheap call
+  and leaves nothing half-finished, so unlike a scoring run it needs no slot in the job
+  provider.
+- **"Find books like this" forces the kind as well as the tab.** It sets the fiction
+  request, switches to fiction, switches to Books, then focuses the request box on the
+  next frame (the textarea does not exist until React has committed the tab switch). The
+  ref for it lives in `PredictClient` because the kind toggle remounts `PredictFlow` via
+  `key`. A fiction run in flight disables the hand-off buttons **only** — asking for a
+  recommendation is read-only and never conflicts with a run.
 
 **The module is READ-ONLY over the engine** — same standing as `track_record.py`,
 `intervals.py` and `delta_log_view.py`. It computes no prediction, writes nothing, and
