@@ -337,8 +337,13 @@ export function clearPredictJobs(): void {
 }
 
 /** The persisted shape: the durable half of each run, plus whether it was still
- *  working when the snapshot was taken (so a reload can say so). */
-function toSnapshot(runs: AllRuns, genreTab: GenreTabState) {
+ *  working when the snapshot was taken (so a reload can say so).
+ *
+ *  Exported for `tests/predict-snapshot.test.ts`. This pair is the one place a
+ *  bug is invisible until a reader reloads and finds their work gone or the page
+ *  crashed, so it is worth asserting on directly rather than through the
+ *  provider. */
+export function toSnapshot(runs: AllRuns, genreTab: GenreTabState) {
   const one = (r: PredictRunState) => ({
     request: r.request,
     requestLabel: r.requestLabel,
@@ -380,7 +385,7 @@ function _isGenreResult(v: unknown): v is GenreRecommendResponse {
   return Array.isArray(r.genres) && Array.isArray(r.types) && Array.isArray(r.evidence);
 }
 
-function fromSnapshot(raw: string): { runs: AllRuns; genreTab: GenreTabState } | null {
+export function fromSnapshot(raw: string): { runs: AllRuns; genreTab: GenreTabState } | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);

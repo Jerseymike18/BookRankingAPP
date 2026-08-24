@@ -122,7 +122,7 @@ function isDropdown(s: NavGroup): s is { label: string; items: NavItem[] } {
  *  href, or null when the path is outside this section.
  *
  *  The `href + "/"` boundary also stops "/predictfoo" matching "/predict". */
-function activeItemHref(items: NavItem[], currentPath: string): string | null {
+export function activeItemHref(items: NavItem[], currentPath: string): string | null {
   let best: string | null = null;
   for (const { href } of items) {
     const hit = currentPath === href || currentPath.startsWith(href + "/");

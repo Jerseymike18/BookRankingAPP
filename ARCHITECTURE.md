@@ -57,6 +57,7 @@ Consequences worth memorizing:
 - `lib/api.ts` — all backend calls; `STATIC` (bundle) vs live; `apiFetch(url, init, serverToken?)` attaches the Supabase token; `signUp()`.
 - `lib/supabase/{client,server}.ts`; `proxy.ts` (Next-16 middleware — session refresh + `/login` gate, no-op when Supabase env absent); `lib/readonly.ts`; `lib/types.ts`; `lib/slug.ts`; `components/Nav.tsx`.
 - Design tokens live in `app/globals.css` (the "Fable" system) — reuse existing primitives; **no new styles**.
+- `tests/*.test.ts` — vitest unit tests over the frontend's PURE logic (node env, no jsdom). `npm test`. CI: `.github/workflows/frontend-tests.yml`, kept separate from the required `lint-constraints` job. See CLAUDE.md → Working rhythm.
 
 **Data + publishing:**
 - SQLite `books.db` (local + the showcase's export source) / Postgres (hosted). **7 per-user tables**: `books`, `recommendations`, `nonfiction_books`, `nonfiction_recommendations`, `read_queue`, `nonfiction_read_queue`, `delta_log`. Weight tables are **global**.

@@ -831,6 +831,27 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
 - One feature per commit. After a change, verify the app still runs and the affected page
   works, confirm `test_engine.py` still passes cleanly (all checks PASS, no `[FAIL]` lines),
   then commit with a descriptive message.
+- **Frontend tests:** `cd frontend && npm test` (vitest, `frontend/tests/*.test.ts`). Scope is
+  the frontend's PURE logic — `environment: "node"`, no jsdom, no React Testing Library.
+  What is worth guarding is code that computes something and can be silently wrong (the
+  session-snapshot codec, nav active-state, the analytics math), not markup, which typecheck
+  and review already cover and which would cost a rendering stack to assert on. A component
+  test needs `// @vitest-environment jsdom` plus the jsdom + @testing-library/react deps —
+  add them the day a component's behaviour genuinely needs it, not before.
+  - CI runs them from **`.github/workflows/frontend-tests.yml`**, a SEPARATE workflow from
+    `constraints.yml`. That separation is load-bearing twice over: `constraints.yml` holds the
+    `lint-constraints` job that is main's required status check (renaming it, or adding a
+    `paths:` filter that stops it running, silently breaks branch protection), and the
+    frontend workflow's `paths: frontend/**` filter is what keeps a data-only autopublish
+    push from dragging an npm install behind it.
+  - Deliberately **not** in the local pre-push hook, for that same reason — `autopublish.sh`
+    pushes are automatic and frequent, and putting a node install in that path would gate the
+    publish pipeline on a test run it never needs.
+  - `toSnapshot`/`fromSnapshot` (`lib/predict-jobs`) and `activeItemHref` (`components/Nav`)
+    are exported **for these tests**. Both are pure, and both fail in ways nothing else
+    catches: a snapshot bug is invisible until a reader reloads and finds their work gone or
+    the page white, and a nav bug is purely visual — two highlighted items look enough like a
+    design choice to survive review.
 - When in doubt about whether something is a derived-math change or a presentation change:
   if it changes a number, it's probably math (read-only); if it changes how an existing
   number is displayed or sorted, it's presentation (fair game).

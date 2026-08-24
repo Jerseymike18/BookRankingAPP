@@ -1,0 +1,62 @@
+name: frontend-tests
+
+# Unit tests for the frontend's pure logic (vitest, node environment).
+#
+# A SEPARATE workflow from constraints.yml on purpose. That file contains the
+# `lint-constraints` job, which is main's required status check — renaming it,
+# or adding a `paths:` filter that stops it running, silently breaks branch
+# protection. Nothing here can touch it.
+#
+# The `paths` filter below is why this is its own file: a data-only publish
+# (scripts/autopublish.sh commits + pushes books.db and the snapshot on every
+# edit) must not drag an npm install behind it. Those pushes touch no frontend
+# source, so this workflow simply does not run for them.
+#
+# Deliberately NOT wired into the local pre-push hook, for the same reason:
+# autopublish pushes are automatic and frequent, and adding a node install to
+# that path would put the publish pipeline behind a test run it never needs.
+# Run them by hand with `npm test` in frontend/.
+
+on:
+  push:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` not `npm install`: it installs exactly the lockfile and fails
+      # if package.json and the lock have drifted, which is the check we want.
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      # Typecheck belongs next to the tests: vitest transpiles without checking
+      # types, so a type error in a test file would otherwise pass here and only
+      # surface in the Vercel build.
+      - name: Typecheck
+        run: npx tsc --noEmit
