@@ -218,6 +218,85 @@ export interface DiscoverCandidatesResponse {
   sources?: string[];
 }
 
+/* ── Genre recommendation ("what should I read MORE of") ───────────────────
+   The companion to Discover's candidate generation. Every NUMBER below is
+   computed by genre_affinity.py from the reader's own ratings and travels with
+   the recommendation — the LLM narrates the case, it never supplies a figure.
+   A `types` entry is the opposite: a hypothesis with no data behind it, and the
+   backend refuses one that states a number at all. */
+
+export interface GenreSurprise {
+  n: number;
+  /** actual - predicted, so POSITIVE = the engine under-rates this genre for them. */
+  mean_signed: number;
+  mae: number;
+  direction: "under-predicted" | "over-predicted" | "on-target";
+}
+
+export interface GenreEvidence {
+  genre: string;
+  /** "read" = they have rated books here; "unread" = a schema genre with none. */
+  status: "read" | "unread";
+  n_books: number;
+  read_share: number;
+  raw_mean_wa: number | null;
+  /** Shrunk mean WA — the number to rank on. Null for an unread genre. */
+  affinity: number | null;
+  band_low: number | null;
+  band_high: number | null;
+  band_width: number | null;
+  vs_library: number | null;
+  best_wa: number | null;
+  worst_wa: number | null;
+  evidence: "strong" | "thin" | "single-book" | "none";
+  surprise: GenreSurprise | null;
+  /** Per-component z vs the library. Null for a component that does not apply
+   *  (worldbuilding on a realist genre) — never rendered as a low score. */
+  profile: Record<string, number | null>;
+  year_share: Record<string, number>;
+  tbr_open: number;
+}
+
+export interface GenrePick {
+  genre: string;
+  case: string;
+  evidence_cited: string;
+  confidence: "high" | "medium" | "low";
+  /** Ready to drop straight into the Discover request box. */
+  discover_request: string;
+  affinity: number | null;
+  band_low: number | null;
+  band_high: number | null;
+  n_books: number;
+  evidence_tier: GenreEvidence["evidence"];
+  surprise: GenreSurprise | null;
+  tbr_open: number;
+  status: "read" | "unread";
+}
+
+export interface TypePick {
+  label: string;
+  hypothesis: string;
+  drawn_from: string;
+  discover_request: string;
+}
+
+export interface GenreRecommendResponse {
+  genres: GenrePick[];
+  types: TypePick[];
+  caution: string;
+  evidence: GenreEvidence[];
+  library: {
+    n_books: number;
+    n_genres_read: number;
+    mean_wa: number | null;
+    within_genre_sd: number | null;
+    shrinkage_k_books: number | null;
+    drivers: { component: string; top_quartile: number; bottom_quartile: number; gap: number }[];
+  };
+  provenance: Record<string, unknown>;
+}
+
 export type ScoredCandidate = ResearchResult & { error?: string };
 
 export interface Recommendation {

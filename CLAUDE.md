@@ -320,6 +320,85 @@ the fresh-research force actually bypasses a warm cache, that no `delta_log` row
 that the reported WA/rank agree with the read-queue). A dry-run CLI is
 `python3 repredict_on_add.py "<title>" --one --dry-run`.
 
+## Genre recommendation — "what should I read more of" (`genre_affinity.py`)
+
+Predict answers "how much will I like THIS book". Discover answers "find me books
+matching this request". Neither answered the question that comes first: **what should
+the request be.** Discover's generator saw the reader's titles (to avoid them) and their
+genre list (to copy spellings from) and **not one number about how they actually rate
+genres** — genre choice was whatever they typed. `genre_affinity.py` is that missing
+evidence, served by `POST /api/discover/genres` and driven from a card above the request
+box on the Predict page (**fiction only** — `PredictFlowConfig.hasGenreRecommend`;
+nonfiction has one `nonfiction_genre_weights` row and 6 rated books, so there is no
+per-genre evidence to argue from, and an empty recommender is worse than none).
+
+**The module is READ-ONLY over the engine** — same standing as `track_record.py`,
+`intervals.py` and `delta_log_view.py`. It computes no prediction, writes nothing, and
+touches no scoring math. HARD CONSTRAINT 1 is untouched.
+
+**Two halves, and the split is the design.** `genre_evidence()` is pure, deterministic
+and zero-API; `recommend_genres()` is ONE `DISCOVER_MODEL` (Sonnet) call that narrates
+those numbers. **Every figure in the response is copied from the evidence dict, never
+from the model's prose** — the endpoint attaches `affinity`/`band`/`surprise` to each
+pick itself. The brief the model saw is returned as `brief` so the argument is auditable.
+
+Four things are load-bearing:
+
+- **Affinity is a SHRUNK mean with a band, never a raw mean.** The naive ranking is
+  noise: on the reference library it puts Russian Literature (n=3) and Gothic Fiction
+  (n=2) above Epic Fantasy (n=59). Empirical-Bayes shrinkage toward the library mean,
+  with the constant `k` fitted from the library's own between/within-genre spread
+  (DerSimonian-Laird, floored so `k ≤ MAX_K`), plus an 80% band that widens as evidence
+  thins. Thin genres keep their high estimate and *look* thin — nothing hidden, nothing
+  invented, the same discipline as the omitted conformal interval. **The band is on a
+  GENRE's mean rating and must never be presented as the served conformal interval**,
+  which is on an unread book's predicted WA.
+- **Signed surprise, from ENGINE-produced forecasts only** (`engine_forecast_rows`).
+  `track_record` reports |error| by genre — how *reliable* the engine is there. The
+  recommender needs the *direction*: a genre the engine systematically under-predicts is
+  one the reader enjoys more than the model expects, and that is the most actionable
+  thing in the payload. It deliberately uses a **different row set than the Track
+  Record**: `delta_log_view.visible_rows` prefers live > workbook-backfill > retro_sweep,
+  which is right for "what did this reader forecast at the time" but wrong here — the
+  backfill predates the engine and is coarse (all four Literary Fiction books carry the
+  identical spreadsheet-era `pred_wa` 6.0245). Measured on the live library, including
+  it flattens the spread from **1.72 WA to 0.49** and reports Literary Fiction at −0.03
+  instead of **−1.16**. So the backfill rows are dropped and `visible_rows` is then run
+  over the rest (Req-1 filtering stays owned by `delta_log_view` — never duplicated),
+  leaving live > retro, both engine-produced. A reader with no backfill rows (everyone
+  but the seed) is unaffected.
+- **The worldbuilding mask.** Worldbuilding is scored 0 for realist genres, so an
+  unmasked component z-profile reports Literary Fiction at **−2.26** on Depth2 /
+  Integration / Originality — which reads as "this reader hates its worldbuilding" when
+  it means "there is none to score". Those three are `None` for any genre whose
+  Worldbuilding weight is 0 (falling back to the data when no weights are supplied).
+- **Volume is not affinity.** The dominant genre wins any raw ranking by weight of
+  numbers (Epic Fantasy is 42% of the reference library). Read share is reported
+  *separately* from affinity, and the prompt forbids recommending the most-read genre
+  merely for being biggest.
+
+Two guards on what the LLM may say, both failing closed:
+
+- **A recommended genre outside `genre_weights` is dropped.** It has no weights row, and
+  every WA roll-up reads weights defensively — so it would score a confident-looking
+  **0.00** downstream. Same hazard `test_genre_guard.py` exists for.
+- **A "type" stating a decimal is dropped.** The `types` half names a mode or tradition
+  the 16-genre schema has no label for ("secondary-world fantasy that sticks its
+  ending") and by construction has **no data behind it**; a decimal there is an invented
+  score. Types are rendered as hypotheses, never measurements.
+
+`MIN_LIBRARY_BOOKS = 15` refuses the whole feature below that — deliberately the same
+threshold the cold-start model uses to decide a tenant can stop borrowing the seed, so
+the app has one answer to "is this library big enough to speak for itself".
+
+Each pick carries a `discover_request` string that drops into the Discover box, so
+"read more Gothic" reaches actual scored books through the pipeline that already
+exists — no new scoring path. Regression guard: **`test_genre_affinity.py` (46 checks)**
+— shrinkage/band behaviour, the worldbuilding mask, the surprise row-selection (including
+an explicit check that the backfill *would* flatten it), both LLM guards, and the
+endpoint's auth/rate-limit/tenant-scope/read-only/no-write wiring. Zero-API: the library
+is a fixture and the client is a stub. CLI: `python3 genre_affinity.py [--brief]`.
+
 ## Serving latency — what is allowed to be stale, and what is not
 
 Three costs dominated page latency before 2026-08-20; the fixes are load-bearing enough

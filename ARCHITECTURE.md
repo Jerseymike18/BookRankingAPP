@@ -48,6 +48,7 @@ Consequences worth memorizing:
 - `cache_sync.py` — cross-process cache invalidation (Postgres LISTEN/NOTIFY + a reconciliation sweep). The backend runs `--workers ${LEDGER_WORKERS:-2}` (pinned in the Procfile, deliberately overriding the `WEB_CONCURRENCY` Railway sets), so a write on one worker has to drop the *other* workers' engine caches; without this they serve the pre-write library indefinitely. Inert on SQLite. See CLAUDE.md → "Serving latency".
 - `auth.py` — Supabase JWT verify → `user_id`. `signup.py` — invite-gated account creation.
 - Prediction support: `research_predict.py`, `reresearch_and_measure.py`, `intervals.py` (conformal band), `repredict_on_add.py` (auto re-predict), `research_layer.py` (LLM key).
+- `genre_affinity.py` — GENRE-level recommendation evidence (shrunk per-genre affinity + 80% band, signed predicted-vs-actual surprise, component profiles), plus the one LLM call that narrates it. Read-only over the engine; served by `POST /api/discover/genres`, fiction only. See CLAUDE.md → "Genre recommendation".
 - Validation/reporting: `validate_engine.py`, `walkforward.py`, `track_record.py`, `engine_parameters.py`; **`test_engine.py` is the health gate — must stay 38/38.**
 - Nonfiction: `nonfiction_engine.py`, `nonfiction_research.py`.
 

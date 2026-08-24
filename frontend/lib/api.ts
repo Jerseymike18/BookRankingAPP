@@ -9,6 +9,7 @@ import type {
   InstantPrediction,
   ResearchResult,
   DiscoverCandidatesResponse,
+  GenreRecommendResponse,
   ReadQueueResponse,
   NonfictionReadQueueResponse,
   TiersResponse,
@@ -499,6 +500,22 @@ export async function discoverCandidates(
       request,
       max_candidates: maxCandidates ?? null,
     }),
+    signal,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
+}
+
+export async function recommendGenres(
+  focus?: string,
+  signal?: AbortSignal
+): Promise<GenreRecommendResponse> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/discover/genres`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ focus: focus?.trim() || null }),
     signal,
   });
   const data = await res.json();

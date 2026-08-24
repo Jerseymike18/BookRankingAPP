@@ -74,6 +74,7 @@ import engine_validation as ev
 import engine_parameters as ep
 import delta_log_view
 import timeline_month
+import genre_affinity as gaff
 
 # research_predict is optional: it requires apikey.txt and heavy LLM deps.
 # Imported at module level so the import cost is paid once, not per request.
@@ -3243,6 +3244,103 @@ def discover_candidates(req: DiscoverRequest, request: Request,
     return {"candidates": candidates, "request": req.request.strip(),
             "note": result.get("note", ""), "sources": result.get("sources", [])}
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GENRE RECOMMENDATION — "what should I read MORE of", from their own ratings
+# ─────────────────────────────────────────────────────────────────────────────
+
+class GenreRecommendRequest(BaseModel):
+    # Optional free-text steer ("I want to branch out", "something shorter").
+    # Sanitized like every other string that reaches a prompt (S3 hygiene).
+    focus: Optional[_CleanQuery] = None
+
+
+@app.post("/api/discover/genres")
+def discover_genres(req: GenreRecommendRequest, request: Request,
+                    user_id: str = Depends(auth.get_current_user_id)):
+    """Recommend GENRES (and finer 'types') from the caller's own rating history.
+
+    The companion to `/api/discover/candidates`, which answers "find me books
+    matching this request". This answers the question that came before it: what
+    should the request BE. Discover's generator never saw a single number about
+    how the reader actually rates genres — genre choice was whatever they typed.
+
+    Tenant-scoped and read-only: it writes nothing, predicts nothing, and calls
+    the read-only engine only to read the caller's rated library. Exactly ONE
+    LLM call, on the cheap model, and it is pure narration — every number in the
+    response comes from `genre_affinity.genre_evidence`, never from the model's
+    prose (see that module's docstring for why that separation is load-bearing).
+
+    The response carries the full evidence table alongside the recommendations,
+    so the UI can show the reader what the argument was made FROM. Each pick
+    carries a `discover_request` string that feeds straight into the existing
+    candidate generator — the hand-off from "read more Gothic" to actual scored
+    books runs entirely through the pipeline that already exists.
+    """
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
+    try:
+        client = _rp.get_client()
+    except FileNotFoundError:
+        raise HTTPException(status_code=503,
+                            detail="apikey.txt not found — add your Anthropic API key.")
+
+    books, gw = _get_engine(user_id)[:2]
+    if books is None or len(books) < gaff.MIN_LIBRARY_BOOKS:
+        raise HTTPException(
+            status_code=404,
+            detail=(f"Genre recommendations need at least "
+                    f"{gaff.MIN_LIBRARY_BOOKS} rated books — rate a few more "
+                    "and the evidence becomes meaningful."))
+
+    con = db_backend.connect(db_write.DB, readonly=True)
+    try:
+        cols = ["id", "title", "pred_wa", "act_wa", "pred_genre", "tag",
+                "logged_at", "user_id"]
+        entries = [dict(zip(cols, r)) for r in con.execute(
+            "SELECT id, title, pred_wa, act_wa, pred_genre, tag, logged_at, "
+            "user_id FROM delta_log WHERE user_id=? ORDER BY id DESC",
+            (user_id,)).fetchall()]
+        finished, book_meta = set(), {}
+        for title, genre in con.execute(
+                "SELECT title, genre FROM books WHERE user_id=? AND status=?",
+                (user_id, "finished")).fetchall():
+            key = (title or "").strip().lower()
+            finished.add(key)
+            book_meta[key] = {"genre": genre}
+        tbr_counts = {g: n for g, n in con.execute(
+            "SELECT genre, COUNT(*) FROM recommendations "
+            "WHERE user_id=? AND done=0 GROUP BY genre", (user_id,)).fetchall()
+            if g}
+        allowed_genres = sorted(r[0] for r in
+                                con.execute("SELECT genre FROM genre_weights"))
+    finally:
+        con.close()
+
+    delta_rows = gaff.engine_forecast_rows(entries, finished,
+                                           db_write.DELTA_BACKFILL_MARKER)
+    evidence = gaff.genre_evidence(
+        books, delta_rows=delta_rows, book_meta=book_meta, genre_weights=gw,
+        tbr_counts=tbr_counts, allowed_genres=allowed_genres)
+
+    try:
+        result = gaff.recommend_genres(evidence, client, focus=req.focus)
+    except Exception as e:
+        raise _server_error(e, "Genre recommendation failed")
+
+    return {
+        "genres": result["genres"],
+        "types": result["types"],
+        "caution": result["caution"],
+        # The evidence the argument was made from — the UI renders this as the
+        # table under the picks, so the reader checks the reasoning rather than
+        # taking the model's word for it.
+        "evidence": evidence["genres"],
+        "library": evidence["library"],
+        "provenance": evidence["provenance"],
+    }
 
 class SaveRecommendationRequest(BaseModel):
     title: str
