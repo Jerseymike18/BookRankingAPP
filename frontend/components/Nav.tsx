@@ -56,6 +56,16 @@ const READING_ITEMS: NavItem[] = [
       ]),
 ];
 
+// "Predict" — the two halves of the prediction machinery. Book prediction asks
+// "how much will I like THIS book"; genre prediction asks which KINDS of book
+// are worth pointing that at, from the reader's own ratings. Separate pages
+// because they are separate errands: the book pass is the daily one, the genre
+// pass occasional.
+const PREDICT_ITEMS: NavItem[] = [
+  { href: "/predict", label: "Book Prediction" },
+  { href: "/predict/genres", label: "Genre Prediction" },
+];
+
 // "For Nerds" — how-it-works + deep diagnostics. Methodology / Track Record /
 // Calibration / Taste Lab all render read-only, so they stay on the public
 // showcase; the per-user / first-run features (Genre Weights, Tutorial) are
@@ -94,13 +104,31 @@ const sections: NavGroup[] = [
   { label: "Reading", items: READING_ITEMS },
   // Predict is the primary write/compute action — a top-level link, dropped on
   // the read-only build (the page also self-guards).
-  ...(READONLY ? [] : [{ label: "Predict", href: "/predict" }]),
+  ...(READONLY ? [] : [{ label: "Predict", items: PREDICT_ITEMS }]),
   ...(READONLY ? [] : [{ label: "Community", items: COMMUNITY_ITEMS }]),
   { label: "For Nerds", items: NERD_ITEMS },
 ];
 
 function isDropdown(s: NavGroup): s is { label: string; items: NavItem[] } {
   return "items" in s;
+}
+
+/** Which item of a section the current path belongs to — LONGEST match wins.
+ *
+ *  Every other nav group has flat, mutually-exclusive hrefs, so a plain
+ *  `startsWith` was fine. Predict is the first group whose items NEST
+ *  (`/predict` and `/predict/genres`), and there a prefix test lights up BOTH:
+ *  "/predict/genres".startsWith("/predict") is true. Returns the active item's
+ *  href, or null when the path is outside this section.
+ *
+ *  The `href + "/"` boundary also stops "/predictfoo" matching "/predict". */
+function activeItemHref(items: NavItem[], currentPath: string): string | null {
+  let best: string | null = null;
+  for (const { href } of items) {
+    const hit = currentPath === href || currentPath.startsWith(href + "/");
+    if (hit && (best === null || href.length > best.length)) best = href;
+  }
+  return best;
 }
 
 function NavSection({
@@ -112,7 +140,8 @@ function NavSection({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const isActive = section.items.some((item) => currentPath.startsWith(item.href));
+  const activeHref = activeItemHref(section.items, currentPath);
+  const isActive = activeHref !== null;
 
   // Close on outside click
   useEffect(() => {
@@ -179,7 +208,7 @@ function NavSection({
           }}
         >
           {section.items.map(({ href, label }) => {
-            const active = currentPath.startsWith(href);
+            const active = href === activeHref;
             return (
               <Link
                 key={href}
@@ -225,12 +254,18 @@ function MobileNavLink({
   currentPath,
   onNavigate,
   standalone,
+  forceActive,
 }: NavItem & {
   currentPath: string;
   onNavigate: () => void;
   standalone?: boolean;
+  /** Resolved by the caller when this link is one of several NESTED siblings
+   *  (see activeItemHref). Without it, /predict would light up on
+   *  /predict/genres alongside the child that actually matched. */
+  forceActive?: boolean;
 }) {
-  const isActive = currentPath === href || currentPath.startsWith(href + "/");
+  const isActive =
+    forceActive ?? (currentPath === href || currentPath.startsWith(href + "/"));
   return (
     <Link
       href={href}
@@ -367,6 +402,7 @@ export default function Nav() {
                       href={item.href}
                       label={item.label}
                       currentPath={path}
+                      forceActive={item.href === activeItemHref(section.items, path)}
                       onNavigate={() => setMobileOpen(false)}
                     />
                   ))}

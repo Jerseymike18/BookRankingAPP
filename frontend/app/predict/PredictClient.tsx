@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
-import type {
-  ResearchResult, ScoredCandidate, Candidate, BookKind,
-  GenreRecommendResponse, GenrePick, GenreEvidence, GenreSurprise,
-} from "@/lib/types";
-import { recommendGenres, isCancelled } from "@/lib/api";
+import type { ResearchResult, ScoredCandidate, Candidate, BookKind } from "@/lib/types";
+import { Card, StopButton, SageButton, ErrorBox, InfoBox, inputStyle } from "./ui";
 import { PredictNotifyToggle, PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -37,14 +34,6 @@ const CANDIDATE_COLS: ColDef<Candidate>[] = [
 
 /* ── Shared input styles ─────────────────────────────────────────────────── */
 
-const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
-  color: "var(--color-ink)",
-  fontFamily: "var(--font-body)",
-};
-
-/* ── Grounding signal (the PRIMARY reliability indicator) ────────────────── */
 
 function GroundingBadge({ nGenre, nAuthor }: { nGenre: number; nAuthor: number }) {
   let level: "strong" | "moderate" | "thin" | "very-thin";
@@ -134,490 +123,7 @@ function ComponentGrid({
 }
 
 /* ── Section card wrapper ────────────────────────────────────────────────── */
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={`rounded-xl p-5 ${className ?? ""}`}
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
-    >
-      {children}
-    </div>
-  );
-}
 
-/* ── Stop control ────────────────────────────────────────────────────────────
-   Quiet on purpose: stopping should be findable but never look like the primary
-   action next to a bar that is making progress. Reuses the existing rule/muted
-   tokens rather than introducing a destructive colour — nothing is destroyed by
-   pressing it, since everything already scored is kept. */
-function StopButton({
-  onClick,
-  label = "Stop",
-  className = "",
-}: {
-  onClick: () => void;
-  label?: string;
-  className?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`text-xs px-2.5 py-1 rounded-md transition-colors ${className}`}
-      style={{
-        background: "var(--color-surface-2)",
-        color: "var(--color-muted)",
-        border: "1px solid var(--color-rule)",
-      }}
-      title="Stop making further calls. Anything already done is kept; a call already in flight may still finish on the server."
-    >
-      {label}
-    </button>
-  );
-}
-
-/* ── Sage button ─────────────────────────────────────────────────────────── */
-function SageButton({
-  onClick,
-  disabled,
-  children,
-  variant = "primary",
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-  variant?: "primary" | "secondary";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-      style={
-        variant === "primary"
-          ? { background: "var(--color-sage)", color: "#fff" }
-          : {
-              background: "var(--color-surface)",
-              color: "var(--color-muted)",
-              border: "1px solid var(--color-rule)",
-            }
-      }
-    >
-      {children}
-    </button>
-  );
-}
-
-function ErrorBox({
-  message,
-  onDismiss,
-}: {
-  message: string;
-  /** When given, the reader can clear the banner themselves — needed for a
-   *  failure whose cause is external and may already have been fixed. */
-  onDismiss?: () => void;
-}) {
-  return (
-    <div
-      className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
-      style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
-    >
-      <span className="flex-1">{message}</span>
-      {onDismiss && (
-        <button onClick={onDismiss} aria-label="Dismiss" className="flex-shrink-0 leading-none">
-          ✕
-        </button>
-      )}
-    </div>
-  );
-}
-
-function InfoBox({ message }: { message: string }) {
-  return (
-    <div
-      className="rounded-lg px-4 py-3 text-sm"
-      style={{
-        background: "var(--color-sage-light)",
-        color: "var(--color-sage)",
-        border: "1px solid var(--color-sage)",
-      }}
-    >
-      {message}
-    </div>
-  );
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   GENRE RECOMMENDATION — "what should I read more of"
-   ═══════════════════════════════════════════════════════════════════════════
-   Sits above the request box because it answers the question that comes BEFORE
-   it: Discover needs a request, and until now the reader had to invent one from
-   memory. This proposes one from their own ratings, and every pick hands its
-   `discover_request` straight to the box below — so the flow from "read more
-   Gothic" to actual scored books runs through the pipeline that already exists.
-
-   The numbers rendered here come from `genre_affinity.genre_evidence` via the
-   API payload, NEVER from the model's prose (see genre_affinity.py). The "types"
-   half deliberately shows no numbers at all — it has no data behind it, and the
-   backend drops any entry that claims otherwise. */
-
-function pct(n: number) {
-  return `${Math.round(n * 100)}%`;
-}
-
-/** One evidence figure, rendered the same way everywhere it appears. */
-function Figure({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <span className="text-xs whitespace-nowrap" style={{ color: "var(--color-muted)" }}>
-      <span style={{ color: "var(--color-faint)" }}>{label} </span>
-      {children}
-    </span>
-  );
-}
-
-function SurpriseNote({ surprise }: { surprise: GenreSurprise }) {
-  // Positive = the engine under-predicts this genre for them, i.e. they enjoy it
-  // MORE than the model expects. Sage for that, muted for the reverse — never a
-  // red/green pair, which would read as good/bad rather than as a direction.
-  const under = surprise.mean_signed > 0;
-  return (
-    <span
-      className="text-xs whitespace-nowrap"
-      style={{ color: under ? "var(--color-sage)" : "var(--color-muted)" }}
-      title={
-        under
-          ? "Your ratings come in ABOVE what the engine predicted for this genre — you enjoy it more than the model expects."
-          : "Your ratings come in BELOW what the engine predicted for this genre — the model is optimistic here."
-      }
-    >
-      {under ? "engine under-rates" : "engine over-rates"} by{" "}
-      {Math.abs(surprise.mean_signed).toFixed(2)} over {surprise.n}
-    </span>
-  );
-}
-
-function GenrePickCard({
-  pick,
-  handoffDisabled,
-  onUse,
-}: {
-  pick: GenrePick;
-  handoffDisabled: boolean;
-  onUse: () => void;
-}) {
-  return (
-    <div
-      className="rounded-lg p-4"
-      style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}
-    >
-      <div className="flex items-start gap-3 flex-wrap">
-        <span className="genre-chip">{pick.genre}</span>
-        {pick.affinity !== null ? (
-          <span className="wa-badge">{pick.affinity.toFixed(2)}</span>
-        ) : (
-          <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-            no rated books yet
-          </span>
-        )}
-        <span
-          className="text-xs px-2 py-0.5 rounded-md"
-          style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
-        >
-          {pick.confidence} confidence
-        </span>
-      </div>
-
-      {/* The evidence, straight from the payload. Deliberately above the prose:
-          the numbers are the argument, the sentence is the gloss. */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-        {pick.affinity !== null && pick.band_low !== null && pick.band_high !== null && (
-          <Figure label="80% band">
-            {pick.band_low.toFixed(2)}–{pick.band_high.toFixed(2)}
-          </Figure>
-        )}
-        <Figure label="books">
-          {pick.n_books} ({pick.evidence_tier})
-        </Figure>
-        {pick.surprise && <SurpriseNote surprise={pick.surprise} />}
-        <Figure label="on your TBR">{pick.tbr_open}</Figure>
-      </div>
-
-      {pick.case && (
-        <p className="text-sm mt-3" style={{ color: "var(--color-ink)" }}>
-          {pick.case}
-        </p>
-      )}
-
-      <div className="flex items-center gap-3 mt-3 flex-wrap">
-        <SageButton onClick={onUse} disabled={handoffDisabled} variant="secondary">
-          Find books like this
-        </SageButton>
-        <span className="text-xs italic flex-1 min-w-0" style={{ color: "var(--color-faint)" }}>
-          “{pick.discover_request}”
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function EvidenceTable({ rows }: { rows: GenreEvidence[] }) {
-  return (
-    <div className="overflow-x-auto mt-3">
-      <table className="w-full text-sm" style={{ color: "var(--color-ink)" }}>
-        <thead>
-          <tr style={{ color: "var(--color-muted)" }} className="text-xs uppercase tracking-widest">
-            <th className="text-left font-semibold py-1.5 pr-3">Genre</th>
-            <th className="text-right font-semibold py-1.5 px-2">Books</th>
-            <th className="text-right font-semibold py-1.5 px-2">Share</th>
-            <th className="text-right font-semibold py-1.5 px-2">Affinity</th>
-            <th className="text-right font-semibold py-1.5 px-2">80% band</th>
-            <th className="text-right font-semibold py-1.5 px-2">Surprise</th>
-            <th className="text-right font-semibold py-1.5 pl-2">TBR</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.genre} style={{ borderTop: "1px solid var(--color-rule)" }}>
-              <td className="py-1.5 pr-3">
-                {r.genre}
-                {r.status === "unread" && (
-                  <span className="ml-2 text-xs" style={{ color: "var(--color-faint)" }}>
-                    unread
-                  </span>
-                )}
-              </td>
-              <td className="py-1.5 px-2 text-right tabular-nums">{r.n_books || "—"}</td>
-              {/* Read share sits NEXT TO affinity on purpose: how much of the
-                  library a genre occupies is a different claim from how highly
-                  it scores, and the two are easy to conflate. */}
-              <td
-                className="py-1.5 px-2 text-right tabular-nums"
-                style={{ color: "var(--color-muted)" }}
-              >
-                {r.n_books ? pct(r.read_share) : "—"}
-              </td>
-              <td className="py-1.5 px-2 text-right tabular-nums">
-                {r.affinity !== null ? r.affinity.toFixed(2) : "—"}
-              </td>
-              <td
-                className="py-1.5 px-2 text-right tabular-nums"
-                style={{ color: "var(--color-muted)" }}
-              >
-                {r.band_low !== null && r.band_high !== null
-                  ? `${r.band_low.toFixed(2)}–${r.band_high.toFixed(2)}`
-                  : "—"}
-              </td>
-              <td
-                className="py-1.5 px-2 text-right tabular-nums"
-                style={{
-                  color:
-                    r.surprise && r.surprise.mean_signed > 0
-                      ? "var(--color-sage)"
-                      : "var(--color-muted)",
-                }}
-              >
-                {r.surprise
-                  ? `${r.surprise.mean_signed > 0 ? "+" : ""}${r.surprise.mean_signed.toFixed(2)}`
-                  : "—"}
-              </td>
-              <td className="py-1.5 pl-2 text-right tabular-nums">{r.tbr_open || "—"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/** Everything the Genres tab remembers.
- *
- *  Owned by PredictClient, NOT by the card, and that is the point: the moment
- *  this became a tab, "recommend genres → switch to Books to act on it → come
- *  back" turned into the normal path. Local state would throw the whole
- *  recommendation away on the first half of that, having just spent a call to
- *  produce it. (It still resets on a full page navigation — the recommendation
- *  is one cheap call and reads nothing that a run would leave half-finished, so
- *  it does not need a slot in the job provider the way a scoring run does.) */
-export interface GenreTabState {
-  focus: string;
-  loading: boolean;
-  error: string | null;
-  result: GenreRecommendResponse | null;
-  showEvidence: boolean;
-}
-
-export const EMPTY_GENRE_TAB: GenreTabState = {
-  focus: "",
-  loading: false,
-  error: null,
-  result: null,
-  showEvidence: false,
-};
-
-function GenreRecommendCard({
-  handoffDisabled,
-  state,
-  patch,
-  onUseRequest,
-}: {
-  /** A fiction scoring run is in flight, so handing it a NEW request would
-   *  overwrite the one it is using. Blocks only the hand-off buttons — asking
-   *  for a recommendation is read-only and never conflicts with a run. */
-  handoffDisabled: boolean;
-  state: GenreTabState;
-  patch: (p: Partial<GenreTabState>) => void;
-  /** Hands a ready-made request to the Books tab and takes the reader there. */
-  onUseRequest: (request: string) => void;
-}) {
-  const { focus, loading, error, result, showEvidence } = state;
-  const setFocus = (v: string) => patch({ focus: v });
-  const setError = (v: string | null) => patch({ error: v });
-  const setShowEvidence = (fn: (v: boolean) => boolean) =>
-    patch({ showEvidence: fn(showEvidence) });
-
-  async function run() {
-    patch({ loading: true, error: null });
-    try {
-      patch({ result: await recommendGenres(focus), loading: false });
-    } catch (e) {
-      if (isCancelled(e)) patch({ loading: false });
-      else patch({ error: e instanceof Error ? e.message : String(e), loading: false });
-    }
-  }
-
-  return (
-    <Card>
-      <h2 className="font-display font-semibold text-base mb-1" style={{ color: "var(--color-ink)" }}>
-        What should I read more of?
-      </h2>
-      <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-        Reads your <strong>fiction</strong> ratings — how each genre actually scores, how
-        thin the evidence is, and where the engine has been wrong about you — and argues
-        for a few. One cheap call; nothing is saved.
-      </p>
-
-      <input
-        className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
-        style={inputStyle}
-        value={focus}
-        onChange={(e) => setFocus(e.target.value)}
-        placeholder="Optional steer — e.g. I want to branch out · something shorter"
-        disabled={loading}
-      />
-
-      <div className="flex items-center gap-4 mt-3">
-        <SageButton onClick={run} disabled={loading}>
-          {loading ? "Reading your ratings…" : "Recommend genres"}
-        </SageButton>
-      </div>
-
-      {loading && (
-        <ProgressBar
-          className="mt-3"
-          label="Weighing your genres…"
-          hint="One call — the evidence itself is computed locally from your library."
-        />
-      )}
-
-      {error && (
-        <div className="mt-3">
-          <ErrorBox message={error} onDismiss={() => setError(null)} />
-        </div>
-      )}
-
-      {result && (
-        <div className="mt-4 flex flex-col gap-3">
-          {result.genres.length === 0 && !error && (
-            <InfoBox message="No genre stood out clearly enough to recommend — your ratings are evenly spread." />
-          )}
-
-          {result.genres.map((g) => (
-            <GenrePickCard
-              key={g.genre}
-              pick={g}
-              handoffDisabled={handoffDisabled}
-              onUse={() => onUseRequest(g.discover_request)}
-            />
-          ))}
-
-          {result.types.length > 0 && (
-            <>
-              <p className="text-xs uppercase tracking-widest mt-2" style={{ color: "var(--color-muted)" }}>
-                Kinds of book your genre labels don&apos;t capture
-              </p>
-              {/* No numbers here, by construction: these are hypotheses drawn from
-                  the component evidence, not measurements of a rated group. */}
-              {result.types.map((t) => (
-                <div
-                  key={t.label}
-                  className="rounded-lg p-4"
-                  style={{ background: "var(--color-surface-2)", border: "1px dashed var(--color-rule)" }}
-                >
-                  <p className="font-display font-semibold text-sm" style={{ color: "var(--color-ink)" }}>
-                    {t.label}
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: "var(--color-ink)" }}>
-                    {t.hypothesis}
-                  </p>
-                  {t.drawn_from && (
-                    <p className="text-xs mt-1" style={{ color: "var(--color-faint)" }}>
-                      Suggested by: {t.drawn_from} · a hypothesis, not a measurement
-                    </p>
-                  )}
-                  <div className="mt-3">
-                    <SageButton
-                      onClick={() => onUseRequest(t.discover_request)}
-                      disabled={handoffDisabled}
-                      variant="secondary"
-                    >
-                      Find books like this
-                    </SageButton>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {handoffDisabled && (
-            <p className="text-xs" style={{ color: "var(--color-faint)" }}>
-              A scoring run is in flight on the Books tab — finish or stop it before
-              sending it a new request.
-            </p>
-          )}
-
-          {result.caution && (
-            <p className="text-xs" style={{ color: "var(--color-muted)" }}>
-              Caveat: {result.caution}
-            </p>
-          )}
-
-          <div>
-            <button
-              onClick={() => setShowEvidence((v) => !v)}
-              className="text-xs underline"
-              style={{ color: "var(--color-muted)" }}
-            >
-              {showEvidence ? "Hide" : "Show"} the evidence this was argued from
-            </button>
-            {showEvidence && (
-              <>
-                <EvidenceTable rows={result.evidence} />
-                <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-                  Affinity is your mean WA in that genre, shrunk toward your library mean
-                  ({result.library.mean_wa?.toFixed(2)}) by{" "}
-                  {result.library.shrinkage_k_books?.toFixed(1)} books of prior — so a
-                  two-book genre can&apos;t out-rank a fifty-book one on noise. Surprise is
-                  your actual rating minus what the engine predicted, over books you&apos;ve
-                  finished.
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    DISCOVER MODE
@@ -1388,13 +894,6 @@ function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
   };
 }
 
-type PredictTab = "books" | "genres";
-
-const PREDICT_TABS: { id: PredictTab; label: string }[] = [
-  { id: "books", label: "Books" },
-  { id: "genres", label: "Genres" },
-];
-
 /* ═══════════════════════════════════════════════════════════════════════════
    ROOT PAGE COMPONENT
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1417,52 +916,16 @@ export default function PredictClient({
     [nonfictionCategoryOrder],
   );
 
-  // Which question the page is answering. "books" is the original flow (find me
-  // books matching this request); "genres" is the step before it (what should
-  // the request BE). Two tabs rather than one stacked page because they are
-  // separate errands — the genre pass is occasional and the book pass is the
-  // daily one, and stacking them pushed the request box below the fold.
-  const [tab, setTab] = useState<PredictTab>("books");
-
-  // Lifted out of the card so a recommendation survives the trip to the Books
-  // tab and back — see GenreTabState.
-  const [genreTab, setGenreTab] = useState<GenreTabState>(EMPTY_GENRE_TAB);
-  const patchGenreTab = useCallback(
-    (p: Partial<GenreTabState>) => setGenreTab((s) => ({ ...s, ...p })),
-    [],
-  );
-
-  // The Discover box lives inside PredictFlow, which the kind toggle remounts —
-  // so the ref is held HERE, where the hand-off is performed.
+  // Arriving from genre prediction with a request already filled in. The ref is
+  // held here rather than in PredictFlow because the kind toggle remounts that
+  // component via `key`, and consumed once so a later visit is left alone.
   const requestBoxRef = useRef<HTMLTextAreaElement>(null);
-  const booksRun = jobs.runs.fiction;
-
-  /** "Find books like this" — the whole point of the Genres tab.
-   *
-   *  Genre recommendation is fiction-only, so this forces the kind as well as
-   *  the tab; landing the reader on the nonfiction flow holding a fiction
-   *  request would be a dead end. The focus is deferred to the next frame
-   *  because the target textarea does not exist until React has committed the
-   *  tab switch. */
-  const useGenreRequest = useCallback(
-    (request: string) => {
-      jobs.setRequest("fiction", request);
-      setKind("fiction");
-      setTab("books");
-      requestAnimationFrame(() => {
-        requestBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        requestBoxRef.current?.focus({ preventScroll: true });
-      });
-    },
-    [jobs, setKind],
-  );
-
-  const subtitle =
-    tab === "genres"
-      ? "Which genres your own ratings actually favour — and where the engine has been wrong about you."
-      : kind === "nonfiction"
-        ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
-        : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them.";
+  const { consumeArrivalFocus } = jobs;
+  useEffect(() => {
+    if (!consumeArrivalFocus()) return;
+    requestBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    requestBoxRef.current?.focus({ preventScroll: true });
+  }, [consumeArrivalFocus]);
 
   return (
     <div>
@@ -1472,81 +935,42 @@ export default function PredictClient({
           className="font-display text-3xl font-bold leading-tight"
           style={{ color: "var(--color-ink)" }}
         >
-          Predict
+          Book Prediction
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {subtitle}
+          {kind === "nonfiction"
+            ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
+            : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."}
         </p>
       </div>
 
-      {/* Books / Genres tabs — the SubTabs visual (surface-2 track, sage active
-          pill), same as the kind toggle below and TypeToggle elsewhere. */}
-      <div
-        className="flex gap-1 mb-4 p-1 rounded-xl inline-flex"
-        style={{ background: "var(--color-surface-2)" }}
-        role="tablist"
-        aria-label="What to predict"
-      >
-        {PREDICT_TABS.map(({ id, label }) => (
+      {/* Fiction / Nonfiction toggle */}
+      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
+        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
           <button
-            key={id}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
+            key={k}
+            onClick={() => setKind(k)}
+            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
             style={{
-              background: tab === id ? "var(--color-surface)" : "transparent",
-              color: tab === id ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: tab === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+              background: kind === k ? "var(--color-surface)" : "transparent",
+              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
+              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
             }}
           >
-            {label}
+            {k}
           </button>
         ))}
       </div>
 
-      {tab === "books" ? (
-        <>
-          {/* Fiction / Nonfiction toggle. Books only: genre recommendation reads
-              the fiction library, so offering the kind switch on that tab would
-              promise a nonfiction answer that does not exist. */}
-          <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-            {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setKind(k)}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
-                style={{
-                  background: kind === k ? "var(--color-surface)" : "transparent",
-                  color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
-                  boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                }}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-
-          {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
-              can no longer leak into each other regardless (the provider keys them
-              separately), but this still resets the view-local card open/closed
-              state, which should not carry across the toggle. */}
-          <PredictFlow
-            key={kind}
-            config={kind === "fiction" ? fictionConfig : nonfictionConfig}
-            requestBoxRef={requestBoxRef}
-          />
-        </>
-      ) : (
-        <div className="mt-4">
-          <GenreRecommendCard
-            handoffDisabled={isRunBusy(booksRun)}
-            state={genreTab}
-            patch={patchGenreTab}
-            onUseRequest={useGenreRequest}
-          />
-        </div>
-      )}
+      {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
+          can no longer leak into each other regardless (the provider keys them
+          separately), but this still resets the view-local card open/closed
+          state, which should not carry across the toggle. */}
+      <PredictFlow
+        key={kind}
+        config={kind === "fiction" ? fictionConfig : nonfictionConfig}
+        requestBoxRef={requestBoxRef}
+      />
     </div>
   );
 }

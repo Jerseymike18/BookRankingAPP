@@ -43,6 +43,7 @@ import {
   isCancelled,
 } from "@/lib/api";
 import type {
+  GenreRecommendResponse,
   BookKind,
   Candidate,
   ScoredCandidate,
@@ -228,6 +229,34 @@ export function queueRepredictKey(kind: BookKind, title: string): string {
   return `${kind}:${title}`;
 }
 
+/** Everything the genre-prediction page remembers.
+ *
+ *  Held in this provider, which is mounted ABOVE the router in the root layout —
+ *  the same reason `activeKind` lives here. "Recommend genres → hand a request
+ *  to book prediction → come back" is the normal path, and that is a real
+ *  navigation now that the two are separate pages, so page-local state would
+ *  discard a recommendation it had just spent a call to produce.
+ *
+ *  Deliberately NOT in `toSnapshot`: it is in-memory only, so it dies on reload
+ *  and on sign-out without `clearPredictJobs` having to know about it. That is
+ *  the safe default for something derived entirely from one reader's library,
+ *  and it costs a single cheap call to rebuild. */
+export interface GenreTabState {
+  focus: string;
+  loading: boolean;
+  error: string | null;
+  result: GenreRecommendResponse | null;
+  showEvidence: boolean;
+}
+
+export const EMPTY_GENRE_TAB: GenreTabState = {
+  focus: "",
+  loading: false,
+  error: null,
+  result: null,
+  showEvidence: false,
+};
+
 interface PredictJobsValue {
   runs: AllRuns;
   /** Saved-book re-predictions in flight or recently finished, by
@@ -247,6 +276,15 @@ interface PredictJobsValue {
   notice: PredictNotice | null;
   dismissNotice: () => void;
   setRequest: (kind: BookKind, request: string) => void;
+  /** Genre-prediction page state — survives navigating to book prediction and
+   *  back. See GenreTabState. */
+  genreTab: GenreTabState;
+  patchGenreTab: (p: Partial<GenreTabState>) => void;
+  /** Set by the genre page just before it pushes to /predict, consumed once by
+   *  the book page on mount. Without it the reader arrives at a request box
+   *  that filled itself silently, which reads as nothing having happened. */
+  requestFocusOnArrival: () => void;
+  consumeArrivalFocus: () => boolean;
   dismissInterrupted: (kind: BookKind) => void;
   dismissGenError: (kind: BookKind) => void;
   generate: (kind: BookKind) => void;
@@ -338,6 +376,9 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
   const [runs, setRuns] = useState<AllRuns>(EMPTY_ALL);
   const [notice, setNotice] = useState<PredictNotice | null>(null);
   const [activeKind, setActiveKind] = useState<BookKind>("fiction");
+  const [genreTab, setGenreTab] = useState<GenreTabState>(EMPTY_GENRE_TAB);
+  // A ref, not state: consuming it must not re-render, and nothing renders from it.
+  const arrivalFocus = useRef(false);
   const [queueRepredicts, setQueueRepredicts] = useState<
     Record<string, QueueRepredictJob>
   >({});
@@ -942,6 +983,19 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
+  const patchGenreTab = useCallback(
+    (p: Partial<GenreTabState>) => setGenreTab((s) => ({ ...s, ...p })),
+    [],
+  );
+  const requestFocusOnArrival = useCallback(() => {
+    arrivalFocus.current = true;
+  }, []);
+  const consumeArrivalFocus = useCallback(() => {
+    const pending = arrivalFocus.current;
+    arrivalFocus.current = false;
+    return pending;
+  }, []);
+
   const value = useMemo<PredictJobsValue>(
     () => ({
       runs,
@@ -956,6 +1010,10 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       notice,
       dismissNotice,
       setRequest,
+      genreTab,
+      patchGenreTab,
+      requestFocusOnArrival,
+      consumeArrivalFocus,
       dismissInterrupted,
       dismissGenError,
       generate,
@@ -970,7 +1028,8 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [
       runs, queueRepredicts, startQueueRepredict, clearQueueRepredict,
       cancelQueueRepredict, cancelRun, dismissCancelled, activeKind, notice,
-      dismissNotice, setRequest, dismissInterrupted, dismissGenError, generate, score, refineOne,
+      dismissNotice, setRequest, genreTab, patchGenreTab, requestFocusOnArrival,
+      consumeArrivalFocus, dismissInterrupted, dismissGenError, generate, score, refineOne,
       refineRemaining, repredictOne, save, removeBook, restoreAll,
     ],
   );

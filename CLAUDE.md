@@ -327,29 +327,32 @@ matching this request". Neither answered the question that comes first: **what s
 the request be.** Discover's generator saw the reader's titles (to avoid them) and their
 genre list (to copy spellings from) and **not one number about how they actually rate
 genres** — genre choice was whatever they typed. `genre_affinity.py` is that missing
-evidence, served by `POST /api/discover/genres` and driven from the **Genres tab** of the
-Predict page. The page has two tabs — **Books** (the original Discover flow) and
-**Genres** — because they are separate errands: the genre pass is occasional, the book
-pass is daily, and stacking them pushed the request box below the fold.
+evidence, served by `POST /api/discover/genres` and driven from **`/predict/genres`
+(Genre Prediction)** — its own page under the Predict nav group, beside `/predict`
+(Book Prediction). See **Pages** for why they are separate pages.
 
-**Genres is fiction-only, and structurally so** — the fiction/nonfiction toggle renders on
-the Books tab only, so the Genres tab can never promise a nonfiction answer. (Nonfiction
-has one `nonfiction_genre_weights` row and 6 rated books; there is no per-genre evidence
-to argue from, and an empty recommender is worse than none.) Two consequences of it being
-a tab rather than an inline card, both load-bearing:
+**Genre Prediction is fiction-only, and structurally so** — the page has no
+fiction/nonfiction toggle at all, so it can never promise a nonfiction answer. (Nonfiction
+has one `nonfiction_genre_weights` row and 6 rated books; there is no per-genre evidence to
+argue from, and an empty recommender is worse than none.) Two consequences of it being a
+separate page, both load-bearing:
 
-- **The tab's state is owned by `PredictClient`, not the card** (`GenreTabState`).
-  "Recommend → switch to Books to act on it → come back" is the normal path once this is a
-  tab, and card-local state would discard a recommendation it had just spent a call to
-  produce. It still resets on a full page navigation, which is fine: it is one cheap call
-  and leaves nothing half-finished, so unlike a scoring run it needs no slot in the job
-  provider.
-- **"Find books like this" forces the kind as well as the tab.** It sets the fiction
-  request, switches to fiction, switches to Books, then focuses the request box on the
-  next frame (the textarea does not exist until React has committed the tab switch). The
-  ref for it lives in `PredictClient` because the kind toggle remounts `PredictFlow` via
-  `key`. A fiction run in flight disables the hand-off buttons **only** — asking for a
-  recommendation is read-only and never conflicts with a run.
+- **Its state lives in the JOB PROVIDER** (`predict-jobs.GenreTabState`), not the page.
+  "Recommend → hand a request to Book Prediction → come back" is the normal path and is now
+  a real navigation, so page-local state would discard a recommendation it had just spent a
+  call to produce. The provider is mounted above the router in the root layout, which is the
+  same reason `activeKind` lives there. It is deliberately **NOT** in `toSnapshot`:
+  in-memory only, so it dies on reload and sign-out without `clearPredictJobs` needing to
+  know about it — the safe default for something derived wholly from one reader's library,
+  and one cheap call to rebuild.
+- **"Find books like this" hands off through the provider, not a query param.** It sets the
+  fiction request, forces `activeKind` to fiction (landing on the nonfiction flow holding a
+  fiction request is a dead end), flags `requestFocusOnArrival`, then pushes `/predict`.
+  Book Prediction consumes that flag ONCE on mount and focuses the request box — without it
+  the reader arrives at a box that filled itself silently, which reads as nothing having
+  happened. A fiction run in flight disables the hand-off buttons **only**: asking for a
+  recommendation is read-only and never conflicts with a run, but overwriting the request
+  that run is using would.
 
 **The module is READ-ONLY over the engine** — same standing as `track_record.py`,
 `intervals.py` and `delta_log_view.py`. It computes no prediction, writes nothing, and
@@ -752,7 +755,7 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 
 ## Pages (frontend/app/)
 
-Top-level: `add-book` · `edit-ratings` · `predict` · `read-queue` · `stats` ·
+Top-level: `add-book` · `edit-ratings` · `predict` (+ `predict/genres`) · `read-queue` · `stats` ·
 `analytics` · `calibration` · `track-record` · `methodology` · `series-breakdown` ·
 `delta-log` · `weights`
 (per-user weight overrides) · `welcome` (first-run tutorial) · `login` (hosted-app auth) ·
@@ -770,7 +773,15 @@ redirect to `/stats` (see `next.config.ts`), preserving `?type=`; `#rankings` ju
 the tables, and the top-level "Stats" nav link occupies the slot Rankings used to hold.
 The cross-type table ranks by **WA** (was Total Average); `StatsClient` renders its own
 copy only when `showRanking` is set — the merged page passes false so the leaderboard
-isn't duplicated, while the public-profile Stats tab keeps it. Nav lives in
+isn't duplicated, while the public-profile Stats tab keeps it. **Predict is a nav GROUP over two pages**, not one page: `/predict` (**Book Prediction** —
+the Discover → score → save flow) and `/predict/genres` (**Genre Prediction** — which genres
+the reader's own ratings favour). They answer different questions at different cadences —
+the book pass is daily, the genre pass occasional — and stacking them buried the request
+box. `Nav.activeItemHref` exists for this pair: Predict is the first group whose item hrefs
+NEST, and the old `startsWith` test lit up BOTH entries on `/predict/genres`. Longest match
+wins; the mobile list takes the resolved answer via `forceActive`.
+
+Nav lives in
 `components/Nav.tsx`; API calls in `lib/api.ts` (static-mode via
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
 `lib/readonly.ts`.

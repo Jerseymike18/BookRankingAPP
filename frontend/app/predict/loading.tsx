@@ -3,7 +3,7 @@ import { PageSkeleton, Skeleton, SkeletonToggle } from "@/components/Skeleton";
 export default function Loading() {
   return (
     <PageSkeleton
-      title="Predict"
+      title="Book Prediction"
       subtitle="Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."
     >
       <SkeletonToggle tabs={2} />

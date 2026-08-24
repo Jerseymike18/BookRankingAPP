@@ -236,6 +236,12 @@ def documented_routes():
                 documented.add("/")
             elif re.fullmatch(r"[a-z][a-z0-9-]*", tok):
                 documented.add(tok)
+            # Nested route outside the fiction/nonfiction groups handled below —
+            # e.g. `predict/genres`, the Genre Prediction page under the Predict
+            # nav group. Those groups get their own brace/paren forms because the
+            # docs write them as a set; a one-off nested page is just written out.
+            elif re.fullmatch(r"[a-z][a-z0-9-]*(?:/[a-z][a-z0-9-]*)+", tok):
+                documented.add(tok)
         if re.search(r"\bhome\b", region):
             documented.add("/")
 
