@@ -839,11 +839,22 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
   test needs `// @vitest-environment jsdom` plus the jsdom + @testing-library/react deps —
   add them the day a component's behaviour genuinely needs it, not before.
   - CI runs them from **`.github/workflows/frontend-tests.yml`**, a SEPARATE workflow from
-    `constraints.yml`. That separation is load-bearing twice over: `constraints.yml` holds the
-    `lint-constraints` job that is main's required status check (renaming it, or adding a
-    `paths:` filter that stops it running, silently breaks branch protection), and the
-    frontend workflow's `paths: frontend/**` filter is what keeps a data-only autopublish
-    push from dragging an npm install behind it.
+    `constraints.yml`, and **`frontend-tests` is a required status check on main** alongside
+    `lint-constraints`. Keeping them in separate files matters: renaming `lint-constraints`,
+    or adding a trigger filter that stops it running, silently breaks branch protection.
+  - **That workflow has NO `paths:` filter and must not gain one.** GitHub waits for a
+    required check to *report*, and a workflow skipped by a `paths:` filter never reports —
+    it stays pending forever, blocking every PR that happens not to touch `frontend/`. The
+    filtering lives INSIDE the job instead, where a no-op still produces a green check, and
+    it fails safe **towards running**: an indeterminable diff base (manual dispatch, new
+    branch, force-push whose base is gone) runs the tests rather than reporting green
+    without them.
+  - The in-job filter **excludes `frontend/public/data/**`** — the generated static snapshot,
+    rewritten by `export_static_data.py` on every data commit. It lives under `frontend/` but
+    is not frontend source, and without the exclusion every autopublish publish looks like a
+    frontend change and pays for a full `npm ci` (measured: a books.db refresh touches 21
+    "frontend" files, all of them snapshot JSON). A `paths: frontend/**` trigger had exactly
+    this blind spot.
   - Deliberately **not** in the local pre-push hook, for that same reason — `autopublish.sh`
     pushes are automatic and frequent, and putting a node install in that path would gate the
     publish pipeline on a test run it never needs.

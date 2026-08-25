@@ -3,60 +3,120 @@ name: frontend-tests
 # Unit tests for the frontend's pure logic (vitest, node environment).
 #
 # A SEPARATE workflow from constraints.yml on purpose. That file contains the
-# `lint-constraints` job, which is main's required status check — renaming it,
-# or adding a `paths:` filter that stops it running, silently breaks branch
-# protection. Nothing here can touch it.
+# `lint-constraints` job, which is also a required status check on main —
+# renaming it, or adding a `paths:` filter that stops it running, silently
+# breaks branch protection. Nothing here can touch it.
 #
-# The `paths` filter below is why this is its own file: a data-only publish
-# (scripts/autopublish.sh commits + pushes books.db and the snapshot on every
-# edit) must not drag an npm install behind it. Those pushes touch no frontend
-# source, so this workflow simply does not run for them.
+# THIS WORKFLOW HAS NO `paths:` FILTER, AND MUST NOT GAIN ONE.
 #
-# Deliberately NOT wired into the local pre-push hook, for the same reason:
-# autopublish pushes are automatic and frequent, and adding a node install to
-# that path would put the publish pipeline behind a test run it never needs.
-# Run them by hand with `npm test` in frontend/.
+# `frontend-tests` is a REQUIRED check on main. GitHub waits for a required
+# check to report, and a workflow skipped by a `paths:` filter never reports at
+# all — it does not pass, it stays pending forever, which blocks every PR that
+# happens not to touch frontend/. So the job always runs and always reports;
+# the filtering moved INSIDE it, where a no-op still produces a green check.
+#
+# The cost that filter was meant to save is now actually saved: on a push that
+# touches no frontend SOURCE — every scripts/autopublish.sh data publish, which
+# is frequent and automatic — this job checks out, sees nothing to do, and exits
+# in seconds without a node install. Note "source": the static snapshot the
+# publish rewrites lives at frontend/public/data/, so it has to be excluded
+# explicitly (see the diff step). The old paths filter did not, and would have
+# run a full install on every data publish.
+#
+# Deliberately NOT wired into the local pre-push hook, for that same reason:
+# autopublish pushes should not wait on a node install they never need. Run them
+# by hand with `npm test` in frontend/.
 
 on:
   push:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
   pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-tests.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-
-defaults:
-  run:
-    working-directory: frontend
 
 jobs:
   frontend-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Enough history to diff this push against its base. Shallow clones
+          # cannot see `github.event.before`, and a missing base makes the
+          # detection below fall back to RUNNING the tests, not skipping them.
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Does this change touch the frontend?
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          have() { git cat-file -e "$1^{commit}" 2>/dev/null; }
+
+          base=""
+          if [ "$EVENT" = "pull_request" ] && [ -n "${BASE_SHA:-}" ] && have "$BASE_SHA"; then
+            base="$BASE_SHA"
+          elif [ -n "${BEFORE:-}" ] && [ -n "${BEFORE//0/}" ] && have "$BEFORE"; then
+            base="$BEFORE"
+          fi
+
+          # FAIL SAFE TOWARDS RUNNING. A manual dispatch, a brand-new branch, or
+          # a force-push whose base is gone all leave `base` empty — and for a
+          # required check the safe answer to "I cannot tell what changed" is to
+          # run the tests, never to report green without having run them.
+          if [ -z "$base" ]; then
+            echo "No usable diff base — running the tests."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # NOTE the exclusion. frontend/public/data/ is the GENERATED static
+          # snapshot, rewritten by scripts/export_static_data.py on every data
+          # commit — so it lives under frontend/ but is not frontend source.
+          # Without this, every autopublish publish looks like a frontend change
+          # and pays for a full npm ci. (Measured on 840fdb2, a books.db
+          # refresh: 21 "frontend" files changed, every one of them snapshot
+          # JSON.) A `paths: frontend/**` trigger had the same blind spot.
+          changed="$(git diff --name-only "$base" "$HEAD_SHA" \
+                     -- frontend/ .github/workflows/frontend-tests.yml \
+                     ':(exclude)frontend/public/data/**' || true)"
+          if [ -n "$changed" ]; then
+            echo "Frontend files changed:"
+            printf '%s\n' "$changed" | sed 's/^/  /'
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No frontend changes in $base..$HEAD_SHA — nothing to test."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-node@v4
+        if: steps.scope.outputs.run == 'true'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # `npm ci` not `npm install`: it installs exactly the lockfile and fails
-      # if package.json and the lock have drifted, which is the check we want.
+      # `npm ci` not `npm install`: it installs exactly the lockfile and fails if
+      # package.json and the lock have drifted, which is a check we want.
       - name: Install
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
         run: npm ci
 
       - name: Unit tests
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
         run: npm test
 
-      # Typecheck belongs next to the tests: vitest transpiles without checking
+      # Typecheck belongs beside the tests: vitest transpiles without checking
       # types, so a type error in a test file would otherwise pass here and only
       # surface in the Vercel build.
       - name: Typecheck
+        if: steps.scope.outputs.run == 'true'
+        working-directory: frontend
         run: npx tsc --noEmit
