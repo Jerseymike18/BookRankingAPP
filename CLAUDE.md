@@ -800,6 +800,50 @@ Nav lives in
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
 `lib/readonly.ts`.
 
+### Unsaved work is parked in `lib/draft-storage`
+
+Two pages hold substantial work the reader has done but not yet submitted, and
+both used to lose all of it on any unmount — a nav click, a reload, a back
+gesture, or an expired session bouncing them to `/login` on the next navigation.
+Each now mirrors its in-progress state to sessionStorage through the shared
+`lib/draft-storage`, with its own pure codec beside it:
+
+- **`/welcome`** (`lib/welcome-draft.ts`) — see below; it *also* commits per window.
+- **`/add-book`** (`lib/add-book-draft.ts`) — the heaviest entry in the app: 14
+  component boxes plus the metadata. There is no partial commit to fall back on
+  (`add_book` refuses a book missing any required component — HARD CONSTRAINT 3's
+  fixed schema), so the draft IS the protection.
+
+Four rules, each easy to undo by accident:
+
+- **Every key is declared in `DRAFT_KEYS`, in `draft-storage` itself** — never
+  registered by the page that uses it. `clearAllDrafts()` runs from the sign-out
+  handler in `components/Nav`, which does not import the page modules, so a
+  self-registering store would clear only the drafts whose page the reader
+  happened to have visited and leave the rest for the next person on that browser.
+  Adding a key there is what makes a new draft get wiped on sign-out.
+- **`discard()` vs `clear()` is not a synonym.** `clear()` also latches the slot
+  off for the rest of the page's life — right for a page that is navigating away
+  (the caller awaits something first, and a state change landing in that window
+  would fire the mirror effect and rewrite what was just deleted), wrong for one
+  the reader stays on. `/add-book` resets its form and is immediately ready for
+  the next book, so it uses `discard()`; latching there would leave every book
+  after the first unprotected.
+- **The mirror effect is declared BEFORE the hydrate effect** on both pages.
+  Effects run in declaration order, so on the pass where hydrate restores, the
+  mirror has already run and skipped. Declared after, it would run in that same
+  pass still holding the pre-restore state and write a blank draft over the one
+  hydrate had just read.
+- **A restore is shape-checked against CURRENT server truth, not just parsed.**
+  Only what the reader typed comes back; anything structural is re-derived. So a
+  genre they have since deleted, or a score for a component of the other kind, is
+  dropped rather than restored into a form the backend would reject after they had
+  re-typed everything.
+
+Both pages say so when they restore, rather than silently filling the boxes.
+Regression guards: **`frontend/tests/welcome-draft.test.ts`** and
+**`frontend/tests/add-book-draft.test.ts`**.
+
 ### The welcome wizard saves as it goes
 
 `/welcome` is a five-window wizard (tour · preferences · genre weights · rating scale ·
@@ -906,8 +950,8 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
     pushes are automatic and frequent, and putting a node install in that path would gate the
     publish pipeline on a test run it never needs.
   - `toSnapshot`/`fromSnapshot` (`lib/predict-jobs`), `fromWelcomeDraft`/`isEmptyDraft`
-    (`lib/welcome-draft`) and `activeItemHref` (`components/Nav`) are exported **for these
-    tests**. All are pure, and all fail in ways nothing else catches: a snapshot or draft
+    (`lib/welcome-draft`), `fromAddBookDraft`/`isEmptyAddBookDraft` (`lib/add-book-draft`)
+    and `activeItemHref` (`components/Nav`) are exported **for these tests**. All are pure, and all fail in ways nothing else catches: a snapshot or draft
     bug is invisible until a reader reloads and finds their work gone or the page white,
     and a nav bug is purely visual — two highlighted items look enough like a design
     choice to survive review.

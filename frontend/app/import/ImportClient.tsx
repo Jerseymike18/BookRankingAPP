@@ -418,7 +418,21 @@ export default function ImportClient({
         if (data.rows.length > 0) {
           setRows(data.rows);
           setBatchId(data.rows[0].batch_id ?? null);
-          setPhase("review");
+          // Committing fans the to-read/currently-reading rows into
+          // recommendations and leaves the `read` rows behind AS the ranking
+          // backlog. So rows that are ALL `read` mean the commit already happened
+          // and the reader was part-way through ranking — resuming them into
+          // "review" dropped them on the wrong screen, showing genre/kind pickers
+          // and a Commit button for books that are past both, with no way back to
+          // the ranking list except pressing Commit again.
+          const read = data.rows.filter((r) => r.shelf === "read");
+          if (read.length === data.rows.length) {
+            setBacklog(read);
+            setRankIndex(0);
+            setPhase("rank");
+          } else {
+            setPhase("review");
+          }
           return;
         }
       } catch {

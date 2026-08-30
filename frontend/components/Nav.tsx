@@ -7,7 +7,7 @@ import { READONLY } from "@/lib/readonly";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PredictJobPill } from "@/components/PredictJobStatus";
 import { clearPredictJobs } from "@/lib/predict-jobs";
-import { clearWelcomeDraft } from "@/lib/welcome-draft";
+import { clearAllDrafts } from "@/lib/draft-storage";
 
 /** The Sign-out affordance renders only when Supabase is configured — i.e. the
  * hosted multi-tenant build. Local dev + the static public build leave the env
@@ -17,12 +17,12 @@ const AUTH_CONFIGURED =
   !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 async function signOut() {
-  // Drop the tab's stored prediction run and any half-finished welcome setup
-  // first: both are sessionStorage, so they would otherwise outlive the sign-out
-  // and greet the next person to use this tab with the previous reader's
-  // predictions — or offer to resume their onboarding answers.
+  // Drop the tab's stored prediction run and every page draft first: all of it
+  // is sessionStorage, so it would otherwise outlive the sign-out and greet the
+  // next person to use this tab with the previous reader's predictions, their
+  // onboarding answers, or the book they were half-way through rating.
   clearPredictJobs();
-  clearWelcomeDraft();
+  clearAllDrafts();
   try {
     await createSupabaseBrowserClient().auth.signOut();
   } catch {

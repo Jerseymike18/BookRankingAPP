@@ -12,16 +12,15 @@
  * draft so an interrupted wizard resumes exactly where it stopped — including the
  * windows that had not been committed yet.
  *
- * sessionStorage, not localStorage, for the same reason as the prediction runs
- * (`lib/predict-jobs`): the draft is one reader's answers, and a shared browser
- * must not hand them to whoever signs in next. Sign-out clears it outright.
- *
- * The codec below is pure and exported for `tests/welcome-draft.test.ts`: a bug
- * here is invisible until a reader reloads and finds their setup gone, or finds a
- * white page because a stale-shaped blob reached a `.map`.
+ * The storage itself is `lib/draft-storage` — shared with the other pages that
+ * park unfinished work, so the sign-out wipe covers all of them at once. What
+ * lives here is this wizard's own codec, which is pure and exported for
+ * `tests/welcome-draft.test.ts`: a bug in it is invisible until a reader reloads
+ * and finds their setup gone, or finds a white page because a stale-shaped blob
+ * reached a `.map`.
  */
 
-export const WELCOME_DRAFT_KEY = "trl:welcome-draft:v1";
+import { DRAFT_KEYS, draftStore } from "./draft-storage";
 
 /** Which windows have already been written to the server. Kept in the draft so a
  *  resumed wizard doesn't re-send work that is already saved, and — more
@@ -153,40 +152,19 @@ export function isEmptyDraft(d: WelcomeDraft): boolean {
 
 /* ── Storage ────────────────────────────────────────────────────────────── */
 
-// Latched once the draft is deliberately discarded, so nothing can re-create it.
-// Both callers then navigate, and each awaits something first: sign-out awaits
-// Supabase, finishing awaits the last write. A state change landing inside that
-// window would fire the wizard's mirror effect and rewrite the draft we just
-// deleted. The flag lives until the next full page load, which both perform.
-let stopped = false;
+const store = draftStore(DRAFT_KEYS.welcome);
 
-/** Wipe the stored draft. Called when onboarding completes (everything is on the
- *  server by then, and a leftover draft would offer to resume a finished wizard)
- *  and on sign-out (so a shared browser never resumes someone else's setup). */
-export function clearWelcomeDraft(): void {
-  stopped = true;
-  try {
-    window.sessionStorage.removeItem(WELCOME_DRAFT_KEY);
-  } catch {
-    /* storage disabled — nothing to clear */
-  }
-}
+/** Wipe the stored draft. Called when onboarding completes — everything is on the
+ *  server by then, and a leftover draft would offer to resume a finished wizard. */
+export const clearWelcomeDraft = () => store.clear();
 
+/** `stepCount` comes from the wizard's own STEPS rather than a copy kept here — a
+ *  second copy is exactly the constant that drifts, and the thing it would
+ *  silently break is the clamp that stops a draft restoring onto a window that no
+ *  longer exists. */
 export function readWelcomeDraft(stepCount: number): WelcomeDraft | null {
-  let raw: string | null = null;
-  try {
-    raw = window.sessionStorage.getItem(WELCOME_DRAFT_KEY);
-  } catch {
-    return null; // storage disabled — run purely in memory
-  }
+  const raw = store.read();
   return raw ? fromWelcomeDraft(raw, stepCount) : null;
 }
 
-export function writeWelcomeDraft(d: WelcomeDraft): void {
-  if (stopped) return;
-  try {
-    window.sessionStorage.setItem(WELCOME_DRAFT_KEY, JSON.stringify(toWelcomeDraft(d)));
-  } catch {
-    /* over quota or disabled — persistence is a bonus, never a blocker */
-  }
-}
+export const writeWelcomeDraft = (d: WelcomeDraft): void => store.write(toWelcomeDraft(d));

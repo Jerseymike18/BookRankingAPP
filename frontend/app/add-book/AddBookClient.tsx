@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
+
+import {
+  clearAddBookDraft,
+  isEmptyAddBookDraft,
+  readAddBookDraft,
+  scoredCount,
+  writeAddBookDraft,
+} from "@/lib/add-book-draft";
 
 function fmtDelta(d: number): string {
   return `${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
@@ -283,6 +291,9 @@ export default function AddBookClient({
   const [monthRead, setMonthRead] = useState(new Date().getMonth() + 1);
   const [scores, setScores] = useState<Record<string, string>>(defaultScores("fiction"));
   const [prefilled, setPrefilled] = useState(false);
+  // Set when the form came back from a stored draft, so the reader is told these
+  // are their own earlier answers rather than finding the boxes mysteriously full.
+  const [restored, setRestored] = useState<number | null>(null);
 
   function changeKind(k: BookKind) {
     setKind(k);
@@ -290,6 +301,73 @@ export default function AddBookClient({
     setSaveError(null);
     setSaveSuccess(null);
   }
+
+  /* ── Keep a half-rated book across navigations ────────────────────────────
+     Rating a book is the heaviest entry in the app — 14 component boxes plus the
+     metadata — and all of it used to die on any unmount: a nav click, a reload, a
+     back gesture, or an expired session bouncing the reader to /login mid-entry.
+     There is no partial save to fall back on (`add_book` refuses a book missing
+     any required component), so the draft IS the protection.
+
+     Declared before the hydrate effect below, and that order is load-bearing:
+     effects run in declaration order, so on the pass where hydrate restores, this
+     one has already run and skipped. Declared after, it would run in that same
+     pass still holding the empty form and write a blank draft straight over the
+     one hydrate had just read. */
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const draft = {
+      kind, title, author, genre, series, seriesNumber,
+      words, yearRead, monthRead, scores, prefilled,
+    };
+    // An untouched form has nothing to protect, and storing a blank would let a
+    // later visit "restore" emptiness over nothing.
+    if (isEmptyAddBookDraft(draft)) {
+      clearAddBookDraft();
+      return;
+    }
+    writeAddBookDraft(draft);
+  }, [kind, title, author, genre, series, seriesNumber, words, yearRead, monthRead,
+      scores, prefilled]);
+
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    const d = readAddBookDraft(
+      (k) => Object.values(COMPONENT_CATEGORIES_BY_KIND[k]).flat(),
+      validGenres
+    );
+    /* eslint-disable react-hooks/set-state-in-effect --
+       Restoring editable state from an external store (sessionStorage) once on
+       mount is the case the rule can't tell apart from deriving state from props,
+       and it is the one React allows. It can't move to a lazy useState
+       initializer: the page is server-rendered, so reading storage during the
+       first client render would make that render disagree with the server's
+       markup. These run once, behind the ref guard, in one batch. */
+    if (d && !isEmptyAddBookDraft(d)) {
+      setKind(d.kind);
+      setTitle(d.title);
+      setAuthor(d.author);
+      // The codec has already dropped a genre the reader no longer has; fall back
+      // to the same default a fresh form uses rather than an empty select.
+      setGenre(d.genre || validGenres[0] || "");
+      setSeries(d.series);
+      setSeriesNumber(d.seriesNumber);
+      setWords(d.words);
+      setYearRead(d.yearRead);
+      setMonthRead(d.monthRead);
+      // Merged onto a full set of boxes for the restored kind, so a component
+      // added since the draft was written still gets an (empty) input.
+      setScores({ ...defaultScores(d.kind), ...d.scores });
+      setPrefilled(d.prefilled);
+      setRestored(scoredCount(d));
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // Mount-only: the ref guard makes it run once, and `validGenres` is a server
+    // prop that doesn't change for this page's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Save state
   const [saving, setSaving] = useState(false);
@@ -416,11 +494,20 @@ export default function AddBookClient({
         setRepredictReport(null);
       }
 
-      // Reset form
+      // Reset form. The book is in the library now, so the draft has nothing left
+      // to protect — and leaving it would restore the book they just added.
+      clearAddBookDraft();
+      setRestored(null);
       setTitle("");
       setAuthor("");
       setGenre(validGenres[0] ?? "");
       setSeries("");
+      // Was omitted here, so a volume number picked up by a metadata lookup
+      // survived the reset and rode along on the NEXT book — which has no series
+      // number input of its own, so nothing on screen showed it. `add_book` does
+      // not require a series alongside it, so that book stored a series_number
+      // with a null series.
+      setSeriesNumber(null);
       setWords(0);
       setYearRead(new Date().getFullYear());
       setMonthRead(new Date().getMonth() + 1);
@@ -447,6 +534,25 @@ export default function AddBookClient({
             : "Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left blank for realist genres."}
         </p>
       </div>
+
+      {/* Says so when the form came back from a draft, rather than letting the
+          reader wonder why the boxes are full. Dismissible: it has done its job
+          once it has been read. */}
+      {restored !== null && (
+        <div className="flex items-start justify-between gap-3 mb-6">
+          <p className="text-sm" style={{ color: "var(--color-sage)" }}>
+            Picked up where you left off — this book was still half-entered
+            {restored > 0 ? ` (${restored} score${restored === 1 ? "" : "s"} filled in)` : ""}.
+          </p>
+          <button
+            onClick={() => setRestored(null)}
+            className="text-xs font-medium shrink-0"
+            style={{ color: "var(--color-muted)" }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Onboarding shortcut — bulk-import instead of adding one at a time. */}
       <Link
