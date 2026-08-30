@@ -345,6 +345,11 @@ function RecExpandedPanel({
             <span style={{ color: "var(--color-faint)" }}>
               {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
               {rec.interval_label ? ` (${rec.interval_label})` : ""}
+              {/* The payload has always carried this and this page never showed it,
+                  so a band calibrated against a superseded engine read here as if
+                  it were current — while the Predict page, showing the SAME number
+                  for the same book, marked it. */}
+              {rec.interval_stale ? " · stale" : ""}
             </span>
           )}
         </span>
@@ -766,6 +771,11 @@ function QueueExpandedPanel({ rec }: { rec: Recommendation }) {
             <span style={{ color: "var(--color-faint)" }}>
               {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
               {rec.interval_label ? ` (${rec.interval_label})` : ""}
+              {/* The payload has always carried this and this page never showed it,
+                  so a band calibrated against a superseded engine read here as if
+                  it were current — while the Predict page, showing the SAME number
+                  for the same book, marked it. */}
+              {rec.interval_stale ? " · stale" : ""}
             </span>
           )}
         </span>

@@ -192,16 +192,15 @@ def _git_head():
 
 def _engine_hash():
     """Content hash of every file whose code determines a prediction. Changes if
-    the engine or its glue changes, so a stale folds artifact is detectable."""
-    h = hashlib.sha256()
-    for name in ("predict_engine.py", "db_loader.py",
-                 "reresearch_and_measure.py", "research_predict.py"):
-        try:
-            with open(os.path.join(ROOT, name), "rb") as fh:
-                h.update(fh.read())
-        except OSError:
-            h.update(b"\0MISSING\0")
-    return "sha256:" + h.hexdigest()[:16]
+    the engine or its glue changes, so a stale folds artifact is detectable.
+
+    The file list and the hashing moved to `intervals.backtest_engine_hash` — same
+    files, same algorithm, byte-identical output — so that the READER of this
+    artifact (engine_validation, on a request path) can check staleness without
+    importing this harness. Kept as a name here because this is what writes the
+    hash into the meta."""
+    import intervals
+    return intervals.backtest_engine_hash(ROOT)
 
 
 def _active_correction_version(db_path):

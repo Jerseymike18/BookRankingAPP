@@ -1030,9 +1030,27 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
   genre — block the publish; WARN findings don't. Convention-dependent duplicates awaiting an
   owner decision are excused in `scripts/lint_allowlist.json` (remove an entry to restore the
   block).
-- Pre-deploy: if `predict_engine.py` or `validate_engine.py` changed, regenerate the
-  prediction-interval residual table (`python3 validate_engine.py --write-residuals`) so
-  `calibration/residuals.json` matches the live engine (else served intervals show "stale").
+- Pre-deploy: **two derived artifacts go stale from source edits, on DIFFERENT triggers.**
+  Both hash their inputs; the two hashes live together in `intervals.py` and must never be
+  compared against each other, because each artifact is only ever stale relative to its own.
+  - **`calibration/residuals.json`** — `intervals.engine_hash` over `predict_engine.py` +
+    `validate_engine.py`. Regenerate with `python3 validate_engine.py --write-residuals`,
+    else served intervals show "stale".
+  - **`validation/walkforward_*`** — `intervals.backtest_engine_hash` over a WIDER set:
+    `predict_engine.py`, `db_loader.py`, `reresearch_and_measure.py`, `research_predict.py`.
+    Regenerate with `python3 walkforward.py` (zero-spend, cache-only, deterministic).
+    A `db_loader.py` or `research_predict.py` edit triggers this one and NOT the residual
+    rule — which is how the backtest came to describe a superseded engine for five weeks
+    while the residual table stayed current.
+  - **`/api/engine-validation` now reports `provenance.stale`** by that comparison, and the
+    Methodology page says so in both tellings rather than presenting an old engine's accuracy
+    as current — the same discipline `intervals.interval_for` has always applied to a served
+    interval. `scripts/lint_constraints.py`'s `backtest-stale` check is STATE-based, not
+    diff-based, on purpose: a diff-scoped version fires once on the commit that moved the
+    engine and then goes quiet while the artifact stays stale, which is exactly what
+    happened. It warns until the backtest is re-run and clears itself when it is. WARN, never
+    ERROR — re-running changes a figure the Methodology page shows the public, which is an
+    owner's call, not a precondition for every commit.
 
 ## Walk-forward validation (backtest)
 

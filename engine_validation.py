@@ -16,7 +16,8 @@ the canonical ``intervals`` module. It NEVER:
   * touches books.db.
 
 Every number is a pure function of the committed artifacts, so the payload is
-deterministic per commit — safe to snapshot byte-identically.
+deterministic per commit — safe to snapshot byte-identically. The staleness flag
+below is too: it compares two file hashes, reads no database and calls no engine.
 
 This module used to be part of ``track_record.py``. The two split when Track
 Record went per-user (``track_record.py`` now builds a personal payload from
@@ -124,11 +125,38 @@ def build_engine_validation():
 
     served = _served_coverage(evaluated)
 
+    # Is the backtest still describing the engine that is running?
+    #
+    # `intervals.interval_for` has done exactly this for the residual table since
+    # it shipped — it hashes the engine and marks a served interval `stale` when
+    # the hash has moved. This artifact had no such check, so a backtest could go
+    # on presenting itself as the engine's measured accuracy indefinitely after
+    # the engine had changed underneath it, and the Methodology page would show
+    # the old figure with no hint anything was off.
+    #
+    # `backtest_engine_hash` is the authority here, NOT `intervals.engine_hash`:
+    # the two cover DIFFERENT file sets on purpose (the backtest's also includes
+    # db_loader / reresearch_and_measure / research_predict), so checking one
+    # artifact against the other's function would report staleness that isn't there.
+    # It is the same function walkforward.py writes the hash with.
+    try:
+        current_hash = intervals.backtest_engine_hash()
+    except Exception:
+        current_hash = None
+    stored_hash = meta.get("engine_hash")
+    stale = bool(current_hash and stored_hash and current_hash != stored_hash)
+
     return {
         "available": True,
         "provenance": {
             "git_head": (meta.get("git_head") or "")[:12],
-            "engine_hash": meta.get("engine_hash"),
+            "engine_hash": stored_hash,
+            "current_engine_hash": current_hash,
+            # True when the engine has changed since the backtest ran, so these
+            # numbers describe a previous engine. Never silently corrected — the
+            # honest move is to say so and re-run walkforward.py, exactly as a
+            # stale residual table is reported rather than patched.
+            "stale": stale,
             "backtest_generated_at": meta.get("generated_at"),
         },
         "headline": {

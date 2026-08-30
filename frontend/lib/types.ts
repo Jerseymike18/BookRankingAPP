@@ -673,7 +673,14 @@ export interface EngineValidation {
   available: boolean;
   provenance: {
     git_head: string;
+    /** The engine hash the backtest ran against. */
     engine_hash: string;
+    /** The engine hash right now. */
+    current_engine_hash: string | null;
+    /** True when the engine has changed since the backtest ran, so these numbers
+     *  describe a previous engine. The residual table has always reported this
+     *  (`interval_stale`); the backtest did not until 2026-08-30. */
+    stale: boolean;
     backtest_generated_at: string;
   };
   headline: {

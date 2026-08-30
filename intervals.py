@@ -82,17 +82,41 @@ def should_pool(bucket, n_own):
 # so uncommitted edits are caught too.
 _ENGINE_FILES = ("predict_engine.py", "validate_engine.py")
 
+# The walk-forward backtest's own hash covers a WIDER set — everything whose code
+# determines a prediction, not just what determines a residual. The two are
+# deliberately different and must never be compared against each other: each
+# artifact is only ever stale relative to its own function. Both live here so a
+# reader of either artifact can check it without importing the 778-line harness
+# (which would drag pandas and the whole engine into a request path, and would sit
+# one edit away from installing walkforward's Anthropic-blocking guard into the
+# serving process).
+_BACKTEST_ENGINE_FILES = ("predict_engine.py", "db_loader.py",
+                          "reresearch_and_measure.py", "research_predict.py")
 
-def engine_hash(root=None):
+
+def _hash_files(names, root=None):
     root = root or os.path.dirname(os.path.abspath(__file__))
     h = hashlib.sha256()
-    for name in _ENGINE_FILES:
+    for name in names:
         try:
             with open(os.path.join(root, name), "rb") as fh:
                 h.update(fh.read())
         except OSError:
             h.update(b"\0MISSING\0")
     return "sha256:" + h.hexdigest()[:16]
+
+
+def engine_hash(root=None):
+    """Content hash of what determines the RESIDUAL TABLE. A previously written
+    residuals.json is stale when this moves."""
+    return _hash_files(_ENGINE_FILES, root)
+
+
+def backtest_engine_hash(root=None):
+    """Content hash of every file whose code determines a prediction. A previously
+    written validation/ folds artifact is stale when this moves. Owned here, used
+    by walkforward.py (which writes it) and engine_validation.py (which checks it)."""
+    return _hash_files(_BACKTEST_ENGINE_FILES, root)
 
 
 # ---------------------------------------------------------------------------

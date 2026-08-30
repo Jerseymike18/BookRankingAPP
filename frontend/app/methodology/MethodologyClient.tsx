@@ -514,6 +514,12 @@ function SimpleView({
             <strong>{f2(validation.headline.honest_wa_mae)}</strong>{" "}points on the 0&ndash;10 scale — better than research
             alone ({f2(validation.headline.raw_wa_mae)}) and much better than just guessing the average (
             {f2(validation.headline.naive_wa_mae)}).
+            {validation.provenance.stale && (
+              <>
+                {" "}That test was last run against an earlier version of the engine, so treat it as a
+                guide rather than a current measurement.
+              </>
+            )}
           </>
         ) : (
           <>The engine&rsquo;s walk-forward baseline lives in the validation section below.</>
@@ -849,6 +855,20 @@ function TechnicalView({
       </Body>
       {validation ? (
         <>
+          {validation.provenance.stale && (
+            // The residual table has reported its own staleness since it shipped
+            // (a served interval carries `stale`); this artifact never did, so a
+            // backtest could present itself as the engine's current accuracy
+            // indefinitely after the engine moved. Say so rather than quietly
+            // serving the old figure.
+            <Callout>
+              <strong>These figures are from an earlier engine.</strong>{" "}The backtest was generated on{" "}
+              {validation.provenance.backtest_generated_at.slice(0, 10)} against engine{" "}
+              <code>{validation.provenance.engine_hash?.slice(7, 15)}</code>; the engine now hashes{" "}
+              <code>{validation.provenance.current_engine_hash?.slice(7, 15)}</code>. Re-running{" "}
+              <code>walkforward.py</code>{" "}refreshes them — it is zero-spend (cache-only) and deterministic.
+            </Callout>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4">
             <Stat label="Honest MAE" value={f2(validation.headline.honest_wa_mae)} note="corrected, no leakage" />
             <Stat label="Raw MAE" value={f2(validation.headline.raw_wa_mae)} note="research only" />

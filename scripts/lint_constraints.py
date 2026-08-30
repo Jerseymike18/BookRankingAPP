@@ -19,6 +19,7 @@ Checks:
   4 showcase-env      NEXT_PUBLIC_SUPABASE reachable from a STATIC_DATA build path    ERROR
   5 export-coupling   a new backend response key with no export_static_data.py entry  WARN
   6 design-tokens     a NEW hex color literal in frontend/ outside globals.css        WARN
+  8 backtest-stale     validation/ describes an engine that has since changed         WARN
   7 secrets           apikey.txt/apikey.py or an sk-ant-… key in the diff             ERROR
 
   * ERROR unless the commit-message body carries an `engine-change: <reason>`
@@ -348,6 +349,39 @@ def check_export_coupling(results, changed_files, added):
             f"(heuristic — ignore if these aren't served payload keys.)"))
 
 
+def check_backtest_staleness(results):
+    """Is the committed walk-forward backtest still describing the engine that runs?
+
+    STATE-BASED, not diff-based, and deliberately so: it compares the hash stored
+    in validation/walkforward_meta.json against the engine as it stands right now.
+    A diff-scoped version would fire once on the commit that moved the engine and
+    then go quiet while the artifact stayed stale for weeks — which is exactly what
+    happened. This one keeps saying so until the backtest is re-run, and clears
+    itself the moment it is.
+
+    WARN, never ERROR: the numbers are a published baseline, not a correctness
+    invariant, and re-running walkforward.py changes a figure the Methodology page
+    shows the public — an owner's call, not a precondition for every commit."""
+    meta = ROOT / "validation" / "walkforward_meta.json"
+    if not meta.exists():
+        return
+    try:
+        stored = json.loads(meta.read_text(encoding="utf-8")).get("engine_hash")
+        sys.path.insert(0, str(ROOT))
+        import intervals
+        current = intervals.backtest_engine_hash(str(ROOT))
+    except Exception:
+        return  # never let a lint helper take the commit down
+    if stored and current and stored != current:
+        results["warns"].append(Finding(
+            "WARN", "backtest-stale", "validation/walkforward_meta.json",
+            f"the walk-forward backtest ran against engine {stored[7:15]} but the "
+            f"engine now hashes {current[7:15]} — /api/engine-validation and the "
+            f"Methodology page are serving a previous engine's accuracy. Re-run "
+            f"`python3 walkforward.py` (zero-spend, cache-only, deterministic) to "
+            f"refresh it, or accept the gap knowingly."))
+
+
 def check_design_tokens(results, added):
     for path, records in added.items():
         if not path.startswith("frontend/") or path == GLOBALS_CSS:
@@ -418,6 +452,7 @@ def lint(mode="staged", range_spec=None, message_file=None,
         check_resid_ci(results, source, diff_mode=False)
         check_supabase_static(results, [f for f in tracked if _is_frontend_src(f)])
         check_secrets(results, tracked, source)
+        check_backtest_staleness(results)
         return results
 
     # diff modes: staged (default) or range
@@ -431,6 +466,7 @@ def lint(mode="staged", range_spec=None, message_file=None,
     check_export_coupling(results, changed, added)
     check_design_tokens(results, added)
     check_secrets(results, changed, added)
+    check_backtest_staleness(results)
     return results
 
 
