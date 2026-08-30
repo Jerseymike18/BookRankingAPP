@@ -30,6 +30,17 @@ _path_is_data_input() {
     books.db) return 0 ;;
     backend/*) return 0 ;;
     scripts/export_static_data.py) return 0 ;;
+    # Committed ARTIFACTS the snapshot is derived from, not just books.db.
+    # engine-validation.json is built from validation/walkforward_*, and the
+    # served intervals baked into read-queue.json come from the residual table.
+    # Without these the `*/*` catch-all below silently classed them as "not a
+    # data input": regenerating the backtest left the snapshot stale, pre-commit
+    # skipped the export, and pre-push computed needs_check=0 and waved the push
+    # through — publishing one set of numbers from the API and another from the
+    # static showcase. (Found 2026-08-30, the first time the backtest was
+    # regenerated since the hooks were written.)
+    validation/*) return 0 ;;
+    calibration/*) return 0 ;;
     */*) return 1 ;;   # any other nested path is not a top-level engine module
     *.py) return 0 ;;  # a top-level python module (engine, err toward inclusion)
   esac

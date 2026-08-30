@@ -682,6 +682,15 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
 
 - **pre-commit** regenerates the snapshot from the staged `books.db`
   (`scripts/export_static_data.py`) and auto-stages it into the same commit.
+- **`books.db` is not the only input.** `_path_is_data_input` in
+  `scripts/hooks/_common.sh` also counts `validation/*` and `calibration/*`, because
+  `engine-validation.json` is derived from the walk-forward artifacts and the served
+  intervals baked into `read-queue.json` come from the residual table. It did not until
+  2026-08-30: its `*/*` catch-all classed both as "not a data input", so regenerating
+  the backtest left the snapshot stale, pre-commit skipped the export, and **pre-push
+  computed `needs_check=0` and waved the push through** — the API and the static
+  showcase would have served different accuracy numbers. Anything the snapshot is
+  derived from belongs in that function.
 - **pre-push** re-runs the export in `--check` mode and blocks the push if the snapshot is
   stale or invalid.
 - Both paths run the data lint (see **Working rhythm**), so an ERROR-level data problem blocks
