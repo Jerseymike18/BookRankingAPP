@@ -75,11 +75,6 @@ pipeline — see **Publishing** below and `README.md`.
    tier spine colors). Do not introduce new color values, fonts, or component patterns
    where a token or primitive already exists.
 
-6. **Reading status for unread books is localStorage-only.** The `recommendations` table
-   has no status column. Currently-reading / reading-next for TBR books persists in the
-   browser only. The ordered **queue** itself is different — it persists via the
-   `read_queue` table through `update_queue`. Don't conflate the two.
-
 ## Scoring model (reference)
 
 14 components in 5 categories, each scored 0–10. Worldbuilding is optional (0) for realist genres.
@@ -890,6 +885,25 @@ Two layers, and the split matters:
 Regression guard: **`frontend/tests/welcome-draft.test.ts`** (the codec — round-trip,
 junk/truncated/wrong-typed blobs, the step bound, `isEmptyDraft`). Pure logic, node env,
 per the frontend-test scope rule under **Working rhythm**.
+
+### Reading status is derived from the database, not the browser
+
+"Last read / currently reading / reading next" are computed SERVER-SIDE, and the two
+tracks compute them differently:
+
+- **Fiction** reads the top two entries of the ordered **queue** — the `read_queue`
+  table, written only through `db_write.update_queue`. So reordering the queue *is*
+  how a fiction book becomes "currently reading"; there is no separate marker.
+- **Nonfiction** reads a `status` column on `nonfiction_books` (`status='reading-next'`).
+
+`recommendations` has no status column and needs none.
+
+*This replaced a HARD CONSTRAINT that said the marker for unread books was
+localStorage-only and browser-side (removed 2026-08-30, owner decision: the doc had
+drifted, not the code). Do not reintroduce a browser-local reading status — it would
+give the app two disagreeing answers to the same question. The only `localStorage` left
+anywhere in the frontend is the notification-mute preference in `lib/notify.ts`; every
+other browser-side store here is sessionStorage — see the draft note above.*
 
 ### Public profiles (opt-in cross-user browse)
 

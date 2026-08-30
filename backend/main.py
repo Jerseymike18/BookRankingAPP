@@ -5184,8 +5184,9 @@ def commit_import(payload: ImportCommitRequest, request: Request,
     """Fan reviewed staging rows into the library: to-read + currently-reading become
     recommendations (predicted later); read rows stay as the ranking backlog. Rows
     missing kind/genre are skipped and reported (they stay in staging to fix).
-    Currently-reading is treated as a to-read recommendation here — the in-progress
-    marker is a client-side reading-status concern (localStorage), not a stored field.
+    Currently-reading is treated as a to-read recommendation here — `recommendations`
+    has no status column, and a fiction book reads as "currently reading" by sitting at
+    the top of the ordered queue, so the shelf distinction needs no field of its own.
 
     Also derives the reader's star-based per-genre taste offsets HERE, which is the only
     correct moment: the `read` rows carry `goodreads_rating`, and ranking a book deletes
