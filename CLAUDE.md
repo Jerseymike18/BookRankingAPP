@@ -916,10 +916,15 @@ Two halves fix it and both are load-bearing:
 
 - the upload response carries **`enrich_deferred`** (staged − cap), so the client knows
   before it starts polling something that cannot finish;
-- **`POST /api/import/enrich`** re-runs the pass over whatever is still pending. It is
-  synchronous and idempotent (it only ever touches `pending` rows), and it is metered
-  on the **`llm`** bucket rather than `import` — each row is a paid Sonnet call, which
-  is the money rule above, not the request-volume one.
+- **`POST /api/import/enrich`** re-runs the pass over whatever is still pending. It
+  runs in the BACKGROUND like the upload's own pass and for the same reason (a full
+  batch is hundreds of Sonnet calls and minutes of work — not a connection to hold
+  open), and the client resumes the poll it already had. It only ever touches
+  `pending` rows, so it converges rather than redoing work, and it is metered on the
+  **`llm`** bucket rather than `import` — each row is a paid Sonnet call, which is the
+  money rule above, not the request-volume one. A batch larger than one pass simply
+  stalls again with a smaller count and offers the button again; that is the
+  convergence, not a failure.
 
 The `/import` page surfaces both as a "Classify the remaining N" button once a pass has
 stopped with rows outstanding. **Do not make the re-run automatic** — the cap is a

@@ -1068,10 +1068,10 @@ export interface ImportUploadResult {
 
 export interface ImportEnrichResult {
   ok: boolean;
+  /** Rows still unclassified when the pass was scheduled. */
   pending: number;
-  classified: number;
-  errors: number;
-  skipped_no_key: number;
+  /** How many of them this pass will cover (the rest need another). */
+  started: number;
   deferred: number;
 }
 

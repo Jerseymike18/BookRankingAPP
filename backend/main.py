@@ -5205,15 +5205,23 @@ def import_goodreads(payload: GoodreadsImportRequest, background_tasks: Backgrou
 
 
 @app.post("/api/import/enrich")
-def rerun_import_enrichment(request: Request,
+def rerun_import_enrichment(background_tasks: BackgroundTasks, request: Request,
                             batch_id: Optional[str] = None,
                             user_id: str = Depends(auth.get_current_user_id)):
     """Classify the caller's still-`pending` staging rows. The upload path already
     schedules one pass, but that pass is capped (import_enrich.max_per_run) and dies
     with its worker — so a large library, or a redeploy landing mid-run, left rows
     pending with no way to finish them but classifying every one by hand. This is
-    that way. Synchronous and idempotent: it only ever touches rows still marked
-    pending, so calling it twice classifies nothing twice.
+    that way.
+
+    BACKGROUND, like the upload's pass and for the same reason: a full batch is
+    hundreds of Sonnet calls and can run for minutes, which is not a request to hold
+    a connection open for. The client resumes the same poll it already uses
+    (GET /api/import/status), so the progress bar simply starts moving again.
+
+    Only ever touches rows still marked `pending`, so it converges rather than redoing
+    work — and reports how many are outstanding so the client knows whether another
+    pass will be needed after this one.
 
     Metered on the shared `llm` bucket, not the `import` one: each row is a paid
     Sonnet call, and that is the "does exceeding it cost money" rule."""
@@ -5222,10 +5230,16 @@ def rerun_import_enrichment(request: Request,
         raise HTTPException(status_code=409,
                             detail="Automatic classification is turned off for this deployment.")
     try:
-        result = import_enrich.enrich_pending(user_id, batch_id=batch_id)
+        rows = db_write.get_staging_rows(user_id, batch_id=batch_id, limit=10 ** 9)
     except Exception as e:
         raise _server_error(e)
-    return {"ok": True, **result}
+    pending = sum(1 for r in rows if r.get("enrich_state") == "pending")
+    if not pending:
+        return {"ok": True, "pending": 0, "started": 0, "deferred": 0}
+    background_tasks.add_task(import_enrich.enrich_pending, user_id, batch_id=batch_id)
+    started = min(pending, import_enrich.max_per_run())
+    return {"ok": True, "pending": pending, "started": started,
+            "deferred": pending - started}
 
 
 @app.get("/api/import/staging")

@@ -1206,10 +1206,12 @@ export async function fetchImportStaging(batchId?: string): Promise<ImportStagin
   return res.json();
 }
 
-/** Classify the staging rows still marked `pending`. The upload schedules one pass,
- *  but that pass is capped and dies with its worker, so a large library (or a
- *  redeploy landing mid-run) leaves rows unclassified with nothing to finish them.
- *  Synchronous and idempotent — it only touches rows still pending. */
+/** Schedule a classification pass over the staging rows still marked `pending`. The
+ *  upload schedules one, but it is capped and dies with its worker, so a large
+ *  library (or a redeploy landing mid-run) leaves rows unclassified with nothing to
+ *  finish them. Returns immediately — the pass runs in the background and progress
+ *  comes from the same `fetchImportStatus` poll. Only touches pending rows, so it
+ *  converges rather than redoing work. */
 export async function rerunImportEnrichment(batchId?: string): Promise<ImportEnrichResult> {
   assertWritable();
   const q = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";

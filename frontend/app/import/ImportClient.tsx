@@ -485,14 +485,20 @@ export default function ImportClient({
     setReEnriching(true);
     setRowError(null);
     try {
-      await rerunImportEnrichment(batchId);
-      const data = await fetchImportStaging(batchId);
-      setRows(data.rows);
-      const st = await fetchImportStatus(batchId);
-      const left = st.by_enrich?.pending ?? 0;
-      setEnrichStalled(left);
-      // Still capped? Another press picks up where this one stopped.
-      if (left > 0) setEnrichPending(left);
+      const res = await rerunImportEnrichment(batchId);
+      setEnrichStalled(0);
+      if (res.pending > 0) {
+        // The pass runs in the background, so hand straight back to the poll that was
+        // already driving the bar. The denominator is the whole remainder, not this
+        // pass: the poll reads `by_enrich.pending` for the entire batch, so measuring
+        // one pass would print a bar counting against a number the poll never uses.
+        // A batch bigger than one pass therefore stalls with a smaller count and
+        // offers the button again — which is the convergence, not a failure.
+        setEnrichTotal(res.pending);
+        setEnrichPending(res.pending);
+        setEnriching(true);
+        void pollEnrichment(batchId);
+      }
     } catch (e) {
       setRowError(e instanceof Error ? e.message : "Could not classify the rest.");
     } finally {
