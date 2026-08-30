@@ -96,9 +96,13 @@ The interval shown on the Predict and Read-queue pages (and exported to the publ
 snapshot) is the **density-bucketed conformal 80% band**: `intervals.py` maps a book's
 same-author analog count to an empirical half-width from `calibration/residuals.json`
 (built by `validate_engine.py --write-residuals`). It is walk-forward-validated at
-**81.4%** coverage on the honest error set (`validation/interval_coverage.md`), widens
-as the analog pool thins, and is omitted entirely — never invented — when no residual
-table is loaded.
+**84.0%** coverage on the honest error set (n=125, `validation/walkforward_report.md`,
+regenerated 2026-08-30), widens as the analog pool thins, and is omitted entirely —
+never invented — when no residual table is loaded. *(The **81.4%**/n=113 in
+`validation/interval_coverage.md` is the earlier, separate before/after analysis that
+retired the `resid_sd` band; it was not re-run and still reports that measurement.
+Quote whichever you mean, and note the served payload's `served_coverage.measured`
+is a third number — 84.8% — because it scores the **hybrid** variant, not `honest`.)*
 
 It is **not** `±1.645·resid_sd`. `resid_sd` is the residual of the near-deterministic
 WA-from-category-averages regression (R²≈0.99) — a fit diagnostic, not an unread-book
@@ -262,7 +266,7 @@ book-dependent, spanning ~4x**:
 | The Silmarillion | 4 | 0.112 | 0.327 | 13% | 13 places (79–92) |
 
 **WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%) and
-against the engine's honest walk-forward MAE (0.628) — so the WA estimate is trustworthy. Rank is
+against the engine's honest walk-forward MAE (0.587) — so the WA estimate is trustworthy. Rank is
 not; the live-library figures below quantify it. Do not read a rank move from a re-predict as
 signal. (Nonfiction is fragile in the opposite way: its noise is *larger* relative to its band, but
 its gaps are wider than its noise, so only near-boundary books move.)
@@ -1074,6 +1078,25 @@ engine features must beat, and the raw dataset for a future public track-record 
   it answers "how good is today's config," not "what was knowable then." The retired,
   never-applied `component_corrections` (DeltaTracker) layer enters **no** variant. Refitting
   the correction per-fold on the pool (a fully-honest "variant 3") is future work.
+- **Current baselines — regenerated 2026-08-30** (engine `9d2b7c25`, 141 books, **125
+  folds**, burn-in 15, `--all-splits`, determinism check PASS). WA MAE by variant:
+
+  | variant | 2026-07-24 (131 books, 116 folds) | 2026-08-30 (141 books, 125 folds) |
+  |---|---|---|
+  | raw | 0.8264 | **0.7827** |
+  | honest (the baseline to beat) | 0.6282 | **0.5874** |
+  | hybrid (the served headline) | 0.5891 | **0.5503** |
+  | leaky (today's config, not a baseline) | 0.5853 | **0.5400** |
+  | naive "predict the mean" | 0.9131 | **0.8732** |
+
+  Every variant improved, and the naive baseline fell too — so part of the gain is the
+  library growing more predictable, not only the engine. Treat the *gap* to naive
+  (0.8732 − 0.5874) as the honest read, not the absolute drop.
+- **One book is unscoreable: `Ender in Exile`** — 140 of 141 are in the research cache, so
+  it logs `SKIPPED_NO_CACHE` and sits outside the baseline. Not a defect (the harness is
+  structurally zero-spend and refuses to research), but it is why `n_in_cache` is 140 and
+  why the skip reasons now read `{POOL_LT_BURN_IN: 15, SKIPPED_NO_CACHE: 1}` where they
+  were purely burn-in before. Researching it once would fold it in.
 - **Caveats:** research-cache vectors embed post-publication reception (accepted hindsight);
   the per-fold interval recorded is the engine's overconfident `±1.645·resid_sd` band, *not*
   the calibrated served conformal interval (the report scores that separately). See

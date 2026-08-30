@@ -66,7 +66,7 @@ Consequences worth memorizing:
 
 ## Prediction engine (one-liner; math in `CLAUDE.md`)
 
-14 components in 5 categories → per-book **WA** (genre-weighted) is the ranking score; empirical-Bayes shrinkage toward author/genre/global means; unread-book predictions get a **conformal 80% interval** (density-bucketed, `intervals.py`) — never `resid_sd`. Honest walk-forward MAE baseline = **0.628**. Multi-tenant **cold-start v1**: a tenant with fewer than 15 books borrows the seed (Michael's) fitted model; smooth per-user personalization is future "Phase 4".
+14 components in 5 categories → per-book **WA** (genre-weighted) is the ranking score; empirical-Bayes shrinkage toward author/genre/global means; unread-book predictions get a **conformal 80% interval** (density-bucketed, `intervals.py`) — never `resid_sd`. Honest walk-forward MAE baseline = **0.587** (141 books / 125 folds, regenerated 2026-08-30). Multi-tenant **cold-start v1**: a tenant with fewer than 15 books borrows the seed (Michael's) fitted model; smooth per-user personalization is future "Phase 4".
 
 ## Hard constraints (full list in `CLAUDE.md` — the load-bearing ones)
 
