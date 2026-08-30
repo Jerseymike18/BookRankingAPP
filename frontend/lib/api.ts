@@ -32,6 +32,7 @@ import type {
   Profile,
   PublicProfile,
   ProfileDirectory,
+  ImportEnrichResult,
   ImportUploadResult,
   ImportStagingResponse,
   ImportStagingRow,
@@ -1203,6 +1204,19 @@ export async function fetchImportStaging(batchId?: string): Promise<ImportStagin
   const res = await apiFetch(`${API}/api/import/staging${q}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();
+}
+
+/** Classify the staging rows still marked `pending`. The upload schedules one pass,
+ *  but that pass is capped and dies with its worker, so a large library (or a
+ *  redeploy landing mid-run) leaves rows unclassified with nothing to finish them.
+ *  Synchronous and idempotent — it only touches rows still pending. */
+export async function rerunImportEnrichment(batchId?: string): Promise<ImportEnrichResult> {
+  assertWritable();
+  const q = batchId ? `?batch_id=${encodeURIComponent(batchId)}` : "";
+  const res = await apiFetch(`${API}/api/import/enrich${q}`, { method: "POST" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
+  return data;
 }
 
 /** Cheap progress counts for polling while background enrichment runs. */

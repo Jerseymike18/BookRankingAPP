@@ -5,6 +5,7 @@ import {
   importGoodreads,
   fetchImportStaging,
   fetchImportStatus,
+  rerunImportEnrichment,
   updateImportStagingRow,
   deleteImportStagingRow,
   commitImport,
@@ -395,6 +396,11 @@ export default function ImportClient({
   const [enriching, setEnriching] = useState(false);
   const [enrichPending, setEnrichPending] = useState(0);
   const [enrichTotal, setEnrichTotal] = useState(0);
+  // Rows still unclassified once a pass has stopped — either past the per-run cap,
+  // or left behind by a run whose worker went away. Nothing re-runs on its own, so
+  // this is what turns "the bar stopped moving" into a button.
+  const [enrichStalled, setEnrichStalled] = useState(0);
+  const [reEnriching, setReEnriching] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
   const [committing, setCommitting] = useState(false);
@@ -454,13 +460,44 @@ export default function ImportClient({
         setRows(data.rows);
         const pending = st.by_enrich?.pending ?? 0;
         setEnrichPending(pending);
-        if (!pending) { setEnriching(false); return; }
+        if (!pending) { setEnriching(false); setEnrichStalled(0); return; }
       } catch {
         /* transient — keep polling */
       }
       await sleep(1500);
     }
-    if (pollRef.current === myId) setEnriching(false);
+    // Out of attempts with rows still pending. Before, this just stopped: the bar
+    // froze part-way with no explanation and no route forward but classifying every
+    // remaining book by hand. Say how many are left and offer to finish them.
+    if (pollRef.current === myId) {
+      setEnriching(false);
+      try {
+        const st = await fetchImportStatus(bid);
+        setEnrichStalled(st.by_enrich?.pending ?? 0);
+      } catch {
+        /* leave the count at 0 rather than guess */
+      }
+    }
+  }
+
+  async function finishEnrichment() {
+    if (!batchId) return;
+    setReEnriching(true);
+    setRowError(null);
+    try {
+      await rerunImportEnrichment(batchId);
+      const data = await fetchImportStaging(batchId);
+      setRows(data.rows);
+      const st = await fetchImportStatus(batchId);
+      const left = st.by_enrich?.pending ?? 0;
+      setEnrichStalled(left);
+      // Still capped? Another press picks up where this one stopped.
+      if (left > 0) setEnrichPending(left);
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Could not classify the rest.");
+    } finally {
+      setReEnriching(false);
+    }
   }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -477,6 +514,7 @@ export default function ImportClient({
       const data = await fetchImportStaging(res.batch_id);
       setRows(data.rows);
       setPhase("review");
+      setEnrichStalled(0);
       if (res.enriching) {
         setEnriching(true);
         setEnrichPending(res.staged);
@@ -648,6 +686,33 @@ export default function ImportClient({
               />
             </div>
           )}
+          {!enriching && enrichStalled > 0 && (
+            // A pass stopped with rows still unclassified — past the per-run cap, or
+            // its worker went away mid-run. Nothing restarts it on its own, and an
+            // unclassified row has no kind/genre, so `commit` skips it. Say so, and
+            // make finishing one press rather than N by hand.
+            <div className="rounded-lg px-4 py-3 mb-4"
+              style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-rule)" }}>
+              <p className="text-sm mb-2" style={{ color: "var(--color-ink)" }}>
+                {enrichStalled} book{enrichStalled === 1 ? " is" : "s are"} still
+                unclassified — a classification pass covers a batch at a time.
+              </p>
+              <p className="text-xs mb-3" style={{ color: "var(--color-muted)" }}>
+                You can set kind and genre by hand below, or finish the rest
+                automatically. Books left unclassified are skipped when you commit.
+              </p>
+              <button
+                onClick={finishEnrichment}
+                disabled={reEnriching}
+                className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
+                style={{ background: "var(--color-sage)", color: "#fff" }}
+              >
+                {reEnriching ? "Classifying…" : `Classify the remaining ${enrichStalled} →`}
+              </button>
+              {reEnriching && <ProgressBar className="mt-3" label="Classifying the rest…" />}
+            </div>
+          )}
+
           {rowError && <div className="rounded-lg px-4 py-3 text-sm mb-4" style={errorBox}>{rowError}</div>}
 
           {SHELF_ORDER.map((shelf) => {

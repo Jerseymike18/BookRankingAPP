@@ -565,7 +565,11 @@ COLD_START_TERM_ENABLED = os.environ.get("COLD_START_TERM", "1") != "0"
 # (n_author==0) when the unread book's author is a stated favorite (weight 1.0) or an
 # LLM-found analog of one (discounted). Sanity-calibrated on the seed (favorite-author
 # lift +0.5..+1.4; first-books-by-favorites under-predicted −0.66) → a conservative base.
-_author_prior_cache: dict = {}          # normalized-favorites tuple → {base, map}
+# Capped, not a plain dict: the KEY is the reader's own favorites tuple, so every
+# time anyone edits their favorites this gains a permanent entry that nothing ever
+# evicts. Brief 3 bounded the per-tenant caches for exactly this reason; these two
+# were keyed on user input and missed. _TENANT_CACHE_MAX is the same ceiling.
+_author_prior_cache = _LRUCache(_TENANT_CACHE_MAX)   # normalized-favorites tuple → {base, map}
 _AUTHOR_OFFSET_BASE = 0.5               # WA bump for a direct favorite
 _ANALOG_WEIGHT = 0.5                    # analogs get this fraction of the favorite bump
 # New-user favorite-GENRE prior: the genre analog of the author prior — a positive WA bump
@@ -573,7 +577,7 @@ _ANALOG_WEIGHT = 0.5                    # analogs get this fraction of the favor
 # Same magnitude as the author favorite bump ("nudge like fav_authors"); genre is a broader
 # bucket, so dial this down here if it reads as too strong. Direct favorites only — no LLM
 # "analog genre" expansion (genre is already coarse; keeps this deterministic + API-free).
-_genre_prior_cache: dict = {}           # normalized-fav-genres tuple → {base, map}
+_genre_prior_cache = _LRUCache(_TENANT_CACHE_MAX)     # normalized-fav-genres tuple → {base, map}
 _GENRE_OFFSET_BASE = 0.5                # WA bump for a book in a favorite genre
 
 # Star-derived genre prior (Workstream B, genre-only). When a reader has imported a
@@ -626,10 +630,14 @@ def _preference_cold_term(word_count_pref):
             "use_series": 0, "n": 0}
 
 
-def _expand_author_prior(favs):
+def _expand_author_prior(favs, widen=True):
     """Build {base, map} from favorite author names, widened to LLM analogs (discounted).
     Favorites weight 1.0; analogs _ANALOG_WEIGHT (never downgrading a direct favorite).
-    Best-effort — an LLM failure just yields favorites alone; empty input → None."""
+    Best-effort — an LLM failure just yields favorites alone; empty input → None.
+
+    `widen=False` skips the paid analog call and returns the direct favorites alone —
+    the same shape a failed call already produces. The caller decides, because it is
+    the caller that holds the rate-limit principal."""
     m = {}
     for a in favs:
         na = _rp.normalize_author(a)
@@ -637,6 +645,8 @@ def _expand_author_prior(favs):
             m[na] = 1.0
     if not m:
         return None
+    if not widen:
+        return {"base": _AUTHOR_OFFSET_BASE, "map": m}
     try:
         analogs = _rp.find_author_analogs(list(favs), _rp.get_client())
         for sims in analogs.values():
@@ -649,15 +659,36 @@ def _expand_author_prior(favs):
     return {"base": _AUTHOR_OFFSET_BASE, "map": m}
 
 
-def _build_author_prior(fav_authors):
+def _build_author_prior(fav_authors, user_id=None):
     """Cached author prior for a favorites list, keyed by the normalized-favorites tuple
-    so it rebuilds when the reader changes them. None when there are no usable favorites."""
+    so it rebuilds when the reader changes them. None when there are no usable favorites.
+
+    THE ANALOG WIDENING IS A PAID ANTHROPIC CALL, and this runs from three endpoints
+    that carry no rate limit of their own (/api/read-queue, /api/reading/status,
+    /api/engine-parameters — none of them look like a spend path). The cache key is
+    the reader's own favorites list, so a reader who edits their favorites and
+    reloads gets a fresh call every time, unmetered. It is now behind the shared
+    `llm` bucket like every other paid call — the "does exceeding it cost money"
+    rule in _SHARED_BUCKETS.
+
+    Throttling FAILS CLOSED to the direct-favorites prior, which is exactly what a
+    failed analog call already produces, so a throttled reader gets a slightly
+    weaker cold-start nudge and never an error. That un-widened prior is
+    deliberately NOT cached: caching it would freeze the weaker version in place
+    long after the window reopened."""
     favs = tuple(str(a).strip() for a in (fav_authors or []) if str(a).strip())[:5]
     if not favs:
         return None
-    if favs not in _author_prior_cache:
-        _author_prior_cache[favs] = _expand_author_prior(favs)
-    return _author_prior_cache[favs]
+    hit = _author_prior_cache.get(favs)
+    if hit is not None:
+        return hit
+    # `request` is unused when a principal is supplied, and one always is here.
+    widen = _rate_limit(None, "llm", **_RL_LLM, user_id=_uid(user_id),
+                        raise_on_limit=False)
+    built = _expand_author_prior(favs, widen=widen)
+    if widen:
+        _author_prior_cache[favs] = built
+    return built
 
 
 def _expand_genre_prior(favs):
@@ -778,7 +809,7 @@ def _get_cold_term(user_id=None, word_count_pref=None, fav_authors=None, fav_gen
     # dict(...) copies so attaching a prior never mutates the cached fitted term.
     term = dict(fitted if fitted is not None
                 else (_preference_cold_term(word_count_pref) or {}))
-    ap = _build_author_prior(fav_authors)                   # independent of library size
+    ap = _build_author_prior(fav_authors, uid)              # independent of library size
     if ap:
         term["author_prior"] = ap
     gp = _build_genre_prior(fav_genres, genre_offsets)      # independent of library size
@@ -1057,7 +1088,7 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "?"
 
 
-def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
+def _rate_limit(request: Optional[Request], bucket: str, max_calls: int, window_s: float,
                 user_id: Optional[str] = None, raise_on_limit: bool = True) -> bool:
     """Allow at most `max_calls` in the last `window_s` seconds per (bucket,
     principal); raise 429 with Retry-After otherwise. No-op when
@@ -1071,7 +1102,20 @@ def _rate_limit(request: Request, bucket: str, max_calls: int, window_s: float,
     public demo falling back to a cached-only response instead of erroring)."""
     if not _RATE_LIMIT_ENABLED:
         return True
-    principal = f"user:{user_id}" if user_id else f"ip:{_client_ip(request)}"
+    # `request` is only needed for the IP fallback, so a caller with no Request (an
+    # internal paid call being metered — see _build_author_prior) must supply a
+    # user_id. Fail CLOSED rather than crash if neither is available.
+    if user_id:
+        principal = f"user:{user_id}"
+    elif request is not None:
+        principal = f"ip:{_client_ip(request)}"
+    else:
+        # No principal at all: deny rather than silently allow. Unreachable today
+        # (every endpoint has a Request, every internal caller passes a user_id),
+        # but the failure it would otherwise hide is an unmetered paid call.
+        if raise_on_limit:
+            raise HTTPException(status_code=429, detail="Rate limit principal unavailable.")
+        return False
 
     # SHARED buckets go to the database so the budget is the deployment's, not each
     # worker's. Only the money gates qualify (see _SHARED_BUCKETS): they are
@@ -1687,11 +1731,16 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
     _invalidate_engine(user_id)
 
     # If this title had a stored prediction, record the delta automatically.
-    # Non-fatal: a failure here never rolls back the successful add_book.
+    # Non-fatal: a failure here never rolls back the successful add_book. But it is
+    # not cosmetic either — the delta_log row IS the reader's predicted-vs-actual
+    # record for this book, so losing one silently drops it from the Delta Log and
+    # the Track Record with nothing anywhere saying so. Logged, like the background
+    # repredict below.
     try:
         _maybe_log_delta(req.title, req.scores, user_id)
     except Exception:
-        pass
+        log.exception("delta_log row not written for %r (the add itself succeeded)",
+                      req.title)
 
     # Auto re-predict the unread books whose baseline this book just moved (same
     # author always; same genre only if the genre-tier baseline shifted past the
@@ -5143,10 +5192,40 @@ def import_goodreads(payload: GoodreadsImportRequest, background_tasks: Backgrou
     except Exception as e:
         raise _server_error(e)
     enriching = bool(result["staged"]) and os.environ.get("IMPORT_AUTOENRICH", "1") != "0"
+    # A run classifies at most import_enrich.max_per_run() rows; anything past that
+    # stays enrich_state='pending' and NOTHING re-runs on its own. Report the count
+    # so the client can say so and offer POST /api/import/enrich, rather than
+    # polling a `pending` figure that can never reach zero.
+    deferred = max(0, result["staged"] - import_enrich.max_per_run()) if enriching else 0
     if enriching:
         background_tasks.add_task(
             import_enrich.enrich_pending, user_id, batch_id=result["batch_id"])
-    return {"ok": True, "parse": summary, "enriching": enriching, **result}
+    return {"ok": True, "parse": summary, "enriching": enriching,
+            "enrich_deferred": deferred, **result}
+
+
+@app.post("/api/import/enrich")
+def rerun_import_enrichment(request: Request,
+                            batch_id: Optional[str] = None,
+                            user_id: str = Depends(auth.get_current_user_id)):
+    """Classify the caller's still-`pending` staging rows. The upload path already
+    schedules one pass, but that pass is capped (import_enrich.max_per_run) and dies
+    with its worker — so a large library, or a redeploy landing mid-run, left rows
+    pending with no way to finish them but classifying every one by hand. This is
+    that way. Synchronous and idempotent: it only ever touches rows still marked
+    pending, so calling it twice classifies nothing twice.
+
+    Metered on the shared `llm` bucket, not the `import` one: each row is a paid
+    Sonnet call, and that is the "does exceeding it cost money" rule."""
+    _rate_limit(request, "llm", **_RL_LLM, user_id=user_id)
+    if os.environ.get("IMPORT_AUTOENRICH", "1") == "0":
+        raise HTTPException(status_code=409,
+                            detail="Automatic classification is turned off for this deployment.")
+    try:
+        result = import_enrich.enrich_pending(user_id, batch_id=batch_id)
+    except Exception as e:
+        raise _server_error(e)
+    return {"ok": True, **result}
 
 
 @app.get("/api/import/staging")

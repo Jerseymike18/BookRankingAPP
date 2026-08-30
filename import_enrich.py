@@ -81,6 +81,13 @@ def classify_book(title, author, fiction_genres, nonfiction_genres, client, mode
             "words": rp._coerce_words(data.get("words"))}
 
 
+def max_per_run():
+    """Rows one enrichment run will classify. Rows past this stay `pending` and are
+    reported as `deferred` — they are NOT lost, but nothing re-runs on its own, so
+    whoever schedules a run owns telling the reader and offering to run again."""
+    return int(os.environ.get("IMPORT_ENRICH_MAX", "500"))
+
+
 def enrich_pending(user_id, batch_id=None, key_path="apikey.txt", concurrency=None,
                    cap=None, client=None, fiction_genres=None, nonfiction_genres=None):
     """Classify this tenant's `enrich_state='pending'` staging rows (kind + genre),
@@ -94,7 +101,7 @@ def enrich_pending(user_id, batch_id=None, key_path="apikey.txt", concurrency=No
     if not rows:
         return result
 
-    cap = cap if cap is not None else int(os.environ.get("IMPORT_ENRICH_MAX", "500"))
+    cap = cap if cap is not None else max_per_run()
     if len(rows) > cap:
         result["deferred"] = len(rows) - cap
         rows = rows[:cap]

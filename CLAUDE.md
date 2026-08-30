@@ -577,7 +577,19 @@ Everything below existed because module globals are per PROCESS.
   that starts the work and the poll that collects it land on different workers otherwise.
 - **Rate limits: only the buckets that gate MONEY are shared** (`llm`, `demo_live`,
   `demo_live_global`, `signup`) — each fronts a paid Anthropic call, so N workers each
-  honouring the full budget would mean N× the spend. They go through
+  honouring the full budget would mean N× the spend. **The rule is the CALL, not the
+  endpoint**: `_build_author_prior`'s analog widening is a live Anthropic call reached
+  from three endpoints that carry no rate limit of their own (`/api/read-queue`,
+  `/api/reading/status`, `/api/engine-parameters` — none of them looks like a spend
+  path), and its cache key is the reader's own `fav_authors`, so editing favourites and
+  reloading bought a fresh call every time. It is metered on `llm` at the call site
+  instead, keyed per reader, and **fails closed to the direct-favourites prior** — the
+  same shape a failed analog call already produces, so a throttled reader gets a
+  slightly weaker cold-start nudge and never a 429 on a read. The degraded prior is
+  deliberately **not cached**, or the weaker version would outlive the window. Guard:
+  `test_author_prior_metering.py` (14 checks, zero-API). `_rate_limit` therefore takes
+  an optional `request` (the IP fallback is only needed when no `user_id` is supplied)
+  and denies rather than allows when neither is available. They go through
   `db_write.rate_limit_try`, whose count-and-insert is one statement; under concurrency it
   can overshoot by at most the number of in-flight requests (~51 on a 50/day cap, never a
   multiple) — stated, not hidden. Every other bucket stays in memory with its budget
@@ -885,6 +897,33 @@ Two layers, and the split matters:
 Regression guard: **`frontend/tests/welcome-draft.test.ts`** (the codec — round-trip,
 junk/truncated/wrong-typed blobs, the step bound, `isEmptyDraft`). Pure logic, node env,
 per the frontend-test scope rule under **Working rhythm**.
+
+### Goodreads import: the classification pass is CAPPED, and nothing re-runs it
+
+`import_enrich.enrich_pending` classifies kind + genre for staged rows, but only
+`import_enrich.max_per_run()` of them (`IMPORT_ENRICH_MAX`, default **500**). Rows past
+that stay `enrich_state='pending'`, and the upload endpoint schedules exactly one pass
+as a `BackgroundTasks` task — whose return value FastAPI discards, and whose worker a
+redeploy can take away mid-run.
+
+That combination used to strand rows silently: `GET /api/import/status`'s
+`by_enrich.pending` could never reach 0, so the client's poll burned all 40 attempts
+and stopped with the progress bar frozen part-way and no explanation — and an
+unclassified row has no kind/genre, so `commit_staged` skips it. A Goodreads export
+over 500 books hits this on the ordinary path.
+
+Two halves fix it and both are load-bearing:
+
+- the upload response carries **`enrich_deferred`** (staged − cap), so the client knows
+  before it starts polling something that cannot finish;
+- **`POST /api/import/enrich`** re-runs the pass over whatever is still pending. It is
+  synchronous and idempotent (it only ever touches `pending` rows), and it is metered
+  on the **`llm`** bucket rather than `import` — each row is a paid Sonnet call, which
+  is the money rule above, not the request-volume one.
+
+The `/import` page surfaces both as a "Classify the remaining N" button once a pass has
+stopped with rows outstanding. **Do not make the re-run automatic** — the cap is a
+deliberate spend bound; what was missing was the reader being told and given a way on.
 
 ### Reading status is derived from the database, not the browser
 

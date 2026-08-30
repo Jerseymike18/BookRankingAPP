@@ -1061,6 +1061,18 @@ export interface ImportUploadResult {
   staged: number;
   skipped_existing: number;
   skipped_bad: number;
+  /** Rows past the per-run classification cap. They stay unclassified until
+   *  `rerunImportEnrichment` is called — nothing re-runs on its own. */
+  enrich_deferred: number;
+}
+
+export interface ImportEnrichResult {
+  ok: boolean;
+  pending: number;
+  classified: number;
+  errors: number;
+  skipped_no_key: number;
+  deferred: number;
 }
 
 export interface ImportStagingResponse {

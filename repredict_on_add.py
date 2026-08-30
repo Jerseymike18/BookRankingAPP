@@ -581,7 +581,11 @@ def _predict_rec(row, *, books, gw, gcw, resid_sd, cache, web, corr_models, pair
         try:
             rp.save_cache(cache)
         except Exception:
-            pass
+            # Every new entry here was paid for with a live Anthropic call, so a
+            # silent failure throws that money away and the next pass re-buys it.
+            # Still non-fatal — the prediction itself is written either way.
+            print(f"  (warning: research cache not saved — "
+                  f"{len(cache) - n_cached} fresh entries will be re-fetched)")
 
     res = rp.correct_and_predict(
         title, author, genre, raw, conf, resid_sd, books, gw, gcw, cache,
@@ -886,7 +890,11 @@ def repredict_nonfiction_one(title, *, get_data, cache=None, anchors=None,
         try:
             _rp_mod.save_cache(cache, nr.NF_CACHE)   # persist the refreshed entry
         except Exception:
-            pass
+            # This path FORCES a fresh research call every time (nonfiction has no
+            # baseline to move), so the entry it failed to persist is one Opus call
+            # already spent. Non-fatal, but never silent.
+            print("  (warning: nonfiction research cache not saved — "
+                  "this book's fresh vector will be re-fetched)")
 
         # Clamp before the validated write: the writer rejects out-of-range, and a
         # remapped anchor scale can push a top score a hair past 10 (same reasoning
