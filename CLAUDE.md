@@ -800,6 +800,53 @@ Nav lives in
 `NEXT_PUBLIC_STATIC_DATA`); types in `lib/types.ts`; read-only gating in
 `lib/readonly.ts`.
 
+### The welcome wizard saves as it goes
+
+`/welcome` is a five-window wizard (tour · preferences · genre weights · rating scale ·
+Goodreads import) and it **commits each window on the way past**, rather than batching
+every write into the final one. It used to batch, and the failure that forced the change
+is the wizard's own last window: a reader who went looking for the import page before
+finishing was bounced back to `/welcome` by the proxy — they are not onboarded yet — and
+landed on window 1 with the favourite authors and genres they had just typed gone.
+
+Two layers, and the split matters:
+
+- **Server commits, one per window** — preferences → Supabase `user_metadata`
+  (`word_count_pref` / `fav_authors` / `fav_genres`), weights → `setGenreWeights`,
+  the scale → `setScoreAnchors`. Four rules keep them honest:
+  - **Only `finish` sets `onboarded`.** Writing it from an earlier window would let the
+    proxy release a half-set-up reader into the app.
+  - **The Continue path and `finish` call the SAME three commit functions**, so the two
+    paths can never save two different things. Each is idempotent — it compares against a
+    signature of its own last successful write and no-ops when nothing moved — so `finish`
+    on the normal path does nothing but the `onboarded` flag.
+  - **A write that fails on the way past does NOT block.** It is reported as a warning,
+    the reader keeps going, and `finish` retries it — where a failure *does* stop them.
+    The draft below is holding the answers throughout, so nothing is riding on the retry.
+  - **The wizard may only clear overrides it created itself.** `writtenWeights` records
+    the genres it wrote; a reader who reverts one has it reset, and a pre-existing
+    override the wizard never touched is left alone (that is the `/weights` page's job).
+- **A sessionStorage draft** (`lib/welcome-draft.ts`, key `trl:welcome-draft:v1`) mirrors
+  the whole in-progress wizard so an interrupted one resumes where it stopped — including
+  the windows not yet committed — and says so on arrival rather than silently filling the
+  boxes. Same discipline as the Predict job snapshot, and for the same reasons:
+  sessionStorage not localStorage (a shared browser must not hand one reader's setup to
+  the next), cleared on sign-out **and** on finish (a leftover draft would offer to resume
+  a finished wizard), with a `stopped` latch so nothing re-creates it inside the window
+  where both callers await before navigating. The restore is **shape-checked field by
+  field** (`fromWelcomeDraft`), and restores only what the reader TYPED — which genres are
+  shown and what each category's default weight is are always rebuilt from the live
+  payload, so a stale blob can never resurrect a number as if the server still held it.
+- **Effect order is load-bearing**: the mirror effect is declared BEFORE the hydrate
+  effect. Effects run in declaration order, so on the pass where hydrate restores the
+  draft the mirror has already run and skipped; declared after, it would run in that same
+  pass still holding the pre-restore state and write an empty draft over the one hydrate
+  had just read.
+
+Regression guard: **`frontend/tests/welcome-draft.test.ts`** (the codec — round-trip,
+junk/truncated/wrong-typed blobs, the step bound, `isEmptyDraft`). Pure logic, node env,
+per the frontend-test scope rule under **Working rhythm**.
+
 ### Public profiles (opt-in cross-user browse)
 
 The one place the app reads **across the tenant boundary on purpose**: a signed-in
@@ -858,11 +905,12 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
   - Deliberately **not** in the local pre-push hook, for that same reason — `autopublish.sh`
     pushes are automatic and frequent, and putting a node install in that path would gate the
     publish pipeline on a test run it never needs.
-  - `toSnapshot`/`fromSnapshot` (`lib/predict-jobs`) and `activeItemHref` (`components/Nav`)
-    are exported **for these tests**. Both are pure, and both fail in ways nothing else
-    catches: a snapshot bug is invisible until a reader reloads and finds their work gone or
-    the page white, and a nav bug is purely visual — two highlighted items look enough like a
-    design choice to survive review.
+  - `toSnapshot`/`fromSnapshot` (`lib/predict-jobs`), `fromWelcomeDraft`/`isEmptyDraft`
+    (`lib/welcome-draft`) and `activeItemHref` (`components/Nav`) are exported **for these
+    tests**. All are pure, and all fail in ways nothing else catches: a snapshot or draft
+    bug is invisible until a reader reloads and finds their work gone or the page white,
+    and a nav bug is purely visual — two highlighted items look enough like a design
+    choice to survive review.
 - When in doubt about whether something is a derived-math change or a presentation change:
   if it changes a number, it's probably math (read-only); if it changes how an existing
   number is displayed or sorted, it's presentation (fair game).

@@ -1,10 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { setGenreWeights, setScoreAnchors } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import {
+  resetScoreAnchors,
+  resetWeights,
+  setGenreWeights,
+  setScoreAnchors,
+} from "@/lib/api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { EffectiveWeights, ScoreAnchorBand, ScoreAnchors } from "@/lib/types";
 import { ProgressBar } from "@/components/ProgressBar";
+import {
+  EMPTY_SAVED,
+  clearWelcomeDraft,
+  isEmptyDraft,
+  readWelcomeDraft,
+  writeWelcomeDraft,
+  type WelcomeSaved,
+} from "@/lib/welcome-draft";
 
 /* ── First-run tutorial + simplified genre-weight picker ─────────────────────
    A new account lands here (the proxy sends any not-yet-onboarded user to
@@ -19,6 +32,22 @@ import { ProgressBar } from "@/components/ProgressBar";
    Finishing (from the last window) sets the Supabase `onboarded` flag so the
    proxy stops routing here — full control of every genre (and the components
    within each) lives on the /weights page, reachable later from the nav.
+
+   IT SAVES AS IT GOES. Each window is written on the way past (preferences →
+   Supabase user metadata, weights → the override tables, the rating scale →
+   score anchors), and the whole in-progress draft is mirrored to sessionStorage
+   by `lib/welcome-draft` so an interrupted wizard resumes where it stopped.
+   Before that, everything lived in React state and was written in one batch from
+   the FINAL window, so a reader who left the wizard part-way — most easily by
+   going to look for the import page, which the proxy bounces back to /welcome
+   because they are not onboarded yet — came back to an empty window 1 with the
+   authors and genres they had just typed gone.
+
+   The Continue buttons and `finish` share the same three commit functions, so
+   the two paths can never write two different things; a write that fails on the
+   way past is reported without blocking and retried by `finish`, where it does
+   block. Only `finish` sets `onboarded` — writing it earlier would let the proxy
+   release a half-set-up reader.
 
    Weights are RELATIVE (typed numbers); the shown % is raw/sum and the server
    normalizes to sum 1.0 on save — the same model as the /weights editor, kept
@@ -156,6 +185,49 @@ function buildModels(
       raw: existing ? existing.raw : def,
       def,
     };
+  });
+}
+
+/* ── Restoring a draft ───────────────────────────────────────────────────────
+   A resumed wizard restores only what the reader TYPED. Everything structural —
+   which genres are shown, what each category's default weight is — is rebuilt
+   from the live payload, so a draft written before a genre was renamed (or before
+   its defaults moved) can't resurrect a stale number as if the server still held
+   it. */
+
+const padFavs = (v: string[]) => Array.from({ length: MAX_FAVS }, (_, i) => v[i] ?? "");
+
+const cleanList = (v: string[]) => v.map((s) => s.trim()).filter(Boolean);
+
+/** The preferences half of the Supabase user metadata — the shape written on
+ *  leaving window 2, and again (unchanged) alongside the onboarded flag. */
+const prefsPayloadOf = (lengthPref: number, favAuthors: string[], favGenres: string[]) => ({
+  word_count_pref: lengthPref,
+  fav_authors: cleanList(favAuthors),
+  fav_genres: cleanList(favGenres),
+});
+
+const prefsSigOf = (lengthPref: number, favAuthors: string[], favGenres: string[]) =>
+  JSON.stringify(prefsPayloadOf(lengthPref, favAuthors, favGenres));
+
+const weightRawOf = (ms: GenreModel[]): Record<string, Record<string, string>> =>
+  Object.fromEntries(ms.map((m) => [m.genre, m.raw] as const));
+
+/** Overlay a draft's typed weights onto freshly built models. A stored value that
+ *  isn't a number the editor would accept is dropped back to the default. */
+function applyDraftWeights(
+  ms: GenreModel[],
+  stored: Record<string, Record<string, string>>
+): GenreModel[] {
+  return ms.map((m) => {
+    const from = stored[m.genre];
+    if (!from) return m;
+    const raw = { ...m.raw };
+    for (const cat of m.cats) {
+      const v = from[cat];
+      if (typeof v === "string" && NUM_RE.test(v)) raw[cat] = v;
+    }
+    return { ...m, raw };
   });
 }
 
@@ -382,6 +454,25 @@ export default function WelcomeClient({
   const [anchorRaw, setAnchorRaw] = useState<Record<string, string>>(() =>
     anchorRawOf(anchors.bands)
   );
+  // Which windows are already on the server, and a line saying so. Mirrored into
+  // the draft: an interrupted wizard has to know what it still owes.
+  const [saved, setSaved] = useState<WelcomeSaved>(EMPTY_SAVED);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const [resumed, setResumed] = useState(false);
+  // A window that failed to save on the way past is NOT a blocker — the reader
+  // keeps going and `finish` retries it, where a failure does stop them.
+  const [warn, setWarn] = useState<string | null>(null);
+
+  /* ── What has actually been written ────────────────────────────────────────
+     Signatures of the last successful write for each window, so pressing Back and
+     Continue again doesn't re-send an unchanged window. `writtenWeights` doubles
+     as the record of which genre overrides THIS wizard created — the only ones it
+     may clear if the reader later reverts them. */
+  const prefsSig = useRef<string | null>(null);
+  const writtenWeights = useRef<Record<string, string>>({});
+  // A reader who already has a custom scale arrives with one stored; the sentinel
+  // is never equal to a payload, so a change writes and a revert clears.
+  const anchorsSig = useRef<string | null>(anchors.customized ? "existing" : null);
 
   // Genre names for the favorite-genres autocomplete (the tunable global set).
   const genreOptions = globalGenres(weights)
@@ -389,6 +480,100 @@ export default function WelcomeClient({
     .sort((a, b) => a.localeCompare(b));
   // Did the reader name at least one genre we recognize? Drives the weights-window copy.
   const matchedFavCount = resolveFavGenres(weights, favGenres).length;
+
+  /* ── Mirror every change back to the draft ────────────────────────────────
+     Cheap, synchronous and local — the server commits below are what make the
+     answers durable, this is what makes an unfinished window survive a reload. */
+  const hydrated = useRef(false);
+  useEffect(() => {
+    // Declared BEFORE the hydrate effect below, and that order is load-bearing:
+    // effects run in declaration order, so on the pass where hydrate restores the
+    // draft this one has already run and skipped. Declared after, it would run in
+    // that same pass still holding the pre-restore state and write an empty draft
+    // straight over the one hydrate had just read.
+    if (!hydrated.current) return;
+    writeWelcomeDraft({
+      step,
+      mode,
+      lengthPref,
+      favAuthors,
+      favGenres,
+      anchorMode,
+      anchorRaw,
+      weightRaw: weightRawOf(models),
+      saved,
+    });
+  }, [
+    step,
+    mode,
+    lengthPref,
+    favAuthors,
+    favGenres,
+    anchorMode,
+    anchorRaw,
+    models,
+    saved,
+  ]);
+
+  /* ── Resume an interrupted wizard ─────────────────────────────────────────
+     Nothing here used to survive an unmount, and the likeliest thing to unmount
+     it is the wizard's own subject matter: a reader who goes looking for the
+     import page before finishing is bounced back to /welcome by the proxy (they
+     are not onboarded yet) and lands on window 1 with everything they typed gone.
+     Restoring the draft costs nothing and makes that a non-event. */
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    const d = readWelcomeDraft(STEPS.length);
+    /* eslint-disable react-hooks/set-state-in-effect --
+       Restoring editable state from an external store (sessionStorage) once on
+       mount is the case the rule can't distinguish from deriving state from
+       props, and it is the one React itself allows. It can't move to a lazy
+       useState initializer: the page is server-rendered, so reading storage
+       during the first client render would make that render disagree with the
+       server's markup. These run once, behind the ref guard, into one batch. */
+    if (d && !isEmptyDraft(d)) {
+      const favG = padFavs(d.favGenres);
+      setFavAuthors(padFavs(d.favAuthors));
+      setFavGenres(favG);
+      setLengthPref(d.lengthPref);
+      setMode(d.mode);
+      setAnchorMode(d.anchorMode);
+      // Only bands the server still serves; anything else keeps its current value.
+      setAnchorRaw((cur) => {
+        const next = { ...cur };
+        for (const b of anchors.bands) {
+          const v = d.anchorRaw[b.key];
+          if (typeof v === "string") next[b.key] = v;
+        }
+        return next;
+      });
+      const models = applyDraftWeights(buildModels(weights, favG), d.weightRaw);
+      setModels(models);
+      setSaved(d.saved);
+      setStep(d.step);
+      setResumed(true);
+      // Re-derive the write signatures from what the draft says landed, so a resumed
+      // wizard doesn't re-send windows it already saved.
+      if (d.saved.prefs) {
+        prefsSig.current = prefsSigOf(d.lengthPref, d.favAuthors, d.favGenres);
+      }
+      const byGenre = new Map(models.map((m) => [m.genre, m] as const));
+      for (const g of d.saved.weights) {
+        const m = byGenre.get(g);
+        if (m) writtenWeights.current[g] = JSON.stringify(m.raw);
+      }
+      if (d.saved.anchors) {
+        anchorsSig.current = JSON.stringify(
+          Object.fromEntries(anchors.bands.map((b) => [b.key, anchorNum(d.anchorRaw[b.key] ?? "")]))
+        );
+      }
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // Mount-only: the guard above makes it run once, and `weights`/`anchors` are
+    // server props that don't change for this page's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function patch(genre: string, cat: string, v: string) {
     setModels((ms) =>
@@ -407,23 +592,155 @@ export default function WelcomeClient({
   const anchorIssue = anchorEditing ? anchorProblem(anchors.bands, anchorRaw) : null;
   const anchorChanged = anchorEditing && anchorsDirty(anchors.bands, anchorRaw);
 
+  /* ── Committing each window as the reader leaves it ───────────────────────
+     Every answer used to be written in one batch from the LAST window, so a
+     wizard abandoned (or bounced) anywhere before that saved nothing at all. Each
+     window is now written on the way past instead, and `finish` only has to do
+     whatever is still outstanding plus the onboarded flag.
+
+     The three helpers below return an error message or null. They are idempotent
+     — an unchanged window is a no-op — and they are the ONLY writers, so the
+     Continue path and the Finish path can never save two different things. */
+
+  /** Window 2: length preference + favourite authors/genres, onto the Supabase
+   *  user's metadata. NOT the onboarded flag — that belongs to `finish`, and
+   *  setting it early would let the proxy release a half-set-up reader. */
+  async function commitPrefs(tick?: () => void): Promise<string | null> {
+    const sig = prefsSigOf(lengthPref, favAuthors, favGenres);
+    if (!AUTH_CONFIGURED) {
+      // Local dev / the static build have no per-user identity to hang these on.
+      prefsSig.current = sig;
+      return null;
+    }
+    if (prefsSig.current === sig) return null;
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: err } = await supabase.auth.updateUser({
+        data: prefsPayloadOf(lengthPref, favAuthors, favGenres),
+      });
+      if (err) throw new Error(err.message);
+      prefsSig.current = sig;
+      setSaved((s) => ({ ...s, prefs: true }));
+      tick?.();
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn’t save your preferences.";
+    }
+  }
+
+  /** What window 3 owes the server: the genres to write, and the ones this wizard
+   *  wrote earlier that the reader has since reverted (or dropped by switching
+   *  back to "keep the defaults"). Overrides the wizard never created are left
+   *  alone — reverting one is the /weights page's job, not the tour's. */
+  function weightPlan() {
+    const dirty = customizing ? models.filter(isDirty) : [];
+    const wanted = new Map(dirty.map((m) => [m.genre, JSON.stringify(m.raw)] as const));
+    return {
+      writes: dirty.filter((m) => wanted.get(m.genre) !== writtenWeights.current[m.genre]),
+      resets: Object.keys(writtenWeights.current).filter((g) => !wanted.has(g)),
+    };
+  }
+
+  async function commitWeights(tick?: () => void): Promise<string | null> {
+    const { writes, resets } = weightPlan();
+    if (!writes.length && !resets.length) return null;
+    try {
+      for (const m of writes) {
+        await setGenreWeights(m.genre, toNums(m.raw), "fiction");
+        writtenWeights.current[m.genre] = JSON.stringify(m.raw);
+        tick?.();
+      }
+      for (const g of resets) {
+        await resetWeights({ genre: g }, "fiction");
+        delete writtenWeights.current[g];
+        tick?.();
+      }
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn’t save your genre weights.";
+    } finally {
+      // Whatever landed before a failure is still stored — record it, so a retry
+      // sends only the rest and a revert can still clear it.
+      setSaved((s) => ({ ...s, weights: Object.keys(writtenWeights.current) }));
+    }
+  }
+
+  /** The whole rating scale, or a reset if the reader put it back to standard.
+   *  Sent whole (every band) — the server rejects a partial or inverted table. */
+  function anchorPayload(): Record<string, number> | null {
+    if (!anchorChanged) return null;
+    return Object.fromEntries(
+      anchors.bands.map((b) => [b.key, anchorNum(anchorRaw[b.key] ?? "")])
+    );
+  }
+
+  async function commitAnchors(tick?: () => void): Promise<string | null> {
+    const payload = anchorPayload();
+    const sig = payload ? JSON.stringify(payload) : null;
+    if (sig ? sig === anchorsSig.current : anchorsSig.current === null) return null;
+    try {
+      if (payload) {
+        await setScoreAnchors(payload);
+        anchorsSig.current = sig;
+        setSaved((s) => ({ ...s, anchors: true }));
+      } else {
+        await resetScoreAnchors();
+        anchorsSig.current = null;
+        setSaved((s) => ({ ...s, anchors: false }));
+      }
+      tick?.();
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn’t save your rating scale.";
+    }
+  }
+
+  /** Run one window's write on the way forward. A failure is reported but never
+   *  blocks — the draft still holds the answers and `finish` retries them, where
+   *  a failure DOES stop the reader. */
+  async function advance(
+    to: number,
+    commit: () => Promise<string | null>,
+    note: string
+  ) {
+    setError(null);
+    setWarn(null);
+    setSavedNote(null);
+    setResumed(false); // said its piece on arrival; don't follow them through the wizard
+    setBusy(true);
+    const err = await commit();
+    setBusy(false);
+    if (err) {
+      setWarn(`${err} Your answers are kept — we'll try again when you finish.`);
+    } else {
+      setSavedNote(note);
+    }
+    setStep(to);
+  }
+
   // Leaving the preferences window: rebuild the weight models around the genres
-  // the reader named (preserving any edits already made to carried-over genres).
+  // the reader named (preserving any edits already made to carried-over genres),
+  // and write the preferences themselves.
   function goToWeights() {
     setModels((prev) => buildModels(weights, favGenres, prev));
-    setError(null);
-    setStep(2);
+    void advance(2, commitPrefs, "Preferences saved.");
   }
 
   function goBack() {
     setError(null);
+    setWarn(null);
+    setSavedNote(null);
+    setResumed(false);
     setStep((s) => Math.max(0, s - 1));
   }
 
-  // Complete onboarding: persist any customized weights + the reader's metadata,
-  // then navigate to `dest` ("/" for the app, "/import" to bring in Goodreads).
+  // Complete onboarding. By this point each window has normally already been
+  // written on the way past, so this usually just re-checks that, sets the
+  // onboarded flag and navigates. Anything that failed earlier is retried here —
+  // and here a failure DOES stop the reader, rather than being carried forward.
   async function finish(dest: "/" | "/import") {
     setError(null);
+    setWarn(null);
     const persist = customizing;
     if (persist) {
       const bad = models.find((m) => isDirty(m) && sumOf(m.raw) <= 0);
@@ -441,30 +758,31 @@ export default function WelcomeClient({
       return;
     }
     setBusy(true);
-    // One step per write this finish will actually perform: each dirty genre,
-    // the anchor table if it moved, and the auth-metadata update.
-    const dirtyModels = persist ? models.filter(isDirty) : [];
+    // One step per write this finish will actually perform — which, on the normal
+    // path, is just the auth-metadata update.
+    const { writes, resets } = weightPlan();
+    const prefsPending =
+      AUTH_CONFIGURED && prefsSig.current !== prefsSigOf(lengthPref, favAuthors, favGenres);
+    const anchorSig = anchorPayload();
+    const anchorPending = anchorSig
+      ? JSON.stringify(anchorSig) !== anchorsSig.current
+      : anchorsSig.current !== null;
     setSaveSteps({
       done: 0,
-      total: dirtyModels.length + (anchorChanged ? 1 : 0) + (AUTH_CONFIGURED ? 1 : 0),
+      total:
+        (prefsPending ? 1 : 0) +
+        writes.length +
+        resets.length +
+        (anchorPending ? 1 : 0) +
+        (AUTH_CONFIGURED ? 1 : 0),
     });
     const stepDone = () => setSaveSteps((s) => ({ ...s, done: s.done + 1 }));
     try {
-      // Persist only the genres the reader actually changed. Untouched genres are
-      // left on the shared defaults — a valid state, never null/global-by-accident.
-      for (const m of dirtyModels) {
-        await setGenreWeights(m.genre, toNums(m.raw), "fiction");
-        stepDone();
-      }
-      // The rating scale, only if they moved a band off its standard value. Sent
-      // whole (every band), which is what the server requires.
-      if (anchorChanged) {
-        await setScoreAnchors(
-          Object.fromEntries(
-            anchors.bands.map((b) => [b.key, anchorNum(anchorRaw[b.key] ?? "")])
-          )
-        );
-        stepDone();
+      // The same three writers the Continue buttons use, so the two paths can
+      // never save two different things. Each is a no-op if already committed.
+      for (const commit of [commitPrefs, commitWeights, commitAnchors]) {
+        const err = await commit(stepDone);
+        if (err) throw new Error(err);
       }
       // Mark onboarding complete so the proxy stops routing here (hosted only).
       // This MUST run before navigating to /import — the proxy bounces a
@@ -474,9 +792,7 @@ export default function WelcomeClient({
         const { error: metaErr } = await supabase.auth.updateUser({
           data: {
             onboarded: true,
-            word_count_pref: lengthPref,
-            fav_authors: favAuthors.map((s) => s.trim()).filter(Boolean),
-            fav_genres: favGenres.map((s) => s.trim()).filter(Boolean),
+            ...prefsPayloadOf(lengthPref, favAuthors, favGenres),
           },
         });
         if (metaErr) throw new Error(metaErr.message);
@@ -490,6 +806,9 @@ export default function WelcomeClient({
         await supabase.auth.refreshSession();
         stepDone();
       }
+      // Everything is on the server now, so the draft has nothing left to protect —
+      // and leaving it behind would offer to "resume" a finished wizard.
+      clearWelcomeDraft();
       // Hard navigation so the proxy re-runs against the refreshed session and
       // sends the now-onboarded reader on instead of back here.
       window.location.assign(dest);
@@ -542,6 +861,15 @@ export default function WelcomeClient({
           Step {step + 1} of {STEPS.length} · {STEPS[step].title}
         </p>
       </div>
+
+      {/* Says so when the wizard picked up where it left off, rather than silently
+          filling the boxes — a reader who was bounced here needs to know these are
+          their own earlier answers and not defaults. */}
+      {resumed && (
+        <p className="text-sm mb-4" style={{ color: "var(--color-sage)" }}>
+          Picking up where you left off — your earlier answers are still here.
+        </p>
+      )}
 
       {/* ── Window 1 — the tour (old steps 1–3, combined) ─────────────────── */}
       {step === 0 && (
@@ -939,6 +1267,21 @@ export default function WelcomeClient({
         </div>
       )}
 
+      {/* A window that couldn't be written on the way past. Deliberately not the
+          error banner: the reader is not blocked, `finish` retries it, and the
+          draft is holding the answers either way. */}
+      {warn && (
+        <p className="text-sm mb-4" style={{ color: "var(--color-spine-c)" }}>
+          {warn}
+        </p>
+      )}
+
+      {savedNote && !warn && (
+        <p className="text-sm mb-4" style={{ color: "var(--color-sage)" }}>
+          ✓ {savedNote} You can leave and come back — nothing is lost.
+        </p>
+      )}
+
       {/* ── Footer navigation ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 mt-6">
         {step > 0 ? (
@@ -967,38 +1310,33 @@ export default function WelcomeClient({
         {step === 1 && (
           <button
             onClick={goToWeights}
-            className="px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            disabled={busy}
+            className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
             style={{ background: "var(--color-sage)", color: "#fff" }}
           >
-            Continue →
+            {busy ? "Saving…" : "Continue →"}
           </button>
         )}
 
         {step === 2 && (
           <button
-            onClick={() => {
-              setError(null);
-              setStep(3);
-            }}
-            disabled={blocked}
+            onClick={() => void advance(3, commitWeights, "Genre weights saved.")}
+            disabled={blocked || busy}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
             style={{ background: "var(--color-sage)", color: "#fff" }}
           >
-            Continue →
+            {busy ? "Saving…" : "Continue →"}
           </button>
         )}
 
         {step === 3 && (
           <button
-            onClick={() => {
-              setError(null);
-              setStep(4);
-            }}
-            disabled={!!anchorIssue}
+            onClick={() => void advance(4, commitAnchors, "Rating scale saved.")}
+            disabled={!!anchorIssue || busy}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
             style={{ background: "var(--color-sage)", color: "#fff" }}
           >
-            Continue →
+            {busy ? "Saving…" : "Continue →"}
           </button>
         )}
 
