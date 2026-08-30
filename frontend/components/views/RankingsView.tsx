@@ -744,7 +744,7 @@ function compHeader(comp: string, kind: BookKind): string {
 // The primary ranking score is WA (the weighted score) for BOTH tracks — nonfiction
 // now ranks by WA too (2026 redesign). Total Average is secondary and still drives
 // tier bands + series rollups.
-function primaryScore(b: Book, _kind: BookKind): number {
+function primaryScore(b: Book): number {
   return b.wa ?? 0;
 }
 
@@ -761,7 +761,7 @@ function buildCols(
     { key: "title", label: "Book", type: "string", getValue: (b) => b.title, align: "left" },
     {
       key: "wa", label: "WA",
-      type: "numeric", getValue: (b) => primaryScore(b, kind), align: "right",
+      type: "numeric", getValue: (b) => primaryScore(b), align: "right",
     },
     ...categoryOrder.flatMap((cat): ColDef<Book>[] => {
       const catCol: ColDef<Book> = {
@@ -1135,7 +1135,7 @@ function PerTypeRankings({
                       onClick={() =>
                         setExpandedTitle(isExpanded ? null : book.title)
                       }
-                      className={`book-card ${spineClass(primaryScore(book, kind))} cursor-pointer`}
+                      className={`book-card ${spineClass(primaryScore(book))} cursor-pointer`}
                       style={{
                         borderBottom: isExpanded
                           ? "none"
@@ -1186,7 +1186,7 @@ function PerTypeRankings({
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {primaryScore(book, kind).toFixed(2)}
+                        {primaryScore(book).toFixed(2)}
                       </td>
                       {/* Category averages, each followed by its component
                           columns while that category is expanded. Mirrors the

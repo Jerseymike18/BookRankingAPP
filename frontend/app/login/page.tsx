@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { signUp } from "@/lib/api";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -11,6 +11,26 @@ const inputStyle: React.CSSProperties = {
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
+
+/** Where to land after signing in: the path the proxy attached as ?next=, or the
+ *  home page. Resolved against this origin and rejected unless it stays here — a
+ *  startsWith("/") test is not enough, since a browser reads both "//evil.com" and
+ *  "/\\evil.com" as protocol-relative and would follow them off-site.
+ *
+ *  Read at navigation time rather than mirrored into state on mount: it is never
+ *  rendered, so it was never state's job, and the effect that copied it in was
+ *  a cascading render for a value only one event handler reads. */
+function nextDestination(): string {
+  const raw = new URLSearchParams(window.location.search).get("next");
+  if (!raw) return "/";
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return "/";
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return "/";
+  }
+}
 
 const configured =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -25,14 +45,6 @@ export default function LoginPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [next, setNext] = useState("/");
-
-  // Read the post-login destination the proxy attached (?next=/some/path). Only
-  // same-origin paths are honoured, so this can't be turned into an open redirect.
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get("next");
-    if (p && p.startsWith("/") && !p.startsWith("//")) setNext(p);
-  }, []);
 
   async function signInAndGo(): Promise<void> {
     const supabase = createSupabaseBrowserClient();
@@ -47,7 +59,7 @@ export default function LoginPage() {
     }
     // Hard navigation (not router.push): forces the proxy to re-run and the SSR
     // render of the destination to read the freshly-set session cookie.
-    window.location.assign(next);
+    window.location.assign(nextDestination());
   }
 
   async function handleSubmit(e: React.FormEvent) {

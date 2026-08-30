@@ -117,22 +117,27 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
-  // When the selected title changes, fetch that book's current scores.
-  useEffect(() => {
-    if (!selectedTitle) {
-      setComponents({});
-      setScores({});
-      loadedForRef.current = "";
-      return;
-    }
-    let cancelled = false;
-    setLoadingScores(true);
+  /** Pick a different book. Everything the previous selection put on screen is
+   *  cleared HERE, in the handler, rather than in the effect below — clearing it
+   *  there meant a render of the new title still showing the old book's scores,
+   *  then a second render wiping them, with the boxes editable in between. The
+   *  effect keeps only the fetch, whose setStates run in a callback once the
+   *  response lands. */
+  function selectTitle(title: string) {
+    setSelectedTitle(title);
+    loadedForRef.current = "";
+    setComponents({});
+    setScores({});
     setLoadError(null);
     setSaveError(null);
     setSaveSuccess(null);
-    // Clear scores immediately so stale values aren't editable while loading
-    setComponents({});
-    setScores({});
+    setLoadingScores(!!title);
+  }
+
+  // Fetch the selected book's current scores.
+  useEffect(() => {
+    if (!selectedTitle) return;
+    let cancelled = false;
     fetchBookScores(selectedTitle)
       .then((result) => {
         if (cancelled) return;
@@ -210,7 +215,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
         </label>
         <select
           value={selectedTitle}
-          onChange={(e) => setSelectedTitle(e.target.value)}
+          onChange={(e) => selectTitle(e.target.value)}
           className="w-full px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
           style={inputStyle}
         >

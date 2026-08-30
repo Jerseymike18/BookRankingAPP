@@ -56,7 +56,6 @@ function TierListSingle({
   kind?: BookKind;
 }) {
   const [yearTab, setYearTab] = useState<YearTab>("all");
-  const score = (b: TierBook) => (kind === "nonfiction" ? (b.total_average ?? 0) : b.wa);
 
   const yearTabs = useMemo<YearTabDef[]>(() => {
     const years = Object.keys(byYear)
@@ -75,6 +74,10 @@ function TierListSingle({
   const { books, tier_counts, tier_order } = activeData;
 
   const itemsByTier = useMemo(() => {
+    // Defined inside the memo, not in the render body: out there it was a new
+    // function every render that the dep list didn't (and couldn't usefully)
+    // name. It depends on nothing but `kind`, which IS a dependency below.
+    const score = (b: TierBook) => (kind === "nonfiction" ? (b.total_average ?? 0) : b.wa);
     const scoreLabel = kind === "nonfiction" ? "Total Avg" : "WA";
     const map: Record<string, TierItem[]> = {};
     // Sort each tier by the primary score descending (best first, left to right)

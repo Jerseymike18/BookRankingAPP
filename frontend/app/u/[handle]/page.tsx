@@ -26,6 +26,30 @@ export default async function ProfilePage({
 }) {
   const { handle } = await params;
   const token = await getServerAccessToken();
+  // The fetches (and their 404 handling) live in loadProfile so the JSX below is
+  // built OUTSIDE that try. A try around the element did not catch what it looked
+  // like it caught — React renders the component long after this frame returns —
+  // while it did stand ready to swallow anything thrown constructing it.
+  const data = await loadProfile(handle, token);
+  return (
+    <ProfileClient
+      header={data.header}
+      fictionBooks={data.fictionBooks}
+      nonfictionBooks={data.nonfictionBooks}
+      combined={data.stats.combined_ranking}
+      stats={data.stats}
+      fictionTiers={{ allData: data.fictionTiersAll, byYear: data.byYear }}
+      nonfictionTiers={{ allData: data.nonfictionTiersAll }}
+      fictionQueue={data.fictionQueue}
+      nonfictionQueue={data.nonfictionQueue}
+    />
+  );
+}
+
+/** Everything the page renders, or a 404 for a handle that is missing OR private
+ *  (the resolver never confirms a private handle exists — that is the whole point
+ *  of the one deliberate cross-tenant read in this app). */
+async function loadProfile(handle: string, token: Awaited<ReturnType<typeof getServerAccessToken>>) {
   try {
     const [
       header,
@@ -62,19 +86,17 @@ export default async function ProfilePage({
       byYear[y] = perYear[i];
     });
 
-    return (
-      <ProfileClient
-        header={header}
-        fictionBooks={fictionBooks}
-        nonfictionBooks={nonfictionBooks}
-        combined={stats.combined_ranking}
-        stats={stats}
-        fictionTiers={{ allData: fictionTiersAll, byYear }}
-        nonfictionTiers={{ allData: nonfictionTiersAll }}
-        fictionQueue={fictionQueue}
-        nonfictionQueue={nonfictionQueue}
-      />
-    );
+    return {
+      header,
+      fictionBooks,
+      nonfictionBooks,
+      stats,
+      fictionTiersAll,
+      nonfictionTiersAll,
+      fictionQueue,
+      nonfictionQueue,
+      byYear,
+    };
   } catch (e) {
     if (e instanceof Error && e.message === PROFILE_NOT_FOUND) notFound();
     throw e;

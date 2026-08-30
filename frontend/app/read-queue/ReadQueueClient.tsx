@@ -133,13 +133,11 @@ function getRecSortValue(rec: Recommendation, moodScore: number | null, field: R
 }
 
 function RecSortHeader({
-  field,
   label,
   active,
   dir,
   onClick,
 }: {
-  field: RecSortField;
   label: string;
   active: boolean;
   dir: RecSortDir;
@@ -755,7 +753,7 @@ function FilterText({
 
 /* ── Queue tab ────────────────────────────────────────────────────────── */
 
-function QueueExpandedPanel({ rec, rank }: { rec: Recommendation; rank: number }) {
+function QueueExpandedPanel({ rec }: { rec: Recommendation }) {
   return (
     <div
       className="px-5 py-4 space-y-4"
@@ -924,7 +922,7 @@ function QueueCard({
       {/* Expanded prediction panel */}
       {isExpanded && (
         rec ? (
-          <QueueExpandedPanel rec={rec} rank={rank} />
+          <QueueExpandedPanel rec={rec} />
         ) : (
           <div
             className="px-5 py-4"
@@ -956,7 +954,12 @@ function QueueTab({
   const [addInput, setAddInput] = useState("");
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const savedRef = useRef<string[]>(initialQueue);
+  // The queue as the server last stored it, for the unsaved-changes marker. STATE,
+  // not a ref: `isDirty` below is computed during render, and a ref read there is
+  // not tracked — the marker only happened to update because every writer also
+  // called setItems. A writer that changed the saved list without touching `items`
+  // would leave "unsaved changes" showing over a saved queue.
+  const [savedTitles, setSavedTitles] = useState<string[]>(initialQueue);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [expandedQueueTitle, setExpandedQueueTitle] = useState<string | null>(null);
@@ -970,7 +973,7 @@ function QueueTab({
     return m;
   }, [recommendations]);
 
-  const isDirty = JSON.stringify(items) !== JSON.stringify(savedRef.current);
+  const isDirty = JSON.stringify(items) !== JSON.stringify(savedTitles);
 
   async function handleSave(overrideTitles?: string[]) {
     setSaving(true);
@@ -978,7 +981,7 @@ function QueueTab({
     try {
       const titles = overrideTitles ?? items;
       const res = await saveQueue(titles);
-      savedRef.current = titles;
+      setSavedTitles(titles);
       setItems(titles);
       setText(titles.join("\n"));
       setStatus({ ok: true, msg: res.message || `Queue updated (${titles.length} books).` });
@@ -1051,7 +1054,9 @@ function QueueTab({
         setSeriesStatus({ ok: true, msg: result.message });
         if (result.appended_titles && result.appended_titles.length > 0) {
           setItems((prev) => [...prev, ...result.appended_titles!.filter((t) => !prev.includes(t))]);
-          savedRef.current = [...savedRef.current, ...result.appended_titles!.filter((t) => !savedRef.current.includes(t))];
+          // Appended server-side, so they are already saved — fold them into the
+          // baseline too, or the queue would read as dirty the moment it loaded.
+          setSavedTitles((prev) => [...prev, ...result.appended_titles!.filter((t) => !prev.includes(t))]);
         }
         setSeriesInput("");
       }
@@ -1567,7 +1572,6 @@ export default function ReadQueueClient({
                       {/* Mood column — only shown when moods are active */}
                       {hasMoods && (
                         <RecSortHeader
-                          field="mood"
                           label="Mood"
                           active={sortField === "mood"}
                           dir={sortDir}
@@ -1575,14 +1579,12 @@ export default function ReadQueueClient({
                         />
                       )}
                       <RecSortHeader
-                        field="wa"
                         label="Pred WA"
                         active={sortField === "wa"}
                         dir={sortDir}
                         onClick={() => handleSortClick("wa")}
                       />
                       <RecSortHeader
-                        field="upside"
                         label="Upside"
                         active={sortField === "upside"}
                         dir={sortDir}
@@ -1591,7 +1593,6 @@ export default function ReadQueueClient({
                       {CAT_COLS.map((cat) => (
                         <RecSortHeader
                           key={cat}
-                          field={cat}
                           label={cat === "Aesthetics" ? "Aes" : cat === "Character" ? "Char" : cat === "Worldbuilding" ? "WB" : cat}
                           active={sortField === cat}
                           dir={sortDir}

@@ -949,6 +949,14 @@ Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
   - Deliberately **not** in the local pre-push hook, for that same reason — `autopublish.sh`
     pushes are automatic and frequent, and putting a node install in that path would gate the
     publish pipeline on a test run it never needs.
+  - **`cd frontend && npx eslint .` is at zero errors AND zero warnings** (cleared
+    2026-08-30). That is worth keeping, because the React Compiler rules in this
+    config catch real defects — a ref read during render whose value the view then
+    fails to track, a `setState` in an effect that should have been in the event
+    handler — and they are invisible in a backlog of style warnings. Note the rules
+    silently BAIL on a file the compiler can't compile, so a clean file is not
+    always a checked one: `lib/predict-jobs.tsx` passes for that reason, not on
+    merit.
   - `toSnapshot`/`fromSnapshot` (`lib/predict-jobs`), `fromWelcomeDraft`/`isEmptyDraft`
     (`lib/welcome-draft`), `fromAddBookDraft`/`isEmptyAddBookDraft` (`lib/add-book-draft`)
     and `activeItemHref` (`components/Nav`) are exported **for these tests**. All are pure, and all fail in ways nothing else catches: a snapshot or draft

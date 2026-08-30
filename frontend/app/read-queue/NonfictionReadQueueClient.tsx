@@ -169,9 +169,8 @@ function sortValue(rec: NonfictionRecommendation, moodScore: number | null, fiel
 }
 
 function SortHeader({
-  field, label, active, dir, onClick,
+  label, active, dir, onClick,
 }: {
-  field: NfSortField;
   label: string;
   active: boolean;
   dir: SortDir;
@@ -655,7 +654,12 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
   const [addInput, setAddInput] = useState("");
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const savedRef = useRef<string[]>(initialQueue);
+  // The queue as the server last stored it, for the unsaved-changes marker. STATE,
+  // not a ref: `isDirty` below is computed during render, and a ref read there is
+  // not tracked — the marker only happened to update because every writer also
+  // called setItems. A writer that changed the saved list without touching `items`
+  // would leave "unsaved changes" showing over a saved queue.
+  const [savedTitles, setSavedTitles] = useState<string[]>(initialQueue);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
@@ -666,7 +670,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
     return m;
   }, [recommendations]);
 
-  const isDirty = JSON.stringify(items) !== JSON.stringify(savedRef.current);
+  const isDirty = JSON.stringify(items) !== JSON.stringify(savedTitles);
 
   async function handleSave(overrideTitles?: string[]) {
     setSaving(true);
@@ -674,7 +678,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
     try {
       const titles = overrideTitles ?? items;
       const res = await saveNonfictionQueue(titles);
-      savedRef.current = titles;
+      setSavedTitles(titles);
       setItems(titles);
       setText(titles.join("\n"));
       setStatus({ ok: true, msg: res.message || `Queue updated (${titles.length} books).` });
@@ -1031,12 +1035,12 @@ export default function NonfictionReadQueueClient({
                       <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}>#</th>
                       <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}>Book</th>
                       {hasMoods && (
-                        <SortHeader field="mood" label="Mood" active={sortField === "mood"} dir={sortDir} onClick={() => handleSortClick("mood")} />
+                        <SortHeader label="Mood" active={sortField === "mood"} dir={sortDir} onClick={() => handleSortClick("mood")} />
                       )}
-                      <SortHeader field="wa" label="Pred WA" active={sortField === "wa"} dir={sortDir} onClick={() => handleSortClick("wa")} />
-                      <SortHeader field="upside" label="Upside" active={sortField === "upside"} dir={sortDir} onClick={() => handleSortClick("upside")} />
+                      <SortHeader label="Pred WA" active={sortField === "wa"} dir={sortDir} onClick={() => handleSortClick("wa")} />
+                      <SortHeader label="Upside" active={sortField === "upside"} dir={sortDir} onClick={() => handleSortClick("upside")} />
                       {NF_CAT_ORDER.map((cat) => (
-                        <SortHeader key={cat} field={cat} label={NF_CAT_ABBR[cat]} active={sortField === cat} dir={sortDir} onClick={() => handleSortClick(cat)} />
+                        <SortHeader key={cat} label={NF_CAT_ABBR[cat]} active={sortField === cat} dir={sortDir} onClick={() => handleSortClick(cat)} />
                       ))}
                       <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>Genre</th>
                     </tr>

@@ -8,7 +8,6 @@ import type { EngineParameters, EngineValidation } from "@/lib/types";
 
 /* ── formatting ─────────────────────────────────────────────────────────── */
 const f2 = (v: number) => v.toFixed(2);
-const f3 = (v: number) => v.toFixed(3);
 // Percent with one decimal, but drop a trailing ".0" so a round nominal level
 // reads "80%" while a measured coverage still reads "81.4%".
 const pct1 = (v: number) => {
@@ -181,7 +180,13 @@ function GenreWeights({ params }: { params: EngineParameters }) {
   const [genre, setGenre] = useState(
     genres.includes("Epic Fantasy") ? "Epic Fantasy" : genres[0],
   );
-  const catW = params.genre_category_weights[genre] || {};
+  // Memoized because of the `|| {}`: on a genre with no row that fallback is a NEW
+  // object every render, so the waTeX memo below re-ran (and re-rendered KaTeX) on
+  // every keystroke elsewhere on the page.
+  const catW = useMemo(
+    () => params.genre_category_weights[genre] || {},
+    [params.genre_category_weights, genre],
+  );
   const compW = params.genre_component_weights[genre] || {};
   const cats = params.schema.categories;
 
