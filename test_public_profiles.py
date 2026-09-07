@@ -13,6 +13,8 @@ What it asserts, against a throwaway copy of books.db (zero API spend):
   * a PUBLIC profile → 200, and /api/users/<h>/books is byte-identical to the
     owner's own /api/books (same ranking, same weights, same count)
   * the directory lists a public profile and hides a private one
+  * the library EXPORT is under the same gate — a public handle's CSV carries
+    the OWNER's books, and a private handle's 404s like every other route
 
 Run:  python3 test_public_profiles.py     (exit 0 = pass, 1 = fail)
 """
@@ -94,6 +96,40 @@ def main():
             handles = {p["handle"] for p in d.get("profiles", [])}
             check("directory: lists the public profile", "seeduser" in handles, f"handles={handles}")
 
+            # ── Library export: the same cross-tenant read, in CSV shape ──
+            # It is a NEW outside-facing route over the same hole, so it is
+            # gated here rather than only in test_shelf_export (which is pure
+            # and never touches the tenant boundary at all).
+            import csv as _csv, io as _io
+            r = c.get("/api/users/seeduser/export/library")
+            check("public profile: export returns 200", r.status_code == 200,
+                  f"status={r.status_code}")
+            exp = r.json() if r.status_code == 200 else {"csv": "", "summary": {}}
+            rows = list(_csv.DictReader(_io.StringIO(exp.get("csv", ""))))
+            read_rows = [x for x in rows if x["Exclusive Shelf"] == "read"]
+            check("export: every finished book in the owner's library is on the "
+                  "read shelf",
+                  len(read_rows) == exp["summary"]["read"],
+                  f"csv read rows={len(read_rows)} summary={exp['summary']}")
+            check("export: filename is keyed to the handle",
+                  "seeduser" in exp.get("filename", ""), exp.get("filename"))
+            # The star map, end to end on real data — not a unit test of
+            # stars_for but of the whole path from WA to the cell.
+            check("export: every read star is 1-5 or blank",
+                  all(x["My Rating"] in ("", "1", "2", "3", "4", "5") for x in read_rows),
+                  str({x["My Rating"] for x in read_rows}))
+            check("export: NO to-read row carries a rating (predictions never "
+                  "become stars)",
+                  all(not x["My Rating"] for x in rows
+                      if x["Exclusive Shelf"] == "to-read"))
+            own_titles = {b["title"] for b in own["books"]}
+            check("export: read shelf is the OWNER's titles, not the seed's "
+                  "borrowed pool",
+                  all(x["Title"].split(" (")[0] in own_titles or "(" in x["Title"]
+                      for x in read_rows[:20]))
+            check("export: writes nothing (library size unchanged after)",
+                  len(c.get("/api/books").json()["books"]) == own_n)
+
             check("nonexistent handle → 404", c.get("/api/users/ghost").status_code == 404)
             check("nonexistent handle → 404 (data route too)",
                   c.get("/api/users/ghost/books").status_code == 404)
@@ -107,6 +143,9 @@ def main():
             check("private profile: /read-queue → 404",
                   c.get("/api/users/seeduser/read-queue").status_code == 404)
             check("private profile: /stats → 404", c.get("/api/users/seeduser/stats").status_code == 404)
+            check("private profile: /export/library → 404 (a private library is "
+                  "not downloadable, and its existence is not confirmed)",
+                  c.get("/api/users/seeduser/export/library").status_code == 404)
 
             d2 = c.get("/api/profiles/directory").json()
             check("directory: hides the now-private profile",

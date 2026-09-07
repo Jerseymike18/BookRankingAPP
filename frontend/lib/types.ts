@@ -1026,6 +1026,39 @@ export interface ProfileDirectory {
   profiles: PublicProfile[];
 }
 
+/* ── Library export (Goodreads / StoryGraph) ──────────────────────────────── */
+
+/** What actually went into the CSV, so the download UI can state it BEFORE the
+ * reader carries the file to another site. Mirrors the summary the Goodreads
+ * IMPORT returns on the way in — the same discipline in the other direction:
+ * `unrated_read` and the two drop counts are not errors, but a reader who
+ * expected every book to arrive should be told, not left to find out on the far
+ * side where nothing explains it. */
+export interface LibraryExportSummary {
+  total: number;
+  read: number;
+  to_read: number;
+  /** Read books exported with a BLANK rating because the Ledger had no score.
+   * Blank means "unrated" on both sites — which is true; a 1 would not be. */
+  unrated_read: number;
+  /** Rows collapsed because a title+author appeared twice (both sites match on
+   * that pair, so the last one would silently have won). */
+  dropped_duplicate: number;
+  /** Books left out for not being finished — they belong on neither the `read`
+   * nor the `to-read` shelf, and promoting one would export a finish date and a
+   * rating for a book still being read. */
+  skipped_in_progress: number;
+}
+
+/** A ready-to-save Goodreads-shaped CSV plus what it contains. The body is JSON
+ * rather than a text/csv download so the summary travels with the file; the
+ * client turns `csv` into a Blob. */
+export interface LibraryExport {
+  filename: string;
+  csv: string;
+  summary: LibraryExportSummary;
+}
+
 /* ── Goodreads import (onboarding) ────────────────────────────────────────── */
 
 /** One staged import row — enriched METADATA only, never scores. Mirrors

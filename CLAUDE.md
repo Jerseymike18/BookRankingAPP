@@ -722,6 +722,15 @@ Rules for the **unauthenticated (local / showcase) posture:**
 
 - Write/delete endpoints are unauthenticated when `AUTH_ENABLED` is off. That is safe on loopback.
 - CORS is locked to `http://localhost:3000` by default (env var `ALLOWED_ORIGIN` to override).
+- **The CSP's `connect-src` names the local backend in DEVELOPMENT ONLY**
+  (`frontend/next.config.ts`, the same `isDev` branch `script-src` already uses).
+  In local dev the API is a different ORIGIN from the page (uvicorn on :8000, next
+  on :3000), so `connect-src 'self'` blocked every browser-side call to it — every
+  write flow and the library export — with a CSP violation in the console and a
+  bare "Failed to fetch" in the UI. The hosted build never showed it because its
+  API is on `*.up.railway.app`, which was already listed. **Production is
+  byte-identical to before** (verified by evaluating the config under both
+  `NODE_ENV`s); do not let the localhost origins leak out of the `isDev` branch.
 - uvicorn must bind to `127.0.0.1` (the default). Never pass `--host 0.0.0.0` without
   first adding authentication and reviewing every write/delete endpoint.
 - Do not put this behind a public reverse proxy without auth.
@@ -1072,6 +1081,61 @@ WA), forced read-only via `ReadOnlyProvider` +
 `useReadOnly()` (`lib/readonly-context.tsx`) — a subtree override that ORs with the
 global `READONLY`, so every existing (unwrapped) page stays byte-identical.
 Regression guard: `test_public_profiles.py` (the gate) + `test_tenant_scope.py`.
+
+### Library export (`shelf_export.py`) — the exit door beside the Goodreads import
+
+`GET /api/export/library` (own) and `GET /api/users/{handle}/export/library` (a
+public profile, under the same `_cross_user_target` gate — a private handle 404s
+like every other cross-user route) build a **Goodreads-shaped CSV** that both
+Goodreads and The StoryGraph accept. Reached from the card on `/profile` and at
+the foot of `/u/<handle>`. `shelf_export.py` is pure — stdlib plus
+`goodreads_import` for `split_series` — and is the exact inverse of the import
+module. Six things are load-bearing:
+
+- **ONE format, not two.** StoryGraph documents its manual import as a CSV "using
+  the same formatting as Goodreads' CSV export". So the writer emits Goodreads'
+  export header verbatim and both sites read it. StoryGraph's *native* export
+  carries moods, pace and content warnings the Ledger has no data for, and a
+  second writer would be a second thing to keep correct for no gain.
+- **The star map is a LINEAR HALVING, and that is an owner decision (2026-09-03):**
+  `clamp(floor(score/2 + 0.5), 1, 5)`. It was chosen over a tier/percentile map
+  for two properties. It is **absolute** — five stars means score ≥ 9 for every
+  reader, where a tier map would call a 7.5 book five stars for being top-9% of a
+  small library, a claim about the library landing in a field the far site
+  presents as a claim about the book. And it is **stable** — tier bands are
+  percentiles that re-cut on every add, so exporting twice a month apart would
+  hand the far site two different ratings for one book. On the live library it
+  yields 5★ 7.5% / 4★ 69% / 3★ 19% / 2★ 4%; that high skew is the true shape of
+  an absolute map over a library that skews high, not a bug to redistribute.
+- **Half-up, never `round()`.** Python's `round` is banker's rounding, so
+  `round(2.5)` is 2 while `round(3.5)` is 4 — a score of 5.0 would silently
+  export a star below the stated rule. Gate: the explicit 5.0 → 3 check in
+  `test_shelf_export.py`.
+- **A PREDICTED score can never become a star.** `to-read` rows go out with
+  `My Rating` AND `Private Notes` blank, and `build_rows` enforces it by ignoring
+  `score` on that side rather than trusting callers to pass `None`. Same rule as
+  the omitted conformal interval: an estimate must never pass as a measurement.
+  It is also why the to-read shelf is read with a bare SELECT instead of through
+  `get_read_queue` — that endpoint's cold-start fit and interval are ~2s of
+  numbers this file is obliged to discard.
+- **Missing is not one star.** No score → an empty `My Rating`, which both sites
+  read as *unrated* — the true statement. The clamp's floor is for the opposite
+  case (a real score under 1.0 would round to 0 and read as unrated). The exact
+  score survives in Goodreads' **private** Notes field, labelled with its scale
+  (fiction's WA, nonfiction's Total Average) — never `My Review`, which is public
+  and would publish something the reader never wrote.
+- **Nothing is dropped silently, in either direction.** The endpoint returns
+  `{filename, csv, summary}` as JSON rather than `text/csv` precisely so the
+  summary reaches the UI (unrated reads, collapsed duplicates, in-progress books
+  left out) — mirroring `parse_goodreads_csv`'s summary on the way in. A CSV body
+  would have had to smuggle those counts through response headers, which CORS
+  does not expose by default, so they would have gone missing on the hosted
+  deploy specifically. Dates fill the day as the 1st (the Ledger tracks month,
+  not day) and the download card states that in words before the reader clicks.
+
+Writes nothing, touches no scoring math. Gates: `test_shelf_export.py` (77 checks,
+offline — including a build → CSV → `parse_goodreads_csv` round trip) and the
+export checks in `test_public_profiles.py`.
 
 ## Working rhythm
 

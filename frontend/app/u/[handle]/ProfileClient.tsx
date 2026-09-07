@@ -15,6 +15,7 @@ import RankingsView from "@/components/views/RankingsView";
 import TierListView from "@/components/views/TierListView";
 import StatsClient from "@/app/stats/StatsClient";
 import ReadQueueTypeSwitch from "@/app/read-queue/ReadQueueTypeSwitch";
+import ExportLibraryButton from "@/components/ExportLibraryButton";
 
 const TABS = ["rankings", "tiers", "queue", "stats"] as const;
 type Tab = (typeof TABS)[number];
@@ -109,6 +110,15 @@ export default function ProfileClient({
         )}
         {tab === "stats" && <StatsClient data={stats} />}
       </ReadOnlyProvider>
+
+      {/* Below the tabs, not above them: this is a footer action on someone
+          else's shelf, and a four-line explainer between the header and the
+          rankings would push the actual profile off the screen. It is OUTSIDE
+          the ReadOnlyProvider on purpose — that flag hides UI that would MUTATE
+          the data being viewed, and building a CSV writes nothing. */}
+      <div className="mt-10">
+        <ExportLibraryButton handle={header.handle} />
+      </div>
     </div>
   );
 }

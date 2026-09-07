@@ -32,6 +32,7 @@ import type {
   Profile,
   PublicProfile,
   ProfileDirectory,
+  LibraryExport,
   ImportEnrichResult,
   ImportUploadResult,
   ImportStagingResponse,
@@ -1151,6 +1152,37 @@ export async function fetchUserNonfictionReadQueue(
 export async function fetchUserStats(handle: string, token?: ServerToken): Promise<CombinedStatsResponse> {
   const res = await apiFetch(
     `${API}/api/users/${encodeURIComponent(handle)}/stats`, { cache: "no-store" }, token);
+  if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/* ── Library export (Goodreads / StoryGraph) ──────────────────────────────
+ * A read, not a write: the backend builds the CSV and persists nothing, so
+ * these deliberately do NOT call assertWritable() — a reader on a read-only
+ * deployment is exactly the one most likely to want their data out. They are
+ * still live-backend only: the static snapshot has no per-reader export, and
+ * throwing here beats silently handing back a 404 page as a .csv file.
+ */
+
+/** The CALLER's own library as an importable CSV, with the summary of what it
+ * contains. */
+export async function fetchMyLibraryExport(token?: ServerToken): Promise<LibraryExport> {
+  if (STATIC) throw new Error("Library export is unavailable on the static build");
+  const res = await apiFetch(`${API}/api/export/library`, { cache: "no-store" }, token);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return res.json();
+}
+
+/** A PUBLIC profile's library as an importable CSV. 404 (missing OR private)
+ * surfaces as the same not-found sentinel every other cross-user read uses. */
+export async function fetchUserLibraryExport(
+  handle: string, token?: ServerToken,
+): Promise<LibraryExport> {
+  if (STATIC) throw new Error("Library export is unavailable on the static build");
+  const res = await apiFetch(
+    `${API}/api/users/${encodeURIComponent(handle)}/export/library`,
+    { cache: "no-store" }, token);
   if (res.status === 404) throw new Error(PROFILE_NOT_FOUND);
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return res.json();

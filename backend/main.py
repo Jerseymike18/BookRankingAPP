@@ -59,6 +59,7 @@ import db_loader
 import db_write
 import cache_sync
 import goodreads_import
+import shelf_export
 import import_enrich
 import star_priors
 import user_weights
@@ -5403,3 +5404,155 @@ def get_user_stats(handle: str, request: Request,
     'All' rankings toggle)."""
     tuid = _cross_user_target(handle, request, viewer_id)
     return get_combined_stats(user_id=tuid)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LIBRARY EXPORT  —  a Goodreads/StoryGraph-importable CSV of a reader's shelves
+# ─────────────────────────────────────────────────────────────────────────────
+# The mirror of the Goodreads IMPORT above, and the exit door beside it: a reader
+# whose library lives here can move it (or a copy of it) to either site. The file
+# shape, the star map and everything left deliberately blank are documented in
+# `shelf_export.py`; this layer only gathers rows and never computes a rating.
+#
+# Two things this endpoint is NOT, both load-bearing:
+#
+#   * It is not a CSV response. It returns {filename, csv, summary} as JSON
+#     because the SUMMARY has to reach the UI: how many read books arrived
+#     unrated, how many rows were dropped as duplicates, how many in-progress
+#     books were left out. `parse_goodreads_csv` returns exactly that shape on
+#     the way in for exactly that reason — nothing is dropped silently, on
+#     either side of the door. (A `text/csv` body would have had to smuggle the
+#     counts through response headers, which CORS does not expose by default —
+#     so they would have gone missing precisely on the hosted deploy.)
+#   * It writes NOTHING and touches no scoring math. It reads the two ranked
+#     library endpoints (already tenant-cached) for scores and ranks, and the
+#     two recommendation tables directly for the to-read shelf.
+#
+# The to-read shelf is read with a plain SELECT rather than through
+# get_read_queue on purpose: the queue endpoint fits the cold-start term and the
+# conformal interval, and every one of those numbers is a PREDICTION that this
+# file must not carry. Paying ~2s to compute figures we are contractually
+# obliged to throw away would be the wrong kind of thorough.
+
+
+def _status_month_map(table: str, user_id: str) -> dict:
+    """{normalized-title: (status, read_month)} for one tenant + table.
+
+    `get_books` exposes neither: status is a read-only passthrough the ranking
+    doesn't show, and read_month only reaches the Timeline. The export needs
+    both — status to keep an unfinished book off the `read` shelf, read_month to
+    date the row. `table` is a trusted internal literal, never user input."""
+    con = db_backend.connect(db_write.DB, readonly=True)
+    rows = con.execute(
+        f"SELECT title, status, read_month FROM {table} WHERE user_id=?",
+        (user_id,)).fetchall()
+    con.close()
+    return {(t or "").strip().lower(): ((s or "finished").strip(), m)
+            for (t, s, m) in rows}
+
+
+def _tbr_export_rows(table: str, user_id: str) -> list:
+    """The not-done recommendations for one tenant + table, as export dicts.
+
+    No score and no rank: these go out on the `to-read` shelf with a blank
+    rating (see shelf_export). Deliberately a bare SELECT — the read-queue
+    endpoint's predicted WA, rank and interval are all things this file must
+    not carry, so computing them would be pure cost."""
+    con = db_backend.connect(db_write.DB, readonly=True)
+    rows = con.execute(
+        f"SELECT title, author, series, series_number FROM {table} "
+        f"WHERE done=0 AND user_id=?", (user_id,)).fetchall()
+    con.close()
+    return [{"title": (t or "").strip(),
+             "author": (a or "").strip(),
+             "series": (s or "").strip().strip("'\""),
+             "series_number": _norm_snum(n)}
+            for (t, a, s, n) in rows]
+
+
+def _library_export(user_id: str, slug: str) -> dict:
+    """Build one reader's full export: fiction + nonfiction, read + to-read.
+
+    Fiction's star comes from WA (the genre-weighted ranking score); nonfiction's
+    from Total Average, which is what the nonfiction track actually ranks by —
+    its `wa` is the Quality-lean variant and is not the number its own tier list
+    uses. `score_label` carries that distinction into the private note, so a
+    reader reading the file a year later in another app can tell which scale a
+    figure is on.
+
+    Read rows are emitted BEFORE to-read ones so that if a title somehow sits in
+    both, `dedupe` keeps the one carrying the real rating."""
+    fiction = get_books(user_id=user_id)["books"]
+    nonfiction = get_nf_books(user_id=user_id)["books"]
+
+    rows, skipped = [], 0
+    for books, table, score_key, label in (
+            (fiction, "books", "wa", "WA"),
+            (nonfiction, "nonfiction_books", "total_average", "Total Average")):
+        meta = _status_month_map(table, user_id)
+        read = []
+        for b in books:
+            status, month = meta.get((b["title"] or "").strip().lower(),
+                                     ("finished", None))
+            # An unfinished book is not on the `read` shelf, and the reader chose
+            # not to export a `currently-reading` one — so it is left out and
+            # COUNTED, never quietly promoted to read (which would export a
+            # finish date and a rating for a book still being read).
+            if status != "finished":
+                skipped += 1
+                continue
+            read.append({
+                "title": b["title"], "author": b["author"],
+                "series": b.get("series"), "series_number": b.get("series_number"),
+                "score": b.get(score_key), "rank": b.get("rank"),
+                "year_read": b.get("year_read"), "read_month": month,
+            })
+        tbr_table = ("recommendations" if table == "books"
+                     else "nonfiction_recommendations")
+        rows += shelf_export.build_rows(
+            read=read, to_read=_tbr_export_rows(tbr_table, user_id),
+            score_label=label)
+
+    rows, dropped = shelf_export.dedupe(rows)
+    stamp = datetime.date.today().isoformat()
+    return {
+        "filename": f"reading-ledger-{slug}-{stamp}.csv",
+        "csv": shelf_export.to_csv(rows),
+        "summary": shelf_export.summarise(
+            rows, dropped_duplicate=dropped, skipped_in_progress=skipped),
+    }
+
+
+def _export_slug(text: str) -> str:
+    """A filename-safe stem. The handle is already validated by db_write, but
+    this string ends up in a Content-Disposition-shaped filename on the client,
+    so it is narrowed here rather than trusted twice."""
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-")
+    return s[:40] or "library"
+
+
+@app.get("/api/export/library")
+def export_my_library(request: Request,
+                      user_id: str = Depends(auth.get_current_user_id)):
+    """The CALLER's own library as a Goodreads/StoryGraph-importable CSV.
+
+    Shares the `import` rate-limit bucket: the two are the same operation in
+    opposite directions, and a reader moving a library does one or the other,
+    not both at speed."""
+    _rate_limit(request, "import", **_RL_IMPORT, user_id=user_id)
+    prof = db_write.get_profile_by_user(user_id)
+    return _library_export(user_id, _export_slug((prof or {}).get("handle") or "library"))
+
+
+@app.get("/api/users/{handle}/export/library")
+def export_user_library(handle: str, request: Request,
+                        viewer_id: str = Depends(auth.get_current_user_id)):
+    """A PUBLIC profile's library as an importable CSV.
+
+    Same gate as every other cross-user read — `_cross_user_target` rate-limits
+    the viewer and 404s a missing OR private handle, so a private library is not
+    reachable here and its existence is never confirmed. It exposes nothing the
+    profile page does not already render; this is that same data in a shape
+    another site can read."""
+    tuid = _cross_user_target(handle, request, viewer_id)
+    return _library_export(tuid, _export_slug(handle))

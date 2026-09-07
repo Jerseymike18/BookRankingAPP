@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Profile } from "@/lib/types";
 import { saveMyProfile } from "@/lib/api";
+import ExportLibraryButton from "@/components/ExportLibraryButton";
 
 export default function ProfileSettingsClient({ initial }: { initial: Profile | null }) {
   const [handle, setHandle] = useState(initial?.handle ?? "");
@@ -134,6 +135,14 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
               : "Your profile is private — only you can see it."}
           </p>
         )}
+      </div>
+
+      {/* Taking the library OUT sits beside the handle settings rather than on a
+          page of its own: this is where a reader already comes to decide what
+          leaves this app. It needs no handle and no public profile — exporting
+          your own data is not a form of publishing it. */}
+      <div className="mt-10">
+        <ExportLibraryButton />
       </div>
     </div>
   );

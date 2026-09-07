@@ -12,6 +12,16 @@ const scriptSrc = isDev
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
   : "script-src 'self' 'unsafe-inline'";
 
+// In local dev the API is a DIFFERENT ORIGIN from the page (uvicorn on :8000,
+// next on :3000), so every browser-side call to it — every write flow, and the
+// export download — is blocked by `connect-src 'self'` unless the local backend
+// is named. The hosted build never showed this because its API is on
+// *.up.railway.app, which is listed. Development only: production keeps exactly
+// the origins it had.
+const connectSrc =
+  "connect-src 'self' https://*.supabase.co https://*.up.railway.app" +
+  (isDev ? " http://localhost:* http://127.0.0.1:*" : "");
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
@@ -33,7 +43,7 @@ const securityHeaders = [
       "manifest-src 'self'",
       "worker-src 'self'",
       scriptSrc,
-      "connect-src 'self' https://*.supabase.co https://*.up.railway.app",
+      connectSrc,
     ].join("; "),
   },
 ];
