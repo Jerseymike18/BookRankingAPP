@@ -343,7 +343,7 @@ book-dependent, spanning ~4x**:
 | The Silmarillion | 4 | 0.112 | 0.327 | 13% | 13 places (79–92) |
 
 **WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%) and
-against the engine's honest walk-forward MAE (0.587) — so the WA estimate is trustworthy. Rank is
+against the engine's honest walk-forward MAE (0.586) — so the WA estimate is trustworthy. Rank is
 not; the live-library figures below quantify it. Do not read a rank move from a re-predict as
 signal. (Nonfiction is fragile in the opposite way: its noise is *larger* relative to its band, but
 its gaps are wider than its noise, so only near-boundary books move.)
