@@ -13746,5 +13746,74 @@
     "keywords": "historical fiction, medieval, epic, cathedral-building, multi-pov, ambition, sprawling, page-turner, generational, twelfth-century",
     "genre": "Historical Fiction",
     "words": 400000
+  },
+  "Age of Assassins": {
+    "scores": {
+      "Plot": 7.3,
+      "Entertainment": 7.8,
+      "Action": 7.4,
+      "Ending": 7.5,
+      "Depth": 7.6,
+      "Emotional Impact": 7.7,
+      "Motivations": 7.4,
+      "Prose": 7.5,
+      "Narration": 7.8,
+      "Insights": 6.8,
+      "Thought-Provokingness": 6.7,
+      "Depth2": 7.2,
+      "Integration": 7.5,
+      "Originality": 7.3
+    },
+    "conf": "medium",
+    "blurb": "A murder-mystery wrapped in epic fantasy, following a disabled assassin's apprentice tasked with preventing a killing rather than committing one; character-driven and warm despite its grim setting, with a distinctive master-apprentice bond at its heart. Suits readers who want emotional intimacy and a mystery structure over sprawling multi-POV politics.",
+    "keywords": "epic fantasy, assassin, murder mystery, coming-of-age, character-driven, mentor-apprentice, court intrigue, disability rep, secondary world",
+    "genre": "Epic Fantasy",
+    "words": 135000
+  },
+  "Blood of Assassins": {
+    "scores": {
+      "Plot": 7.3,
+      "Entertainment": 7.5,
+      "Action": 7.6,
+      "Ending": 7.4,
+      "Depth": 7.8,
+      "Emotional Impact": 7.6,
+      "Motivations": 7.7,
+      "Prose": 7.5,
+      "Narration": 8.0,
+      "Insights": 7.0,
+      "Thought-Provokingness": 6.9,
+      "Depth2": 7.2,
+      "Integration": 7.4,
+      "Originality": 7.3
+    },
+    "conf": "medium",
+    "blurb": "The middle book of the Wounded Kingdom trilogy, following assassin Girton Club-Foot back to a war-torn homeland; its intimate first-person voice, sharp emotional interiority, and diseased, decaying world set it apart from broader epic fantasy. Suits readers who want character-driven grimdark with a wounded, sardonic narrator over sprawling politics.",
+    "keywords": "epic fantasy, grimdark, assassin, first-person, character-driven, morally-grey, war, magic-as-blight, coming-of-age",
+    "genre": "Epic Fantasy",
+    "words": 150000
+  },
+  "King of Assassins": {
+    "scores": {
+      "Plot": 7.8,
+      "Entertainment": 8.0,
+      "Action": 7.9,
+      "Ending": 8.3,
+      "Depth": 8.2,
+      "Emotional Impact": 8.0,
+      "Motivations": 7.9,
+      "Prose": 7.8,
+      "Narration": 8.3,
+      "Insights": 7.2,
+      "Thought-Provokingness": 7.0,
+      "Depth2": 7.5,
+      "Integration": 7.8,
+      "Originality": 7.9
+    },
+    "conf": "medium",
+    "blurb": "The finale of the Wounded Kingdom trilogy, following a disabled assassin and his fierce mentor through court intrigue and a locked-castle murder plot; suits readers who want character-driven, emotionally raw assassin fantasy with a distinctive first-person voice.",
+    "keywords": "epic fantasy, assassins, first-person, court intrigue, character-driven, disability rep, dark, emotional, mentor-apprentice",
+    "genre": "Epic Fantasy",
+    "words": 135000
   }
 }
