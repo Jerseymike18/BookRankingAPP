@@ -6214,10 +6214,10 @@
       "author": "Emily St. John Mandel",
       "category_avgs": {
         "Aesthetics": 5.7625,
-        "Character": 4.1765,
-        "Story": 4.045,
-        "Theme": 6.95,
-        "Worldbuilding": 0.0
+        "Character": 4.85,
+        "Story": 4.14,
+        "Theme": 7.0769,
+        "Worldbuilding": 5.9611
       },
       "components": {
         "Aesthetics": {
@@ -6245,13 +6245,13 @@
           "Originality": 5.4
         }
       },
-      "genre": "Speculative Literary Fiction",
+      "genre": "Science Fiction (Soft)",
       "rank": 136,
       "series": "Standalone",
       "series_number": null,
       "slug": "station-11",
       "title": "Station 11",
-      "wa": 5.1542,
+      "wa": 5.1986,
       "words": 95000,
       "year": 2025,
       "year_read": 2025

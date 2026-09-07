@@ -2,17 +2,17 @@
   "available": true,
   "headline": {
     "burn_in": 15,
-    "honest_wa_mae": 0.5523,
+    "honest_wa_mae": 0.557,
     "n_books_total": 143,
     "n_folds": 127,
-    "naive_wa_mae": 0.8702,
-    "raw_wa_mae": 0.7805
+    "naive_wa_mae": 0.8698,
+    "raw_wa_mae": 0.7779
   },
   "provenance": {
-    "backtest_generated_at": "2026-09-07T14:08:29-04:00",
+    "backtest_generated_at": "2026-09-07T18:56:05-04:00",
     "current_engine_hash": "sha256:c12adfb15c04adcd",
     "engine_hash": "sha256:c12adfb15c04adcd",
-    "git_head": "325984fdadee",
+    "git_head": "c363b2184194",
     "stale": false
   },
   "served_coverage": {

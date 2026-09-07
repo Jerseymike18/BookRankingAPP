@@ -227,7 +227,7 @@
     },
     {
       "author": "Emily St. John Mandel",
-      "avg_wa": 5.15,
+      "avg_wa": 5.2,
       "books": 1
     },
     {
@@ -280,18 +280,18 @@
       "genre": "Science Fiction (Hard)"
     },
     {
-      "avg_total_average": 7.42,
-      "avg_wa": 7.47,
-      "avg_words": 207448.0,
-      "books": 19,
-      "genre": "Science Fiction (Soft)"
-    },
-    {
       "avg_total_average": 5.98,
       "avg_wa": 7.37,
       "avg_words": 40500.0,
       "books": 2,
       "genre": "Classical Drama"
+    },
+    {
+      "avg_total_average": 7.32,
+      "avg_wa": 7.35,
+      "avg_words": 201825.0,
+      "books": 20,
+      "genre": "Science Fiction (Soft)"
     },
     {
       "avg_total_average": 7.2,
@@ -308,10 +308,10 @@
       "genre": "Science Fantasy"
     },
     {
-      "avg_total_average": 5.27,
-      "avg_wa": 6.06,
-      "avg_words": 67733.0,
-      "books": 3,
+      "avg_total_average": 5.16,
+      "avg_wa": 6.51,
+      "avg_words": 54099.0,
+      "books": 2,
       "genre": "Speculative Literary Fiction"
     },
     {

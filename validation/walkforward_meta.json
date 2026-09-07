@@ -28,8 +28,8 @@
     "version": "v2_opus_retired_2026-07-05"
   },
   "engine_hash": "sha256:c12adfb15c04adcd",
-  "generated_at": "2026-09-07T14:08:29-04:00",
-  "git_head": "325984fdadeeb10537c0a2d75818cd019a78e753",
+  "generated_at": "2026-09-07T18:56:05-04:00",
+  "git_head": "c363b218419475696b94e97fa87e77891b10c413",
   "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
   "leakage_inventory": {
     "author_genre_correction_pairs": "neutralised in honest (pool), LEAKY in leaky (full library)",

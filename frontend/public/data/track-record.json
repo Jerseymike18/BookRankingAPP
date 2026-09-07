@@ -833,8 +833,8 @@
       "year_read": 2025
     },
     {
-      "abs_error": 0.5139,
-      "actual_wa": 5.1542,
+      "abs_error": 0.4695,
+      "actual_wa": 5.1986,
       "author": "Emily St. John Mandel",
       "genre": "Speculative Literary Fiction",
       "pool_size": 60,
@@ -842,7 +842,7 @@
       "predicted_wa": 5.6681,
       "series": "Standalone",
       "series_number": null,
-      "signed_error": 0.5139,
+      "signed_error": 0.4695,
       "title": "Station 11",
       "year_read": 2025
     },
@@ -1997,9 +1997,9 @@
   ],
   "headline": {
     "n_books": 142,
-    "naive_wa_mae": 0.8713,
-    "raw_wa_mae": 0.6288,
-    "wa_mae": 0.5035
+    "naive_wa_mae": 0.8709,
+    "raw_wa_mae": 0.6285,
+    "wa_mae": 0.5032
   },
   "interval_coverage": {
     "served_conformal": {
@@ -2053,12 +2053,6 @@
       "raw_mae": 0.8585
     },
     {
-      "genre": "Speculative Literary Fiction",
-      "honest_mae": 0.3195,
-      "n": 3,
-      "raw_mae": 0.7027
-    },
-    {
       "genre": "Gothic Fiction",
       "honest_mae": 0.3165,
       "n": 2,
@@ -2069,6 +2063,12 @@
       "honest_mae": 0.3149,
       "n": 3,
       "raw_mae": 0.2379
+    },
+    {
+      "genre": "Speculative Literary Fiction",
+      "honest_mae": 0.3047,
+      "n": 3,
+      "raw_mae": 0.6879
     },
     {
       "genre": "Cyberpunk",

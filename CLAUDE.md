@@ -160,12 +160,18 @@ only on `recommendations`, only through `db_write.update_recommendation_scores`,
 refuses the whole pass if any book's WA would move. It deliberately does **not** touch
 `books`: a rated row is the reader's own judgement.
 
-**One rated book breaks the convention: `Station 11`** (Speculative Literary Fiction) stores
-5.5 / 7.2 / 5.4 where every other book in a WB-zero genre stores 0. Either its scores or that
-genre's weight of 0 is the odd one out — an owner call, so the lint WARNs rather than
-anything silently deciding. It is also the *entire* reason the walk-forward's three
-worldbuilding component-MAE rows move at all under the mask (the report already excludes
-actual-0 rows from those, so the mask gets no free credit there).
+**The lint found exactly one real anomaly, and it was a genre error.** `Station 11` stored
+5.5 / 7.2 / 5.4 as Speculative Literary Fiction, where every other book in a WB-zero genre
+stores 0. The scores were right and the genre was wrong: it is **Science Fiction (Soft)**
+(owner, 2026-09-07), which carries a Worldbuilding weight of 0.1, so those scores now
+count. Changed via `db_write.update_book_metadata` on the live store — WA 5.1542 → 5.1986,
+Total Average unchanged (it is genre-independent). The library now satisfies the convention
+with no exceptions, and the lint is clean.
+
+That is the argument for the WARN being one-directional and non-blocking. It surfaced a
+mis-genred book that had been sitting in the library — showing up as the #2 honest miss in
+the walk-forward, predicted from a 3-book genre pool it did not belong to — and the fix was
+the owner's to make, not the lint's.
 
 ## Prediction intervals (served) — the conformal 80% band, not `resid_sd`
 
@@ -173,7 +179,7 @@ The interval shown on the Predict and Read-queue pages (and exported to the publ
 snapshot) is the **density-bucketed conformal 80% band**: `intervals.py` maps a book's
 same-author analog count to an empirical half-width from `calibration/residuals.json`
 (built by `validate_engine.py --write-residuals`). It is walk-forward-validated at
-**83.5%** coverage on the honest error set (n=127, `validation/walkforward_report.md`,
+**82.7%** coverage on the honest error set (n=127, `validation/walkforward_report.md`,
 regenerated 2026-09-07), widens as the analog pool thins, and is omitted entirely —
 never invented — when no residual table is loaded. *(The **81.4%**/n=113 in
 `validation/interval_coverage.md` is the earlier, separate before/after analysis that
@@ -343,7 +349,7 @@ book-dependent, spanning ~4x**:
 | The Silmarillion | 4 | 0.112 | 0.327 | 13% | 13 places (79–92) |
 
 **WA is stable; RANK is fragile.** The noise is small against the served conformal band (3–13%) and
-against the engine's honest walk-forward MAE (0.586) — so the WA estimate is trustworthy. Rank is
+against the engine's honest walk-forward MAE (0.589) — so the WA estimate is trustworthy. Rank is
 not; the live-library figures below quantify it. Do not read a rank move from a re-predict as
 signal. (Nonfiction is fragile in the opposite way: its noise is *larger* relative to its band, but
 its gaps are wider than its noise, so only near-boundary books move.)
@@ -1171,18 +1177,20 @@ engine features must beat, and the raw dataset for a future public track-record 
 
   | variant | 2026-08-30 (141 books, 125 folds) | 2026-09-07 (143 books, 127 folds) |
   |---|---|---|
-  | raw | 0.7827 | **0.7805** |
-  | honest (the baseline to beat) | 0.5874 | **0.5860** |
-  | hybrid (the served headline) | 0.5503 | **0.5523** |
-  | leaky (today's config, not a baseline) | 0.5400 | **0.5396** |
-  | naive "predict the mean" | 0.8732 | **0.8702** |
+  | raw | 0.7827 | **0.7779** |
+  | honest (the baseline to beat) | 0.5874 | **0.5895** |
+  | hybrid (the served headline) | 0.5503 | **0.5570** |
+  | leaky (today's config, not a baseline) | 0.5400 | **0.5438** |
+  | naive "predict the mean" | 0.8732 | **0.8698** |
 
-  **This regeneration is two books of data growth, not an engine change.** It was forced
-  by the worldbuilding mask bumping `backtest_engine_hash` (the hash covers
-  `research_predict.py`), and the mask itself moves *nothing* here: a run with and without
-  it, on the same library, differs only in the engine-hash line — every WA MAE, ρ/τ,
-  coverage, rolling, per-genre and per-year figure is byte-identical. All the movement in
-  the table above is the two books added since 2026-08-30.
+  **No part of this regeneration is an engine change.** It was forced by the worldbuilding
+  mask bumping `backtest_engine_hash` (which covers `research_predict.py`), and the mask
+  itself moves *nothing* here: a run with and without it, on the same library, differs only
+  in the engine-hash line — every WA MAE, ρ/τ, coverage, rolling, per-genre and per-year
+  figure is byte-identical. The movement above is two books of data growth plus the
+  Station 11 genre correction below, and note the honest baseline got slightly **worse**
+  (0.5874 → 0.5895): fixing a book's genre is a correctness fix, not an accuracy win, and
+  it is not being reported as one.
 
   Against the 2026-07-24 run (131 books, 116 folds: raw 0.8264 · honest 0.6282 ·
   hybrid 0.5891 · leaky 0.5853 · naive 0.9131), every variant improved and the naive
@@ -1194,12 +1202,14 @@ engine features must beat, and the raw dataset for a future public track-record 
   structurally zero-spend and refuses to research), but it is why `n_in_cache` is 142 and
   why the skip reasons read `{POOL_LT_BURN_IN: 15, SKIPPED_NO_CACHE: 1}` rather than being
   purely burn-in. Researching it once would fold it in.
-- **The three worldbuilding rows of the component-MAE table move under the mask, and one
-  book is the whole reason.** The report already excludes actual-0 rows from those (n=113,
-  not 127), so the mask earns no free credit there. What remains is `Station 11` — in a
-  WB-zero genre yet carrying real worldbuilding actuals — which the mask now predicts as 0.
-  That single book is the entire delta (Integration 0.837→0.895, Depth2 0.798→0.839,
-  Originality 0.784→0.821). See **The worldbuilding mask** under the scoring model.
+- **The mask costs the backtest nothing at all, now that `Station 11` is fixed.** The
+  three worldbuilding component-MAE rows briefly moved under the mask, and that one book
+  was the entire delta: it sat in a WB-zero genre while carrying real worldbuilding
+  actuals, so the mask predicted 0 for it. Its genre was simply wrong (owner, 2026-09-07 —
+  it is Science Fiction (Soft), which is weighted for worldbuilding), and with that
+  corrected the rows returned to their pre-mask values (Integration 0.836, Depth2 0.801,
+  Originality 0.787). The report already excludes actual-0 rows from those rows (n=113, not
+  127), so the mask never earned free credit there either.
 - **Caveats:** research-cache vectors embed post-publication reception (accepted hindsight);
   the per-fold interval recorded is the engine's overconfident `±1.645·resid_sd` band, *not*
   the calibrated served conformal interval (the report scores that separately). See

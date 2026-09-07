@@ -1,6 +1,6 @@
 # Prediction-interval coverage — before / after
 
-_Regenerated 2026-09-07 · git `325984fdadee` · engine
+_Regenerated 2026-09-07 · git `c363b2184194` · engine
 `sha256:c12adfb15c04adcd` · 127 honest walk-forward folds (of
 143; 15 burn-in excluded,
 1 not in the research cache)._
@@ -31,10 +31,10 @@ book's interval, bucketed exactly as the live serving path buckets it.
 
 | interval | claimed | measured coverage | n | verdict |
 | --- | --- | --- | --- | --- |
-| legacy ±1.645·resid_sd (removed) | 90% | **35.4%** | 127 | badly overconfident |
-| served conformal band (kept) | 80% | **83.5%** | 127 | well-calibrated |
+| legacy ±1.645·resid_sd (removed) | 90% | **34.6%** | 127 | badly overconfident |
+| served conformal band (kept) | 80% | **82.7%** | 127 | well-calibrated |
 
-The served band claims 80% and delivers 83.5% on out-of-sample honest
+The served band claims 80% and delivers 82.7% on out-of-sample honest
 errors — slightly conservative, comfortably on target. (Owner decision: keep the
 honest 80% level rather than re-inflating to a nominal 90%.)
 
@@ -42,6 +42,10 @@ _Earlier measurements, for the record: 84.0% / 36.0% on the 125 folds of the
 2026-08-30 run, and 81.4% / 31.0% on the 113 folds of the 2026-07-07 run. The
 verdicts are unchanged; the served band has stayed on target as the library grew
 from 128 books to 143._
+
+_This run also folds in the `Station 11` genre correction (Speculative Literary
+Fiction → Science Fiction (Soft), owner 2026-09-07), which re-weights that book's
+WA and moves it into a genre pool thirteen books deep instead of three._
 
 _The half-widths table below did NOT move with this regeneration, and that is
 correct rather than an oversight: it is read off `calibration/residuals.json`,
