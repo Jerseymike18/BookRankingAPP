@@ -20374,6 +20374,46 @@
       "wa_high": 9.2532,
       "wa_low": 6.582,
       "words": 135000
+    },
+    {
+      "author": "Colleen McCullough",
+      "blurb": "The second Masters of Rome volume, chronicling the rivalry of Marius and the rise of Sulla amid Rome's Social War — meticulously researched political epic for readers who want the late Republic rendered in exhaustive, character-driven detail. Best for patient readers who savor dense Roman politics and don't mind long stretches of maneuvering over battle.",
+      "category_avgs": {
+        "Aesthetics": 7.5143,
+        "Character": 8.2491,
+        "Story": 7.9248,
+        "Theme": 8.44,
+        "Worldbuilding": 0.0
+      },
+      "components": {
+        "Action": 7.5988941640304,
+        "Depth": 8.54852353533273,
+        "Depth2": 0.0,
+        "Emotional Impact": 7.74490017496584,
+        "Ending": 8.09934245043577,
+        "Entertainment": 7.65888317302423,
+        "Insights": 8.37798178408335,
+        "Integration": 0.0,
+        "Motivations": 8.45398322313128,
+        "Narration": 7.53306749355994,
+        "Originality": 0.0,
+        "Plot": 8.1384210382512,
+        "Prose": 7.5029896730995,
+        "Thought-Provokingness": 8.48657838968112
+      },
+      "genre": "Historical Fiction",
+      "interval_label": "genre only",
+      "interval_stale": false,
+      "keywords": "historical fiction, ancient rome, political, epic, biographical, dense, meticulous, republic, character-driven, war",
+      "predicted_rank": 45,
+      "series": "Masters of Rome",
+      "series_number": 2,
+      "title": "The Grass Crown",
+      "upside": 8.9586,
+      "wa": 8.3575,
+      "wa_high": 9.6931,
+      "wa_low": 7.0219,
+      "words": 380000
     }
   ]
 }

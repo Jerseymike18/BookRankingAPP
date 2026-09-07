@@ -13815,5 +13815,28 @@
     "keywords": "epic fantasy, assassins, first-person, court intrigue, character-driven, disability rep, dark, emotional, mentor-apprentice",
     "genre": "Epic Fantasy",
     "words": 135000
+  },
+  "The Grass Crown": {
+    "scores": {
+      "Plot": 8.2,
+      "Entertainment": 7.8,
+      "Action": 7.9,
+      "Ending": 8.0,
+      "Depth": 8.6,
+      "Emotional Impact": 7.7,
+      "Motivations": 8.8,
+      "Prose": 7.6,
+      "Narration": 7.8,
+      "Insights": 8.7,
+      "Thought-Provokingness": 8.4,
+      "Depth2": 9.2,
+      "Integration": 8.5,
+      "Originality": 7.4
+    },
+    "conf": "high",
+    "blurb": "The second Masters of Rome volume, chronicling the rivalry of Marius and the rise of Sulla amid Rome's Social War \u2014 meticulously researched political epic for readers who want the late Republic rendered in exhaustive, character-driven detail. Best for patient readers who savor dense Roman politics and don't mind long stretches of maneuvering over battle.",
+    "keywords": "historical fiction, ancient rome, political, epic, biographical, dense, meticulous, republic, character-driven, war",
+    "genre": "Historical Fiction",
+    "words": 380000
   }
 }
