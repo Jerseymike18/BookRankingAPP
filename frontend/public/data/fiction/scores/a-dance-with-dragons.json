@@ -1,0 +1,32 @@
+{
+  "author": "George R.R. Martin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 9.2,
+      "Prose": 8.3
+    },
+    "Character": {
+      "Depth": 9.3,
+      "Emotional Impact": 8.1,
+      "Motivations": 9.0
+    },
+    "Story": {
+      "Action": 8.0,
+      "Ending": 7.2,
+      "Entertainment": 7.7,
+      "Plot": 8.6
+    },
+    "Theme": {
+      "Insights": 8.5,
+      "Thought-Provokingness": 8.2
+    },
+    "Worldbuilding": {
+      "Depth2": 9.5,
+      "Integration": 9.2,
+      "Originality": 8.4
+    }
+  },
+  "genre": "Epic Fantasy",
+  "title": "A Dance with Dragons",
+  "wa": 8.4361
+}

@@ -161,8 +161,8 @@
       "year_read": 2025
     },
     {
-      "abs_error": 0.6559,
-      "actual_wa": 7.4474,
+      "abs_error": 0.4619,
+      "actual_wa": 7.6415,
       "author": "Pierce Brown",
       "genre": "Science Fiction (Soft)",
       "pool_size": 12,
@@ -170,7 +170,7 @@
       "predicted_wa": 8.1034,
       "series": "Red Rising",
       "series_number": 4,
-      "signed_error": 0.6559,
+      "signed_error": 0.4619,
       "title": "Iron Gold",
       "year_read": 2025
     },
@@ -483,8 +483,8 @@
       "year_read": 2025
     },
     {
-      "abs_error": 0.8368,
-      "actual_wa": 6.9363,
+      "abs_error": 0.4335,
+      "actual_wa": 7.3395,
       "author": "Brandon Sanderson",
       "genre": "Epic Fantasy",
       "pool_size": 35,
@@ -492,7 +492,7 @@
       "predicted_wa": 7.7731,
       "series": "The Stormlight Archive",
       "series_number": 5,
-      "signed_error": 0.8368,
+      "signed_error": 0.4335,
       "title": "Wind and Truth",
       "year_read": 2025
     },
@@ -1575,8 +1575,8 @@
       "year_read": 2026
     },
     {
-      "abs_error": 0.1755,
-      "actual_wa": 9.6054,
+      "abs_error": 0.1855,
+      "actual_wa": 9.6154,
       "author": "Steven Erikson",
       "genre": "Epic Fantasy",
       "pool_size": 113,
@@ -1584,7 +1584,7 @@
       "predicted_wa": 9.4298,
       "series": "Malazan: Book of the Fallen",
       "series_number": 10,
-      "signed_error": -0.1755,
+      "signed_error": -0.1855,
       "title": "The Crippled God",
       "year_read": 2026
     },
@@ -1965,19 +1965,47 @@
       "signed_error": -0.3954,
       "title": "A Feast for Crows",
       "year_read": 2026
+    },
+    {
+      "abs_error": 0.9325,
+      "actual_wa": 8.4361,
+      "author": "George R.R. Martin",
+      "genre": "Epic Fantasy",
+      "pool_size": 141,
+      "position": 141,
+      "predicted_wa": 7.5036,
+      "series": "A Song of Ice and Fire",
+      "series_number": 5,
+      "signed_error": -0.9325,
+      "title": "A Dance with Dragons",
+      "year_read": 2026
+    },
+    {
+      "abs_error": 0.5778,
+      "actual_wa": 8.8459,
+      "author": "Liu Cixin",
+      "genre": "Science Fiction (Hard)",
+      "pool_size": 142,
+      "position": 142,
+      "predicted_wa": 8.2681,
+      "series": "Remembrance of Earth's Past",
+      "series_number": 2,
+      "signed_error": -0.5778,
+      "title": "The Dark Forest",
+      "year_read": 2026
     }
   ],
   "headline": {
-    "n_books": 140,
-    "naive_wa_mae": 0.8755,
-    "raw_wa_mae": 0.6287,
-    "wa_mae": 0.5041
+    "n_books": 142,
+    "naive_wa_mae": 0.8713,
+    "raw_wa_mae": 0.6288,
+    "wa_mae": 0.5035
   },
   "interval_coverage": {
     "served_conformal": {
       "label": "density-bucketed conformal band (served on Predict / Read-queue)",
-      "measured": 0.8786,
-      "n": 140,
+      "measured": 0.8732,
+      "n": 142,
       "nominal": 0.8
     }
   },
@@ -1990,9 +2018,9 @@
     },
     {
       "genre": "Science Fiction (Hard)",
-      "honest_mae": 0.6422,
-      "n": 19,
-      "raw_mae": 0.5738
+      "honest_mae": 0.639,
+      "n": 20,
+      "raw_mae": 0.5742
     },
     {
       "genre": "Literary Fantasy",
@@ -2002,9 +2030,9 @@
     },
     {
       "genre": "Science Fiction (Soft)",
-      "honest_mae": 0.5559,
+      "honest_mae": 0.5456,
       "n": 19,
-      "raw_mae": 0.648
+      "raw_mae": 0.6377
     },
     {
       "genre": "Classical Epic",
@@ -2014,9 +2042,9 @@
     },
     {
       "genre": "Epic Fantasy",
-      "honest_mae": 0.4702,
-      "n": 58,
-      "raw_mae": 0.6124
+      "honest_mae": 0.4714,
+      "n": 59,
+      "raw_mae": 0.6171
     },
     {
       "genre": "Science Fantasy",
@@ -3039,6 +3067,20 @@
         "pool_size": 140,
         "position": 140,
         "title": "A Feast for Crows",
+        "window_n": 12
+      },
+      {
+        "honest_rolling_mae": 0.5014,
+        "pool_size": 141,
+        "position": 141,
+        "title": "A Dance with Dragons",
+        "window_n": 12
+      },
+      {
+        "honest_rolling_mae": 0.5334,
+        "pool_size": 142,
+        "position": 142,
+        "title": "The Dark Forest",
         "window_n": 12
       }
     ],

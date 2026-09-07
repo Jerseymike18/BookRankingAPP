@@ -192,6 +192,50 @@ def _check_whitespace(con, warns):
                                          f"{field} has a doubled space"))
 
 
+def _check_worldbuilding_convention(con, warns):
+    """WARN: a row whose genre carries NO Worldbuilding weight but which stores a
+    non-zero Depth2/Integration/Originality — or the reverse.
+
+    Worldbuilding is optional in the scoring model: nine of the sixteen fiction
+    genres have a Worldbuilding CATEGORY weight of 0, and the convention is that
+    their books store the 0.0 "no worldbuilding" sentinel in all three
+    components. Both halves of the app now depend on that convention —
+    genre_affinity masks those components out of its z-profile, and
+    research_predict.mask_worldbuilding zeroes them on the predict side — so a row
+    that breaks it is scored inconsistently with every peer in its genre.
+
+    WARN, not ERROR: the resolution is a judgement call (either the row's scores
+    are a data-entry inconsistency, or the genre's weight of 0 is wrong), and
+    neither is a reason to block a publish. NULL is left alone — in
+    `recommendations` it means "saved with no prediction at all", which is a
+    different state from "has no worldbuilding".
+
+    ONE DIRECTION ONLY. The reverse (a genre that IS weighted for worldbuilding
+    holding a row of zeroes) is not a defect: CLAUDE.md's convention covers
+    "realist genres, PLUS a few character-driven SF/literary titles", so a book
+    with nothing to score is the owner's per-book call — Project Hail Mary,
+    Ender's Shadow and Momo all sit there deliberately. Flagging those would bury
+    the real finding under sanctioned rows."""
+    wb_cols = ('"Depth2"', '"Integration"', '"Originality"')
+    zero_genres = {r[0] for r in con.execute(
+        "SELECT genre FROM genre_weights WHERE COALESCE(worldbuilding, 0) = 0")}
+    if not zero_genres:
+        return
+    for tbl in FICTION_TABLES:
+        rows = con.execute(
+            f"SELECT title, genre, {', '.join(wb_cols)} FROM {tbl} "
+            f"WHERE genre IS NOT NULL ORDER BY title")
+        for title, genre, *vals in rows:
+            if all(v is None for v in vals):
+                continue                     # no prediction stored at all
+            if genre in zero_genres and any(v for v in vals):
+                warns.append(Finding(
+                    "WARN", tbl, title,
+                    f"genre '{genre}' has no Worldbuilding weight but the row "
+                    f"stores worldbuilding scores "
+                    f"({', '.join(f'{v:g}' for v in vals if v is not None)})"))
+
+
 def _check_author_spellings(con, warns):
     """WARN: one author under two near-identical spellings — casefold+strip is
     equal but the raw text differs (cheap canonicalization only; no fuzzy match).
@@ -225,6 +269,7 @@ def lint(db_path=DEFAULT_DB, allowlist_path=DEFAULT_ALLOWLIST) -> dict:
         _check_word_counts(con, warns)
         _check_whitespace(con, warns)
         _check_author_spellings(con, warns)
+        _check_worldbuilding_convention(con, warns)
     finally:
         con.close()
     return {"errors": errors, "warns": warns}

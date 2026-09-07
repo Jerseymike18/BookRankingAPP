@@ -654,6 +654,14 @@ function RecExpandedPanel({
   );
 }
 
+/* A component the app has no score for. 0 is the "not scored" sentinel used
+   throughout (RankingsView already renders a stored 0 as "—"), and the predictor
+   masks the three worldbuilding components to it for genres that have no
+   worldbuilding. One convention covers both. */
+function isUnscored(v: number | null | undefined): v is null | undefined {
+  return v === null || v === undefined || v === 0;
+}
+
 function ComponentScores({ components }: { components: Record<string, number | null> }) {
   // Group by category order matching the Python engine
   const CATEGORIES: Record<string, string[]> = {
@@ -672,7 +680,12 @@ function ComponentScores({ components }: { components: Record<string, number | n
       </p>
       {CAT_ORDER.map((cat) => {
         const comps = CATEGORIES[cat];
-        const hasAny = comps.some((c) => components[c] !== null && components[c] !== undefined);
+        // 0 is the app-wide "not scored" component sentinel (RankingsView renders
+        // a stored 0 as "—"), and the predictor masks worldbuilding to it for
+        // genres that have none (research_predict.mask_worldbuilding). So an
+        // all-zero category is an absent one — drop it rather than showing three
+        // 0.0 tiles, which read as "terrible worldbuilding" instead of "none".
+        const hasAny = comps.some((c) => !isUnscored(components[c]));
         if (!hasAny) return null;
         return (
           <div key={cat}>
@@ -689,7 +702,7 @@ function ComponentScores({ components }: { components: Record<string, number | n
                   <div key={comp} className="comp-tile">
                     <span className="comp-label">{comp}</span>
                     <span className="comp-value">
-                      {v !== null && v !== undefined ? v.toFixed(1) : "—"}
+                      {isUnscored(v) ? "—" : v.toFixed(1)}
                     </span>
                   </div>
                 );

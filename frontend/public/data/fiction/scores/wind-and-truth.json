@@ -3,22 +3,22 @@
   "components": {
     "Aesthetics": {
       "Narration": 5.2,
-      "Prose": 5.4
+      "Prose": 6.0
     },
     "Character": {
-      "Depth": 6.4,
+      "Depth": 7.5,
       "Emotional Impact": 6.8,
       "Motivations": 6.2
     },
     "Story": {
-      "Action": 7.4,
+      "Action": 8.3,
       "Ending": 7.1,
       "Entertainment": 7.5,
-      "Plot": 7.2
+      "Plot": 7.9
     },
     "Theme": {
-      "Insights": 6.5,
-      "Thought-Provokingness": 7.1
+      "Insights": 7.0,
+      "Thought-Provokingness": 7.6
     },
     "Worldbuilding": {
       "Depth2": 8.4,
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "Wind and Truth",
-  "wa": 6.9363
+  "wa": 7.3395
 }

@@ -407,6 +407,69 @@ Respond with ONLY a JSON object — no prose, no markdown:
 
 
 # ---------------------------------------------------------------------------
+# Worldbuilding mask — a genre with no worldbuilding gets no worldbuilding score
+# ---------------------------------------------------------------------------
+# Worldbuilding is optional (CLAUDE.md's scoring model): a genre whose
+# Worldbuilding CATEGORY weight is 0 has no worldbuilding to score, and the rated
+# library says so — every read book in Classical Drama / Classical Epic / Gothic
+# Fiction / Literary Fiction / Russian Literature (and the other WB-zero genres)
+# stores 0.0 in all three WB components. The LLM, however, scores all 14
+# components for every book, so the research path used to emit a confident
+# Depth2/Integration/Originality for a Literary Fiction novel that has none —
+# displayed on the Predict card and PERSISTED to `recommendations`, where it
+# later showed up as a ~8-point "miss" against an actual of 0.
+#
+# So the same mask genre_affinity.py applies on the READ side is applied here on
+# the PREDICT side. Two deliberate differences from that one:
+#
+#   * It masks to the 0.0 "no worldbuilding" SENTINEL, not to None.  0.0 is the
+#     convention the `books` table already stores and that db_write accepts, so a
+#     prediction and its eventual actual agree exactly (delta 0 instead of ~8).
+#     genre_affinity uses None because it is building a z-profile of actuals,
+#     where "no data" and "scored zero" must stay distinguishable. Here NULL
+#     already means something else in `recommendations`: a book saved with no
+#     prediction at all (a series bulk-add).
+#   * It keys off the EFFECTIVE per-tenant weights handed to the predictor, so a
+#     reader who gives Literary Fiction a worldbuilding weight on /weights gets
+#     worldbuilding predicted for it. The mask follows the reader's schema, not a
+#     hardcoded genre list.
+#
+# WA IS BYTE-IDENTICAL. The mask fires only when the genre's Worldbuilding
+# category weight is 0, and the WA roll-up multiplies that whole category by that
+# weight — so the masked components contribute 0 to WA either way, whatever their
+# values were. Nothing about the correction math changes: the mask is applied to
+# its OUTPUT, after the correction and the 0-10 clamp, so the correlation
+# smoothing and the author+genre ladder still see the full 14-vector they were
+# calibrated on. (Masking before them would change the other 11 components, and
+# with them the WA.)
+WB_COMPONENTS = ("Depth2", "Integration", "Originality")
+
+
+def worldbuilding_applies(genre, gw):
+    """True when `genre` carries a non-zero Worldbuilding category weight in the
+    effective weights `gw` (per-tenant overrides already overlaid). An unknown
+    genre, a missing key, or a non-numeric weight all mean "no worldbuilding" —
+    the same fail-closed reading the WA roll-up gives them."""
+    try:
+        return float((gw.get(genre) or {}).get("Worldbuilding") or 0.0) > 0.0
+    except (TypeError, ValueError, AttributeError):
+        return False
+
+
+def mask_worldbuilding(scores, genre, gw):
+    """Return `scores` with the three Worldbuilding components set to the 0.0
+    "not scored" sentinel when `genre` has no Worldbuilding weight; the input
+    dict unchanged otherwise. Never mutates its argument."""
+    if worldbuilding_applies(genre, gw):
+        return scores
+    out = dict(scores)
+    for c in WB_COMPONENTS:
+        if c in out:
+            out[c] = 0.0
+    return out
+
+
+# ---------------------------------------------------------------------------
 # WA roll-up from components — identical to db_loader (rated books) and to
 # app.load_recommendations (the mood queue), so a researched book's WA is
 # computed the same way as everything else.
@@ -484,8 +547,11 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     displayed and stored.
 
     Pipeline: research -> correlation-smooth (when corr_models given) -> author+
-    genre correct. The smoothing is a validated preprocessing step that runs on
-    the raw LLM scores BEFORE the unchanged correction below.
+    genre correct -> worldbuilding mask. The smoothing is a validated
+    preprocessing step that runs on the raw LLM scores BEFORE the unchanged
+    correction below; the mask runs AFTER it, zeroing the three worldbuilding
+    components for a genre whose Worldbuilding weight is 0 (see
+    mask_worldbuilding). The mask cannot move WA.
 
     `rank_pool` (optional): the frame the reader-facing RANK, TOTAL, and grounding
     counts (n_author / n_genre) are measured against — the reader's OWN rated
@@ -538,6 +604,13 @@ def correct_and_predict(title, author, genre, scores, conf, resid_sd,
     # correction math is untouched), before the WA roll-up so WA is a weighted
     # average of valid components.
     corrected = {c: min(10.0, max(0.0, v)) for c, v in corrected.items()}
+    # A genre with no worldbuilding gets no worldbuilding score. See the
+    # mask_worldbuilding block above: applied to the correction's OUTPUT (so the
+    # correction math is untouched) and BEFORE the roll-up (so the displayed
+    # vector, the stored row, and the WA are all rolled up from one vector).
+    # WA is unchanged by construction — the mask only fires where the WB category
+    # weight is 0, which zeroes that category's contribution regardless.
+    corrected = mask_worldbuilding(corrected, genre, gw)
 
     wa = _wa_from_components(corrected, genre, gw, gcw)
     # Cold-start terminus term (default OFF; see experiments/cold_start_wordcount_spec.md).

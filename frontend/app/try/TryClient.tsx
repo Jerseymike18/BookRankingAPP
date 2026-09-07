@@ -66,6 +66,13 @@ function GroundingBadge({ nGenre, nAuthor }: { nGenre: number; nAuthor: number }
   );
 }
 
+/* 0 is the app-wide "not scored" component sentinel (RankingsView renders a
+   stored 0 as "—"); the predictor masks worldbuilding to it for genres that have
+   none. Same helper as PredictClient. */
+function isUnscored(v: number | null | undefined): v is null | undefined {
+  return v === null || v === undefined || v === 0;
+}
+
 /* ── Component grid (read-only, mirrors Rankings / Predict) ───────────────────── */
 function ComponentGrid({
   components,
@@ -79,6 +86,10 @@ function ComponentGrid({
       {categoryOrder.map((cat) => {
         const comps = components[cat];
         if (!comps) return null;
+        // Worldbuilding is masked to the 0 "not scored" sentinel for genres that
+        // have none (research_predict.mask_worldbuilding); drop the category
+        // rather than showing three 0.00 tiles. Mirrors PredictClient.
+        if (Object.values(comps).every(isUnscored)) return null;
         return (
           <div key={cat}>
             <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--color-muted)" }}>
@@ -88,7 +99,7 @@ function ComponentGrid({
               {Object.entries(comps).map(([comp, val]) => (
                 <div key={comp} className="comp-tile">
                   <span className="comp-label">{comp}</span>
-                  <span className="comp-value">{val !== null ? val.toFixed(2) : "—"}</span>
+                  <span className="comp-value">{isUnscored(val) ? "—" : val.toFixed(2)}</span>
                 </div>
               ))}
             </div>

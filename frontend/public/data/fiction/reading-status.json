@@ -1,56 +1,56 @@
 {
   "currently_reading": {
-    "author": "George R.R. Martin",
-    "category_avgs": {
-      "Aesthetics": 7.91,
-      "Character": 8.23,
-      "Story": 6.69,
-      "Theme": 7.85,
-      "Worldbuilding": 7.91
-    },
-    "genre": "Epic Fantasy",
-    "has_prediction": true,
-    "rank": 85,
-    "series": "A Song of Ice and Fire",
-    "series_number": 5,
-    "title": "A Dance with Dragons",
-    "total": 141,
-    "wa": 7.5
-  },
-  "last_read": {
-    "author": "George R.R. Martin",
-    "category_avgs": {
-      "Aesthetics": 7.69,
-      "Character": 7.89,
-      "Story": 7.13,
-      "Theme": 7.39,
-      "Worldbuilding": 9.06
-    },
-    "genre": "Epic Fantasy",
-    "has_prediction": false,
-    "rank": 80,
-    "series": "A Song of Ice and Fire",
-    "series_number": 4,
-    "title": "A Feast for Crows",
-    "total": 141,
-    "wa": 7.62
-  },
-  "reading_next": {
     "author": "Liu Cixin",
     "category_avgs": {
-      "Aesthetics": 5.73,
-      "Character": 8.14,
-      "Story": 7.71,
-      "Theme": 9.51,
-      "Worldbuilding": 7.12
+      "Aesthetics": 6.7,
+      "Character": 7.97,
+      "Story": 7.92,
+      "Theme": 9.69,
+      "Worldbuilding": 7.65
     },
     "genre": "Science Fiction (Hard)",
     "has_prediction": true,
-    "rank": 46,
+    "rank": 38,
+    "series": "Remembrance of Earth's Past",
+    "series_number": 3,
+    "title": "Death's End",
+    "total": 143,
+    "wa": 8.5
+  },
+  "last_read": {
+    "author": "Liu Cixin",
+    "category_avgs": {
+      "Aesthetics": 8.0,
+      "Character": 8.64,
+      "Story": 8.29,
+      "Theme": 9.63,
+      "Worldbuilding": 8.18
+    },
+    "genre": "Science Fiction (Hard)",
+    "has_prediction": false,
+    "rank": 16,
     "series": "Remembrance of Earth's Past",
     "series_number": 2,
     "title": "The Dark Forest",
-    "total": 141,
-    "wa": 8.27
+    "total": 143,
+    "wa": 8.85
+  },
+  "reading_next": {
+    "author": "Frank Herbert",
+    "category_avgs": {
+      "Aesthetics": 7.55,
+      "Character": 7.37,
+      "Story": 7.57,
+      "Theme": 8.71,
+      "Worldbuilding": 8.23
+    },
+    "genre": "Science Fiction (Soft)",
+    "has_prediction": true,
+    "rank": 73,
+    "series": "Dune",
+    "series_number": 1,
+    "title": "Dune",
+    "total": 143,
+    "wa": 7.76
   }
 }

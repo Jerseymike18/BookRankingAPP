@@ -1,0 +1,32 @@
+{
+  "author": "Liu Cixin",
+  "components": {
+    "Aesthetics": {
+      "Narration": 7.9,
+      "Prose": 8.2
+    },
+    "Character": {
+      "Depth": 8.0,
+      "Emotional Impact": 8.9,
+      "Motivations": 9.2
+    },
+    "Story": {
+      "Action": 6.8,
+      "Ending": 8.7,
+      "Entertainment": 9.1,
+      "Plot": 8.5
+    },
+    "Theme": {
+      "Insights": 9.5,
+      "Thought-Provokingness": 9.7
+    },
+    "Worldbuilding": {
+      "Depth2": 7.7,
+      "Integration": 9.0,
+      "Originality": 8.8
+    }
+  },
+  "genre": "Science Fiction (Hard)",
+  "title": "The Dark Forest",
+  "wa": 8.8459
+}

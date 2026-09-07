@@ -80,6 +80,14 @@ function GroundingBadge({ nGenre, nAuthor }: { nGenre: number; nAuthor: number }
   );
 }
 
+/* A component the app has no score for. 0 is the "not scored" sentinel the
+   whole app already uses for these — RankingsView renders a stored 0 as "—" for
+   the same reason, and the predictor masks worldbuilding to 0 for genres that
+   have none. Treated identically to a null so one convention covers both. */
+function isUnscored(v: number | null | undefined): v is null | undefined {
+  return v === null || v === undefined || v === 0;
+}
+
 /* ── Component grid (read-only, mirrors Rankings) ────────────────────────── */
 
 function ComponentGrid({
@@ -94,6 +102,12 @@ function ComponentGrid({
       {categoryOrder.map((cat) => {
         const comps = components[cat];
         if (!comps) return null;
+        // A whole category can be inapplicable: Worldbuilding is scored 0 for
+        // realist genres, and the predictor now masks it to that same sentinel
+        // rather than inventing a number (research_predict.mask_worldbuilding).
+        // Drop the category rather than showing three 0.00 tiles, which read as
+        // "terrible worldbuilding" instead of "there is none".
+        if (Object.values(comps).every(isUnscored)) return null;
         return (
           <div key={cat}>
             <p
@@ -110,7 +124,7 @@ function ComponentGrid({
                 <div key={comp} className="comp-tile">
                   <span className="comp-label">{comp}</span>
                   <span className="comp-value">
-                    {val !== null ? val.toFixed(2) : "—"}
+                    {isUnscored(val) ? "—" : val.toFixed(2)}
                   </span>
                 </div>
               ))}

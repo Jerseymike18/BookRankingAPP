@@ -12,7 +12,7 @@
     },
     "Story": {
       "Action": 9.3,
-      "Ending": 9.9,
+      "Ending": 10.0,
       "Entertainment": 9.1,
       "Plot": 9.5
     },
@@ -28,5 +28,5 @@
   },
   "genre": "Epic Fantasy",
   "title": "The Crippled God",
-  "wa": 9.6054
+  "wa": 9.6154
 }

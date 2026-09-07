@@ -1445,6 +1445,44 @@
       "year_read": 2025
     },
     {
+      "author": "Pierce Brown",
+      "components": {
+        "Aesthetics": {
+          "Narration": 6.8,
+          "Prose": 7.6
+        },
+        "Character": {
+          "Depth": 7.8,
+          "Emotional Impact": 7.3,
+          "Motivations": 8.0
+        },
+        "Story": {
+          "Action": 7.9,
+          "Ending": 7.5,
+          "Entertainment": 7.2,
+          "Plot": 8.4
+        },
+        "Theme": {
+          "Insights": 6.4,
+          "Thought-Provokingness": 7.3
+        },
+        "Worldbuilding": {
+          "Depth2": 8.1,
+          "Integration": 8.3,
+          "Originality": 7.9
+        }
+      },
+      "genre": "Science Fiction (Soft)",
+      "rank": 39,
+      "series": "Red Rising",
+      "series_number": 4,
+      "tier": "C",
+      "title": "Iron Gold",
+      "wa": 7.6415,
+      "words": 203435,
+      "year_read": 2025
+    },
+    {
       "author": "Robert Jordan",
       "components": {
         "Aesthetics": {
@@ -1473,7 +1511,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 39,
+      "rank": 40,
       "series": "The Wheel of Time",
       "series_number": 8,
       "tier": "C",
@@ -1511,7 +1549,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 40,
+      "rank": 41,
       "series": "Mistborn Era 1",
       "series_number": 3,
       "tier": "C",
@@ -1549,7 +1587,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 41,
+      "rank": 42,
       "series": "Sun Eater",
       "series_number": 2,
       "tier": "C",
@@ -1587,7 +1625,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 42,
+      "rank": 43,
       "series": "The Wheel of Time",
       "series_number": 10,
       "tier": "C",
@@ -1625,7 +1663,7 @@
         }
       },
       "genre": "Classical Drama",
-      "rank": 43,
+      "rank": 44,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1663,51 +1701,13 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 44,
+      "rank": 45,
       "series": "The Wheel of Time",
       "series_number": 0,
       "tier": "C",
       "title": "New Spring",
       "wa": 7.4738,
       "words": 101000,
-      "year_read": 2025
-    },
-    {
-      "author": "Pierce Brown",
-      "components": {
-        "Aesthetics": {
-          "Narration": 6.8,
-          "Prose": 7.6
-        },
-        "Character": {
-          "Depth": 7.1,
-          "Emotional Impact": 7.3,
-          "Motivations": 8.0
-        },
-        "Story": {
-          "Action": 7.9,
-          "Ending": 7.5,
-          "Entertainment": 7.2,
-          "Plot": 7.5
-        },
-        "Theme": {
-          "Insights": 6.4,
-          "Thought-Provokingness": 7.3
-        },
-        "Worldbuilding": {
-          "Depth2": 8.1,
-          "Integration": 8.3,
-          "Originality": 7.9
-        }
-      },
-      "genre": "Science Fiction (Soft)",
-      "rank": 45,
-      "series": "Red Rising",
-      "series_number": 4,
-      "tier": "C",
-      "title": "Iron Gold",
-      "wa": 7.4474,
-      "words": 203435,
       "year_read": 2025
     },
     {
@@ -1749,6 +1749,44 @@
       "year_read": 2025
     },
     {
+      "author": "Brandon Sanderson",
+      "components": {
+        "Aesthetics": {
+          "Narration": 5.2,
+          "Prose": 6.0
+        },
+        "Character": {
+          "Depth": 7.5,
+          "Emotional Impact": 6.8,
+          "Motivations": 6.2
+        },
+        "Story": {
+          "Action": 8.3,
+          "Ending": 7.1,
+          "Entertainment": 7.5,
+          "Plot": 7.9
+        },
+        "Theme": {
+          "Insights": 7.0,
+          "Thought-Provokingness": 7.6
+        },
+        "Worldbuilding": {
+          "Depth2": 8.4,
+          "Integration": 8.7,
+          "Originality": 8.1
+        }
+      },
+      "genre": "Epic Fantasy",
+      "rank": 47,
+      "series": "The Stormlight Archive",
+      "series_number": 5,
+      "tier": "C",
+      "title": "Wind and Truth",
+      "wa": 7.3395,
+      "words": 487000,
+      "year_read": 2025
+    },
+    {
       "author": "Andy Weir",
       "components": {
         "Aesthetics": {
@@ -1777,7 +1815,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 47,
+      "rank": 48,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1815,7 +1853,7 @@
         }
       },
       "genre": "Classical Drama",
-      "rank": 48,
+      "rank": 49,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1853,7 +1891,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 49,
+      "rank": 50,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -1891,7 +1929,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 50,
+      "rank": 51,
       "series": "Ender's Game",
       "series_number": 4,
       "tier": "C",
@@ -1929,7 +1967,7 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 51,
+      "rank": 52,
       "series": "Ender's Game",
       "series_number": 3,
       "tier": "C",
@@ -1967,7 +2005,7 @@
         }
       },
       "genre": "Literary Fantasy",
-      "rank": 52,
+      "rank": 53,
       "series": "Standalone",
       "series_number": null,
       "tier": "C",
@@ -2005,7 +2043,7 @@
         }
       },
       "genre": "Epic Fantasy",
-      "rank": 53,
+      "rank": 54,
       "series": "Mistborn Era 1",
       "series_number": 2,
       "tier": "C",
@@ -2043,7 +2081,7 @@
         }
       },
       "genre": "Science Fiction (Soft)",
-      "rank": 54,
+      "rank": 55,
       "series": "Sun Eater",
       "series_number": 1,
       "tier": "C",
@@ -2081,10 +2119,10 @@
         }
       },
       "genre": "Classical Epic",
-      "rank": 55,
+      "rank": 56,
       "series": "Standalone",
       "series_number": null,
-      "tier": "C",
+      "tier": "D",
       "title": "Inferno",
       "wa": 7.0988,
       "words": 23000,
@@ -2119,7 +2157,7 @@
         }
       },
       "genre": "Literary Fiction",
-      "rank": 56,
+      "rank": 57,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
@@ -2157,51 +2195,13 @@
         }
       },
       "genre": "Science Fiction (Hard)",
-      "rank": 57,
+      "rank": 58,
       "series": "Standalone",
       "series_number": null,
       "tier": "D",
       "title": "Twenty Thousand Leagues Under the Sea",
       "wa": 6.9988,
       "words": 87000,
-      "year_read": 2025
-    },
-    {
-      "author": "Brandon Sanderson",
-      "components": {
-        "Aesthetics": {
-          "Narration": 5.2,
-          "Prose": 5.4
-        },
-        "Character": {
-          "Depth": 6.4,
-          "Emotional Impact": 6.8,
-          "Motivations": 6.2
-        },
-        "Story": {
-          "Action": 7.4,
-          "Ending": 7.1,
-          "Entertainment": 7.5,
-          "Plot": 7.2
-        },
-        "Theme": {
-          "Insights": 6.5,
-          "Thought-Provokingness": 7.1
-        },
-        "Worldbuilding": {
-          "Depth2": 8.4,
-          "Integration": 8.7,
-          "Originality": 8.1
-        }
-      },
-      "genre": "Epic Fantasy",
-      "rank": 58,
-      "series": "The Stormlight Archive",
-      "series_number": 5,
-      "tier": "D",
-      "title": "Wind and Truth",
-      "wa": 6.9363,
-      "words": 487000,
       "year_read": 2025
     },
     {

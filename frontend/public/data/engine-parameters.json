@@ -2,15 +2,15 @@
   "cold_start": {
     "applied_when": "no same-author analog (same-author count = 0)",
     "author_prior": false,
-    "center_words": 164841,
+    "center_words": 165566,
     "feature": "log10(word count), centered",
     "fit": "OLS on the reader's leave-one-out (actual − corrected) residuals",
     "fitted": true,
     "genre_prior": false,
     "genre_prior_source": "off",
     "min_books_to_fit": 25,
-    "n_books_fit": 140,
-    "slope_wa_per_dex": 0.9908,
+    "n_books_fit": 142,
+    "slope_wa_per_dex": 1.0157,
     "source": "fitted"
   },
   "genre_category_weights": {
@@ -555,7 +555,7 @@
     "blend_weight": 1.0,
     "min_own_fit": 15,
     "model_source": "own",
-    "n_rated_books": 141
+    "n_rated_books": 143
   },
   "models": {
     "discover": "claude-sonnet-4-6",
@@ -569,7 +569,7 @@
       "Theme"
     ],
     "r2": 0.9872,
-    "resid_sd": 0.1327
+    "resid_sd": 0.1321
   },
   "schema": {
     "categories": [
