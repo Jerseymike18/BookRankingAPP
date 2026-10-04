@@ -2532,28 +2532,69 @@ class AddSeriesRequest(BaseModel):
     series_name: str
 
 
+def _series_key(s: str) -> str:
+    """Normalise a series name for matching: lowercase, punctuation → space,
+    leading 'the' dropped. 'Discworld: City Watch' → 'discworld city watch'."""
+    k = re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+    return re.sub(r"^the ", "", k)
+
+
+def _library_series_books(con, user_id: str, series_name: str):
+    """
+    Resolve `series_name` against the series the reader ALREADY has (books ∪
+    recommendations). Returns (canonical_name, books) in the same shape the
+    LLM path produces, ordered by the stored series_number — or None when the
+    name matches no library series, or more than one.
+
+    The library's own series grouping wins over the LLM's: the LLM answers from
+    general knowledge, so for a series the reader has curated (e.g. Discworld
+    split into sub-series) it can return a different reading order — it once
+    put The Truth in place of Night Watch for City Watch.
+    """
+    want = _series_key(series_name)
+    if not want:
+        return None
+    rows = []
+    for table in ("books", "recommendations"):
+        rows += con.execute(
+            f"SELECT series, series_number, title, author, genre, words FROM {table} "
+            f"WHERE user_id=? AND series IS NOT NULL AND series <> ''", (user_id,)).fetchall()
+    # A name matches the full series, or the part after its last ':'
+    # ('City Watch' → 'Discworld: City Watch').
+    matches = {r[0] for r in rows
+               if want in (_series_key(r[0]), _series_key(r[0].rsplit(":", 1)[-1]))}
+    if len(matches) != 1:
+        return None
+    canonical = matches.pop()
+    seen, books = set(), []
+    picked = sorted((r for r in rows if r[0] == canonical),
+                    key=lambda r: (r[1] is None, r[1] if r[1] is not None else 0, r[2]))
+    for _, num, title, author, genre, words in picked:
+        if title.strip().lower() in seen:
+            continue  # read books keep their recommendations row (done=1)
+        seen.add(title.strip().lower())
+        books.append({"title": title, "author": author or "", "genre": genre,
+                      "words": words, "order": len(books) + 1})
+    return canonical, books
+
+
 @app.post("/api/queue/add-series")
 def add_series_to_queue(req: AddSeriesRequest,
                         user_id: str = Depends(auth.get_current_user_id)):
     """
-    Resolve a series name via LLM, then append the unread books (in reading
-    order) to the end of the current queue. Books not already in the TBR or
-    read tables are added to recommendations (no scores). Already-read books
-    are skipped. Returns a summary of what happened.
+    Resolve a series name, then append the unread books (in reading order) to
+    the end of the current queue. A series the reader already has is resolved
+    from their own rows, ordered by series_number (no LLM call); any other
+    name is resolved via LLM. Books not already in the TBR or read tables are
+    added to recommendations (no scores). Already-read books are skipped.
+    Returns a summary of what happened.
     """
     series_name = req.series_name.strip()
     if not series_name:
         raise HTTPException(status_code=422, detail="Series name is required.")
 
-    if _rp is None:
-        raise HTTPException(status_code=500, detail="research_predict not available")
-    try:
-        client = _rp.get_client()
-    except FileNotFoundError:
-        raise HTTPException(status_code=503,
-                            detail="apikey.txt not found — add your Anthropic API key.")
-
     con = db_backend.connect(db_write.DB, readonly=True)
+    library_match = _library_series_books(con, user_id, series_name)
     allowed_genres = sorted(r[0] for r in con.execute("SELECT genre FROM genre_weights"))
 
     # Fetch existing data for de-dupe checks (scoped to this tenant)
@@ -2565,6 +2606,26 @@ def add_series_to_queue(req: AddSeriesRequest,
         "SELECT title FROM read_queue WHERE user_id=? ORDER BY position", (user_id,))]
     queue_set = {t.strip().lower() for t in current_queue}
     con.close()
+
+    if library_match is not None:
+        data = {"ambiguous": False, "series_canonical": library_match[0],
+                "books": library_match[1]}
+    else:
+        data = _resolve_series_via_llm(series_name, allowed_genres)
+    return _apply_series_to_queue(data, series_name, allowed_genres, read_titles,
+                                  tbr_titles, current_queue, queue_set, user_id)
+
+
+def _resolve_series_via_llm(series_name: str, allowed_genres: list) -> dict:
+    """Ask DISCOVER_MODEL for a series' ordered book list (series the reader
+    doesn't have yet)."""
+    if _rp is None:
+        raise HTTPException(status_code=500, detail="research_predict not available")
+    try:
+        client = _rp.get_client()
+    except FileNotFoundError:
+        raise HTTPException(status_code=503,
+                            detail="apikey.txt not found — add your Anthropic API key.")
 
     # ── LLM: resolve series → ordered book list ───────────────────────────
     genres_str = ", ".join(allowed_genres)
@@ -2600,10 +2661,15 @@ Rules:
             messages=[{"role": "user", "content": prompt}],
         )
         raw = msg.content[0].text.strip()
-        data = _rl._extract_json(raw)
+        return _rl._extract_json(raw)
     except Exception as e:
         raise _server_error(e, "LLM call failed")
 
+
+def _apply_series_to_queue(data, series_name, allowed_genres, read_titles,
+                           tbr_titles, current_queue, queue_set, user_id):
+    """Append a resolved series' unread books to the queue, adding any missing
+    ones to the TBR. `data` is the resolver's {ambiguous, series_canonical, books}."""
     if data.get("ambiguous"):
         return {
             "ok": False,
