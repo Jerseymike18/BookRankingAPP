@@ -292,9 +292,18 @@ export interface AddBookPayload {
   read_month?: number; // 1-12
 }
 
+/** Where a just-added book landed among the reader's read books, ranked by WA
+ *  (the Rankings table's order). Null if the backend couldn't work it out. */
+export interface BookPlacement {
+  rank: number;
+  total: number;
+  wa: number;
+}
+
 export interface AddBookResult {
   ok: boolean;
   message: string;
+  placement?: BookPlacement | null;
   // Present for fiction adds: a handle for the background cohort re-prediction.
   repredict?: RepredictHandle | null;
 }
@@ -336,7 +345,7 @@ export interface AddNonfictionBookPayload {
 
 export async function addNonfictionBook(
   payload: AddNonfictionBookPayload
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; placement?: BookPlacement | null }> {
   assertWritable();
   const res = await apiFetch(`${base("nonfiction")}/books`, {
     method: "POST",

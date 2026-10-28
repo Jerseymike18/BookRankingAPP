@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
-import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
+import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, type BookPlacement } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -300,6 +300,7 @@ export default function AddBookClient({
     setScores(defaultScores(k));
     setSaveError(null);
     setSaveSuccess(null);
+    setPlacement(null);
   }
 
   /* ── Keep a half-rated book across navigations ────────────────────────────
@@ -373,6 +374,8 @@ export default function AddBookClient({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [placement, setPlacement] =
+    useState<(BookPlacement & { kind: BookKind }) | null>(null);
 
   // Background cohort re-prediction (fiction only): the add returns instantly and
   // we poll for the report. pollIdRef supersedes an in-flight poll if the user
@@ -463,6 +466,7 @@ export default function AddBookClient({
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
+    setPlacement(null);
     try {
       const common = {
         title,
@@ -479,9 +483,11 @@ export default function AddBookClient({
       if (kind === "nonfiction") {
         const result = await addNonfictionBook(common);
         setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+        setPlacement(result.placement ? { ...result.placement, kind } : null);
       } else {
         const result = await addBook({ ...common, genre });
         setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+        setPlacement(result.placement ? { ...result.placement, kind } : null);
         handle = result.repredict ?? null;
       }
 
@@ -774,6 +780,12 @@ export default function AddBookClient({
         <div className="rounded-lg px-4 py-3 text-sm mb-4"
           style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}>
           {saveSuccess}
+          {placement && (
+            <div className="mt-1 font-semibold">
+              Ranks #{placement.rank} of {placement.total} {placement.kind} books
+              you&apos;ve read · WA {placement.wa.toFixed(2)}
+            </div>
+          )}
         </div>
       )}
       {repredictStatus === "running" && (

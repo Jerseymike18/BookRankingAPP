@@ -1666,6 +1666,19 @@ class AddBookRequest(BaseModel):
     read_month: Optional[int] = None  # 1-12; defaults to the current month
 
 
+def _rank_in_library(books: list, title: str):
+    """Where a just-added book lands among the reader's read books, by WA — the
+    score the Rankings table sorts both tracks by. Ties share the better rank
+    (1 + the count strictly above). None when the title isn't found."""
+    key = title.strip().lower()
+    hit = next((b for b in books if (b.get("title") or "").strip().lower() == key), None)
+    if hit is None or hit.get("wa") is None:
+        return None
+    wa = hit["wa"]
+    above = sum(1 for b in books if b.get("wa") is not None and b["wa"] > wa)
+    return {"rank": above + 1, "total": len(books), "wa": wa}
+
+
 @app.post("/api/books")
 def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
              user_id: str = Depends(auth.get_current_user_id)):
@@ -1757,7 +1770,16 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
             _run_repredict, token, req.title, req.author, req.genre, req.scores, user_id)
         repredict = {"status": "running", "token": token, "trigger": req.title}
 
-    return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict}
+    # Where the book landed. Built from get_books so it can never disagree with the
+    # Rankings page; best-effort, since the add has already succeeded.
+    try:
+        placement = _rank_in_library(get_books(user_id=user_id)["books"], req.title)
+    except Exception:
+        log.exception("rank lookup failed for %r (the add itself succeeded)", req.title)
+        placement = None
+
+    return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict,
+            "placement": placement}
 
 
 def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict,
@@ -4158,7 +4180,13 @@ def add_nf_book(req: NonfictionAddRequest,
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not add book.")
     _invalidate_nf_engine(user_id)
-    return {"ok": True, "message": out.replace("✓", "").strip()}
+    # Same as the fiction add: where the book landed, by WA, from get_nf_books.
+    try:
+        placement = _rank_in_library(get_nf_books(user_id=user_id)["books"], req.title)
+    except Exception:
+        log.exception("rank lookup failed for %r (the add itself succeeded)", req.title)
+        placement = None
+    return {"ok": True, "message": out.replace("✓", "").strip(), "placement": placement}
 
 
 class NonfictionScoresRequest(BaseModel):
