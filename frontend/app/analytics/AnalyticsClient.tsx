@@ -41,7 +41,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       className="rounded-xl p-4 flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
         {label}
@@ -73,7 +73,7 @@ function Panel({ children, label }: { children: React.ReactNode; label?: string 
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       role={label ? "img" : undefined}
       aria-label={label}
     >
@@ -86,7 +86,7 @@ function NotEnough({ n }: { n: number }) {
   return (
     <div
       className="rounded-xl p-4 text-sm"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-muted)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)", color: "var(--color-muted)" }}
     >
       Not enough data for correlations — this slice has {n} book{n !== 1 ? "s" : ""} (need at least 4).
     </div>
@@ -424,7 +424,7 @@ function LengthScatter({ data }: { data: LengthSweetSpot }) {
 
 /* ── 7. Component co-movement heatmap ──────────────────────────────────────── */
 
-const SURFACE2 = "#F1EDE5", SAGE = "#4A7C59", SPINEC = "#C07C5A";
+const SURFACE2 = "#F0EAE0", SAGE = "#1C8355", SPINEC = "#EE7B4A";
 function mixHex(a: string, b: string, t: number) {
   const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
   const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
@@ -685,7 +685,7 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
           <LengthScatter data={lengths} />
         </Panel>
       ) : (
-        <div className="rounded-xl p-4 text-sm" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-muted)" }}>
+        <div className="rounded-xl p-4 text-sm" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)", color: "var(--color-muted)" }}>
           No books in this slice have a word count.
         </div>
       )}

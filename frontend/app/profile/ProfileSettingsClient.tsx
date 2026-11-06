@@ -37,8 +37,8 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
   const labelStyle = { color: "var(--color-muted)" };
   const inputClass = "w-full rounded-lg px-3 py-2 text-sm";
   const inputStyle = {
-    background: "var(--color-surface)",
-    border: "1px solid var(--color-rule)",
+    background: "var(--color-surface-2)",
+    border: "1px solid transparent",
     color: "var(--color-ink)",
   };
 

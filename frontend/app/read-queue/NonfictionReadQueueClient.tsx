@@ -10,6 +10,7 @@ import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { QueueMobileList } from "@/components/QueueMobileList";
 
 /* ── Nonfiction schema: 12 components across 5 categories (2026 redesign; mirrors
  *    nonfiction_engine.NONFICTION_CATEGORY_ORDER + the DB component→category map). ── */
@@ -180,15 +181,14 @@ function SortHeader({
   return (
     <th
       onClick={onClick}
-      className="text-right text-xs font-semibold uppercase tracking-wider cursor-pointer select-none px-3 py-2 whitespace-nowrap"
+      className="text-right text-xs font-medium cursor-pointer select-none px-3 py-2.5 whitespace-nowrap"
       style={{
         color: active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
         borderBottom: "1px solid var(--color-rule)",
       }}
     >
       {label}
-      {active ? (dir === "desc" ? " ▼" : " ▲") : ""}
+      {active ? (dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
 }
@@ -495,7 +495,7 @@ function FilterSelect({ value, onChange, children }: { value: string; onChange: 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
+      style={{ background: "var(--color-surface-2)", border: "1px solid transparent", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
     >
       {children}
     </select>
@@ -510,7 +510,7 @@ function FilterText({ placeholder, value, onChange }: { placeholder: string; val
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
+      style={{ background: "var(--color-surface-2)", border: "1px solid transparent", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
     />
   );
 }
@@ -742,7 +742,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
           onChange={(e) => { setText(e.target.value); setStatus(null); }}
           rows={18}
           className="w-full rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 resize-y"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-ink)", lineHeight: "1.7" }}
+          style={{ background: "var(--color-surface-2)", border: "1px solid transparent", color: "var(--color-ink)", lineHeight: "1.7" }}
           placeholder="Paste or type one book title per line…"
           spellCheck={false}
         />
@@ -804,7 +804,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
           onChange={(e) => setAddInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
           className="flex-1 px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
+          style={{ background: "var(--color-surface-2)", border: "1px solid transparent", color: "var(--color-ink)", fontFamily: "var(--font-body)" }}
         />
         <button onClick={handleAdd} disabled={!addInput.trim()} className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity" style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}>
           Add
@@ -940,7 +940,7 @@ export default function NonfictionReadQueueClient({
       {!ro && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
       {tab === "list" && recommendations.length === 0 ? (
-        <div className="text-center py-16 rounded-xl" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+        <div className="text-center py-16 rounded-xl" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>
             No nonfiction recommendations yet — research books on the Predict page to add them here.
           </p>
@@ -948,7 +948,7 @@ export default function NonfictionReadQueueClient({
       ) : tab === "list" ? (
         <>
           {/* Mood — dial a mood up to re-rank the to-read list (mirrors fiction). */}
-          <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+          <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
             <div className="flex items-center justify-between mb-1">
               <h2 className="font-display font-semibold text-lg" style={{ color: "var(--color-ink)" }}>Mood</h2>
               {hasMoods && (
@@ -965,7 +965,7 @@ export default function NonfictionReadQueueClient({
           </section>
 
           {/* Filters */}
-          <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+          <section className="mb-6 rounded-xl p-5" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
             <h2 className="font-display font-semibold text-lg mb-4" style={{ color: "var(--color-ink)" }}>Filters</h2>
             <div className="flex flex-wrap gap-3">
               <FilterText placeholder="Title or series…" value={fTitle} onChange={setFTitle} />
@@ -1014,12 +1014,43 @@ export default function NonfictionReadQueueClient({
                   : "No books match your filters."}
               </p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <>
+              <QueueMobileList
+                items={sortedResults}
+                sortOptions={[
+                  ...(hasMoods ? [{ id: "mood" as NfSortField, label: "Mood" }] : []),
+                  { id: "wa" as NfSortField, label: "Pred WA" },
+                  { id: "upside" as NfSortField, label: "Upside" },
+                  ...NF_CAT_ORDER.map((c) => ({ id: c as NfSortField, label: c })),
+                ]}
+                sortField={sortField}
+                sortDir={sortDir}
+                onSort={handleSortClick}
+                sortValue={({ rec, moodScore }, f) =>
+                  f === "mood" ? moodScore : f === "wa" ? rec.wa ?? null : f === "upside" ? rec.upside ?? null : (rec.category_avgs ?? {})[f] ?? null
+                }
+                expandedTitle={expandedTitle}
+                onToggle={(t) => setExpandedTitle(expandedTitle === t ? null : t)}
+                renderPanel={({ rec, moodScore }) => (
+                  <RecExpandedPanel
+                    rec={rec}
+                    moodScore={moodScore}
+                    onDelete={() => {
+                      setDeletedTitles((prev) => new Set([...prev, rec.title]));
+                      setExpandedTitle(null);
+                    }}
+                  />
+                )}
+              />
+              <div
+                className="hidden md:block rounded-xl"
+                style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+              >
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
                   <thead>
-                    <tr style={{ background: "var(--color-surface)" }}>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}>#</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}>Book</th>
+                    <tr>
+                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}>#</th>
+                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}>Book</th>
                       {hasMoods && (
                         <SortHeader label="Mood" active={sortField === "mood"} dir={sortDir} onClick={() => handleSortClick("mood")} />
                       )}
@@ -1028,7 +1059,7 @@ export default function NonfictionReadQueueClient({
                       {NF_CAT_ORDER.map((cat) => (
                         <SortHeader key={cat} label={NF_CAT_ABBR[cat]} active={sortField === cat} dir={sortDir} onClick={() => handleSortClick(cat)} />
                       ))}
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>Genre</th>
+                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>Genre</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1040,7 +1071,7 @@ export default function NonfictionReadQueueClient({
                         <React.Fragment key={rec.title}>
                           <tr
                             onClick={() => setExpandedTitle(isExpanded ? null : rec.title)}
-                            className="cursor-pointer"
+                            className="app-row cursor-pointer"
                             style={{ borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)", transition: "background 0.1s" }}
                           >
                             <td className="px-3 py-3 font-display italic text-sm text-right" style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}>{i + 1}</td>
@@ -1053,24 +1084,24 @@ export default function NonfictionReadQueueClient({
                               </div>
                             </td>
                             {hasMoods && (
-                              <td className="px-3 py-3 text-right font-semibold" style={{ color: sortField === "mood" ? "var(--color-sage)" : (moodScore !== null ? "var(--color-ink)" : "var(--color-faint)"), background: sortField === "mood" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                              <td className="px-3 py-3 text-right font-semibold" style={{ color: sortField === "mood" ? "var(--color-sage)" : (moodScore !== null ? "var(--color-ink)" : "var(--color-faint)"), fontVariantNumeric: "tabular-nums" }}>
                                 {moodScore !== null ? moodScore.toFixed(2) : "—"}
                               </td>
                             )}
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)", background: sortField === "wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                            <td className="px-3 py-3 text-right" style={{ color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>
                               <div>{rec.wa != null ? rec.wa.toFixed(2) : "—"}</div>
                               {formatInterval(rec) && (
                                 <div className="text-xs" style={{ color: "var(--color-faint)" }}>{formatInterval(rec)}</div>
                               )}
                             </td>
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"), background: sortField === "upside" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                            <td className="px-3 py-3 text-right" style={{ color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"), fontVariantNumeric: "tabular-nums" }}>
                               {rec.upside != null ? rec.upside.toFixed(2) : "—"}
                             </td>
                             {NF_CAT_ORDER.map((cat) => {
                               const val = avgs[cat] ?? 0;
                               const isActive = sortField === cat;
                               return (
-                                <td key={cat} className="px-3 py-3 text-right" style={{ color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"), background: isActive ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>
+                                <td key={cat} className="px-3 py-3 text-right" style={{ color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"), fontVariantNumeric: "tabular-nums" }}>
                                   {val === 0 ? "—" : val.toFixed(2)}
                                 </td>
                               );
@@ -1097,6 +1128,7 @@ export default function NonfictionReadQueueClient({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </section>
         </>

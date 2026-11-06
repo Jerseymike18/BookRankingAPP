@@ -11,6 +11,7 @@ import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { QueueMobileList } from "@/components/QueueMobileList";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -147,15 +148,14 @@ function RecSortHeader({
   return (
     <th
       onClick={onClick}
-      className="text-right text-xs font-semibold uppercase tracking-wider cursor-pointer select-none px-3 py-2 whitespace-nowrap"
+      className="text-right text-xs font-medium cursor-pointer select-none px-3 py-2.5 whitespace-nowrap"
       style={{
         color: active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
         borderBottom: "1px solid var(--color-rule)",
       }}
     >
       {label}
-      {active ? (dir === "desc" ? " ▼" : " ▲") : ""}
+      {active ? (dir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
 }
@@ -733,8 +733,8 @@ function FilterSelect({
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-rule)",
+        background: "var(--color-surface-2)",
+        border: "1px solid transparent",
         color: "var(--color-ink)",
         fontFamily: "var(--font-body)",
       }}
@@ -761,8 +761,8 @@ function FilterText({
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0"
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-rule)",
+        background: "var(--color-surface-2)",
+        border: "1px solid transparent",
         color: "var(--color-ink)",
         fontFamily: "var(--font-body)",
       }}
@@ -1121,8 +1121,8 @@ function QueueTab({
           rows={18}
           className="w-full rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 resize-y"
           style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-rule)",
+            background: "var(--color-surface-2)",
+            border: "1px solid transparent",
             color: "var(--color-ink)",
             lineHeight: "1.7",
           }}
@@ -1202,8 +1202,8 @@ function QueueTab({
           onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
           className="flex-1 px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0"
           style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-rule)",
+            background: "var(--color-surface-2)",
+            border: "1px solid transparent",
             color: "var(--color-ink)",
             fontFamily: "var(--font-body)",
           }}
@@ -1242,7 +1242,7 @@ function QueueTab({
       {/* Add series */}
       <div
         className="rounded-xl p-4 space-y-3 mt-2"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
           Add series to queue
@@ -1260,8 +1260,8 @@ function QueueTab({
             disabled={seriesLoading}
             className="flex-1 px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2 min-w-0 disabled:opacity-50"
             style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-rule)",
+              background: "var(--color-surface-2)",
+              border: "1px solid transparent",
               color: "var(--color-ink)",
               fontFamily: "var(--font-body)",
             }}
@@ -1441,7 +1441,7 @@ export default function ReadQueueClient({
       {tab === "mood" && recommendations.length === 0 ? (
         <div
           className="text-center py-16 rounded-xl"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>
             No recommendations yet — research books on the Predict page to add them here.
@@ -1452,7 +1452,7 @@ export default function ReadQueueClient({
           {/* ── Mood section ─────────────────────────────────────────────── */}
           <section
             className="mb-6 rounded-xl p-5"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+            style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
           >
             <div className="flex items-center justify-between mb-1">
               <h2 className="font-display font-semibold text-lg" style={{ color: "var(--color-ink)" }}>
@@ -1483,7 +1483,7 @@ export default function ReadQueueClient({
           {/* ── Filters ──────────────────────────────────────────────────── */}
           <section
             className="mb-6 rounded-xl p-5"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+            style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
           >
             <h2 className="font-display font-semibold text-lg mb-4" style={{ color: "var(--color-ink)" }}>
               Filters
@@ -1558,18 +1558,51 @@ export default function ReadQueueClient({
                   : "No books match your filters."}
               </p>
             ) : (
-              <div style={{ overflowX: "auto" }}>
+              <>
+              <QueueMobileList
+                items={sortedResults}
+                sortOptions={[
+                  ...(hasMoods ? [{ id: "mood" as RecSortField, label: "Mood" }] : []),
+                  { id: "wa" as RecSortField, label: "Pred WA" },
+                  { id: "upside" as RecSortField, label: "Upside" },
+                  ...CAT_COLS.map((c) => ({ id: c as RecSortField, label: c })),
+                ]}
+                sortField={sortField}
+                sortDir={sortDir}
+                onSort={handleSortClick}
+                sortValue={({ rec, moodScore }, f) =>
+                  f === "mood" ? moodScore : f === "wa" ? rec.wa : f === "upside" ? rec.upside ?? null : (rec.category_avgs ?? {})[f] ?? null
+                }
+                expandedTitle={expandedTitle}
+                onToggle={(t) => setExpandedTitle(expandedTitle === t ? null : t)}
+                renderPanel={({ rec, moodScore }) => (
+                  <RecExpandedPanel
+                    rec={rec}
+                    moodScore={moodScore}
+                    hasMoods={hasMoods}
+                    genres={genres}
+                    onDelete={() => {
+                      setDeletedTitles((prev) => new Set([...prev, rec.title]));
+                      setExpandedTitle(null);
+                    }}
+                  />
+                )}
+              />
+              <div
+                className="hidden md:block rounded-xl"
+                style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+              >
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
                   <thead>
-                    <tr style={{ background: "var(--color-surface)" }}>
+                    <tr>
                       <th
-                        className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                        className="text-left text-xs font-medium px-3 py-2.5"
                         style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}
                       >
                         #
                       </th>
                       <th
-                        className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                        className="text-left text-xs font-medium px-3 py-2.5"
                         style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}
                       >
                         Book
@@ -1605,7 +1638,7 @@ export default function ReadQueueClient({
                         />
                       ))}
                       <th
-                        className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                        className="text-left text-xs font-medium px-3 py-2.5"
                         style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}
                       >
                         Genre
@@ -1621,7 +1654,7 @@ export default function ReadQueueClient({
                         <React.Fragment key={rec.title}>
                           <tr
                             onClick={() => setExpandedTitle(isExpanded ? null : rec.title)}
-                            className="cursor-pointer"
+                            className="app-row cursor-pointer"
                             style={{
                               borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)",
                               transition: "background 0.1s",
@@ -1651,7 +1684,6 @@ export default function ReadQueueClient({
                                 className="px-3 py-3 text-right font-semibold"
                                 style={{
                                   color: sortField === "mood" ? "var(--color-sage)" : (moodScore !== null ? "var(--color-ink)" : "var(--color-faint)"),
-                                  background: sortField === "mood" ? "var(--color-sage-light)" : "transparent",
                                   fontVariantNumeric: "tabular-nums",
                                 }}
                               >
@@ -1662,7 +1694,6 @@ export default function ReadQueueClient({
                               className="px-3 py-3 text-right"
                               style={{
                                 color: sortField === "wa" ? "var(--color-sage)" : "var(--color-muted)",
-                                background: sortField === "wa" ? "var(--color-sage-light)" : "transparent",
                                 fontVariantNumeric: "tabular-nums",
                               }}
                             >
@@ -1677,7 +1708,6 @@ export default function ReadQueueClient({
                               className="px-3 py-3 text-right"
                               style={{
                                 color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"),
-                                background: sortField === "upside" ? "var(--color-sage-light)" : "transparent",
                                 fontVariantNumeric: "tabular-nums",
                               }}
                             >
@@ -1692,7 +1722,6 @@ export default function ReadQueueClient({
                                   className="px-3 py-3 text-right"
                                   style={{
                                     color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"),
-                                    background: isActive ? "var(--color-sage-light)" : "transparent",
                                     fontVariantNumeric: "tabular-nums",
                                   }}
                                 >
@@ -1729,6 +1758,7 @@ export default function ReadQueueClient({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </section>
         </>

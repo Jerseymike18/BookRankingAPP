@@ -6,8 +6,8 @@ import { signUp } from "@/lib/api";
 import { ProgressBar } from "@/components/ProgressBar";
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -90,7 +90,7 @@ export default function LoginPage() {
     <div className="max-w-sm mx-auto w-full">
       <div
         className="rounded-xl p-6 mt-8"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <h1 className="font-display font-semibold text-lg mb-1" style={{ color: "var(--color-ink)" }}>
           The Reading Ledger

@@ -7,7 +7,7 @@ import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
-import { useSortable, SortableTable, SortableTh } from "@/components/SortableTable";
+import { useSortable, SortableTable, SortableTh, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -88,8 +88,8 @@ function ComponentGrid({
 /* ── Editable score grid ─────────────────────────────────────────────── */
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -309,7 +309,7 @@ function MetadataForm({
           style={inputStyle}
         />
         {renameWarning && (
-          <p className="text-xs mt-1" style={{ color: "var(--color-clay, #C07C5A)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--color-clay, #EE7B4A)" }}>
             Renames the book everywhere (queue, TBR &amp; delta log follow).
           </p>
         )}
@@ -798,7 +798,7 @@ function ScoreCell({ value, active, digits }: {
       className="px-3 py-3 text-right"
       style={{
         color: empty ? "var(--color-faint)" : active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
+        fontWeight: active ? 600 : undefined,
         fontVariantNumeric: "tabular-nums",
       }}
     >
@@ -985,8 +985,8 @@ function PerTypeRankings({
           onChange={handleGenre}
           className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
           style={{
-            background: "var(--color-surface)",
-            border: "1px solid var(--color-rule)",
+            background: "var(--color-surface-2)",
+            border: "1px solid transparent",
             color: "var(--color-ink)",
             fontFamily: "var(--font-body)",
           }}
@@ -1007,8 +1007,8 @@ function PerTypeRankings({
             onChange={handleSearch}
             className="w-full pl-9 pr-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
             style={{
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-rule)",
+              background: "var(--color-surface-2)",
+              border: "1px solid transparent",
               color: "var(--color-ink)",
               fontFamily: "var(--font-body)",
             }}
@@ -1041,8 +1041,106 @@ function PerTypeRankings({
         </div>
       </div>
 
-      {/* Rankings table */}
-      <div style={{ overflowX: "auto" }}>
+      {/* Phones: one tappable row per book; tap opens the same panel the
+          desktop table expands into. */}
+      <div className="md:hidden">
+        <MobileSortBar cols={cols} sortState={sortState} onSort={handleSort} />
+        {sorted.length === 0 ? (
+          <p className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
+            No books match your filters.
+          </p>
+        ) : (
+          <ul
+            className="rounded-xl overflow-hidden"
+            style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+          >
+            {sorted.map((book, i) => {
+              const isExpanded = expandedTitle === book.title;
+              const sortCol = cols.find((c) => c.key === sortState.key);
+              const showSortVal =
+                !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
+              const sortVal = showSortVal ? Number(sortCol!.getValue(book) ?? 0) : 0;
+              return (
+                <li
+                  key={book.title}
+                  className={spineClass(primaryScore(book))}
+                  style={{
+                    borderLeftWidth: 3,
+                    borderLeftStyle: "solid",
+                    borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedTitle(isExpanded ? null : book.title)}
+                    aria-expanded={isExpanded}
+                    className="app-row w-full flex items-center gap-3 pl-2 pr-3 py-3 text-left"
+                  >
+                    <span
+                      className="w-6 shrink-0 text-right font-display italic text-sm"
+                      style={{ color: "var(--color-faint)" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="wa-badge">{primaryScore(book).toFixed(1)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block font-display font-semibold text-sm leading-tight truncate"
+                        style={{ color: "var(--color-ink)" }}
+                      >
+                        {book.title}
+                      </span>
+                      <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
+                        {book.author}
+                        {book.series ? ` · ${seriesLabel(book.series, book.series_number)}` : ` · ${book.genre}`}
+                      </span>
+                    </span>
+                    {showSortVal && (
+                      <span className="shrink-0 text-right">
+                        <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
+                          {sortVal ? sortVal.toFixed(sortCol!.key.startsWith("comp:") ? 1 : 2) : "—"}
+                        </span>
+                        <span className="block text-[11px]" style={{ color: "var(--color-faint)" }}>
+                          {sortCol!.label}
+                        </span>
+                      </span>
+                    )}
+                    <svg
+                      width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                      className="shrink-0"
+                      style={{
+                        color: "var(--color-faint)",
+                        transform: isExpanded ? "rotate(90deg)" : "none",
+                        transition: "transform 150ms",
+                      }}
+                    >
+                      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  {isExpanded && (
+                    <div style={{ borderTop: "1px solid var(--color-rule)" }}>
+                      <BookExpandedPanel
+                        book={book}
+                        categoryOrder={category_order}
+                        kind={kind}
+                        onRefresh={onRefresh}
+                        refreshing={refreshing}
+                        onClose={() => setExpandedTitle(null)}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Desktop: the full sortable table on a card */}
+      <div
+        className="hidden md:block rounded-xl"
+        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+      >
         <table
           style={{
             width: "100%",
@@ -1051,9 +1149,9 @@ function PerTypeRankings({
           }}
         >
           <thead>
-            <tr style={{ background: "var(--color-surface)" }}>
+            <tr>
               <th
-                className="text-left text-xs font-semibold uppercase tracking-wider px-3 py-2"
+                className="text-left text-xs font-medium px-3 py-2.5"
                 style={{
                   color: "var(--color-muted)",
                   borderBottom: "1px solid var(--color-rule)",
@@ -1112,13 +1210,15 @@ function PerTypeRankings({
                       onClick={() =>
                         setExpandedTitle(isExpanded ? null : book.title)
                       }
-                      className={`book-card ${spineClass(primaryScore(book))} cursor-pointer`}
+                      className={`app-row ${spineClass(primaryScore(book))} cursor-pointer`}
                       style={{
                         borderBottom: isExpanded
                           ? "none"
                           : "1px solid var(--color-rule)",
-                        borderLeft: "3px solid",
-                        transition: "background 0.1s",
+                        // Width + style only: the spine-* class supplies the colour
+                        // (a `3px solid` shorthand here would reset it to ink).
+                        borderLeftWidth: 3,
+                        borderLeftStyle: "solid",
                       }}
                     >
                       <td
@@ -1131,7 +1231,6 @@ function PerTypeRankings({
                         className="px-3 py-3"
                         style={{
                           minWidth: "12rem",
-                          background: sortState.key === "title" ? "var(--color-sage-light)" : "transparent",
                         }}
                       >
                         <div
@@ -1159,7 +1258,6 @@ function PerTypeRankings({
                         className="px-3 py-3 text-right font-semibold"
                         style={{
                           color: sortState.key === primaryKey ? "var(--color-sage)" : "var(--color-ink)",
-                          background: sortState.key === primaryKey ? "var(--color-sage-light)" : "transparent",
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
@@ -1194,9 +1292,6 @@ function PerTypeRankings({
                       })}
                       <td
                         className="px-3 py-3"
-                        style={{
-                          background: sortState.key === "genre" ? "var(--color-sage-light)" : "transparent",
-                        }}
                       >
                         <span className="genre-chip">{book.genre}</span>
                       </td>

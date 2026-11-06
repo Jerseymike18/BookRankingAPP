@@ -428,7 +428,7 @@ function PredictFlow({
               className="rounded-lg px-4 py-2 text-xs flex items-center gap-x-4 gap-y-1 flex-wrap"
               style={{
                 background: "var(--color-surface)",
-                border: "1px solid var(--color-rule)",
+                boxShadow: "var(--shadow-card)",
                 color: "var(--color-muted)",
               }}
             >

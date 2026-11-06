@@ -149,7 +149,7 @@ export function SkeletonTable({
     <div
       aria-hidden
       className="rounded-xl overflow-hidden"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <div
         className="flex items-center gap-4 px-4 py-3"
@@ -182,7 +182,7 @@ export function SkeletonCardList({ cards = 5 }: { cards?: number }) {
         <div
           key={i}
           className="flex items-center gap-4 px-5 py-4 rounded-xl"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           <Skeleton w="2.5rem" h="2.5rem" radius="9999px" />
           <div className="flex-1 space-y-2">
@@ -210,7 +210,7 @@ export function SkeletonStatCards({
         <div
           key={i}
           className="rounded-xl p-4 flex flex-col gap-2"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           <Skeleton h="0.6rem" w="55%" />
           <Skeleton h="1.4rem" w="40%" />
@@ -226,7 +226,7 @@ export function SkeletonChart({ h = "14rem", title = true }: { h?: string; title
     <div
       aria-hidden
       className="rounded-xl p-5"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       {title && <Skeleton h="0.8rem" w="12rem" className="mb-4" />}
       <Skeleton h={h} radius="0.5rem" />
@@ -240,7 +240,7 @@ export function SkeletonPanel({ lines = 4 }: { lines?: number }) {
     <div
       aria-hidden
       className="rounded-xl p-5"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <Skeleton h="0.9rem" w="40%" className="mb-3" />
       <SkeletonText lines={lines} />

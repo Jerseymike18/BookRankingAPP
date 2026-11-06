@@ -42,9 +42,9 @@ const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
 
 const errorBox: React.CSSProperties = { background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" };
-const cardStyle: React.CSSProperties = { background: "var(--color-surface)", border: "1px solid var(--color-rule)" };
+const cardStyle: React.CSSProperties = { background: "var(--color-surface)", boxShadow: "var(--shadow-card)" };
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)", border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)", border: "1px solid transparent",
   color: "var(--color-ink)", fontFamily: "var(--font-body)",
 };
 

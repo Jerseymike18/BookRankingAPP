@@ -89,7 +89,7 @@ export default function Error({
     <div className="max-w-sm mx-auto w-full">
       <div
         className="rounded-xl p-6 mt-8"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <h1 className="font-display font-semibold text-lg mb-1" style={{ color: "var(--color-ink)" }}>
           {checking ? "Reconnecting…" : "Something went wrong"}

@@ -66,7 +66,7 @@ export default function ExportLibraryButton({
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <h2 className="font-display text-lg font-bold" style={{ color: "var(--color-ink)" }}>
         Export to Goodreads or StoryGraph

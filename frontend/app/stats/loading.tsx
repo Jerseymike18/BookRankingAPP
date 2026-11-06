@@ -14,7 +14,7 @@ export default function Loading() {
       <Skeleton h="1.1rem" w="10rem" className="mt-10 mb-3" />
       <div
         className="rounded-xl p-4 space-y-3"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <Skeleton h="1.5rem" />
         <Skeleton h="1.5rem" />

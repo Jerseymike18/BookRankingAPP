@@ -10,7 +10,7 @@ export default function Loading() {
           <div
             key={i}
             className="flex items-center gap-4 px-5 py-4 rounded-xl"
-            style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+            style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
           >
             <Skeleton h="0.85rem" w="9rem" />
             <div className="flex-1" />

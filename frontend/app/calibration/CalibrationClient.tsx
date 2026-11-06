@@ -10,7 +10,7 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   return (
     <div
       className="comp-tile flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>
         {label}
@@ -46,13 +46,13 @@ function verdictColor(verdict: string): string {
 
 function comparisonVerdictColor(verdict: string): string {
   if (verdict.includes("helps")) return "var(--color-sage)";
-  if (verdict.includes("HURTS")) return "#c07c5a";
+  if (verdict.includes("HURTS")) return "#ee7b4a";
   return "var(--color-muted)";
 }
 
 function deltaColor(delta: number): string {
   if (delta > 0.05) return "var(--color-sage)";
-  if (delta < -0.05) return "#c07c5a";
+  if (delta < -0.05) return "#ee7b4a";
   return "var(--color-muted)";
 }
 
@@ -254,7 +254,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
       )}
 
       {error && (
-        <p className="mt-3 text-sm" style={{ color: "#c07c5a" }}>
+        <p className="mt-3 text-sm" style={{ color: "#ee7b4a" }}>
           {error}
         </p>
       )}
@@ -530,7 +530,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
               className="rounded-md border px-4 py-3 text-sm"
               style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}
             >
-              <div className="font-medium mb-1" style={{ color: "#c07c5a" }}>
+              <div className="font-medium mb-1" style={{ color: "#ee7b4a" }}>
                 Trust the reader&apos;s own analogs — don&apos;t web-ground these
               </div>
               <p style={{ color: "var(--color-muted)" }}>

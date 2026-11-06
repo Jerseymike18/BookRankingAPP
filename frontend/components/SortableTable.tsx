@@ -118,20 +118,117 @@ export function SortableTh({ col, sortState, onSort, extraStyle, accessory, titl
     <th
       onClick={sortable ? () => onSort(col.key) : undefined}
       title={title}
-      className={`px-3 py-2 text-${align} text-xs font-semibold uppercase tracking-wider whitespace-nowrap${
+      className={`px-3 py-2.5 text-${align} text-xs font-medium whitespace-nowrap${
         sortable ? " cursor-pointer select-none" : ""
       }`}
       style={{
         color: active ? "var(--color-sage)" : "var(--color-muted)",
-        background: active ? "var(--color-sage-light)" : "transparent",
         borderBottom: "1px solid var(--color-rule)",
         ...extraStyle,
       }}
     >
       {col.label}
-      {sortable && active ? (sortState.dir === "desc" ? " ▼" : " ▲") : ""}
+      {sortable && active ? (sortState.dir === "desc" ? " ↓" : " ↑") : ""}
       {accessory}
     </th>
+  );
+}
+
+/* ── MobileSortBar ──────────────────────────────────────────────────────────
+   Phones have no room for clickable column headers, so the list views sort
+   from a native picker + a direction toggle instead. Drives the same
+   useSortable state (handleSort: new key → its default direction; same key →
+   flip). */
+
+export function MobileSortBar({ cols, sortState, onSort, className = "mb-3" }: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  cols: ColDef<any>[];
+  sortState: SortState;
+  onSort: (key: string) => void;
+  className?: string;
+}) {
+  const options = cols.filter((c) => c.sortable !== false && !c.autoRank);
+  if (options.length < 2) return null;
+  return (
+    <div className={`flex items-center gap-2 text-sm ${className}`}>
+      <span style={{ color: "var(--color-muted)" }}>Sort by</span>
+      <select
+        value={sortState.key}
+        onChange={(e) => onSort(e.target.value)}
+        className="px-3 py-1.5 rounded-lg text-sm font-medium"
+        style={{ background: "var(--color-surface-2)", border: "1px solid transparent", color: "var(--color-ink)" }}
+      >
+        {options.map((c) => (
+          <option key={c.key} value={c.key}>{c.label}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => onSort(sortState.key)}
+        aria-label={sortState.dir === "desc" ? "Sorted high to low — tap to flip" : "Sorted low to high — tap to flip"}
+        className="px-2.5 py-1.5 rounded-lg text-sm font-medium"
+        style={{ background: "var(--color-surface-2)", color: "var(--color-sage)" }}
+      >
+        {sortState.dir === "desc" ? "↓" : "↑"}
+      </button>
+    </div>
+  );
+}
+
+/** Phone rendering of a generic table row: the first text column is the title,
+ *  the next text columns a subtitle, and the active sort column (or the first
+ *  number) the trailing value. */
+function MobileRow<T extends object>({ row, rank, columns, sortState }: {
+  row: T;
+  rank: number;
+  columns: ColDef<T>[];
+  sortState: SortState;
+}) {
+  const show = (c: ColDef<T>) => {
+    const v = c.getValue(row);
+    return c.formatter ? c.formatter(v, row) : (v ?? "—");
+  };
+  const rankCol = columns.find((c) => c.autoRank);
+  const strings = columns.filter((c) => c.type === "string" && !c.autoRank);
+  // A table with no text column (e.g. a per-year table) titles each row by its
+  // first column instead.
+  const title = strings[0] ?? columns.find((c) => !c.autoRank);
+  const nums = columns.filter((c) => c.type === "numeric" && !c.autoRank && c !== title);
+  const subs = strings.slice(1, 3);
+  const active = columns.find((c) => c.key === sortState.key);
+  const trailing = active && active.type === "numeric" && !active.autoRank ? active : nums[0];
+  const extra = nums.find((c) => c !== trailing);
+  return (
+    <li className="flex items-center gap-3 px-4 py-3">
+      {rankCol && (
+        <span className="w-6 text-right font-display italic text-sm shrink-0" style={{ color: "var(--color-faint)" }}>
+          {rank}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>
+          {title ? show(title) : null}
+        </div>
+        {subs.length > 0 && (
+          <div className="text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
+            {subs.map((c, i) => (
+              <span key={c.key}>{i > 0 ? " · " : ""}{show(c)}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      {trailing && (
+        <div className="text-right shrink-0">
+          <div className="text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
+            {show(trailing)}
+          </div>
+          <div className="text-[11px]" style={{ color: "var(--color-faint)" }}>
+            {trailing.label}
+            {extra ? <> · {extra.label} {show(extra)}</> : null}
+          </div>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -161,61 +258,89 @@ export function SortableTable<T extends object>({
   const { sorted, sortState, handleSort } = useSortable(data, columns, defaultSort, pinFirst);
 
   return (
-    <div
-      className="rounded-xl"
-      style={{ border: "1px solid var(--color-rule)", overflowX: scrollX ? "auto" : "hidden", overflowY: "hidden" }}
-    >
-      <table
-        className="w-full text-sm"
-        style={{ borderCollapse: "collapse", ...tableStyle }}
-      >
-        <thead>
-          <tr style={{ background: "var(--color-surface-2)" }}>
-            {columns.map((col) => (
-              <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
-            ))}
-          </tr>
-        </thead>
-        <tbody>
+    <>
+      {/* Phones: a sortable list */}
+      <div className="md:hidden">
+        <MobileSortBar cols={columns} sortState={sortState} onSort={handleSort} />
+        <ul
+          className="rounded-xl overflow-hidden divide-y"
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)", borderColor: "var(--color-rule)" }}
+        >
           {sorted.length === 0 ? (
-            <tr>
-              <td
-                colSpan={columns.length}
-                className="px-4 py-8 text-center text-sm"
-                style={{ color: "var(--color-muted)" }}
-              >
-                {emptyMessage}
-              </td>
-            </tr>
+            <li className="px-4 py-8 text-center text-sm" style={{ color: "var(--color-muted)" }}>
+              {emptyMessage}
+            </li>
           ) : (
             sorted.map((row, i) => (
-              <tr
-                key={getRowKey(row, i)}
-                style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
-              >
-                {columns.map((col) => {
-                  const val = col.getValue(row);
-                  const active = sortState.key === col.key;
-                  const align = col.align ?? (col.type === "numeric" ? "right" : "left");
-                  return (
-                    <td
-                      key={col.key}
-                      className={`px-4 py-2.5 text-${align}`}
-                      style={{
-                        color: active ? "var(--color-sage)" : "var(--color-ink)",
-                        background: active ? "var(--color-sage-light)" : "transparent",
-                        fontVariantNumeric: col.type === "numeric" ? "tabular-nums" : undefined,
-                      }}
-                    >
-                      {col.autoRank ? i + 1 : col.formatter ? col.formatter(val, row) : (val ?? "—")}
-                    </td>
-                  );
-                })}
-              </tr>
+              <MobileRow key={getRowKey(row, i)} row={row} rank={i + 1} columns={columns} sortState={sortState} />
             ))
           )}
-        </tbody>
-      </table>
-    </div>
+        </ul>
+      </div>
+
+      {/* Desktop: an app-style table on a card */}
+      <div
+        className="hidden md:block rounded-xl"
+        style={{
+          background: "var(--color-surface)",
+          boxShadow: "var(--shadow-card)",
+          overflowX: scrollX ? "auto" : "hidden",
+          overflowY: "hidden",
+        }}
+      >
+        <table
+          className="w-full text-sm"
+          style={{ borderCollapse: "collapse", ...tableStyle }}
+        >
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-4 py-8 text-center text-sm"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              sorted.map((row, i) => (
+                <tr
+                  key={getRowKey(row, i)}
+                  className="app-row"
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
+                >
+                  {columns.map((col) => {
+                    const val = col.getValue(row);
+                    const active = sortState.key === col.key;
+                    const align = col.align ?? (col.type === "numeric" ? "right" : "left");
+                    return (
+                      <td
+                        key={col.key}
+                        className={`px-3 py-2.5 text-${align}`}
+                        style={{
+                          color: active ? "var(--color-sage)" : "var(--color-ink)",
+                          fontWeight: active ? 600 : undefined,
+                          fontVariantNumeric: col.type === "numeric" ? "tabular-nums" : undefined,
+                        }}
+                      >
+                        {col.autoRank ? i + 1 : col.formatter ? col.formatter(val, row) : (val ?? "—")}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

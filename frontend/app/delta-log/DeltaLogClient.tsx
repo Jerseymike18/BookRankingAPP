@@ -45,7 +45,7 @@ function DriftBar({
   return (
     <div
       className="rounded-xl p-5 mb-8"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <h2
         className="text-xs font-semibold uppercase tracking-widest mb-4"
@@ -205,7 +205,7 @@ export default function DeltaLogClient() {
       {data.entries.length === 0 ? (
         <div
           className="rounded-xl p-8 text-center"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           <p style={{ color: "var(--color-muted)" }}>
             No deltas recorded yet. Add a rated book that previously had a prediction to start

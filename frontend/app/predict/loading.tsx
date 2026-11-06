@@ -10,7 +10,7 @@ export default function Loading() {
       {/* The request card */}
       <div
         className="rounded-xl p-5"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <Skeleton h="0.9rem" w="14rem" className="mb-3" />
         <Skeleton h="0.7rem" w="70%" className="mb-4" />

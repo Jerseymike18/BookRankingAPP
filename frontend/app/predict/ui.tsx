@@ -12,8 +12,8 @@
 import React from "react";
 
 export const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -24,7 +24,7 @@ export function Card({ children, className }: { children: React.ReactNode; class
   return (
     <div
       className={`rounded-xl p-5 ${className ?? ""}`}
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       {children}
     </div>

@@ -181,8 +181,8 @@ function ResultCard({ result }: { result: ResearchResult }) {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -320,7 +320,7 @@ export default function TryClient() {
             />
             <div
               className="rounded-xl p-5 space-y-4"
-              style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+              style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
             >
               <div className="flex items-center gap-4">
                 <Skeleton w="3.5rem" h="3.5rem" radius="9999px" />

@@ -7,8 +7,8 @@ import { seriesLabel } from "@/lib/format";
 import { Skeleton } from "@/components/Skeleton";
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -207,7 +207,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
       {/* Book selector */}
       <section
         className="rounded-xl p-5 mb-6"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <label className="block text-xs font-semibold uppercase tracking-widest mb-2"
           style={{ color: "var(--color-muted)" }}>
@@ -248,7 +248,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
       {selectedTitle && (
         <section
           className="rounded-xl p-5 mb-6"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           {loadingScores && (
             // Placeholder in the shape of the ScoreGrid that replaces it, so the

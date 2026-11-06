@@ -80,7 +80,7 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
   return (
     <div
       className="comp-tile flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{label}</span>
       <span className="text-xl font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}>{value}</span>
@@ -195,7 +195,7 @@ function GenreWeights({ params }: { params: EngineParameters }) {
           value={genre}
           onChange={(e) => setGenre(e.target.value)}
           className="text-sm rounded-md border px-2 py-1"
-          style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)", color: "var(--color-ink)" }}
+          style={{ borderColor: "transparent", background: "var(--color-surface-2)", color: "var(--color-ink)" }}
         >
           {genres.map((g) => (
             <option key={g} value={g}>{g}</option>

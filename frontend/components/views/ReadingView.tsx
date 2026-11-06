@@ -27,7 +27,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       className="rounded-xl p-4 flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
         {label}
@@ -201,7 +201,7 @@ function SlotCard({
 }) {
   const cardStyle = {
     background: "var(--color-surface)",
-    border: "1px solid var(--color-rule)",
+    boxShadow: "var(--shadow-card)",
   };
 
   if (!slot) {

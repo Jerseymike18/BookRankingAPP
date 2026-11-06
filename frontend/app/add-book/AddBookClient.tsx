@@ -85,8 +85,8 @@ function RepredictPanel({ report }: { report: RepredictReport }) {
 /* ── Shared input / label styles ────────────────────────────────────────── */
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-rule)",
+  background: "var(--color-surface-2)",
+  border: "1px solid transparent",
   color: "var(--color-ink)",
   fontFamily: "var(--font-body)",
 };
@@ -572,7 +572,7 @@ export default function AddBookClient({
       {/* ── Lookup panel ───────────────────────────────────────────────────── */}
       <section
         className="rounded-xl p-5 mb-8"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         <h2 className="font-display font-semibold text-base mb-1" style={{ color: "var(--color-ink)" }}>
           Look up book metadata
@@ -677,7 +677,7 @@ export default function AddBookClient({
       {/* ── Book form ──────────────────────────────────────────────────────── */}
       <section
         className="rounded-xl p-5 mb-6"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
       >
         {prefilled && (
           <p className="text-xs mb-4 px-3 py-2 rounded-lg"

@@ -121,7 +121,7 @@ function TermCard({
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <h3 className="font-display font-semibold mb-1" style={{ color: "var(--color-ink)" }}>
         {name}

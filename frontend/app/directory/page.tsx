@@ -31,7 +31,7 @@ export default async function DirectoryPage() {
       {profiles.length === 0 ? (
         <div
           className="text-center py-16 rounded-xl"
-          style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
           <p className="text-sm" style={{ color: "var(--color-muted)" }}>
             No public profiles yet. Make yours public from{" "}
@@ -51,7 +51,7 @@ export default async function DirectoryPage() {
               key={p.handle}
               href={`/u/${encodeURIComponent(p.handle)}`}
               className="block rounded-xl p-4 no-underline transition-colors"
-              style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+              style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
             >
               <p className="font-display text-lg font-semibold" style={{ color: "var(--color-ink)" }}>
                 {p.display_name || p.handle}

@@ -4,7 +4,7 @@ import { useState, useMemo, Fragment } from "react";
 import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
-import { useSortable, SortableTh } from "@/components/SortableTable";
+import { useSortable, SortableTh, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { setSeriesComplete } from "@/lib/api";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -39,8 +39,8 @@ function GenreFilter({
       onChange={(e) => onChange(e.target.value)}
       className="rounded-lg px-3 py-2 text-sm mb-4"
       style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-rule)",
+        background: "var(--color-surface-2)",
+        border: "1px solid transparent",
         color: "var(--color-ink)",
       }}
     >
@@ -193,7 +193,7 @@ function ScoreBreakdown({
             className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
             style={{
               background: "var(--color-surface)",
-              border: "1px solid var(--color-rule)",
+              boxShadow: "var(--shadow-card)",
               color: "var(--color-sage)",
               opacity: pending ? 0.6 : 1,
               cursor: pending ? "default" : "pointer",
@@ -277,11 +277,77 @@ function RankingsTab({
     <div>
       <GenreFilter genres={genres} active={genre} onChange={setGenre} />
       <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{sorted.length} series</p>
-      <div style={{ overflowX: "auto" }}>
+
+      {/* Phones: one tappable row per series; tap opens its score breakdown. */}
+      <div className="md:hidden">
+        <MobileSortBar cols={cols} sortState={sortState} onSort={handleSort} />
+        <ul
+          className="rounded-xl overflow-hidden"
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+        >
+          {sorted.map((s, i) => {
+            const expanded = scored && open === s.series;
+            const row = { ...s, complete: completeOverride[s.series] ?? s.complete };
+            const adj = adjustment(s);
+            return (
+              <li key={s.series} style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}>
+                <button
+                  type="button"
+                  onClick={scored ? () => setOpen(expanded ? null : s.series) : undefined}
+                  aria-expanded={scored ? expanded : undefined}
+                  className="app-row w-full flex items-center gap-3 px-3 py-3 text-left"
+                >
+                  <span className="w-6 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-display font-semibold text-sm leading-tight truncate" style={{ color: "var(--color-ink)" }}>
+                      {s.series}
+                    </span>
+                    <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
+                      {s.author} · {s.books} book{s.books !== 1 ? "s" : ""}
+                      {scored && row.complete === true ? " · finished" : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
+                      {s.adjusted_wa?.toFixed(2) ?? "—"}
+                    </span>
+                    {scored && (
+                      <span
+                        className="block text-[11px] tabular-nums"
+                        style={{ color: Math.abs(adj) < 0.0005 ? "var(--color-faint)" : adj > 0 ? "var(--color-sage)" : "var(--color-spine-c)" }}
+                      >
+                        {signed(adj)}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {expanded && (
+                  <div style={{ borderTop: "1px solid var(--color-rule)" }}>
+                    <ScoreBreakdown
+                      s={row}
+                      onToggleComplete={() => toggleComplete(s)}
+                      pending={pending === s.series}
+                      error={error?.series === s.series ? error.message : null}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {/* Desktop: the full sortable table on a card */}
+      <div
+        className="hidden md:block rounded-xl"
+        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+      >
         <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "var(--color-surface-2)", borderBottom: "1px solid var(--color-rule)" }}>
-              <th className="px-3 py-2.5 text-left font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>#</th>
+            <tr>
+              <th className="px-3 py-2.5 text-left font-medium text-xs" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>#</th>
               {cols.map((col) => (
                 <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
               ))}
@@ -299,25 +365,26 @@ function RankingsTab({
                 style={{
                   borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
                   cursor: scored ? "pointer" : "default",
-                  background: expanded ? "var(--color-sage-light)" : "transparent",
+                  background: expanded ? "var(--color-surface-2)" : undefined,
                 }}
+                className={scored ? "app-row" : undefined}
               >
                 <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{i + 1}</td>
-                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)", background: !expanded && sortState.key === "series" ? "var(--color-sage-light)" : "transparent" }}>
+                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)" }}>
                   {s.series}
                   {scored && row.complete === true && (
                     <span className="ml-2 text-xs font-normal font-sans" style={{ color: "var(--color-faint)" }}>finished</span>
                   )}
                 </td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)", background: !expanded && sortState.key === "author" ? "var(--color-sage-light)" : "transparent" }}>{s.author}</td>
-                <td className="px-3 py-2.5" style={{ background: !expanded && sortState.key === "genre" ? "var(--color-sage-light)" : "transparent" }}>
+                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.author}</td>
+                <td className="px-3 py-2.5">
                   <span className="genre-chip">{s.genre}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)", background: !expanded && sortState.key === "books" ? "var(--color-sage-light)" : "transparent" }}>{s.books}</td>
-                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", background: !expanded && sortState.key === "adjusted_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", background: !expanded && sortState.key === "avg_wa" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)" }}>{s.books}</td>
+                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
+                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
                 {scored && (
-                  <td className="px-3 py-2.5 text-right" style={{ color: Math.abs(adj) < 0.0005 ? "var(--color-faint)" : adj > 0 ? "var(--color-sage)" : "var(--color-spine-c)", background: !expanded && sortState.key === "adjustment" ? "var(--color-sage-light)" : "transparent", fontVariantNumeric: "tabular-nums" }}>{signed(adj)}</td>
+                  <td className="px-3 py-2.5 text-right" style={{ color: Math.abs(adj) < 0.0005 ? "var(--color-faint)" : adj > 0 ? "var(--color-sage)" : "var(--color-spine-c)", fontVariantNumeric: "tabular-nums" }}>{signed(adj)}</td>
                 )}
               </tr>
               {expanded && (

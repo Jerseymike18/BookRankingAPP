@@ -72,8 +72,10 @@ pipeline — see **Publishing** below and `README.md`.
 5. **No new visual styles.** All UI extends the existing design tokens in
    `frontend/app/globals.css` (the "Fable" system) and reuses existing primitives
    (`.wa-badge`, `.book-card`, `.genre-chip`, `.comp-tile`, the SubTabs pattern,
-   tier spine colors). Do not introduce new color values, fonts, or component patterns
-   where a token or primitive already exists.
+   `SegmentedTabs`, the app shell in `components/Nav.tsx`, `--shadow-card`, tier spine
+   colors). Do not introduce new color values, fonts, or component patterns where a token
+   or primitive already exists. The palette is "Fable, turned up" (owner-chosen
+   2026-11-05); change it only on explicit request.
 
 ## Scoring model (reference)
 
@@ -878,8 +880,8 @@ IS a publish.** The git hooks in `scripts/hooks/` (activate per-clone with
     nonfiction series have no quality model, so there would be no terms to break down.
 - **Tier bands:** S+ fixed at Total Average ≥ 9.5 (≥ 9.0 for series); remaining books split
   S/A/B/C/D/F by percentile (~9% / 15% / 25% / 25% / 15% / 10%).
-- **Tier spine colors:** S+ #2D6A4F · S #4A7C59 · A #7BA87B · B #D4A853 · C #C07C5A ·
-  D #7B8FA1 · F #C4B8AD.
+- **Tier spine colors:** S+ #0B6E4F · S #1C8355 · A #5DBB63 · B #F2B134 · C #EE7B4A ·
+  D #5B8DEF · F #B9AFA6.
 
 ## Pages (frontend/app/)
 

@@ -16,8 +16,8 @@ const pct1 = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 // Accuracy ramp: sage (accurate) → terracotta (big miss). Both are existing
 // design tokens (spine-s / spine-c), mixed the way AnalyticsClient does it.
-const SAGE = "#4A7C59";
-const TERRA = "#C07C5A";
+const SAGE = "#1C8355";
+const TERRA = "#EE7B4A";
 function mixHex(a: string, b: string, t: number) {
   const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
   const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
@@ -37,7 +37,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="comp-tile flex flex-col gap-1" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+    <div className="comp-tile flex flex-col gap-1" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
       <span className="text-xs font-medium" style={{ color: "var(--color-muted)" }}>{label}</span>
       <span className="text-xl font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}>{value}</span>
       {note && <span className="text-xs" style={{ color: "var(--color-muted)" }}>{note}</span>}
@@ -319,7 +319,7 @@ export default function TrackRecordClient({ data }: { data: TrackRecord | null }
                       <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-muted)" }}>
                         {rawMae != null ? f3(rawMae) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: delta == null ? "var(--color-muted)" : Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "#C07C5A" }}>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: delta == null ? "var(--color-muted)" : Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "#EE7B4A" }}>
                         {delta == null ? "—" : (delta > 0 ? "+" : "") + f3(delta)}
                       </td>
                     </>

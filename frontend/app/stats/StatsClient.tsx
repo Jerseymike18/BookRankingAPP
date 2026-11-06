@@ -8,8 +8,8 @@ import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 // Tier spine colours (the existing design tokens, shared with TierLadder).
 const TIER_COLORS: Record<string, string> = {
-  "S+": "#2D6A4F", S: "#4A7C59", A: "#7BA87B", B: "#D4A853",
-  C: "#C07C5A", D: "#7B8FA1", F: "#C4B8AD",
+  "S+": "#0B6E4F", S: "#1C8355", A: "#5DBB63", B: "#F2B134",
+  C: "#EE7B4A", D: "#5B8DEF", F: "#B9AFA6",
 };
 
 function fmtWords(w: number | null) {
@@ -23,7 +23,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div
       className="rounded-xl p-4 flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
     >
       <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
         {label}
@@ -45,7 +45,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 function TypeCard({ title, sub, s }: { title: string; sub: string; s: TypeSummary }) {
   return (
-    <div className="rounded-xl p-5" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+    <div className="rounded-xl p-5" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
       <div className="flex items-baseline justify-between mb-3">
         <span className="font-display text-lg font-bold" style={{ color: "var(--color-ink)" }}>{title}</span>
         <span className="text-xs" style={{ color: "var(--color-faint)" }}>{sub}</span>
@@ -140,7 +140,7 @@ export default function StatsClient({
 
       {/* Tier distribution (per type — bases differ) */}
       <SectionHeading>Tier distribution</SectionHeading>
-      <div className="rounded-xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
+      <div className="rounded-xl p-4" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
         <TierRow label="Fiction" counts={tier_distribution.fiction} order={tier_distribution.tier_order} />
         <TierRow label="Nonfiction" counts={tier_distribution.nonfiction} order={tier_distribution.tier_order} />
       </div>
