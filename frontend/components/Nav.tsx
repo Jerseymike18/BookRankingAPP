@@ -539,9 +539,11 @@ export function TabBar() {
  *  itself, the import flow, and the onboarding wizard. */
 const NO_FAB_PREFIXES = ["/add-book", "/import", "/welcome"];
 
-/** Phone-only floating action button for the most common write: Add a Book.
- *  Sits above the tab bar, clear of the home indicator. Dropped on the
- *  read-only build (where /add-book doesn't exist). */
+/** Floating action button for the most common write: Add a Book. It opens the
+ *  form as a slide-up sheet over the current page (app/@modal/(.)add-book) —
+ *  it is the only way in now that Add a Book has left the nav. Above the tab
+ *  bar on phones; bottom-right corner on desktop. Dropped on the read-only
+ *  build (where /add-book doesn't exist). */
 export function AddBookFab() {
   const path = usePathname();
   if (READONLY || isChromeless(path)) return null;
@@ -550,10 +552,10 @@ export function AddBookFab() {
     <Link
       href="/add-book"
       aria-label="Add a book"
-      className="app-chrome md:hidden fixed z-50 flex items-center justify-center w-14 h-14 rounded-full no-underline transition-transform active:scale-95"
+      className="app-chrome fixed z-50 flex items-center justify-center w-14 h-14 rounded-full no-underline transition-transform active:scale-95 [--fab-bottom:calc(4.5rem+env(safe-area-inset-bottom))] md:[--fab-bottom:1.5rem] [--fab-right:max(1rem,env(safe-area-inset-right))] md:[--fab-right:1.5rem]"
       style={{
-        right: "max(1rem, env(safe-area-inset-right))",
-        bottom: "calc(4.5rem + env(safe-area-inset-bottom))",
+        right: "var(--fab-right)",
+        bottom: "var(--fab-bottom)",
         background: "var(--color-sage)",
         color: "var(--color-surface)",
         boxShadow: "0 4px 14px rgba(28, 131, 85, 0.35), 0 1px 3px rgba(26, 23, 20, 0.12)",

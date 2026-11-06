@@ -30,17 +30,13 @@ export type IconName = "stats" | "reading" | "predict" | "explore" | "community"
 const STATS_ITEMS: NavItem[] = [{ href: "/stats", label: "Stats" }];
 
 // Reading — the currently-reading view, the single de-duplicated Read Queue, and
-// (write-only) Add a Book / Import. Add + Import are dropped on the read-only
-// build (each page also self-guards).
+// (write-only) Import. Add a Book is not a nav item: the floating "+" opens it
+// as a sheet from any page (components/Nav.tsx AddBookFab). Import is dropped
+// on the read-only build (the page also self-guards).
 const READING_ITEMS: NavItem[] = [
   { href: "/read-queue", label: "Read Queue", short: "Queue" },
   { href: "/reading", label: "Currently Reading", short: "Current" },
-  ...(READONLY
-    ? []
-    : [
-        { href: "/add-book", label: "Add a Book", short: "Add" },
-        { href: "/import", label: "Import" },
-      ]),
+  ...(READONLY ? [] : [{ href: "/import", label: "Import" }]),
 ];
 
 // Predict — book prediction (the daily errand) and genre prediction (the
@@ -113,6 +109,7 @@ export function activeItemHref(items: NavItem[], currentPath: string): string | 
  *  belong under one (so the right tab stays lit and the title is sensible). */
 const ROUTE_GROUP_HINTS: { prefix: string; group: string }[] = [
   { prefix: "/u", group: "community" },
+  { prefix: "/add-book", group: "reading" },
   { prefix: "/edit-ratings", group: "stats" },
   { prefix: "/rankings", group: "stats" },
 ];

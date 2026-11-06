@@ -198,6 +198,11 @@ def ground_truth_frontend_routes():
     routes = set()
     for p in FRONTEND_APP.rglob("page.tsx"):
         rel = p.parent.relative_to(FRONTEND_APP)
+        # Parallel-route slots ('@modal/…') aren't routes of their own: they
+        # render alongside a real page (e.g. the Add-a-Book sheet intercepting
+        # /add-book), so they never belong in the docs' page list.
+        if any(seg.startswith("@") for seg in rel.parts):
+            continue
         parts = [seg for seg in rel.parts
                  if not (seg.startswith("(") and seg.endswith(")"))
                  and not (seg.startswith("[") and seg.endswith("]"))]

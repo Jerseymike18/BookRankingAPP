@@ -57,8 +57,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: React.ReactNode;
+  /** The @modal parallel slot — the Add-a-Book sheet when the "+" opens it. */
+  modal: React.ReactNode;
 }>) {
   return (
     <html lang="en" className={`${lora.variable} ${inter.variable}`}>
@@ -81,13 +84,14 @@ export default function RootLayout({
             <Sidebar />
             <div className="flex-1 min-w-0 flex flex-col">
               <MobileTopBar />
-              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
+              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-24">
                 {children}
               </main>
             </div>
           </div>
           <TabBar />
           <AddBookFab />
+          {modal}
           <PredictJobBanner />
         </PredictJobsProvider>
       </body>

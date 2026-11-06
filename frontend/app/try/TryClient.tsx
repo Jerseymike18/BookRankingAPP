@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { demoPredict } from "@/lib/api";
 import type { DemoPrediction, ResearchResult } from "@/lib/types";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -361,9 +362,9 @@ export default function TryClient() {
       <footer className="pt-4 text-xs leading-relaxed" style={{ color: "var(--color-faint)", borderTop: "1px solid var(--color-rule)" }}>
         <p className="pt-4">
           This is a live, read-only demo of a personal book-tracking and prediction app.{" "}
-          <a href="/login" className="underline" style={{ color: "var(--color-sage)" }}>
+          <Link href="/login" className="underline" style={{ color: "var(--color-sage)" }}>
             Create your own ledger →
-          </a>
+          </Link>
         </p>
       </footer>
     </div>

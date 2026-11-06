@@ -113,6 +113,9 @@ export default function Error({
             >
               Try again
             </button>
+            {/* A plain <a> on purpose: a full page load resets the crashed tree
+                (and any stale session) rather than soft-navigating inside it. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a
               href="/login"
               className="text-sm font-medium underline"

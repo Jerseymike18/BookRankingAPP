@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow, BookKind, Book } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -266,13 +267,13 @@ function SlotCard({
       {slot.has_prediction === false && slot.wa === null ? (
         <p className="text-sm" style={{ color: "var(--color-faint)" }}>
           No prediction yet — visit the{" "}
-          <a
+          <Link
             href="/predict"
             className="underline"
             style={{ color: "var(--color-sage)" }}
           >
             Predict page
-          </a>{" "}
+          </Link>{" "}
           to research this book.
         </p>
       ) : (
