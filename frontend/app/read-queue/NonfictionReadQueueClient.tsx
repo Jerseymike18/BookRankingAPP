@@ -22,10 +22,6 @@ const NF_CATEGORIES: Record<string, string[]> = {
   Impact:     ["Insights", "Thought-Provokingness", "Entertainment"],
 };
 const NF_CAT_ORDER = ["Substance", "Reasoning", "Exposition", "Aesthetics", "Impact"] as const;
-const NF_CAT_ABBR: Record<string, string> = {
-  Substance: "Subst", Reasoning: "Reason", Exposition: "Expos",
-  Aesthetics: "Aes", Impact: "Impact",
-};
 
 /* ── Mood engine: 6 nonfiction moods, each a subset of the 12 components.
  *    Parallels the fiction Read-Queue mood engine (ReadQueueClient MOOD_COMPONENTS),
@@ -168,29 +164,6 @@ function sortValue(rec: NonfictionRecommendation, moodScore: number | null, fiel
   // back to the point WA. Mirrors the fiction read-queue upside sort.
   if (field === "upside") return rec.upside ?? rec.wa ?? -Infinity;
   return (rec.category_avgs ?? {})[field] ?? 0;
-}
-
-function SortHeader({
-  label, active, dir, onClick,
-}: {
-  label: string;
-  active: boolean;
-  dir: SortDir;
-  onClick: () => void;
-}) {
-  return (
-    <th
-      onClick={onClick}
-      className="text-right text-xs font-medium cursor-pointer select-none px-3 py-2.5 whitespace-nowrap"
-      style={{
-        color: active ? "var(--color-sage)" : "var(--color-muted)",
-        borderBottom: "1px solid var(--color-rule)",
-      }}
-    >
-      {label}
-      {active ? (dir === "desc" ? " ↓" : " ↑") : ""}
-    </th>
-  );
 }
 
 /* ── Expandable row panel ─────────────────────────────────────────────── */
@@ -1042,92 +1015,6 @@ export default function NonfictionReadQueueClient({
                   />
                 )}
               />
-              <div
-                className="hidden md:block rounded-xl"
-                style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-              >
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-                  <thead>
-                    <tr>
-                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}>#</th>
-                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "12rem" }}>Book</th>
-                      {hasMoods && (
-                        <SortHeader label="Mood" active={sortField === "mood"} dir={sortDir} onClick={() => handleSortClick("mood")} />
-                      )}
-                      <SortHeader label="Pred WA" active={sortField === "wa"} dir={sortDir} onClick={() => handleSortClick("wa")} />
-                      <SortHeader label="Upside" active={sortField === "upside"} dir={sortDir} onClick={() => handleSortClick("upside")} />
-                      {NF_CAT_ORDER.map((cat) => (
-                        <SortHeader key={cat} label={NF_CAT_ABBR[cat]} active={sortField === cat} dir={sortDir} onClick={() => handleSortClick(cat)} />
-                      ))}
-                      <th className="text-left text-xs font-medium px-3 py-2.5" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>Genre</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedResults.map(({ rec, moodScore }, i) => {
-                      const isExpanded = expandedTitle === rec.title;
-                      const avgs = rec.category_avgs ?? {};
-                      const colCount = 5 + NF_CAT_ORDER.length + (hasMoods ? 1 : 0);
-                      return (
-                        <React.Fragment key={rec.title}>
-                          <tr
-                            onClick={() => setExpandedTitle(isExpanded ? null : rec.title)}
-                            className="app-row cursor-pointer"
-                            style={{ borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)", transition: "background 0.1s" }}
-                          >
-                            <td className="px-3 py-3 font-display italic text-sm text-right" style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}>{i + 1}</td>
-                            <td className="px-3 py-3" style={{ minWidth: "12rem" }}>
-                              <div className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--color-ink)" }}>{rec.title}</div>
-                              <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                                {rec.author}
-                                {rec.series ? <span style={{ color: "var(--color-faint)" }}> · {seriesLabel(rec.series, rec.series_number)}</span> : null}
-                                {rec.words ? <span style={{ color: "var(--color-faint)" }}> · {formatWords(rec.words)} words</span> : null}
-                              </div>
-                            </td>
-                            {hasMoods && (
-                              <td className="px-3 py-3 text-right font-semibold" style={{ color: sortField === "mood" ? "var(--color-sage)" : (moodScore !== null ? "var(--color-ink)" : "var(--color-faint)"), fontVariantNumeric: "tabular-nums" }}>
-                                {moodScore !== null ? moodScore.toFixed(2) : "—"}
-                              </td>
-                            )}
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "wa" ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>
-                              <div>{rec.wa != null ? rec.wa.toFixed(2) : "—"}</div>
-                              {formatInterval(rec) && (
-                                <div className="text-xs" style={{ color: "var(--color-faint)" }}>{formatInterval(rec)}</div>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 text-right" style={{ color: sortField === "upside" ? "var(--color-sage)" : (rec.upside != null ? "var(--color-muted)" : "var(--color-faint)"), fontVariantNumeric: "tabular-nums" }}>
-                              {rec.upside != null ? rec.upside.toFixed(2) : "—"}
-                            </td>
-                            {NF_CAT_ORDER.map((cat) => {
-                              const val = avgs[cat] ?? 0;
-                              const isActive = sortField === cat;
-                              return (
-                                <td key={cat} className="px-3 py-3 text-right" style={{ color: val === 0 ? "var(--color-faint)" : (isActive ? "var(--color-sage)" : "var(--color-muted)"), fontVariantNumeric: "tabular-nums" }}>
-                                  {val === 0 ? "—" : val.toFixed(2)}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-3"><span className="genre-chip">{rec.genre}</span></td>
-                          </tr>
-                          {isExpanded && (
-                            <tr>
-                              <td colSpan={colCount} style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}>
-                                <RecExpandedPanel
-                                  rec={rec}
-                                  moodScore={moodScore}
-                                  onDelete={() => {
-                                    setDeletedTitles((prev) => new Set([...prev, rec.title]));
-                                    setExpandedTitle(null);
-                                  }}
-                                />
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
               </>
             )}
           </section>

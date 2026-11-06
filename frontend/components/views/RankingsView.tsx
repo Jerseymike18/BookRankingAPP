@@ -7,7 +7,7 @@ import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
-import { useSortable, SortableTh, MobileSortBar } from "@/components/SortableTable";
+import { useSortable, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -23,13 +23,6 @@ function spineClass(wa: number): string {
   if (wa >= 5.5) return "spine-c";
   if (wa >= 4.5) return "spine-d";
   return "spine-f";
-}
-
-function formatWords(words: number | null) {
-  if (!words) return null;
-  if (words >= 1_000_000) return `${(words / 1_000_000).toFixed(1)}M words`;
-  if (words >= 1_000) return `${Math.round(words / 1_000)}K words`;
-  return `${words} words`;
 }
 
 /** A missing/null score renders as an empty box, not 0, so the edit form can
@@ -782,53 +775,6 @@ function buildCols(
   ];
 }
 
-/* ── Score cell ───────────────────────────────────────────────────────────
-   Shared by the category-average and component columns so an expanded group
-   matches the row it sits in. Missing / 0 reads as "—" (the optional
-   Worldbuilding case), matching how useSortable sinks those to the bottom. */
-
-function ScoreCell({ value, active, digits }: {
-  value: number | null | undefined;
-  active: boolean;
-  digits: number;
-}) {
-  const empty = value == null || value === 0;
-  return (
-    <td
-      className="px-3 py-3 text-right"
-      style={{
-        color: empty ? "var(--color-faint)" : active ? "var(--color-sage)" : "var(--color-muted)",
-        fontWeight: active ? 600 : undefined,
-        fontVariantNumeric: "tabular-nums",
-      }}
-    >
-      {empty ? "—" : value.toFixed(digits)}
-    </td>
-  );
-}
-
-/** Expand/collapse control living inside a category header. Stops propagation
- *  so clicking it doesn't also re-sort by the category average. */
-function CatToggle({ cat, expanded, onToggle }: {
-  cat: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      aria-expanded={expanded}
-      aria-label={`${expanded ? "Hide" : "Show"} ${cat} components`}
-      title={`${expanded ? "Hide" : "Show"} ${cat} components`}
-      className="ml-1.5 px-1 rounded align-middle"
-      style={{ color: "var(--color-faint)", lineHeight: 1 }}
-    >
-      {expanded ? "⌃" : "⌄"}
-    </button>
-  );
-}
-
 /* ── Sub-tab bar ──────────────────────────────────────────────────────── */
 
 type YearTab = string; // "all" or a year read, e.g. "2023"
@@ -846,8 +792,10 @@ function SubTabs({
   return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
-/* ── Phone book list ──────────────────────────────────────────────────────
-   Shared by the per-type and the All rankings: one tappable row per book
+/* ── Book list ────────────────────────────────────────────────────────────
+   THE rankings format at every screen size (owner's call, 2026-11-05: the
+   list beat the wide table). Shared by the per-type and the All rankings: one
+   tappable row per book
    (rank, WA badge, title + author, the active sort value when it isn't WA),
    expanding into the same BookExpandedPanel the desktop table uses. */
 
@@ -883,7 +831,7 @@ function BookMobileList<T>({
   const sortCol = cols.find((c) => c.key === sortState.key);
   const showSortVal = !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
   return (
-    <div className="md:hidden">
+    <div>
       <MobileSortBar cols={cols} sortState={sortState} onSort={onSort} />
       {items.length === 0 ? (
         <p className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
@@ -934,6 +882,7 @@ function BookMobileList<T>({
                       {book.series ? ` · ${seriesLabel(book.series, book.series_number)}` : ` · ${book.genre}`}
                     </span>
                   </span>
+                  <span className="genre-chip hidden sm:inline-block shrink-0">{book.genre}</span>
                   {showSortVal && (
                     <span className="shrink-0 text-right">
                       <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
@@ -998,7 +947,9 @@ function PerTypeRankings({
   const [genreFilter, setGenreFilter] = useState<string>("All genres");
   const [search, setSearch] = useState("");
   const [expandedTitle, setExpandedTitle] = useState<string | null>(null);
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set());
+  // No table columns to expand any more — the sort picker simply offers every
+  // component of every category.
+  const expandedCats = useMemo(() => new Set(category_order), [category_order]);
 
   // Component names per category, in schema order, unioned across the library
   // so a category still expands when the first book leaves one blank.
@@ -1086,19 +1037,6 @@ function PerTypeRankings({
     setSearch("");
   }, []);
 
-  // Collapsing a category removes its component columns — if one of them was
-  // the active sort, fall back to WA so the table doesn't silently drop to
-  // unsorted (useSortable no-ops on an unknown key).
-  const toggleCat = useCallback((cat: string) => {
-    setExpandedCats((prev) => {
-      const next = new Set(prev);
-      if (next.has(cat)) next.delete(cat); else next.add(cat);
-      return next;
-    });
-    if (expandedCats.has(cat) && sortState.key.startsWith(`comp:${cat}:`)) {
-      handleSort(primaryKey);
-    }
-  }, [expandedCats, sortState.key, handleSort]);
 
   return (
     <div>
@@ -1186,190 +1124,6 @@ function PerTypeRankings({
         refreshing={refreshing}
       />
 
-      {/* Desktop: the full sortable table on a card */}
-      <div
-        className="hidden md:block rounded-xl"
-        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-      >
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.875rem",
-          }}
-        >
-          <thead>
-            <tr>
-              <th
-                className="text-left text-xs font-medium px-3 py-2.5"
-                style={{
-                  color: "var(--color-muted)",
-                  borderBottom: "1px solid var(--color-rule)",
-                  minWidth: "2rem",
-                }}
-              >
-                #
-              </th>
-              {cols.map((col) => {
-                const isCat = category_order.includes(col.key);
-                const canExpand = isCat && (componentsByCat[col.key]?.length ?? 0) > 0;
-                return (
-                  <SortableTh
-                    key={col.key}
-                    col={col}
-                    sortState={sortState}
-                    onSort={handleSort}
-                    title={
-                      col.key.startsWith("comp:")
-                        ? componentLabel(col.key.split(":")[2], kind)
-                        : undefined
-                    }
-                    extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
-                    accessory={
-                      canExpand ? (
-                        <CatToggle
-                          cat={col.key}
-                          expanded={expandedCats.has(col.key)}
-                          onToggle={() => toggleCat(col.key)}
-                        />
-                      ) : undefined
-                    }
-                  />
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={cols.length + 1}
-                  className="text-center py-16 text-sm"
-                  style={{ color: "var(--color-muted)" }}
-                >
-                  No books match your filters.
-                </td>
-              </tr>
-            ) : (
-              sorted.map((book, i) => {
-                const isExpanded = expandedTitle === book.title;
-                const avgs = book.category_avgs ?? {};
-                return (
-                  <React.Fragment key={book.title}>
-                    <tr
-                      onClick={() =>
-                        setExpandedTitle(isExpanded ? null : book.title)
-                      }
-                      className={`app-row ${spineClass(primaryScore(book))} cursor-pointer`}
-                      style={{
-                        borderBottom: isExpanded
-                          ? "none"
-                          : "1px solid var(--color-rule)",
-                        // Width + style only: the spine-* class supplies the colour
-                        // (a `3px solid` shorthand here would reset it to ink).
-                        borderLeftWidth: 3,
-                        borderLeftStyle: "solid",
-                      }}
-                    >
-                      <td
-                        className="px-3 py-3 font-display italic text-sm text-right"
-                        style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}
-                      >
-                        {i + 1}
-                      </td>
-                      <td
-                        className="px-3 py-3"
-                        style={{
-                          minWidth: "12rem",
-                        }}
-                      >
-                        <div
-                          className="font-display font-semibold text-sm leading-tight"
-                          style={{ color: "var(--color-ink)" }}
-                        >
-                          {book.title}
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                          {book.author}
-                          {book.series ? (
-                            <span style={{ color: "var(--color-faint)" }}>
-                              {" "}· {seriesLabel(book.series, book.series_number)}
-                            </span>
-                          ) : null}
-                          {book.words ? (
-                            <span style={{ color: "var(--color-faint)" }}>
-                              {" "}· {formatWords(book.words)}
-                            </span>
-                          ) : null}
-                        </div>
-                      </td>
-                      {/* Primary score: WA (fiction) or Total Average (nonfiction) */}
-                      <td
-                        className="px-3 py-3 text-right font-semibold"
-                        style={{
-                          color: sortState.key === primaryKey ? "var(--color-sage)" : "var(--color-ink)",
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {primaryScore(book).toFixed(2)}
-                      </td>
-                      {/* Category averages, each followed by its component
-                          columns while that category is expanded. Mirrors the
-                          order buildCols() uses for the headers. */}
-                      {category_order.flatMap((cat) => {
-                        const cells = [
-                          <ScoreCell
-                            key={cat}
-                            value={avgs[cat] ?? 0}
-                            active={sortState.key === cat}
-                            digits={2}
-                          />,
-                        ];
-                        if (expandedCats.has(cat)) {
-                          for (const comp of componentsByCat[cat] ?? []) {
-                            const key = compColKey(cat, comp);
-                            cells.push(
-                              <ScoreCell
-                                key={key}
-                                value={book.components?.[cat]?.[comp]}
-                                active={sortState.key === key}
-                                digits={1}
-                              />,
-                            );
-                          }
-                        }
-                        return cells;
-                      })}
-                      <td
-                        className="px-3 py-3"
-                      >
-                        <span className="genre-chip">{book.genre}</span>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr>
-                        <td
-                          colSpan={cols.length + 1}
-                          style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}
-                        >
-                          <BookExpandedPanel
-                            book={book}
-                            categoryOrder={category_order}
-                            kind={kind}
-                            onRefresh={onRefresh}
-                            refreshing={refreshing}
-                            onClose={() => setExpandedTitle(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
@@ -1509,106 +1263,6 @@ function CombinedRankings({
         refreshing={refreshing}
         typeLabel
       />
-
-      <div
-        className="hidden md:block rounded-xl"
-        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-      >
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-          <thead>
-            <tr>
-              <th
-                className="text-left text-xs font-medium px-3 py-2.5"
-                style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}
-              >
-                #
-              </th>
-              {COMBINED_COLS.map((col) => (
-                <SortableTh
-                  key={col.key}
-                  col={col}
-                  sortState={sortState}
-                  onSort={handleSort}
-                  extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
-                />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr>
-                <td colSpan={COMBINED_COLS.length + 1} className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
-                  No books match your filters.
-                </td>
-              </tr>
-            ) : (
-              sorted.map((it, i) => {
-                const { book } = it;
-                const isExpanded = expandedKey === it.key;
-                const active = (k: string) => sortState.key === k;
-                return (
-                  <React.Fragment key={it.key}>
-                    <tr
-                      onClick={() => setExpandedKey(isExpanded ? null : it.key)}
-                      className={`app-row ${spineClass(primaryScore(book))} cursor-pointer`}
-                      style={{
-                        borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)",
-                        borderLeftWidth: 3,
-                        borderLeftStyle: "solid",
-                      }}
-                    >
-                      <td className="px-3 py-3 font-display italic text-sm text-right" style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}>
-                        {i + 1}
-                      </td>
-                      <td className="px-3 py-3" style={{ minWidth: "12rem" }}>
-                        <div className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--color-ink)" }}>
-                          {book.title}
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                          {book.author}
-                          {book.series ? (
-                            <span style={{ color: "var(--color-faint)" }}> · {seriesLabel(book.series, book.series_number)}</span>
-                          ) : null}
-                          {book.words ? (
-                            <span style={{ color: "var(--color-faint)" }}> · {formatWords(book.words)}</span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td
-                        className="px-3 py-3 text-right font-semibold"
-                        style={{ color: active("wa") ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {primaryScore(book).toFixed(2)}
-                      </td>
-                      <ScoreCell value={it.total_average} active={active("total_average")} digits={2} />
-                      <td className="px-3 py-3 text-sm" style={{ color: active("type") ? "var(--color-sage)" : "var(--color-muted)" }}>
-                        {it.kind === "nonfiction" ? "Nonfiction" : "Fiction"}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="genre-chip">{book.genre}</span>
-                      </td>
-                    </tr>
-                    {isExpanded && (
-                      <tr>
-                        <td colSpan={COMBINED_COLS.length + 1} style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}>
-                          <BookExpandedPanel
-                            book={book}
-                            categoryOrder={it.categoryOrder}
-                            kind={it.kind}
-                            onRefresh={onRefresh}
-                            refreshing={refreshing}
-                            onClose={() => setExpandedKey(null)}
-                          />
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

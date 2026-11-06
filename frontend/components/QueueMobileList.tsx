@@ -3,8 +3,8 @@
 import { seriesLabel } from "@/lib/format";
 
 /**
- * QUEUE MOBILE LIST — the phone rendering of the Read Queue results (fiction and
- * nonfiction share it). One tappable row per book: rank, predicted-WA badge,
+ * QUEUE LIST — the Read Queue results at every screen size (fiction and
+ * nonfiction share it; the owner preferred the list to the wide table). One tappable row per book: rank, predicted-WA badge,
  * title + author, and the active sort value when it isn't WA. Tapping a row
  * opens the same expanded panel the desktop table uses (`renderPanel`).
  *
@@ -30,6 +30,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
   expandedTitle,
   onToggle,
   renderPanel,
+  interval,
 }: {
   items: I[];
   sortOptions: { id: F; label: string }[];
@@ -41,11 +42,13 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
   expandedTitle: string | null;
   onToggle: (title: string) => void;
   renderPanel: (item: I) => React.ReactNode;
+  /** The served conformal 80% range for a row, e.g. "7.9–9.6" (null → omitted). */
+  interval?: (item: I) => string | null;
 }) {
   const sortLabel = sortOptions.find((o) => o.id === sortField)?.label ?? "";
   const showSortVal = sortField !== ("wa" as F);
   return (
-    <div className="md:hidden">
+    <div>
       <div className="flex items-center gap-2 text-sm mb-3">
         <span style={{ color: "var(--color-muted)" }}>Sort by</span>
         <select
@@ -93,7 +96,13 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                   <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
                     {rec.author} · {rec.series ? seriesLabel(rec.series, rec.series_number as never) : rec.genre}
                   </span>
+                  {interval?.(item) && (
+                    <span className="block text-[11px] mt-0.5 tabular-nums" style={{ color: "var(--color-faint)" }}>
+                      80% range {interval(item)}
+                    </span>
+                  )}
                 </span>
+                <span className="genre-chip hidden sm:inline-block shrink-0">{rec.genre}</span>
                 {showSortVal && (
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums" style={{ color: v == null || v === 0 ? "var(--color-faint)" : "var(--color-sage)" }}>

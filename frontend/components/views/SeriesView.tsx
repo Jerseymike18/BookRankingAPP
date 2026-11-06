@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo } from "react";
 import type { SeriesResponse, SeriesEntry, SeriesTiersResponse, SeriesTierEntry, BookKind } from "@/lib/types";
 import { TierLadder } from "@/components/TierLadder";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
-import { useSortable, SortableTh, MobileSortBar } from "@/components/SortableTable";
+import { useSortable, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { setSeriesComplete } from "@/lib/api";
 import { useReadOnly } from "@/lib/readonly-context";
@@ -278,8 +278,9 @@ function RankingsTab({
       <GenreFilter genres={genres} active={genre} onChange={setGenre} />
       <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{sorted.length} series</p>
 
-      {/* Phones: one tappable row per series; tap opens its score breakdown. */}
-      <div className="md:hidden">
+      {/* One tappable row per series at every screen size; tap opens its score
+          breakdown. */}
+      <div>
         <MobileSortBar cols={cols} sortState={sortState} onSort={handleSort} />
         <ul
           className="rounded-xl overflow-hidden"
@@ -309,6 +310,7 @@ function RankingsTab({
                       {scored && row.complete === true ? " · finished" : ""}
                     </span>
                   </span>
+                  <span className="genre-chip hidden sm:inline-block shrink-0">{s.genre}</span>
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
                       {s.adjusted_wa?.toFixed(2) ?? "—"}
@@ -339,72 +341,6 @@ function RankingsTab({
         </ul>
       </div>
 
-      {/* Desktop: the full sortable table on a card */}
-      <div
-        className="hidden md:block rounded-xl"
-        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-      >
-        <table className="w-full text-sm" style={{ borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th className="px-3 py-2.5 text-left font-medium text-xs" style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)" }}>#</th>
-              {cols.map((col) => (
-                <SortableTh key={col.key} col={col} sortState={sortState} onSort={handleSort} />
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((s, i) => {
-              const expanded = scored && open === s.series;
-              const row = { ...s, complete: completeOverride[s.series] ?? s.complete };
-              const adj = adjustment(s);
-              return (
-              <Fragment key={s.series}>
-              <tr
-                onClick={scored ? () => setOpen(expanded ? null : s.series) : undefined}
-                style={{
-                  borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
-                  cursor: scored ? "pointer" : "default",
-                  background: expanded ? "var(--color-surface-2)" : undefined,
-                }}
-                className={scored ? "app-row" : undefined}
-              >
-                <td className="px-3 py-2.5 text-xs" style={{ color: "var(--color-faint)" }}>{i + 1}</td>
-                <td className="px-3 py-2.5 font-semibold font-display" style={{ color: "var(--color-ink)" }}>
-                  {s.series}
-                  {scored && row.complete === true && (
-                    <span className="ml-2 text-xs font-normal font-sans" style={{ color: "var(--color-faint)" }}>finished</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5" style={{ color: "var(--color-muted)" }}>{s.author}</td>
-                <td className="px-3 py-2.5">
-                  <span className="genre-chip">{s.genre}</span>
-                </td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "books" ? "var(--color-sage)" : "var(--color-muted)" }}>{s.books}</td>
-                <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", fontVariantNumeric: "tabular-nums" }}>{s.adjusted_wa?.toFixed(3) ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right" style={{ color: sortState.key === "avg_wa" ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}>{s.avg_wa?.toFixed(2) ?? "—"}</td>
-                {scored && (
-                  <td className="px-3 py-2.5 text-right" style={{ color: Math.abs(adj) < 0.0005 ? "var(--color-faint)" : adj > 0 ? "var(--color-sage)" : "var(--color-spine-c)", fontVariantNumeric: "tabular-nums" }}>{signed(adj)}</td>
-                )}
-              </tr>
-              {expanded && (
-                <tr>
-                  <td colSpan={cols.length + 1} style={{ padding: 0 }}>
-                    <ScoreBreakdown
-                      s={row}
-                      onToggleComplete={() => toggleComplete(s)}
-                      pending={pending === s.series}
-                      error={error?.series === s.series ? error.message : null}
-                    />
-                  </td>
-                </tr>
-              )}
-              </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
