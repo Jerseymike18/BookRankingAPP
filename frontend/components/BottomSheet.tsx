@@ -90,26 +90,29 @@ export default function BottomSheet({
         style={{
           background: "var(--color-ground)",
           boxShadow: "0 -8px 30px rgba(26, 23, 20, 0.15)",
-          maxHeight: "calc(100dvh - max(1.5rem, env(safe-area-inset-top)))",
+          // Leave a strip above the sheet (more on notched phones) so its top edge
+          // and the close button never sit under the status bar.
+          maxHeight: "calc(100dvh - max(2.5rem, env(safe-area-inset-top) + 1rem))",
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: !dragging && !closing ? "transform 180ms ease" : undefined,
         }}
       >
         {/* Header: grab handle (drag down to dismiss) + close button */}
         <div
-          className="app-chrome relative shrink-0 pt-2 pb-1 touch-none cursor-grab"
+          className="app-chrome relative shrink-0 h-12 touch-none cursor-grab"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <div className="mx-auto h-1.5 w-10 rounded-full" style={{ background: "var(--color-rule)" }} />
+          <div className="absolute left-1/2 top-2 -translate-x-1/2 h-1.5 w-10 rounded-full" style={{ background: "var(--color-rule)" }} />
           <button
             type="button"
             onClick={close}
             onPointerDown={(e) => e.stopPropagation()}
             aria-label="Close"
-            className="absolute right-3 top-2 w-8 h-8 rounded-full flex items-center justify-center"
+            // Fully inside the 3rem header (it used to hang out of a 1.1rem one).
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center"
             style={{ background: "var(--color-surface-2)", color: "var(--color-muted)" }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
