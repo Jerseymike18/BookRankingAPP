@@ -7,7 +7,7 @@ import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
-import { useSortable, SortableTable, SortableTh, MobileSortBar } from "@/components/SortableTable";
+import { useSortable, SortableTh, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
@@ -846,6 +846,137 @@ function SubTabs({
   return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
+/* ── Phone book list ──────────────────────────────────────────────────────
+   Shared by the per-type and the All rankings: one tappable row per book
+   (rank, WA badge, title + author, the active sort value when it isn't WA),
+   expanding into the same BookExpandedPanel the desktop table uses. */
+
+type BookListItem = { book: Book; kind: BookKind; categoryOrder: string[]; key: string };
+
+function BookMobileList<T>({
+  items,
+  cols,
+  sortState,
+  onSort,
+  primaryKey,
+  expandedKey,
+  setExpandedKey,
+  onRefresh,
+  refreshing,
+  sortRows,
+  typeLabel = false,
+}: {
+  items: BookListItem[];
+  cols: ColDef<T>[];
+  sortState: { key: string; dir: "asc" | "desc" };
+  onSort: (key: string) => void;
+  primaryKey: string;
+  expandedKey: string | null;
+  setExpandedKey: (k: string | null) => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+  /** The rows `cols` read from, index-aligned with `items` (defaults to the books). */
+  sortRows?: T[];
+  /** Show Fiction / Nonfiction in the subtitle (the All view). */
+  typeLabel?: boolean;
+}) {
+  const sortCol = cols.find((c) => c.key === sortState.key);
+  const showSortVal = !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
+  return (
+    <div className="md:hidden">
+      <MobileSortBar cols={cols} sortState={sortState} onSort={onSort} />
+      {items.length === 0 ? (
+        <p className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
+          No books match your filters.
+        </p>
+      ) : (
+        <ul
+          className="rounded-xl overflow-hidden"
+          style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+        >
+          {items.map(({ book, kind, categoryOrder, key }, i) => {
+            const isExpanded = expandedKey === key;
+            const row = (sortRows ? sortRows[i] : book) as T;
+            const sortVal = showSortVal ? Number(sortCol!.getValue(row) ?? 0) : 0;
+            return (
+              <li
+                key={key}
+                className={spineClass(primaryScore(book))}
+                style={{
+                  borderLeftWidth: 3,
+                  borderLeftStyle: "solid",
+                  borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setExpandedKey(isExpanded ? null : key)}
+                  aria-expanded={isExpanded}
+                  className="app-row w-full flex items-center gap-3 pl-2 pr-3 py-3 text-left"
+                >
+                  <span
+                    className="w-6 shrink-0 text-right font-display italic text-sm"
+                    style={{ color: "var(--color-faint)" }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="wa-badge">{primaryScore(book).toFixed(1)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className="block font-display font-semibold text-sm leading-tight truncate"
+                      style={{ color: "var(--color-ink)" }}
+                    >
+                      {book.title}
+                    </span>
+                    <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
+                      {book.author}
+                      {typeLabel ? ` · ${kind === "nonfiction" ? "Nonfiction" : "Fiction"}` : ""}
+                      {book.series ? ` · ${seriesLabel(book.series, book.series_number)}` : ` · ${book.genre}`}
+                    </span>
+                  </span>
+                  {showSortVal && (
+                    <span className="shrink-0 text-right">
+                      <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
+                        {sortVal ? sortVal.toFixed(sortCol!.key.startsWith("comp:") ? 1 : 2) : "—"}
+                      </span>
+                      <span className="block text-[11px]" style={{ color: "var(--color-faint)" }}>
+                        {sortCol!.label}
+                      </span>
+                    </span>
+                  )}
+                  <svg
+                    width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                    className="shrink-0"
+                    style={{
+                      color: "var(--color-faint)",
+                      transform: isExpanded ? "rotate(90deg)" : "none",
+                      transition: "transform 150ms",
+                    }}
+                  >
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div style={{ borderTop: "1px solid var(--color-rule)" }}>
+                    <BookExpandedPanel
+                      book={book}
+                      categoryOrder={categoryOrder}
+                      kind={kind}
+                      onRefresh={onRefresh}
+                      refreshing={refreshing}
+                      onClose={() => setExpandedKey(null)}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /* ── Per-type rankings (full table, one track) ────────────────────────────
    The original single-track rankings view: genre + search filters, year tabs
    (fiction), and the sortable table with the expand-to-edit panel. Unchanged
@@ -1043,98 +1174,17 @@ function PerTypeRankings({
 
       {/* Phones: one tappable row per book; tap opens the same panel the
           desktop table expands into. */}
-      <div className="md:hidden">
-        <MobileSortBar cols={cols} sortState={sortState} onSort={handleSort} />
-        {sorted.length === 0 ? (
-          <p className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
-            No books match your filters.
-          </p>
-        ) : (
-          <ul
-            className="rounded-xl overflow-hidden"
-            style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-          >
-            {sorted.map((book, i) => {
-              const isExpanded = expandedTitle === book.title;
-              const sortCol = cols.find((c) => c.key === sortState.key);
-              const showSortVal =
-                !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
-              const sortVal = showSortVal ? Number(sortCol!.getValue(book) ?? 0) : 0;
-              return (
-                <li
-                  key={book.title}
-                  className={spineClass(primaryScore(book))}
-                  style={{
-                    borderLeftWidth: 3,
-                    borderLeftStyle: "solid",
-                    borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setExpandedTitle(isExpanded ? null : book.title)}
-                    aria-expanded={isExpanded}
-                    className="app-row w-full flex items-center gap-3 pl-2 pr-3 py-3 text-left"
-                  >
-                    <span
-                      className="w-6 shrink-0 text-right font-display italic text-sm"
-                      style={{ color: "var(--color-faint)" }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="wa-badge">{primaryScore(book).toFixed(1)}</span>
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className="block font-display font-semibold text-sm leading-tight truncate"
-                        style={{ color: "var(--color-ink)" }}
-                      >
-                        {book.title}
-                      </span>
-                      <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
-                        {book.author}
-                        {book.series ? ` · ${seriesLabel(book.series, book.series_number)}` : ` · ${book.genre}`}
-                      </span>
-                    </span>
-                    {showSortVal && (
-                      <span className="shrink-0 text-right">
-                        <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
-                          {sortVal ? sortVal.toFixed(sortCol!.key.startsWith("comp:") ? 1 : 2) : "—"}
-                        </span>
-                        <span className="block text-[11px]" style={{ color: "var(--color-faint)" }}>
-                          {sortCol!.label}
-                        </span>
-                      </span>
-                    )}
-                    <svg
-                      width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-                      className="shrink-0"
-                      style={{
-                        color: "var(--color-faint)",
-                        transform: isExpanded ? "rotate(90deg)" : "none",
-                        transition: "transform 150ms",
-                      }}
-                    >
-                      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  {isExpanded && (
-                    <div style={{ borderTop: "1px solid var(--color-rule)" }}>
-                      <BookExpandedPanel
-                        book={book}
-                        categoryOrder={category_order}
-                        kind={kind}
-                        onRefresh={onRefresh}
-                        refreshing={refreshing}
-                        onClose={() => setExpandedTitle(null)}
-                      />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+      <BookMobileList
+        items={sorted.map((book) => ({ book, kind, categoryOrder: category_order, key: book.title }))}
+        cols={cols}
+        sortState={sortState}
+        onSort={handleSort}
+        primaryKey={primaryKey}
+        expandedKey={expandedTitle}
+        setExpandedKey={setExpandedTitle}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      />
 
       {/* Desktop: the full sortable table on a card */}
       <div
@@ -1332,36 +1382,233 @@ function PerTypeRankings({
    Stats page uses); no derived math is reimplemented here. Columns are reduced
    because the two tracks' per-category sets differ. */
 
-const COMBINED_COLS: ColDef<CombinedRankRow>[] = [
-  { key: "rank", label: "#", type: "numeric", getValue: (r) => r.rank, align: "left", autoRank: true, sortable: false },
-  { key: "title", label: "Book", type: "string", getValue: (r) => r.title, align: "left" },
-  { key: "author", label: "Author", type: "string", getValue: (r) => r.author, align: "left" },
-  {
-    key: "type", label: "Type", type: "string", getValue: (r) => r.type, align: "left",
-    formatter: (v) => (v === "nonfiction" ? "Nonfiction" : "Fiction"),
-  },
-  {
-    key: "wa", label: "WA", type: "numeric",
-    getValue: (r) => r.wa ?? 0,
-    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
-  },
-  {
-    key: "total_average", label: "Total Avg", type: "numeric",
-    getValue: (r) => r.total_average ?? 0,
-    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
-  },
-  { key: "genre", label: "Genre", type: "string", getValue: (r) => r.genre, align: "left" },
+
+type CombinedItem = {
+  book: Book;
+  kind: BookKind;
+  categoryOrder: string[];
+  key: string;
+  total_average: number | null;
+};
+
+const COMBINED_COLS: ColDef<CombinedItem>[] = [
+  { key: "title", label: "Book", type: "string", getValue: (r) => r.book.title, align: "left" },
+  { key: "wa", label: "WA", type: "numeric", getValue: (r) => primaryScore(r.book), align: "right" },
+  { key: "total_average", label: "Total Avg", type: "numeric", getValue: (r) => r.total_average ?? 0, align: "right" },
+  { key: "type", label: "Type", type: "string", getValue: (r) => r.kind, align: "left" },
+  { key: "genre", label: "Genre", type: "string", getValue: (r) => r.book.genre, align: "left" },
 ];
 
-function CombinedRankings({ rows }: { rows: CombinedRankRow[] }) {
+/** The All view: both tracks in one WA leaderboard, drawn exactly like the
+ *  per-type table — spine, title + author, the same phone list, and the same
+ *  expand-to-edit panel (each row keeps its own track's categories). */
+function CombinedRankings({
+  rows,
+  fiction,
+  nonfiction,
+}: {
+  rows: CombinedRankRow[];
+  fiction: BooksResponse;
+  nonfiction: BooksResponse;
+}) {
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const onRefresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
+  const [genreFilter, setGenreFilter] = useState<string>("All genres");
+  const [search, setSearch] = useState("");
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  // Join the leaderboard rows back to the full Book records (components,
+  // series, words) so the All view can show and edit exactly what the
+  // per-type tables do. Total Average comes from the leaderboard row.
+  const items = useMemo<CombinedItem[]>(() => {
+    const byKey = new Map<string, CombinedItem>();
+    for (const [kind, data] of [["fiction", fiction], ["nonfiction", nonfiction]] as const) {
+      for (const book of data.books) {
+        const key = `${kind}:${book.title}`;
+        byKey.set(key, { book, kind, categoryOrder: data.category_order, key, total_average: book.total_average ?? null });
+      }
+    }
+    for (const r of rows) {
+      const it = byKey.get(`${r.type}:${r.title}`);
+      if (it) it.total_average = r.total_average;
+    }
+    return [...byKey.values()];
+  }, [rows, fiction, nonfiction]);
+
+  const genres = useMemo(() => [...new Set(items.map((i) => i.book.genre))].sort(), [items]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter(
+      (i) =>
+        (genreFilter === "All genres" || i.book.genre === genreFilter) &&
+        (!q || i.book.title.toLowerCase().includes(q) || i.book.author.toLowerCase().includes(q)),
+    );
+  }, [items, genreFilter, search]);
+
+  const { sorted, sortState, handleSort } = useSortable(filtered, COMBINED_COLS, { key: "wa", dir: "desc" });
+
+  const fieldStyle = {
+    background: "var(--color-surface-2)",
+    border: "1px solid transparent",
+    color: "var(--color-ink)",
+    fontFamily: "var(--font-body)",
+  } as const;
+
   return (
     <div>
-      <SortableTable
-        columns={COMBINED_COLS}
-        data={rows}
-        defaultSort={{ key: "wa", dir: "desc" }}
-        getRowKey={(r) => `${r.type}:${r.title}`}
+      {/* Controls — same as the per-type view */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <select
+          value={genreFilter}
+          onChange={(e) => setGenreFilter(e.target.value)}
+          className="px-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
+          style={fieldStyle}
+        >
+          <option value="All genres">All genres</option>
+          {genres.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+        <div className="relative flex-1 min-w-52">
+          <input
+            type="text"
+            placeholder="Search by title or author…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-lg text-sm border focus:outline-none focus:ring-2"
+            style={fieldStyle}
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+            style={{ color: "var(--color-faint)" }}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <div
+          className="flex items-center px-3 rounded-lg text-sm font-medium"
+          style={{ background: "var(--color-sage-light)", color: "var(--color-sage)" }}
+        >
+          {filtered.length} {genreFilter !== "All genres" ? `in ${genreFilter}` : "books"}
+        </div>
+      </div>
+
+      <BookMobileList
+        items={sorted}
+        cols={COMBINED_COLS}
+        sortRows={sorted}
+        sortState={sortState}
+        onSort={handleSort}
+        primaryKey="wa"
+        expandedKey={expandedKey}
+        setExpandedKey={setExpandedKey}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        typeLabel
       />
+
+      <div
+        className="hidden md:block rounded-xl"
+        style={{ overflowX: "auto", background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+      >
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+          <thead>
+            <tr>
+              <th
+                className="text-left text-xs font-medium px-3 py-2.5"
+                style={{ color: "var(--color-muted)", borderBottom: "1px solid var(--color-rule)", minWidth: "2rem" }}
+              >
+                #
+              </th>
+              {COMBINED_COLS.map((col) => (
+                <SortableTh
+                  key={col.key}
+                  col={col}
+                  sortState={sortState}
+                  onSort={handleSort}
+                  extraStyle={col.key === "title" ? { minWidth: "12rem" } : undefined}
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr>
+                <td colSpan={COMBINED_COLS.length + 1} className="text-center py-16 text-sm" style={{ color: "var(--color-muted)" }}>
+                  No books match your filters.
+                </td>
+              </tr>
+            ) : (
+              sorted.map((it, i) => {
+                const { book } = it;
+                const isExpanded = expandedKey === it.key;
+                const active = (k: string) => sortState.key === k;
+                return (
+                  <React.Fragment key={it.key}>
+                    <tr
+                      onClick={() => setExpandedKey(isExpanded ? null : it.key)}
+                      className={`app-row ${spineClass(primaryScore(book))} cursor-pointer`}
+                      style={{
+                        borderBottom: isExpanded ? "none" : "1px solid var(--color-rule)",
+                        borderLeftWidth: 3,
+                        borderLeftStyle: "solid",
+                      }}
+                    >
+                      <td className="px-3 py-3 font-display italic text-sm text-right" style={{ color: "var(--color-faint)", minWidth: "2.5rem" }}>
+                        {i + 1}
+                      </td>
+                      <td className="px-3 py-3" style={{ minWidth: "12rem" }}>
+                        <div className="font-display font-semibold text-sm leading-tight" style={{ color: "var(--color-ink)" }}>
+                          {book.title}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                          {book.author}
+                          {book.series ? (
+                            <span style={{ color: "var(--color-faint)" }}> · {seriesLabel(book.series, book.series_number)}</span>
+                          ) : null}
+                          {book.words ? (
+                            <span style={{ color: "var(--color-faint)" }}> · {formatWords(book.words)}</span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td
+                        className="px-3 py-3 text-right font-semibold"
+                        style={{ color: active("wa") ? "var(--color-sage)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {primaryScore(book).toFixed(2)}
+                      </td>
+                      <ScoreCell value={it.total_average} active={active("total_average")} digits={2} />
+                      <td className="px-3 py-3 text-sm" style={{ color: active("type") ? "var(--color-sage)" : "var(--color-muted)" }}>
+                        {it.kind === "nonfiction" ? "Nonfiction" : "Fiction"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="genre-chip">{book.genre}</span>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={COMBINED_COLS.length + 1} style={{ padding: 0, borderBottom: "1px solid var(--color-rule)" }}>
+                          <BookExpandedPanel
+                            book={book}
+                            categoryOrder={it.categoryOrder}
+                            kind={it.kind}
+                            onRefresh={onRefresh}
+                            refreshing={refreshing}
+                            onClose={() => setExpandedKey(null)}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1400,7 +1647,7 @@ export default function RankingsView({
       )}
       <TypeToggle value={type} onChange={setType} includeAll />
       {type === "all" ? (
-        <CombinedRankings rows={combined} />
+        <CombinedRankings rows={combined} fiction={fiction} nonfiction={nonfiction} />
       ) : (
         <PerTypeRankings data={isNon ? nonfiction : fiction} kind={isNon ? "nonfiction" : "fiction"} />
       )}
