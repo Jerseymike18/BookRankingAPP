@@ -12,13 +12,16 @@ export const dynamic = "force-dynamic";
 export default async function AddBookSheet() {
   if (READONLY) return null;
   const token = await getServerAccessToken();
-  const [data, genres] = await Promise.all([
+  const [data, nonfiction, genres] = await Promise.all([
     fetchBooks("fiction", token),
+    fetchBooks("nonfiction", token),
     fetchValidGenres("fiction", token),
   ]);
+  // The Goodreads-import nudge is for a reader who hasn't ranked anything yet.
+  const hasRanked = data.books.length + nonfiction.books.length > 0;
   return (
     <BottomSheet label="Add a book">
-      <AddBookClient categoryOrder={data.category_order} validGenres={genres} />
+      <AddBookClient categoryOrder={data.category_order} validGenres={genres} showImportHint={!hasRanked} />
     </BottomSheet>
   );
 }

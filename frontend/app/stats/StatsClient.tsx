@@ -210,8 +210,14 @@ const RANK_COLS: ColDef<CombinedRankRow>[] = [
 export default function StatsClient({
   data,
   showRanking = true,
+  section = "all",
 }: {
   data: CombinedStatsResponse;
+  /** Which part to render. The /stats page splits the dashboard around its
+   *  Rankings list: "header" (title + headline tiles) above it, "details"
+   *  (top rated, tiers, per-year chart, by-type cards) below it. "all" — the
+   *  public-profile Stats tab — renders everything in one piece. */
+  section?: "all" | "header" | "details";
   // The cross-type "all books" table. On by default (the public-profile Stats
   // tab keeps its own copy); the merged /stats page passes false because its
   // Rankings section below already renders this leaderboard.
@@ -231,8 +237,13 @@ export default function StatsClient({
     [combined_ranking, typeFilter]
   );
 
+  const header = section !== "details";
+  const details = section !== "header";
+
   return (
     <div>
+      {header && (
+      <>
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
           Stats
@@ -259,7 +270,11 @@ export default function StatsClient({
           value={totals.avg_total_average != null ? totals.avg_total_average.toFixed(2) : "—"}
         />
       </div>
+      </>
+      )}
 
+      {details && (
+      <>
       <div className="grid lg:grid-cols-2 gap-x-6">
         <div>
           <SectionHeading>Top rated</SectionHeading>
@@ -286,11 +301,13 @@ export default function StatsClient({
         <TypeCard title="Fiction" color={FICTION_COLOR} s={by_type.fiction} />
         <TypeCard title="Nonfiction" color={NONFICTION_COLOR} s={by_type.nonfiction} />
       </div>
+      </>
+      )}
 
       {/* Combined cross-type ranking (by WA). Suppressed on the merged /stats
           page (showRanking={false}), where the Rankings section renders the same
           leaderboard; shown standalone e.g. on the public-profile Stats tab. */}
-      {showRanking && (
+      {showRanking && section === "all" && (
         <>
           <SectionHeading>All books · ranked by WA</SectionHeading>
           <SegmentedTabs tabs={TYPE_TABS} value={typeFilter} onChange={setTypeFilter} className="mb-4" />

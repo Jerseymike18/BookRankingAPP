@@ -12,6 +12,14 @@ export default async function AddBookPage() {
   if (READONLY) {
     return <ComingSoon title="Add a Book" subtitle="Not available on the read-only public site." />;
   }
-  const [data, genres] = await Promise.all([fetchBooks("fiction", token), fetchValidGenres("fiction", token)]);
-  return <AddBookClient categoryOrder={data.category_order} validGenres={genres} />;
+  const [data, nonfiction, genres] = await Promise.all([
+    fetchBooks("fiction", token),
+    fetchBooks("nonfiction", token),
+    fetchValidGenres("fiction", token),
+  ]);
+  // The Goodreads-import nudge is for a reader who hasn't ranked anything yet.
+  const hasRanked = data.books.length + nonfiction.books.length > 0;
+  return (
+    <AddBookClient categoryOrder={data.category_order} validGenres={genres} showImportHint={!hasRanked} />
+  );
 }

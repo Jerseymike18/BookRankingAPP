@@ -1,6 +1,7 @@
 "use client";
 
 import { seriesLabel } from "@/lib/format";
+import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
 
 /**
  * QUEUE LIST — the Read Queue results at every screen size (fiction and
@@ -46,6 +47,8 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
   interval?: (item: I) => string | null;
 }) {
   const sortLabel = sortOptions.find((o) => o.id === sortField)?.label ?? "";
+  // Open short; the reader expands into the whole to-read list on request.
+  const { visible, ...limit } = useRowLimit(items);
   const showSortVal = sortField !== ("wa" as F);
   return (
     <div>
@@ -73,7 +76,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
       </div>
 
       <ul className="rounded-xl overflow-hidden" style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}>
-        {items.map((item, i) => {
+        {visible.map((item, i) => {
           const { rec } = item;
           const open = expandedTitle === rec.title;
           const v = showSortVal ? sortValue(item, sortField) : null;
@@ -83,7 +86,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                 type="button"
                 onClick={() => onToggle(rec.title)}
                 aria-expanded={open}
-                className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-3 text-left"
+                className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 text-left"
               >
                 <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                   {i + 1}
@@ -125,6 +128,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
           );
         })}
       </ul>
+      <ShowMoreBar {...limit} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import type { ColDef } from "@/components/SortableTable";
 import { setSeriesComplete } from "@/lib/api";
 import { useReadOnly } from "@/lib/readonly-context";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -251,6 +252,7 @@ function RankingsTab({
     cols,
     { key: "adjusted_wa", dir: "desc" }
   );
+  const { visible, ...limit } = useRowLimit(sorted);
 
   async function toggleComplete(s: SeriesEntry) {
     const next = !(completeOverride[s.series] ?? s.complete === true);
@@ -286,7 +288,7 @@ function RankingsTab({
           className="rounded-xl overflow-hidden"
           style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
-          {sorted.map((s, i) => {
+          {visible.map((s, i) => {
             const expanded = scored && open === s.series;
             const row = { ...s, complete: completeOverride[s.series] ?? s.complete };
             const adj = adjustment(s);
@@ -296,7 +298,7 @@ function RankingsTab({
                   type="button"
                   onClick={scored ? () => setOpen(expanded ? null : s.series) : undefined}
                   aria-expanded={scored ? expanded : undefined}
-                  className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-3 text-left"
+                  className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 text-left"
                 >
                   <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                     {i + 1}
@@ -341,6 +343,7 @@ function RankingsTab({
             );
           })}
         </ul>
+        <ShowMoreBar {...limit} noun="series" />
       </div>
 
     </div>

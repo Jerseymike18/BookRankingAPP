@@ -12,6 +12,7 @@ import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -830,6 +831,8 @@ function BookMobileList<T>({
 }) {
   const sortCol = cols.find((c) => c.key === sortState.key);
   const showSortVal = !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
+  // Open short; the reader expands into the full library on request.
+  const { visible, ...limit } = useRowLimit(items);
   return (
     <div>
       <MobileSortBar cols={cols} sortState={sortState} onSort={onSort} />
@@ -842,7 +845,7 @@ function BookMobileList<T>({
           className="rounded-xl overflow-hidden"
           style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
-          {items.map(({ book, kind, categoryOrder, key }, i) => {
+          {visible.map(({ book, kind, categoryOrder, key }, i) => {
             const isExpanded = expandedKey === key;
             const row = (sortRows ? sortRows[i] : book) as T;
             const sortVal = showSortVal ? Number(sortCol!.getValue(row) ?? 0) : 0;
@@ -860,7 +863,7 @@ function BookMobileList<T>({
                   type="button"
                   onClick={() => setExpandedKey(isExpanded ? null : key)}
                   aria-expanded={isExpanded}
-                  className="app-row w-full flex items-center gap-2 sm:gap-3 pl-2 pr-3 py-3 text-left"
+                  className="app-row w-full flex items-center gap-2 sm:gap-3 pl-2 pr-3 py-2.5 text-left"
                 >
                   <span
                     className="w-5 shrink-0 text-right font-display italic text-sm"
@@ -924,6 +927,7 @@ function BookMobileList<T>({
           })}
         </ul>
       )}
+      <ShowMoreBar {...limit} />
     </div>
   );
 }

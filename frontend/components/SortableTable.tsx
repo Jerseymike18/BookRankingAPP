@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -199,7 +200,7 @@ function MobileRow<T extends object>({ row, rank, columns, sortState }: {
   const trailing = active && active.type === "numeric" && !active.autoRank ? active : nums[0];
   const extra = nums.find((c) => c !== trailing);
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
+    <li className="flex items-center gap-3 px-4 py-2.5">
       {rankCol && (
         <span className="w-6 text-right font-display italic text-sm shrink-0" style={{ color: "var(--color-faint)" }}>
           {rank}
@@ -256,6 +257,8 @@ export function SortableTable<T extends object>({
   pinFirst?: (row: T) => boolean;
 }) {
   const { sorted, sortState, handleSort } = useSortable(data, columns, defaultSort, pinFirst);
+  // Open short; expand on request (shared by both renderings below).
+  const { visible, ...limit } = useRowLimit(sorted);
 
   return (
     <>
@@ -271,11 +274,12 @@ export function SortableTable<T extends object>({
               {emptyMessage}
             </li>
           ) : (
-            sorted.map((row, i) => (
+            visible.map((row, i) => (
               <MobileRow key={getRowKey(row, i)} row={row} rank={i + 1} columns={columns} sortState={sortState} />
             ))
           )}
         </ul>
+        <ShowMoreBar {...limit} noun="rows" />
       </div>
 
       {/* Desktop: an app-style table on a card */}
@@ -311,7 +315,7 @@ export function SortableTable<T extends object>({
                 </td>
               </tr>
             ) : (
-              sorted.map((row, i) => (
+              visible.map((row, i) => (
                 <tr
                   key={getRowKey(row, i)}
                   className="app-row"
@@ -340,6 +344,9 @@ export function SortableTable<T extends object>({
             )}
           </tbody>
         </table>
+      </div>
+      <div className="hidden md:block">
+        <ShowMoreBar {...limit} noun="rows" />
       </div>
     </>
   );

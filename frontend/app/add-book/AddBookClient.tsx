@@ -265,9 +265,13 @@ function ScoreGrid({
 
 export default function AddBookClient({
   validGenres,
+  showImportHint = true,
 }: {
   categoryOrder: string[];
   validGenres: string[];
+  /** The "Import your Goodreads library" nudge — only for a reader who hasn't
+   *  ranked anything yet; the server decides from their library size. */
+  showImportHint?: boolean;
 }) {
   // Fiction vs nonfiction — drives the component set, the genre field, and the
   // target table.
@@ -555,16 +559,19 @@ export default function AddBookClient({
         </div>
       )}
 
-      {/* Onboarding shortcut — bulk-import instead of adding one at a time. */}
-      <Link
-        href="/import"
-        className="block rounded-lg px-4 py-3 mb-6 text-sm no-underline transition-colors"
-        style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}
-      >
-        New here?{" "}
-        <span className="font-semibold">Import your Goodreads library</span>{" "}
-        to rank many books at once instead of adding them one by one →
-      </Link>
+      {/* Onboarding shortcut — bulk-import instead of adding one at a time.
+          Shown only to a reader with no ranked books yet. */}
+      {showImportHint && (
+        <Link
+          href="/import"
+          className="block rounded-lg px-4 py-3 mb-6 text-sm no-underline transition-colors"
+          style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}
+        >
+          New here?{" "}
+          <span className="font-semibold">Import your Goodreads library</span>{" "}
+          to rank many books at once instead of adding them one by one →
+        </Link>
+      )}
 
       {/* Fiction / Nonfiction toggle — drives the component set + target table */}
       <SegmentedTabs tabs={KIND_TABS} value={kind} onChange={changeKind} className="mb-8" />
