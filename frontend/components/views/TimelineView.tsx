@@ -152,7 +152,7 @@ function LineChart({
           <div key={cat} className="flex items-center gap-1.5">
             <span
               className="inline-block w-3 h-3 rounded-full"
-              style={{ background: CAT_COLORS[cat] ?? "#888" }}
+              style={{ background: CAT_COLORS[cat] ?? "var(--color-muted)" }}
             />
             <span className="text-xs" style={{ color: "var(--color-muted)" }}>{cat}</span>
           </div>
@@ -189,7 +189,7 @@ function LineChart({
                 key={cat}
                 points={pts.join(" ")}
                 fill="none"
-                stroke={CAT_COLORS[cat] ?? "#888"}
+                stroke={CAT_COLORS[cat] ?? "var(--color-muted)"}
                 strokeWidth={2}
                 strokeLinejoin="round"
                 strokeLinecap="round"

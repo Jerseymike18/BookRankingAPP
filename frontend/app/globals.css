@@ -41,6 +41,66 @@
   --shadow-card-hover: 0 0 0 1px rgba(26, 23, 20, 0.05), 0 2px 4px rgba(26, 23, 20, 0.06), 0 8px 24px rgba(26, 23, 20, 0.08);
 }
 
+/* ── Status + elevation tokens, and the dark theme ─────────────────────────
+   Plain :root (not @theme) so they are always emitted — they are read only
+   from inline styles, which Tailwind's theme tree-shaking can't see.
+   Dark mode follows the device (prefers-color-scheme); every colour in the app
+   reads these variables, so the whole UI flips with no per-page code. */
+:root {
+  color-scheme: light;
+
+  --color-danger:         #B91C1C;
+  --color-danger-bg:      #FEF2F2;
+  --color-danger-border:  #FCA5A5;
+  --color-warning:        #92400E;
+  --color-warning-bg:     #FFFBEB;
+  --color-warning-border: #FCD34D;
+  --color-info:           #1D4ED8;
+  --color-info-bg:        #EFF6FF;
+  --color-info-border:    #93C5FD;
+  /* Text/icons on a sage (or other solid accent) fill. */
+  --color-on-accent:      #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-ground:      #12100E;
+    --color-surface:     #1C1916;
+    --color-surface-2:   #27231F;
+    --color-ink:         #F1ECE4;
+    --color-muted:       #A79F95;
+    --color-faint:       #7A7269;
+    --color-rule:        #34302A;
+
+    --color-sage:        #2FA36E;
+    --color-sage-light:  #163325;
+    --color-sage-hover:  #3DBA80;
+
+    --color-spine-sp:    #3BC48A;
+    --color-spine-s:     #2FA36E;
+    --color-spine-a:     #7CC86A;
+    --color-spine-b:     #F2B134;
+    --color-spine-c:     #EE7B4A;
+    --color-spine-d:     #6E9BF2;
+    --color-spine-f:     #7D756C;
+
+    --color-danger:         #F87171;
+    --color-danger-bg:      #3A1A1A;
+    --color-danger-border:  #7F2D2D;
+    --color-warning:        #FBBF24;
+    --color-warning-bg:     #33270F;
+    --color-warning-border: #7A5A16;
+    --color-info:           #93C5FD;
+    --color-info-bg:        #172437;
+    --color-info-border:    #2D4A75;
+
+    --shadow-card:       0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
+    --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
 /* ── Base ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -131,7 +191,7 @@ html { background-color: var(--color-ground); }
   height: 2.75rem;
   border-radius: 9999px;
   background: var(--color-sage);
-  color: #fff;
+  color: var(--color-on-accent);
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.8rem;

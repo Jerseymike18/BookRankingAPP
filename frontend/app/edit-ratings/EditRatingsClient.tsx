@@ -261,7 +261,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
           )}
           {loadError && (
             <div className="rounded-lg px-4 py-3 text-sm"
-              style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}>
+              style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}>
               {loadError}
             </div>
           )}
@@ -279,7 +279,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
       {/* Save feedback */}
       {saveError && (
         <div className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}>
+          style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}>
           {saveError}
         </div>
       )}
@@ -295,7 +295,7 @@ export default function EditRatingsClient({ data }: { data: BooksResponse }) {
           onClick={handleSave}
           disabled={saving || loadingScores}
           className="px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-          style={{ background: "var(--color-sage)", color: "#fff" }}
+          style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
         >
           {saving ? "Saving…" : "Save changes"}
         </button>

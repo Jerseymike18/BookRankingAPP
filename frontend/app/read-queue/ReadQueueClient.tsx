@@ -390,7 +390,7 @@ function RecExpandedPanel({
           </button>
           {isPending && <ProgressBar className="mt-2" label="Writing a blurb and keywords…" />}
           {genError && (
-            <p className="mt-2 text-xs" style={{ color: "#B45309" }}>{genError}</p>
+            <p className="mt-2 text-xs" style={{ color: "var(--color-warning)" }}>{genError}</p>
           )}
         </div>
       )}
@@ -479,7 +479,7 @@ function RecExpandedPanel({
                 onClick={handleSaveMeta}
                 disabled={saving}
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40 transition-colors"
-                style={{ background: "var(--color-sage)", color: "#fff" }}
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
               >
                 {saving ? "Saving…" : "Save changes"}
               </button>
@@ -490,7 +490,7 @@ function RecExpandedPanel({
               >
                 Cancel
               </button>
-              {saveError && <span className="text-xs" style={{ color: "#c0392b" }}>{saveError}</span>}
+              {saveError && <span className="text-xs" style={{ color: "var(--color-danger)" }}>{saveError}</span>}
             </>
           )}
 
@@ -504,7 +504,7 @@ function RecExpandedPanel({
             </button>
           ) : (
             <>
-              <span className="text-xs" style={{ color: "#c0392b" }}>Remove permanently?</span>
+              <span className="text-xs" style={{ color: "var(--color-danger)" }}>Remove permanently?</span>
               <button
                 onClick={async () => {
                   setIsDeleting(true);
@@ -521,7 +521,7 @@ function RecExpandedPanel({
                 }}
                 disabled={isDeleting}
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-                style={{ background: "#c0392b", color: "#fff" }}
+                style={{ background: "var(--color-danger)", color: "var(--color-on-accent)" }}
               >
                 {isDeleting ? "Removing…" : "Yes, remove"}
               </button>
@@ -535,7 +535,7 @@ function RecExpandedPanel({
             </>
           ))}
           {deleteError && (
-            <span className="text-xs" style={{ color: "#c0392b" }}>{deleteError}</span>
+            <span className="text-xs" style={{ color: "var(--color-danger)" }}>{deleteError}</span>
           )}
         </div>
 
@@ -574,7 +574,7 @@ function RecExpandedPanel({
                   WA {repredictReport.old_wa?.toFixed(2) ?? "—"} → {repredictReport.new_wa.toFixed(2)}
                 </strong>
                 {repredictReport.d_wa != null && (
-                  <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "#B45309" }}>
+                  <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "var(--color-warning)" }}>
                     {" "}({repredictReport.d_wa >= 0 ? "+" : ""}{repredictReport.d_wa.toFixed(2)})
                   </span>
                 )}
@@ -606,7 +606,7 @@ function RecExpandedPanel({
           </div>
         )}
         {repredictError && (
-          <p className="text-xs" style={{ color: "#c0392b" }}>{repredictError}</p>
+          <p className="text-xs" style={{ color: "var(--color-danger)" }}>{repredictError}</p>
         )}
         {repredictCancelled && (
           <p className="text-xs" style={{ color: "var(--color-muted)" }}>{repredictCancelled}</p>
@@ -910,7 +910,7 @@ function QueueCard({
             border: "1px solid var(--color-rule)",
           }}
           aria-label={`Remove ${title}`}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#c0392b"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-danger)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-muted)"; }}
         >
           ×
@@ -1108,7 +1108,7 @@ function QueueTab({
             onClick={handleTextSave}
             disabled={saving}
             className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             {saving ? "Saving…" : "Save queue"}
           </button>
@@ -1116,7 +1116,7 @@ function QueueTab({
             {lines} title{lines !== 1 ? "s" : ""}
           </span>
           {status && (
-            <span className="text-sm" style={{ color: status.ok ? "var(--color-sage)" : "#c0392b" }}>
+            <span className="text-sm" style={{ color: status.ok ? "var(--color-sage)" : "var(--color-danger)" }}>
               {status.ok ? "✓ " : "✗ "}{status.msg}
             </span>
           )}
@@ -1198,7 +1198,7 @@ function QueueTab({
           onClick={() => handleSave()}
           disabled={saving || !isDirty}
           className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity"
-          style={{ background: "var(--color-sage)", color: "#fff" }}
+          style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
         >
           {saving ? "Saving…" : "Save queue"}
         </button>
@@ -1207,7 +1207,7 @@ function QueueTab({
           {isDirty ? " · unsaved changes" : ""}
         </span>
         {status && (
-          <span className="text-sm" style={{ color: status.ok ? "var(--color-sage)" : "#c0392b" }}>
+          <span className="text-sm" style={{ color: status.ok ? "var(--color-sage)" : "var(--color-danger)" }}>
             {status.ok ? "✓ " : "✗ "}{status.msg}
           </span>
         )}
@@ -1258,7 +1258,7 @@ function QueueTab({
           />
         )}
         {seriesStatus && (
-          <p className="text-sm" style={{ color: seriesStatus.ok ? "var(--color-sage)" : "#c0392b" }}>
+          <p className="text-sm" style={{ color: seriesStatus.ok ? "var(--color-sage)" : "var(--color-danger)" }}>
             {seriesStatus.ok ? "✓ " : "✗ "}{seriesStatus.msg}
           </p>
         )}

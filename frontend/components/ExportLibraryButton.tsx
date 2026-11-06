@@ -108,7 +108,7 @@ export default function ExportLibraryButton({
           className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           style={{
             background: busy ? "var(--color-surface-2)" : "var(--color-sage)",
-            color: busy ? "var(--color-muted)" : "#fff",
+            color: busy ? "var(--color-muted)" : "var(--color-on-accent)",
           }}
         >
           {busy ? "Building…" : "Download CSV"}
@@ -156,7 +156,7 @@ export default function ExportLibraryButton({
       )}
 
       {error && (
-        <p className="mt-2 text-sm" style={{ color: "#B45309" }}>
+        <p className="mt-2 text-sm" style={{ color: "var(--color-warning)" }}>
           {error}
         </p>
       )}

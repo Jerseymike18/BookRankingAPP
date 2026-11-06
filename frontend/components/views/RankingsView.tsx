@@ -502,12 +502,12 @@ function BookExpandedPanel({
       {mode === "confirm-delete" && (
         <div
           className="rounded-xl p-4 mb-4"
-          style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}
+          style={{ background: "var(--color-danger-bg)", border: "1px solid var(--color-danger-border)" }}
         >
-          <p className="text-sm font-semibold mb-1" style={{ color: "#B91C1C" }}>
+          <p className="text-sm font-semibold mb-1" style={{ color: "var(--color-danger)" }}>
             Delete &ldquo;{book.title}&rdquo;?
           </p>
-          <p className="text-sm mb-4" style={{ color: "#7F1D1D" }}>
+          <p className="text-sm mb-4" style={{ color: "var(--color-danger)" }}>
             This permanently removes it from your library and all stats and rankings.
           </p>
           <div className="flex gap-3">
@@ -515,7 +515,7 @@ function BookExpandedPanel({
               onClick={handleDelete}
               disabled={deleting}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-              style={{ background: "#DC2626", color: "#fff" }}
+              style={{ background: "var(--color-danger)", color: "var(--color-on-accent)" }}
             >
               {deleting ? "Deleting…" : "Yes, delete"}
             </button>
@@ -539,7 +539,7 @@ function BookExpandedPanel({
       {actionError && (
         <div
           className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
+          style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}
         >
           {actionError}
         </div>
@@ -568,7 +568,7 @@ function BookExpandedPanel({
             <button
               onClick={enterEdit}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
             >
               Edit scores
             </button>
@@ -588,8 +588,8 @@ function BookExpandedPanel({
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
               style={{
                 background: "transparent",
-                color: "#DC2626",
-                border: "1px solid #FCA5A5",
+                color: "var(--color-danger)",
+                border: "1px solid var(--color-danger-border)",
               }}
             >
               Delete book
@@ -616,7 +616,7 @@ function BookExpandedPanel({
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -668,7 +668,7 @@ function BookExpandedPanel({
               onClick={handleSaveMeta}
               disabled={saving}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
             >
               {saving ? "Saving…" : "Save metadata"}
             </button>

@@ -16,15 +16,13 @@ const pct1 = (v: number) => `${(v * 100).toFixed(1)}%`;
 
 // Accuracy ramp: sage (accurate) → terracotta (big miss). Both are existing
 // design tokens (spine-s / spine-c), mixed the way AnalyticsClient does it.
-const SAGE = "#1C8355";
-const TERRA = "#EE7B4A";
-function mixHex(a: string, b: string, t: number) {
-  const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
-  const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
-  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * Math.max(0, Math.min(1, t))));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+const SAGE = "var(--color-sage)";
+const TERRA = "var(--color-spine-c)";
+// Mixed in CSS (color-mix) so the ramp follows light/dark mode.
+function mixColor(a: string, b: string, t: number) {
+  return `color-mix(in srgb, ${b} ${Math.round(Math.max(0, Math.min(1, t)) * 100)}%, ${a})`;
 }
-const errColor = (absErr: number) => mixHex(SAGE, TERRA, absErr / 2); // ≥2.0 WA = full terracotta
+const errColor = (absErr: number) => mixColor(SAGE, TERRA, absErr / 2); // ≥2.0 WA = full terracotta
 
 /* ── shared primitives (match CalibrationClient / AnalyticsClient) ──────── */
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -66,7 +64,7 @@ function TipBox({ tip }: { tip: Tip | null }) {
       style={{
         position: "absolute", top: tip.y + 14, left: tip.x + (tip.flip ? -14 : 14),
         transform: tip.flip ? "translateX(-100%)" : "none", pointerEvents: "none",
-        background: "var(--color-ink)", color: "#fff", padding: "5px 8px", borderRadius: 6,
+        background: "var(--color-ink)", color: "var(--color-surface)", padding: "5px 8px", borderRadius: 6,
         fontSize: 11, lineHeight: 1.35, whiteSpace: "nowrap", zIndex: 30,
         boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
       }}
@@ -176,9 +174,8 @@ function PredScatter({ folds }: { folds: TrackRecordFold[] }) {
             cx={xOf(f.actual_wa)}
             cy={yOf(f.predicted_wa)}
             r={4}
-            fill={errColor(f.abs_error)}
+            style={{ fill: errColor(f.abs_error), stroke: errColor(f.abs_error) }}
             fillOpacity={0.72}
-            stroke={errColor(f.abs_error)}
             strokeWidth={0.75}
             onMouseMove={(e) => show(e, [f.title, f.genre, `actual ${f2(f.actual_wa)} · predicted ${f2(f.predicted_wa)}`, `off by ${f2(f.abs_error)}`])}
           />
@@ -319,7 +316,7 @@ export default function TrackRecordClient({ data }: { data: TrackRecord | null }
                       <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: "var(--color-muted)" }}>
                         {rawMae != null ? f3(rawMae) : "—"}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: delta == null ? "var(--color-muted)" : Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "#EE7B4A" }}>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono" style={{ color: delta == null ? "var(--color-muted)" : Math.abs(delta) < 0.02 ? "var(--color-muted)" : delta < 0 ? "var(--color-sage)" : "var(--color-spine-c)" }}>
                         {delta == null ? "—" : (delta > 0 ? "+" : "") + f3(delta)}
                       </td>
                     </>

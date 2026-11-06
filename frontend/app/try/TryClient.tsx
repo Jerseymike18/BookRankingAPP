@@ -53,9 +53,9 @@ function GroundingBadge({ nGenre, nAuthor }: { nGenre: number; nAuthor: number }
 
   const colors: Record<typeof level, { bg: string; border: string; text: string }> = {
     strong: { bg: "var(--color-sage-light)", border: "var(--color-sage)", text: "var(--color-sage)" },
-    moderate: { bg: "#EFF6FF", border: "#93C5FD", text: "#1D4ED8" },
-    thin: { bg: "#FFFBEB", border: "#FCD34D", text: "#92400E" },
-    "very-thin": { bg: "#FEF2F2", border: "#FCA5A5", text: "#B91C1C" },
+    moderate: { bg: "var(--color-info-bg)", border: "var(--color-info-border)", text: "var(--color-info)" },
+    thin: { bg: "var(--color-warning-bg)", border: "var(--color-warning-border)", text: "var(--color-warning)" },
+    "very-thin": { bg: "var(--color-danger-bg)", border: "var(--color-danger-border)", text: "var(--color-danger)" },
   };
   const c = colors[level];
 
@@ -281,7 +281,7 @@ export default function TryClient() {
             type="submit"
             disabled={loading || !title.trim()}
             className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             {loading ? "Predicting…" : "Predict"}
           </button>
@@ -341,7 +341,7 @@ export default function TryClient() {
         )}
 
         {!loading && error && (
-          <div className="rounded-lg px-4 py-3 text-sm" style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}>
+          <div className="rounded-lg px-4 py-3 text-sm" style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}>
             {error}
           </div>
         )}

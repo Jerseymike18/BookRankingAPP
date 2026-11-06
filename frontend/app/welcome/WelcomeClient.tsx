@@ -967,7 +967,7 @@ export default function WelcomeClient({
                       on
                         ? {
                             background: "var(--color-sage)",
-                            color: "#fff",
+                            color: "var(--color-on-accent)",
                             border: "1px solid var(--color-sage)",
                           }
                         : {
@@ -1078,7 +1078,7 @@ export default function WelcomeClient({
                   className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
                   style={
                     on
-                      ? { background: "var(--color-sage)", color: "#fff" }
+                      ? { background: "var(--color-sage)", color: "var(--color-on-accent)" }
                       : { background: "transparent", color: "var(--color-ink)" }
                   }
                 >
@@ -1188,7 +1188,7 @@ export default function WelcomeClient({
                   className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
                   style={
                     on
-                      ? { background: "var(--color-sage)", color: "#fff" }
+                      ? { background: "var(--color-sage)", color: "var(--color-on-accent)" }
                       : { background: "transparent", color: "var(--color-ink)" }
                   }
                 >
@@ -1261,7 +1261,7 @@ export default function WelcomeClient({
       {error && (
         <div
           className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
+          style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}
         >
           {error}
         </div>
@@ -1301,7 +1301,7 @@ export default function WelcomeClient({
           <button
             onClick={() => setStep(1)}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             Get started →
           </button>
@@ -1312,7 +1312,7 @@ export default function WelcomeClient({
             onClick={goToWeights}
             disabled={busy}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             {busy ? "Saving…" : "Continue →"}
           </button>
@@ -1323,7 +1323,7 @@ export default function WelcomeClient({
             onClick={() => void advance(3, commitWeights, "Genre weights saved.")}
             disabled={blocked || busy}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             {busy ? "Saving…" : "Continue →"}
           </button>
@@ -1334,7 +1334,7 @@ export default function WelcomeClient({
             onClick={() => void advance(4, commitAnchors, "Rating scale saved.")}
             disabled={!!anchorIssue || busy}
             className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff" }}
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
           >
             {busy ? "Saving…" : "Continue →"}
           </button>
@@ -1354,7 +1354,7 @@ export default function WelcomeClient({
               onClick={() => finish("/import")}
               disabled={busy}
               className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
             >
               {busy ? "Finishing…" : "Import from Goodreads →"}
             </button>

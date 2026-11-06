@@ -62,9 +62,9 @@ function GroundingBadge({ nGenre, nAuthor }: { nGenre: number; nAuthor: number }
 
   const colors: Record<typeof level, { bg: string; border: string; text: string }> = {
     strong:    { bg: "var(--color-sage-light)", border: "var(--color-sage)", text: "var(--color-sage)" },
-    moderate:  { bg: "#EFF6FF", border: "#93C5FD", text: "#1D4ED8" },
-    thin:      { bg: "#FFFBEB", border: "#FCD34D", text: "#92400E" },
-    "very-thin": { bg: "#FEF2F2", border: "#FCA5A5", text: "#B91C1C" },
+    moderate:  { bg: "var(--color-info-bg)", border: "var(--color-info-border)", text: "var(--color-info)" },
+    thin:      { bg: "var(--color-warning-bg)", border: "var(--color-warning-border)", text: "var(--color-warning)" },
+    "very-thin": { bg: "var(--color-danger-bg)", border: "var(--color-danger-border)", text: "var(--color-danger)" },
   };
   const c = colors[level];
 
@@ -225,7 +225,7 @@ function PredictFlow({
       {interrupted && (
         <div
           className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
-          style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}
+          style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning-border)", color: "var(--color-warning)" }}
         >
           <span className="flex-1">{interrupted}</span>
           <button
@@ -495,7 +495,7 @@ function PredictFlow({
           {failedScored.length > 0 && (
             <div
               className="rounded-lg px-4 py-3 text-sm"
-              style={{ background: "#FFFBEB", border: "1px solid #FCD34D", color: "#92400E" }}
+              style={{ background: "var(--color-warning-bg)", border: "1px solid var(--color-warning-border)", color: "var(--color-warning)" }}
             >
               Could not score:{" "}
               {failedScored.map((r) => `${r.title} (${r.error})`).join(", ")}
@@ -791,7 +791,7 @@ function ScoredCard({
             background: "var(--color-surface)",
           }}
         >
-          <p className="text-xs" style={{ color: "#92400E" }}>{repredictError}</p>
+          <p className="text-xs" style={{ color: "var(--color-warning)" }}>{repredictError}</p>
         </div>
       )}
 
@@ -807,7 +807,7 @@ function ScoredCard({
         >
           <p
             className="text-xs"
-            style={{ color: saveMsg.startsWith("Error") ? "#92400E" : "var(--color-sage)" }}
+            style={{ color: saveMsg.startsWith("Error") ? "var(--color-warning)" : "var(--color-sage)" }}
           >
             {saveMsg.startsWith("Error") ? saveMsg : `✓ ${saveMsg}`}
           </p>

@@ -41,7 +41,7 @@ const SHELF_NOTE: Record<ImportStagingRow["shelf"], string> = {
 const MONTHS = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
 
-const errorBox: React.CSSProperties = { background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" };
+const errorBox: React.CSSProperties = { background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" };
 const cardStyle: React.CSSProperties = { background: "var(--color-surface)", boxShadow: "var(--shadow-card)" };
 const inputStyle: React.CSSProperties = {
   background: "var(--color-surface-2)", border: "1px solid transparent",
@@ -365,7 +365,7 @@ function RankCard({
       <div className="flex items-center gap-3 mt-5">
         <button onClick={save} disabled={saving}
           className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-          style={{ background: "var(--color-sage)", color: "#fff" }}>
+          style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
           {saving ? "Adding…" : "Add to library & next"}
         </button>
         <button onClick={() => onSkip(row.id)} disabled={saving}
@@ -653,7 +653,7 @@ export default function ImportClient({
             <li>Upload it below — nothing is added to your library until you review and commit.</li>
           </ol>
           <label className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors"
-            style={{ background: "var(--color-sage)", color: "#fff", opacity: uploading ? 0.5 : 1 }}>
+            style={{ background: "var(--color-sage)", color: "var(--color-on-accent)", opacity: uploading ? 0.5 : 1 }}>
             {uploading ? "Uploading…" : "Choose CSV file"}
             <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={uploading} className="hidden" />
           </label>
@@ -711,7 +711,7 @@ export default function ImportClient({
                 onClick={finishEnrichment}
                 disabled={reEnriching}
                 className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-                style={{ background: "var(--color-sage)", color: "#fff" }}
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
               >
                 {reEnriching ? "Classifying…" : `Classify the remaining ${enrichStalled} →`}
               </button>
@@ -734,7 +734,7 @@ export default function ImportClient({
                   {shelf === "read" && (
                     <button onClick={startRanking}
                       className="ml-auto px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
-                      style={{ background: "var(--color-sage)", color: "#fff" }}>
+                      style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
                       Rank these →
                     </button>
                   )}
@@ -754,7 +754,7 @@ export default function ImportClient({
           <div className="flex flex-wrap items-center gap-3 mt-6">
             <button onClick={commit} disabled={committing || committable === 0}
               className="px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}>
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
               {committing ? "Committing…" : `Commit — add ${committable} to your predictions`}
             </button>
             <span className="text-xs" style={{ color: "var(--color-muted)" }}>
@@ -797,7 +797,7 @@ export default function ImportClient({
               </div>
               <button onClick={startRanking}
                 className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                style={{ background: "var(--color-sage)", color: "#fff" }}>
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
                 Rank your read books →
               </button>
             </div>
@@ -818,7 +818,7 @@ export default function ImportClient({
               </ul>
               <button onClick={() => setPhase("review")}
                 className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                style={{ background: "var(--color-sage)", color: "#fff" }}>
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
                 Back to review to fix these
               </button>
             </div>

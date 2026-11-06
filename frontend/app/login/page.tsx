@@ -156,7 +156,7 @@ export default function LoginPage() {
                 type="submit"
                 disabled={busy || !email.trim() || !password || (isSignup && !inviteCode.trim())}
                 className="mt-1 px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-                style={{ background: "var(--color-sage)", color: "#fff" }}
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
               >
                 {busy
                   ? isSignup

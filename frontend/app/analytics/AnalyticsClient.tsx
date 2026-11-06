@@ -123,7 +123,7 @@ function TipBox({ tip }: { tip: Tip | null }) {
         transform: tip.flip ? "translateX(-100%)" : "none",
         pointerEvents: "none",
         background: "var(--color-ink)",
-        color: "#fff",
+        color: "var(--color-surface)",
         padding: "5px 8px",
         borderRadius: 6,
         fontSize: 11,
@@ -424,17 +424,16 @@ function LengthScatter({ data }: { data: LengthSweetSpot }) {
 
 /* ── 7. Component co-movement heatmap ──────────────────────────────────────── */
 
-const SURFACE2 = "#F0EAE0", SAGE = "#1C8355", SPINEC = "#EE7B4A";
-function mixHex(a: string, b: string, t: number) {
-  const pa = [parseInt(a.slice(1, 3), 16), parseInt(a.slice(3, 5), 16), parseInt(a.slice(5, 7), 16)];
-  const pb = [parseInt(b.slice(1, 3), 16), parseInt(b.slice(3, 5), 16), parseInt(b.slice(5, 7), 16)];
-  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
+// Colours are mixed in CSS (color-mix over the tokens) rather than in JS hex
+// math, so the heatmap follows light/dark mode like everything else.
+const SURFACE2 = "var(--color-surface-2)", SAGE = "var(--color-sage)", SPINEC = "var(--color-spine-c)";
+function mixColor(a: string, b: string, t: number) {
+  return `color-mix(in srgb, ${b} ${Math.round(t * 100)}%, ${a})`;
 }
 function cellColor(r: number | null) {
   if (r == null) return "var(--color-surface-2)";
   const t = Math.min(1, Math.abs(r));
-  return r >= 0 ? mixHex(SURFACE2, SAGE, t) : mixHex(SURFACE2, SPINEC, t);
+  return r >= 0 ? mixColor(SURFACE2, SAGE, t) : mixColor(SURFACE2, SPINEC, t);
 }
 
 function Heatmap({ data }: { data: CoMovement }) {
@@ -477,7 +476,7 @@ function Heatmap({ data }: { data: CoMovement }) {
               y={gutterT + i * cell}
               width={cell - 1}
               height={cell - 1}
-              fill={cellColor(r)}
+              style={{ fill: cellColor(r) }}
               onMouseMove={(e) =>
                 show(e, [
                   `${labels[i].name} × ${labels[j].name}`,
@@ -546,7 +545,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
         cursor: "pointer",
         border: "1px solid transparent",
         background: active ? "var(--color-sage)" : "var(--color-sage-light)",
-        color: active ? "#fff" : "var(--color-sage)",
+        color: active ? "var(--color-on-accent)" : "var(--color-sage)",
       }}
     >
       {label}

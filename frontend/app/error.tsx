@@ -109,7 +109,7 @@ export default function Error({
                 unstable_retry();
               }}
               className="px-6 py-3 rounded-xl font-semibold text-sm transition-colors"
-              style={{ background: "var(--color-sage)", color: "#fff" }}
+              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
             >
               Try again
             </button>

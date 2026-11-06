@@ -38,7 +38,7 @@ const NF_MOOD_NAMES = Object.keys(NF_MOOD_COMPONENTS);
 
 // Destructive-action red — the same value the fiction Read-Queue page uses; there
 // is no design token for it (see globals.css). Kept identical for consistency.
-const DANGER = "#c0392b";
+const DANGER = "var(--color-danger)";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 function formatWords(words: number | null): string | null {
@@ -302,7 +302,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
               <button
                 onClick={handleRepredict}
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold"
-                style={{ background: "var(--color-sage)", color: "#fff" }}
+                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
               >
                 Yes, re-predict
               </button>
@@ -357,7 +357,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
                 }}
                 disabled={isDeleting}
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-                style={{ background: DANGER, color: "#fff" }}
+                style={{ background: DANGER, color: "var(--color-on-accent)" }}
               >
                 {isDeleting ? "Removing…" : "Yes, remove"}
               </button>
@@ -407,7 +407,7 @@ function RecExpandedPanel({ rec, moodScore, onDelete }: { rec: NonfictionRecomme
                     WA {repredictReport.old_wa?.toFixed(2) ?? "—"} → {repredictReport.new_wa.toFixed(2)}
                   </strong>
                   {repredictReport.d_wa != null && (
-                    <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "#B45309" }}>
+                    <span style={{ color: repredictReport.d_wa >= 0 ? "var(--color-sage)" : "var(--color-warning)" }}>
                       {" "}({repredictReport.d_wa >= 0 ? "+" : ""}{repredictReport.d_wa.toFixed(2)})
                     </span>
                   )}
@@ -720,7 +720,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
           spellCheck={false}
         />
         <div className="flex items-center gap-3">
-          <button onClick={handleTextSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity" style={{ background: "var(--color-sage)", color: "#fff" }}>
+          <button onClick={handleTextSave} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity" style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
             {saving ? "Saving…" : "Save queue"}
           </button>
           <span className="text-xs" style={{ color: "var(--color-faint)" }}>{lines} title{lines !== 1 ? "s" : ""}</span>
@@ -786,7 +786,7 @@ function QueueTab({ initialQueue, recommendations }: { initialQueue: string[]; r
 
       {/* Save bar */}
       <div className="flex items-center gap-3 pt-1">
-        <button onClick={() => handleSave()} disabled={saving || !isDirty} className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity" style={{ background: "var(--color-sage)", color: "#fff" }}>
+        <button onClick={() => handleSave()} disabled={saving || !isDirty} className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-opacity" style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
           {saving ? "Saving…" : "Save queue"}
         </button>
         <span className="text-xs" style={{ color: "var(--color-faint)" }}>

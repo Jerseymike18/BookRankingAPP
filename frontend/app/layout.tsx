@@ -48,7 +48,12 @@ export const metadata: Metadata = {
 // deprecated on `metadata`). #FFFFFF is --color-surface — the sticky Nav's
 // background — so the browser/OS chrome blends into the header.
 export const viewport: Viewport = {
-  themeColor: "#FFFFFF",
+  // Matches the surface behind the status bar in each scheme (--color-surface
+  // light / dark), so the OS chrome blends into the app in both.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+    { media: "(prefers-color-scheme: dark)", color: "#1C1916" },
+  ],
   // Edge-to-edge on notched phones: the page draws under the status bar / home
   // indicator area and the shell pads itself with env(safe-area-inset-*) (top
   // bar, tab bar, main column) — the installed app no longer sits in a box.

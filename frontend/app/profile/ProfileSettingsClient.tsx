@@ -107,7 +107,7 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{
               background: saving || !handle.trim() ? "var(--color-surface-2)" : "var(--color-sage)",
-              color: saving || !handle.trim() ? "var(--color-muted)" : "#fff",
+              color: saving || !handle.trim() ? "var(--color-muted)" : "var(--color-on-accent)",
             }}
           >
             {saving ? "Saving…" : "Save"}
@@ -124,7 +124,7 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
         </div>
 
         {error && (
-          <p className="text-sm" style={{ color: "#B45309" }}>
+          <p className="text-sm" style={{ color: "var(--color-warning)" }}>
             {error}
           </p>
         )}

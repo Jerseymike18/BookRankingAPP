@@ -203,7 +203,7 @@ function ScoreBreakdown({
           </button>
         )}
         {error && (
-          <span className="text-xs" style={{ color: "#B91C1C" }}>{error}</span>
+          <span className="text-xs" style={{ color: "var(--color-danger)" }}>{error}</span>
         )}
       </div>
     </div>

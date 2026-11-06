@@ -80,7 +80,7 @@ export function SageButton({
       className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
       style={
         variant === "primary"
-          ? { background: "var(--color-sage)", color: "#fff" }
+          ? { background: "var(--color-sage)", color: "var(--color-on-accent)" }
           : {
               background: "var(--color-surface)",
               color: "var(--color-muted)",
@@ -105,7 +105,7 @@ export function ErrorBox({
   return (
     <div
       className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
-      style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
+      style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}
     >
       <span className="flex-1">{message}</span>
       {onDismiss && (

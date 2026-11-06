@@ -146,7 +146,7 @@ function SaveButton({
       onClick={onClick}
       disabled={disabled || busy}
       className="px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-40 transition-colors"
-      style={{ background: "var(--color-sage)", color: "#fff" }}
+      style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
     >
       {busy ? "Saving…" : label}
     </button>
@@ -431,7 +431,7 @@ export default function WeightsClient({
       {error && (
         <div
           className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FCA5A5" }}
+          style={{ background: "var(--color-danger-bg)", color: "var(--color-danger)", border: "1px solid var(--color-danger-border)" }}
         >
           {error}
         </div>

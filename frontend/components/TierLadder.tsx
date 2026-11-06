@@ -74,7 +74,7 @@ function TierTip({ hover }: { hover: HoverState }) {
         zIndex: 50,
         maxWidth: 260,
         background: "var(--color-ink)",
-        color: "#fff",
+        color: "var(--color-surface)",
         padding: "8px 10px",
         borderRadius: 6,
         fontSize: 11.5,
@@ -93,14 +93,14 @@ function TierTip({ hover }: { hover: HoverState }) {
         {item.label}
       </div>
       {item.author && (
-        <div style={{ color: "rgba(255,255,255,0.72)", marginBottom: 3 }}>
+        <div style={{ color: "color-mix(in srgb, var(--color-surface) 72%, transparent)", marginBottom: 3 }}>
           by {item.author}
         </div>
       )}
       {scoreLine && <div style={{ fontVariantNumeric: "tabular-nums" }}>{scoreLine}</div>}
-      {genreSeries && <div style={{ color: "rgba(255,255,255,0.7)" }}>{genreSeries}</div>}
+      {genreSeries && <div style={{ color: "color-mix(in srgb, var(--color-surface) 72%, transparent)" }}>{genreSeries}</div>}
       {wordsYear && (
-        <div style={{ color: "rgba(255,255,255,0.7)", fontVariantNumeric: "tabular-nums" }}>
+        <div style={{ color: "color-mix(in srgb, var(--color-surface) 72%, transparent)", fontVariantNumeric: "tabular-nums" }}>
           {wordsYear}
         </div>
       )}
@@ -119,7 +119,7 @@ function TierRow({
   onHover: (item: TierItem, e: React.MouseEvent<HTMLDivElement>) => void;
   onLeave: () => void;
 }) {
-  const color = TIER_COLORS[tier] ?? "#8a7d6b";
+  const color = TIER_COLORS[tier] ?? "var(--color-faint)";
 
   return (
     <div
@@ -146,7 +146,7 @@ function TierRow({
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: "1.25rem",
-            color: "#fff",
+            color: "var(--color-on-accent)",
             textShadow: "0 1px 2px rgba(0,0,0,0.25)",
           }}
         >
