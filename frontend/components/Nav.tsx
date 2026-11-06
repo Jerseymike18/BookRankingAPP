@@ -555,7 +555,7 @@ export function AddBookFab() {
         right: "max(1rem, env(safe-area-inset-right))",
         bottom: "calc(4.5rem + env(safe-area-inset-bottom))",
         background: "var(--color-sage)",
-        color: "#fff",
+        color: "var(--color-surface)",
         boxShadow: "0 4px 14px rgba(28, 131, 85, 0.35), 0 1px 3px rgba(26, 23, 20, 0.12)",
       }}
     >
