@@ -860,18 +860,18 @@ function BookMobileList<T>({
                   type="button"
                   onClick={() => setExpandedKey(isExpanded ? null : key)}
                   aria-expanded={isExpanded}
-                  className="app-row w-full flex items-center gap-3 pl-2 pr-3 py-3 text-left"
+                  className="app-row w-full flex items-center gap-2 sm:gap-3 pl-2 pr-3 py-3 text-left"
                 >
                   <span
-                    className="w-6 shrink-0 text-right font-display italic text-sm"
+                    className="w-5 shrink-0 text-right font-display italic text-sm"
                     style={{ color: "var(--color-faint)" }}
                   >
                     {i + 1}
                   </span>
-                  <span className="wa-badge">{primaryScore(book).toFixed(1)}</span>
+                  <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{primaryScore(book).toFixed(1)}</span>
                   <span className="min-w-0 flex-1">
                     <span
-                      className="block font-display font-semibold text-sm leading-tight truncate"
+                      className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words"
                       style={{ color: "var(--color-ink)" }}
                     >
                       {book.title}
@@ -895,7 +895,7 @@ function BookMobileList<T>({
                   )}
                   <svg
                     width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-                    className="shrink-0"
+                    className="shrink-0 hidden sm:block"
                     style={{
                       color: "var(--color-faint)",
                       transform: isExpanded ? "rotate(90deg)" : "none",

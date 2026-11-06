@@ -83,14 +83,14 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                 type="button"
                 onClick={() => onToggle(rec.title)}
                 aria-expanded={open}
-                className="app-row w-full flex items-center gap-3 px-3 py-3 text-left"
+                className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-3 text-left"
               >
-                <span className="w-6 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
+                <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                   {i + 1}
                 </span>
-                <span className="wa-badge">{rec.wa != null ? rec.wa.toFixed(1) : "—"}</span>
+                <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{rec.wa != null ? rec.wa.toFixed(1) : "—"}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-display font-semibold text-sm leading-tight truncate" style={{ color: "var(--color-ink)" }}>
+                  <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
                     {rec.title}
                   </span>
                   <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
@@ -112,7 +112,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                   </span>
                 )}
                 <svg
-                  width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0"
+                  width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0 hidden sm:block"
                   style={{ color: "var(--color-faint)", transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms" }}
                 >
                   <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

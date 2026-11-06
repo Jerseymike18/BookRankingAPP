@@ -206,7 +206,7 @@ function MobileRow<T extends object>({ row, rank, columns, sortState }: {
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate" style={{ color: "var(--color-ink)" }}>
+        <div className="text-sm font-medium leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
           {title ? show(title) : null}
         </div>
         {subs.length > 0 && (

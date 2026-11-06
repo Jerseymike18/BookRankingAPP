@@ -176,7 +176,7 @@ function TopBooks({ rows }: { rows: CombinedRankRow[] }) {
           <span className="w-4 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>{i + 1}</span>
           <span className="wa-badge">{r.wa != null ? r.wa.toFixed(1) : "—"}</span>
           <span className="min-w-0 flex-1">
-            <span className="block font-display font-semibold text-sm leading-tight truncate" style={{ color: "var(--color-ink)" }}>
+            <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
               {r.title}
             </span>
             <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>

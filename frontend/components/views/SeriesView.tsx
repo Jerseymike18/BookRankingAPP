@@ -296,13 +296,13 @@ function RankingsTab({
                   type="button"
                   onClick={scored ? () => setOpen(expanded ? null : s.series) : undefined}
                   aria-expanded={scored ? expanded : undefined}
-                  className="app-row w-full flex items-center gap-3 px-3 py-3 text-left"
+                  className="app-row w-full flex items-center gap-2 sm:gap-3 px-3 py-3 text-left"
                 >
-                  <span className="w-6 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
+                  <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                     {i + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-display font-semibold text-sm leading-tight truncate" style={{ color: "var(--color-ink)" }}>
+                    <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
                       {s.series}
                     </span>
                     <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
