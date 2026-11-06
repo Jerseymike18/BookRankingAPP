@@ -19,6 +19,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { READONLY } from "@/lib/readonly";
 import { PredictJobPill } from "@/components/PredictJobStatus";
 import { clearPredictJobs } from "@/lib/predict-jobs";
 import { clearAllDrafts } from "@/lib/draft-storage";
@@ -529,5 +530,38 @@ export function TabBar() {
         </div>
       </nav>
     </>
+  );
+}
+
+/* ───────────────────────────── add-a-book button ───────────────────────────── */
+
+/** Routes where a floating "+" would be redundant or in the way: the add flow
+ *  itself, the import flow, and the onboarding wizard. */
+const NO_FAB_PREFIXES = ["/add-book", "/import", "/welcome"];
+
+/** Phone-only floating action button for the most common write: Add a Book.
+ *  Sits above the tab bar, clear of the home indicator. Dropped on the
+ *  read-only build (where /add-book doesn't exist). */
+export function AddBookFab() {
+  const path = usePathname();
+  if (READONLY || isChromeless(path)) return null;
+  if (NO_FAB_PREFIXES.some((p) => path === p || path.startsWith(p + "/"))) return null;
+  return (
+    <Link
+      href="/add-book"
+      aria-label="Add a book"
+      className="app-chrome md:hidden fixed z-50 flex items-center justify-center w-14 h-14 rounded-full no-underline transition-transform active:scale-95"
+      style={{
+        right: "max(1rem, env(safe-area-inset-right))",
+        bottom: "calc(4.5rem + env(safe-area-inset-bottom))",
+        background: "var(--color-sage)",
+        color: "#fff",
+        boxShadow: "0 4px 14px rgba(28, 131, 85, 0.35), 0 1px 3px rgba(26, 23, 20, 0.12)",
+      }}
+    >
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+      </svg>
+    </Link>
   );
 }

@@ -196,6 +196,40 @@ export function SkeletonCardList({ cards = 5 }: { cards?: number }) {
   );
 }
 
+/** Placeholder for the list-row format (Rankings, Series, Read Queue): a sort
+ *  picker, then one card of rows — rank, WA badge, title + author, value. */
+export function SkeletonList({ rows = 8, badge = true }: { rows?: number; badge?: boolean }) {
+  return (
+    <div aria-hidden>
+      <div className="flex items-center gap-2 mb-3">
+        <Skeleton h="0.75rem" w="3.5rem" />
+        <Skeleton h="2rem" w="7rem" radius="0.5rem" />
+        <Skeleton h="2rem" w="2.25rem" radius="0.5rem" />
+      </div>
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+      >
+        {Array.from({ length: rows }, (_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 sm:gap-3 px-3 py-3"
+            style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
+          >
+            <Skeleton w="1.25rem" h="0.75rem" />
+            {badge && <Skeleton w="2.25rem" h="2.25rem" radius="9999px" />}
+            <div className="flex-1 min-w-0 space-y-2">
+              <Skeleton h="0.85rem" w={`${78 - (i % 4) * 12}%`} />
+              <Skeleton h="0.65rem" w="40%" />
+            </div>
+            <Skeleton w="2.25rem" h="0.85rem" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Placeholder for a row of `StatCard`s. */
 export function SkeletonStatCards({
   count = 4,

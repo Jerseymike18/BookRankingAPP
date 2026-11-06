@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar, MobileTopBar, TabBar } from "@/components/Nav";
+import { Sidebar, MobileTopBar, TabBar, AddBookFab } from "@/components/Nav";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import { PredictJobsProvider } from "@/lib/predict-jobs";
 import { PredictJobBanner } from "@/components/PredictJobStatus";
@@ -81,12 +81,13 @@ export default function RootLayout({
             <Sidebar />
             <div className="flex-1 min-w-0 flex flex-col">
               <MobileTopBar />
-              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
+              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
                 {children}
               </main>
             </div>
           </div>
           <TabBar />
+          <AddBookFab />
           <PredictJobBanner />
         </PredictJobsProvider>
       </body>
