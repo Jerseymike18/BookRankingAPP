@@ -102,7 +102,9 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                     </span>
                   )}
                 </span>
-                <span className="genre-chip hidden sm:inline-block shrink-0">{rec.genre}</span>
+                {/* The wrapper does the hiding: .genre-chip is unlayered CSS and its own
+                    display would beat a `hidden` utility on the same element. */}
+                <span className="hidden sm:inline-flex shrink-0"><span className="genre-chip">{rec.genre}</span></span>
                 {showSortVal && (
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums" style={{ color: v == null || v === 0 ? "var(--color-faint)" : "var(--color-sage)" }}>

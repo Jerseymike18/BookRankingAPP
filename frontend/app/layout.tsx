@@ -74,11 +74,14 @@ export default function RootLayout({
               top bar + fixed bottom tab bar (see components/Nav.tsx). The main
               column carries bottom padding on phones so content clears the
               tab bar and the home indicator. */}
+          {/* overflow-x-clip on <main> (clip, not hidden, so sticky still works):
+              one over-wide row must never widen the page — on iOS a wider page
+              shifts the layout viewport and drags the fixed tab bar with it. */}
           <div className="flex-1 md:flex">
             <Sidebar />
             <div className="flex-1 min-w-0 flex flex-col">
               <MobileTopBar />
-              <main className="flex-1 max-w-5xl mx-auto w-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
+              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
                 {children}
               </main>
             </div>

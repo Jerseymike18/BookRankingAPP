@@ -882,7 +882,9 @@ function BookMobileList<T>({
                       {book.series ? ` · ${seriesLabel(book.series, book.series_number)}` : ` · ${book.genre}`}
                     </span>
                   </span>
-                  <span className="genre-chip hidden sm:inline-block shrink-0">{book.genre}</span>
+                  {/* The wrapper does the hiding: .genre-chip is unlayered CSS and its own
+                    display would beat a `hidden` utility on the same element. */}
+                <span className="hidden sm:inline-flex shrink-0"><span className="genre-chip">{book.genre}</span></span>
                   {showSortVal && (
                     <span className="shrink-0 text-right">
                       <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>

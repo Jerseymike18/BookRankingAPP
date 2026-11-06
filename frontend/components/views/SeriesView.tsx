@@ -310,7 +310,9 @@ function RankingsTab({
                       {scored && row.complete === true ? " · finished" : ""}
                     </span>
                   </span>
-                  <span className="genre-chip hidden sm:inline-block shrink-0">{s.genre}</span>
+                  {/* The wrapper does the hiding: .genre-chip is unlayered CSS and its own
+                    display would beat a `hidden` utility on the same element. */}
+                <span className="hidden sm:inline-flex shrink-0"><span className="genre-chip">{s.genre}</span></span>
                   <span className="shrink-0 text-right">
                     <span className="block text-sm font-semibold tabular-nums" style={{ color: "var(--color-sage)" }}>
                       {s.adjusted_wa?.toFixed(2) ?? "—"}

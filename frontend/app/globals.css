@@ -163,7 +163,10 @@ html { background-color: var(--color-ground); }
 .app-row { transition: background-color 120ms ease; }
 .app-row:hover { background: var(--color-surface-2); }
 
-/* ── Genre chip ─────────────────────────────────────────────────────────── */
+/* ── Genre chip ─────────────────────────────────────────────────────────────
+   Unlayered (like every primitive here), so its display beats Tailwind's
+   layered utilities: to hide it responsively, wrap it — don't put `hidden`
+   on the chip itself. */
 .genre-chip {
   display: inline-block;
   padding: 0.15rem 0.55rem;
