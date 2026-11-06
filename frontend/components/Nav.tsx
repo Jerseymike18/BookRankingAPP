@@ -17,7 +17,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PredictJobPill } from "@/components/PredictJobStatus";
 import { clearPredictJobs } from "@/lib/predict-jobs";
@@ -231,6 +231,54 @@ export function Sidebar() {
 
 /* ───────────────────────────── phone top bar ───────────────────────────── */
 
+/** The active group's sibling pages as a native-style segmented tab strip:
+ *  full-width, equal tabs with an underline on the active one. Groups with
+ *  more pages than fit (For Nerds) scroll sideways, keeping the active tab in
+ *  view. */
+function SectionTabs({ group, activeHref }: { group: NavGroup; activeHref: string | null }) {
+  const activeRef = useRef<HTMLAnchorElement>(null);
+  const scrolls = group.items.length > 4;
+
+  useEffect(() => {
+    if (scrolls) activeRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [scrolls, activeHref]);
+
+  return (
+    <nav
+      aria-label={`${group.label} pages`}
+      className={`flex border-b ${scrolls ? "overflow-x-auto" : ""}`}
+      style={{ borderColor: "var(--color-rule)", scrollbarWidth: "none" }}
+    >
+      {group.items.map((item) => {
+        const active = item.href === activeHref;
+        return (
+          <Link
+            key={item.href}
+            ref={active ? activeRef : undefined}
+            href={item.href}
+            aria-current={active ? "page" : undefined}
+            className={`relative flex items-center justify-center h-11 text-sm font-medium whitespace-nowrap no-underline transition-colors ${
+              scrolls ? "flex-none px-4" : "flex-1 min-w-0 px-1"
+            }`}
+            style={{ color: active ? "var(--color-sage)" : "var(--color-muted)" }}
+          >
+            {item.short ?? item.label}
+            <span
+              aria-hidden="true"
+              className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full transition-opacity"
+              style={{ background: "var(--color-sage)", opacity: active ? 1 : 0 }}
+            />
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Phone top bar. No title of its own — every page already opens with its own
+ *  large heading, so repeating the section name here doubled it. What remains:
+ *  Back on detail routes, the section's page tabs, and the background-run pill
+ *  (only while something is running). */
 export function MobileTopBar() {
   const path = usePathname();
   const router = useRouter();
@@ -239,19 +287,15 @@ export function MobileTopBar() {
   const group = activeGroup(NAV_GROUPS, path);
   const detail = isDetailRoute(NAV_GROUPS, path);
   const activeHref = group ? activeItemHref(group.items, path) : null;
-  const showStrip = !!group && group.items.length > 1 && !detail;
+  const showTabs = !!group && group.items.length > 1 && !detail;
 
   return (
     <header
-      className="md:hidden sticky top-0 z-50 border-b"
-      style={{
-        background: "var(--color-surface)",
-        borderColor: "var(--color-rule)",
-        paddingTop: "env(safe-area-inset-top)",
-      }}
+      className="md:hidden sticky top-0 z-50"
+      style={{ background: "var(--color-surface)", paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="h-12 px-4 flex items-center gap-2">
-        {detail ? (
+      {detail && (
+        <div className="h-11 px-4 flex items-center border-b" style={{ borderColor: "var(--color-rule)" }}>
           <button
             onClick={() => router.back()}
             aria-label="Back"
@@ -263,46 +307,13 @@ export function MobileTopBar() {
             </svg>
             {group?.label ?? "Back"}
           </button>
-        ) : group ? (
-          <span className="font-display text-lg font-semibold leading-none" style={{ color: "var(--color-ink)" }}>
-            {group.label}
-          </span>
-        ) : (
-          <Wordmark />
-        )}
-        <div className="ml-auto min-w-0 flex items-center">
-          <PredictJobPill />
         </div>
-      </div>
-
-      {showStrip && (
-        <nav
-          aria-label={`${group.label} pages`}
-          className="px-4 pb-2 flex gap-1 overflow-x-auto"
-          style={{ scrollbarWidth: "none" }}
-        >
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--color-surface-2)" }}>
-            {group.items.map((item) => {
-              const active = item.href === activeHref;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className="px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap no-underline transition-colors"
-                  style={{
-                    background: active ? "var(--color-surface)" : "transparent",
-                    color: active ? "var(--color-sage)" : "var(--color-muted)",
-                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                  }}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
       )}
+      {showTabs && <SectionTabs group={group} activeHref={activeHref} />}
+      {/* Collapses to nothing when no run is in flight (the pill renders null). */}
+      <div className="px-4 py-1.5 flex justify-end empty:hidden">
+        <PredictJobPill />
+      </div>
     </header>
   );
 }

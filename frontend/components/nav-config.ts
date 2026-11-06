@@ -11,7 +11,8 @@
  */
 import { READONLY } from "@/lib/readonly";
 
-export type NavItem = { href: string; label: string };
+/** `short` is the label in the phone section-tab strip, where width is tight. */
+export type NavItem = { href: string; label: string; short?: string };
 
 /** A nav group. `tab` = it gets its own slot in the phone tab bar; groups
  *  without it live behind the "More" tab. `icon` keys into the shell's icon set. */
@@ -32,12 +33,12 @@ const STATS_ITEMS: NavItem[] = [{ href: "/stats", label: "Stats" }];
 // (write-only) Add a Book / Import. Add + Import are dropped on the read-only
 // build (each page also self-guards).
 const READING_ITEMS: NavItem[] = [
-  { href: "/read-queue", label: "Read Queue" },
-  { href: "/reading", label: "Currently Reading" },
+  { href: "/read-queue", label: "Read Queue", short: "Queue" },
+  { href: "/reading", label: "Currently Reading", short: "Current" },
   ...(READONLY
     ? []
     : [
-        { href: "/add-book", label: "Add a Book" },
+        { href: "/add-book", label: "Add a Book", short: "Add" },
         { href: "/import", label: "Import" },
       ]),
 ];
@@ -45,8 +46,8 @@ const READING_ITEMS: NavItem[] = [
 // Predict — book prediction (the daily errand) and genre prediction (the
 // occasional one). Nested hrefs: see activeItemHref.
 const PREDICT_ITEMS: NavItem[] = [
-  { href: "/predict", label: "Book Prediction" },
-  { href: "/predict/genres", label: "Genre Prediction" },
+  { href: "/predict", label: "Book Prediction", short: "Books" },
+  { href: "/predict/genres", label: "Genre Prediction", short: "Genres" },
 ];
 
 // Explore — read-only-safe analytical views, each with its own in-page
@@ -60,7 +61,7 @@ const EXPLORE_ITEMS: NavItem[] = [
 // Community — public profiles; needs the live backend + auth.
 const COMMUNITY_ITEMS: NavItem[] = [
   { href: "/directory", label: "Directory" },
-  { href: "/profile", label: "My Profile" },
+  { href: "/profile", label: "My Profile", short: "Profile" },
 ];
 
 // For Nerds — how-it-works + diagnostics. Genre Weights + Tutorial are per-user
@@ -69,13 +70,13 @@ const COMMUNITY_ITEMS: NavItem[] = [
 const NERD_ITEMS: NavItem[] = [
   { href: "/methodology", label: "Methodology" },
   { href: "/track-record", label: "Track Record" },
-  { href: "/series-breakdown", label: "Series Breakdown" },
+  { href: "/series-breakdown", label: "Series Breakdown", short: "Series Math" },
   { href: "/calibration", label: "Calibration" },
   { href: "/analytics", label: "Taste Lab" },
   ...(READONLY
     ? []
     : [
-        { href: "/weights", label: "Genre Weights" },
+        { href: "/weights", label: "Genre Weights", short: "Weights" },
         { href: "/welcome", label: "Tutorial" },
       ]),
 ];
