@@ -3,13 +3,13 @@
 import { useState, useCallback } from "react";
 
 const TIER_COLORS: Record<string, string> = {
-  "S+": "#0B6E4F",
-  "S":  "#1C8355",
-  "A":  "#5DBB63",
-  "B":  "#F2B134",
-  "C":  "#EE7B4A",
-  "D":  "#5B8DEF",
-  "F":  "#B9AFA6",
+  "S+": "var(--color-spine-sp)",
+  "S":  "var(--color-sage)",
+  "A":  "var(--color-spine-a)",
+  "B":  "var(--color-spine-b)",
+  "C":  "var(--color-spine-c)",
+  "D":  "var(--color-spine-d)",
+  "F":  "var(--color-spine-f)",
 };
 
 export interface TierItem {

@@ -309,7 +309,7 @@ function MetadataForm({
           style={inputStyle}
         />
         {renameWarning && (
-          <p className="text-xs mt-1" style={{ color: "var(--color-clay, #EE7B4A)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--color-spine-c)" }}>
             Renames the book everywhere (queue, TBR &amp; delta log follow).
           </p>
         )}

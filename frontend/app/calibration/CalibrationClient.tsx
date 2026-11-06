@@ -46,13 +46,13 @@ function verdictColor(verdict: string): string {
 
 function comparisonVerdictColor(verdict: string): string {
   if (verdict.includes("helps")) return "var(--color-sage)";
-  if (verdict.includes("HURTS")) return "#ee7b4a";
+  if (verdict.includes("HURTS")) return "var(--color-spine-c)";
   return "var(--color-muted)";
 }
 
 function deltaColor(delta: number): string {
   if (delta > 0.05) return "var(--color-sage)";
-  if (delta < -0.05) return "#ee7b4a";
+  if (delta < -0.05) return "var(--color-spine-c)";
   return "var(--color-muted)";
 }
 
@@ -254,7 +254,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
       )}
 
       {error && (
-        <p className="mt-3 text-sm" style={{ color: "#ee7b4a" }}>
+        <p className="mt-3 text-sm" style={{ color: "var(--color-spine-c)" }}>
           {error}
         </p>
       )}
@@ -530,7 +530,7 @@ export default function CalibrationClient({ health }: { health: CalibrationHealt
               className="rounded-md border px-4 py-3 text-sm"
               style={{ borderColor: "var(--color-rule)", background: "var(--color-surface)" }}
             >
-              <div className="font-medium mb-1" style={{ color: "#ee7b4a" }}>
+              <div className="font-medium mb-1" style={{ color: "var(--color-spine-c)" }}>
                 Trust the reader&apos;s own analogs — don&apos;t web-ground these
               </div>
               <p style={{ color: "var(--color-muted)" }}>

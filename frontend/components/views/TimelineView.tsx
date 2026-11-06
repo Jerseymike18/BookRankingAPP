@@ -95,12 +95,12 @@ function BarChart({
 /* ── Mini line chart (SVG) ────────────────────────────────────────────────── */
 
 const CAT_COLORS: Record<string, string> = {
-  Story:        "#1C8355",
-  Character:    "#F2B134",
-  Aesthetics:   "#EE7B4A",
-  Theme:        "#5B8DEF",
-  Worldbuilding:"#5DBB63",
-  Quality:      "#1C8355",  // nonfiction
+  Story:        "var(--color-sage)",
+  Character:    "var(--color-spine-b)",
+  Aesthetics:   "var(--color-spine-c)",
+  Theme:        "var(--color-spine-d)",
+  Worldbuilding:"var(--color-spine-a)",
+  Quality:      "var(--color-sage)",  // nonfiction
 };
 
 type LinePoint = { label: string; [key: string]: number | string | null };
