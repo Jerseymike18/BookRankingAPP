@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Inter } from "next/font/google";
 import "./globals.css";
-import Nav from "@/components/Nav";
+import { Sidebar, MobileTopBar, TabBar } from "@/components/Nav";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import { PredictJobsProvider } from "@/lib/predict-jobs";
 import { PredictJobBanner } from "@/components/PredictJobStatus";
@@ -66,13 +66,20 @@ export default function RootLayout({
             pill, and the banner announces the finish from whatever page the
             reader has wandered to. Inert (and free) until a run is started. */}
         <PredictJobsProvider>
-          <Nav />
-          <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
-            {children}
-          </main>
-          <footer className="text-center py-6 text-xs" style={{ color: "var(--color-faint)" }}>
-            The Reading Ledger — {new Date().getFullYear()}
-          </footer>
+          {/* App shell: a persistent sidebar on desktop; on phones a compact
+              top bar + fixed bottom tab bar (see components/Nav.tsx). The main
+              column carries bottom padding on phones so content clears the
+              tab bar and the home indicator. */}
+          <div className="flex-1 md:flex">
+            <Sidebar />
+            <div className="flex-1 min-w-0 flex flex-col">
+              <MobileTopBar />
+              <main className="flex-1 max-w-5xl mx-auto w-full px-4 pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
+                {children}
+              </main>
+            </div>
+          </div>
+          <TabBar />
           <PredictJobBanner />
         </PredictJobsProvider>
       </body>

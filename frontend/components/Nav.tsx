@@ -1,17 +1,43 @@
 "use client";
 
+/**
+ * APP SHELL CHROME — the navigation that makes the Ledger read as an app rather
+ * than a website. Three pieces, all fed by `nav-config.ts`:
+ *
+ *   <Sidebar />      desktop (md+): persistent left rail, every group expanded.
+ *   <MobileTopBar /> phone (<md): compact title bar (+ Back on detail routes) and
+ *                    a sub-tab strip for the active group's sibling pages.
+ *   <TabBar />       phone (<md): fixed bottom tab bar, one tab per primary group
+ *                    plus "More", which opens a bottom sheet with the rest.
+ *
+ * No new visual language: surfaces, rules, sage active states and the
+ * surface-2 pill track are the existing Fable tokens / SubTabs pattern.
+ * Every piece renders nothing on chromeless routes (/login).
+ */
+
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
-import { READONLY } from "@/lib/readonly";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PredictJobPill } from "@/components/PredictJobStatus";
 import { clearPredictJobs } from "@/lib/predict-jobs";
 import { clearAllDrafts } from "@/lib/draft-storage";
+import {
+  NAV_GROUPS,
+  activeGroup,
+  activeItemHref,
+  isChromeless,
+  isDetailRoute,
+  type IconName,
+  type NavGroup,
+} from "@/components/nav-config";
+
+// Re-exported so existing imports (tests/nav-active.test.ts) keep working.
+export { activeItemHref } from "@/components/nav-config";
 
 /** The Sign-out affordance renders only when Supabase is configured — i.e. the
  * hosted multi-tenant build. Local dev + the static public build leave the env
- * unset, so the nav looks and behaves exactly as before. */
+ * unset. */
 const AUTH_CONFIGURED =
   !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
   !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -31,411 +57,377 @@ async function signOut() {
   window.location.assign("/login");
 }
 
-type NavItem = { href: string; label: string };
-type NavGroup =
-  | { label: string; items: NavItem[] }            // dropdown section
-  | { label: string; href: string };               // top-level direct link
+const TAB_GROUPS = NAV_GROUPS.filter((g) => g.tab);
+const MORE_GROUPS = NAV_GROUPS.filter((g) => !g.tab);
 
-// Explore — read-only-safe analytical views. Each of Tier List / Series /
-// Timeline carries its own in-page Fiction / Nonfiction toggle. Stats — now the
-// merged Rankings + Stats page — is a top-level link below, not in this menu.
-const EXPLORE_ITEMS: NavItem[] = [
-  { href: "/tier-list", label: "Tier List" },
-  { href: "/series", label: "Series" },
-  { href: "/timeline", label: "Timeline" },
-];
+/* ───────────────────────────── icons ───────────────────────────── */
 
-// Reading — the currently-reading view, the single de-duplicated Read Queue, and
-// (write-only) Add a Book. Currently Reading + Read Queue render view-only, so
-// they stay on the read-only build; Add a Book is dropped there (self-guards too).
-const READING_ITEMS: NavItem[] = [
-  { href: "/reading", label: "Currently Reading" },
-  { href: "/read-queue", label: "Read Queue" },
-  ...(READONLY
-    ? []
-    : [
-        { href: "/add-book", label: "Add a Book" },
-        { href: "/import", label: "Import from Goodreads" },
-      ]),
-];
+const ICON_PATHS: Record<IconName, string> = {
+  stats: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  reading: "M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5",
+  predict: "M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z",
+  explore: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16.2 7.8l-2.1 6.3-6.3 2.1 2.1-6.3z",
+  community: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8",
+  nerds: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v4M12 16h.01",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+};
 
-// "Predict" — the two halves of the prediction machinery. Book prediction asks
-// "how much will I like THIS book"; genre prediction asks which KINDS of book
-// are worth pointing that at, from the reader's own ratings. Separate pages
-// because they are separate errands: the book pass is the daily one, the genre
-// pass occasional.
-const PREDICT_ITEMS: NavItem[] = [
-  { href: "/predict", label: "Book Prediction" },
-  { href: "/predict/genres", label: "Genre Prediction" },
-];
-
-// "For Nerds" — how-it-works + deep diagnostics. Methodology / Track Record /
-// Calibration / Taste Lab all render read-only, so they stay on the public
-// showcase; the per-user / first-run features (Genre Weights, Tutorial) are
-// dropped there (each page self-guards with ComingSoon). Tutorial keeps a home
-// here now that it no longer has its own permanent nav slot. Delta Log is
-// intentionally gone from the nav entirely (the DeltaTracker layer is retired).
-const NERD_ITEMS: NavItem[] = [
-  { href: "/methodology", label: "Methodology" },
-  { href: "/track-record", label: "Track Record" },
-  { href: "/series-breakdown", label: "Series Breakdown" },
-  { href: "/calibration", label: "Calibration" },
-  { href: "/analytics", label: "Taste Lab" },
-  ...(READONLY
-    ? []
-    : [
-        { href: "/weights", label: "Genre Weights" },
-        { href: "/welcome", label: "Tutorial" },
-      ]),
-];
-
-// Community — public profiles. The Directory + a reader's own profile settings
-// both need the live backend + auth, so they're dropped on the read-only public
-// showcase (like Predict / Add a Book); on local dev + the hosted app they show.
-const COMMUNITY_ITEMS: NavItem[] = [
-  { href: "/directory", label: "Directory" },
-  { href: "/profile", label: "My Profile" },
-];
-
-const sections: NavGroup[] = [
-  // Stats is the primary destination — the merged Rankings + Stats page. It
-  // leads with the summary dashboard; the full Fiction / Nonfiction / All
-  // ranking tables (with the in-page type toggle) follow below. /rankings
-  // redirects here.
-  { label: "Stats", href: "/stats" },
-  { label: "Explore", items: EXPLORE_ITEMS },
-  { label: "Reading", items: READING_ITEMS },
-  // Predict is the primary write/compute action — a top-level link, dropped on
-  // the read-only build (the page also self-guards).
-  ...(READONLY ? [] : [{ label: "Predict", items: PREDICT_ITEMS }]),
-  ...(READONLY ? [] : [{ label: "Community", items: COMMUNITY_ITEMS }]),
-  { label: "For Nerds", items: NERD_ITEMS },
-];
-
-function isDropdown(s: NavGroup): s is { label: string; items: NavItem[] } {
-  return "items" in s;
-}
-
-/** Which item of a section the current path belongs to — LONGEST match wins.
- *
- *  Every other nav group has flat, mutually-exclusive hrefs, so a plain
- *  `startsWith` was fine. Predict is the first group whose items NEST
- *  (`/predict` and `/predict/genres`), and there a prefix test lights up BOTH:
- *  "/predict/genres".startsWith("/predict") is true. Returns the active item's
- *  href, or null when the path is outside this section.
- *
- *  The `href + "/"` boundary also stops "/predictfoo" matching "/predict". */
-export function activeItemHref(items: NavItem[], currentPath: string): string | null {
-  let best: string | null = null;
-  for (const { href } of items) {
-    const hit = currentPath === href || currentPath.startsWith(href + "/");
-    if (hit && (best === null || href.length > best.length)) best = href;
-  }
-  return best;
-}
-
-function NavSection({
-  section,
-  currentPath,
-}: {
-  section: { label: string; items: NavItem[] };
-  currentPath: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const activeHref = activeItemHref(section.items, currentPath);
-  const isActive = activeHref !== null;
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handler(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open]);
-
+function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
-        aria-expanded={open}
-        className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1"
-        style={{
-          color: isActive ? "var(--color-sage)" : "var(--color-muted)",
-          background: isActive ? "var(--color-sage-light)" : "transparent",
-        }}
-      >
-        {section.label}
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden="true"
-          style={{
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 150ms",
-          }}
-        >
-          <path
-            d="M2 4l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <div
-          className="absolute top-full left-0 mt-1 rounded-md border py-1 z-50 min-w-max"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-rule)",
-          }}
-        >
-          {section.items.map(({ href, label }) => {
-            const active = href === activeHref;
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className="block px-4 py-1.5 text-sm font-medium no-underline transition-colors"
-                style={{
-                  color: active ? "var(--color-sage)" : "var(--color-ink)",
-                  background: active ? "var(--color-sage-light)" : "transparent",
-                }}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d={ICON_PATHS[name]}
+        stroke="currentColor"
+        strokeWidth={name === "more" ? 3 : 1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-function NavLink({ href, label, currentPath }: NavItem & { currentPath: string }) {
-  const isActive = currentPath === href || currentPath.startsWith(href + "/");
+/* ───────────────────────────── shared bits ───────────────────────────── */
+
+function Wordmark() {
   return (
-    <Link
-      href={href}
-      className="px-3 py-1.5 rounded-md text-sm font-medium no-underline transition-colors"
-      style={{
-        color: isActive ? "var(--color-sage)" : "var(--color-muted)",
-        background: isActive ? "var(--color-sage-light)" : "transparent",
-      }}
-    >
-      {label}
+    <Link href="/" className="no-underline">
+      <span
+        className="font-display text-xl font-semibold leading-none"
+        style={{ color: "var(--color-ink)" }}
+      >
+        The Reading Ledger
+      </span>
     </Link>
   );
 }
 
-// Single link inside the mobile menu panel. `standalone` items (e.g. Stats)
-// align with the section headers; grouped items are indented under them.
-function MobileNavLink({
+/** A full-width list link — sidebar rows and More-sheet rows. */
+function RowLink({
   href,
   label,
-  currentPath,
+  active,
+  icon,
   onNavigate,
-  standalone,
-  forceActive,
-}: NavItem & {
-  currentPath: string;
-  onNavigate: () => void;
-  standalone?: boolean;
-  /** Resolved by the caller when this link is one of several NESTED siblings
-   *  (see activeItemHref). Without it, /predict would light up on
-   *  /predict/genres alongside the child that actually matched. */
-  forceActive?: boolean;
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  icon?: IconName;
+  onNavigate?: () => void;
 }) {
-  const isActive =
-    forceActive ?? (currentPath === href || currentPath.startsWith(href + "/"));
   return (
     <Link
       href={href}
       onClick={onNavigate}
-      className={`block rounded-md py-3 text-sm font-medium no-underline transition-colors ${
-        standalone ? "px-2" : "px-4"
-      }`}
+      aria-current={active ? "page" : undefined}
+      className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium no-underline transition-colors"
       style={{
-        color: isActive ? "var(--color-sage)" : "var(--color-ink)",
-        background: isActive ? "var(--color-sage-light)" : "transparent",
+        color: active ? "var(--color-sage)" : "var(--color-ink)",
+        background: active ? "var(--color-sage-light)" : "transparent",
       }}
     >
+      {icon && <Icon name={icon} size={18} />}
       {label}
     </Link>
   );
 }
 
-export default function Nav() {
-  const path = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
+function GroupHeader({ group }: { group: NavGroup }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider"
+      style={{ color: "var(--color-faint)" }}
+    >
+      <Icon name={group.icon} size={14} />
+      {group.label}
+    </div>
+  );
+}
 
-  // Close the mobile menu on Escape.
-  useEffect(() => {
-    if (!mobileOpen) return;
-    function handler(e: KeyboardEvent) {
-      if (e.key === "Escape") setMobileOpen(false);
-    }
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [mobileOpen]);
+/** One group as a list: single-item groups are a plain row with the group
+ *  icon; multi-item groups get a small header over their pages. */
+function GroupList({
+  group,
+  path,
+  onNavigate,
+}: {
+  group: NavGroup;
+  path: string;
+  onNavigate?: () => void;
+}) {
+  const activeHref = activeItemHref(group.items, path);
+  if (group.items.length === 1) {
+    const item = group.items[0];
+    return (
+      <RowLink
+        href={item.href}
+        label={group.label}
+        icon={group.icon}
+        active={activeHref === item.href}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+  return (
+    <div>
+      <GroupHeader group={group} />
+      {group.items.map((item) => (
+        <RowLink
+          key={item.href}
+          href={item.href}
+          label={item.label}
+          active={activeHref === item.href}
+          onNavigate={onNavigate}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SignOutButton({ onClick }: { onClick?: () => void }) {
+  if (!AUTH_CONFIGURED) return null;
+  return (
+    <button
+      onClick={() => {
+        onClick?.();
+        signOut();
+      }}
+      className="w-full text-left rounded-md px-3 py-2 text-sm font-medium transition-colors"
+      style={{ color: "var(--color-muted)" }}
+    >
+      Sign out
+    </button>
+  );
+}
+
+/* ───────────────────────────── desktop sidebar ───────────────────────────── */
+
+export function Sidebar() {
+  const path = usePathname();
+  if (isChromeless(path)) return null;
+  return (
+    <aside
+      className="hidden md:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r"
+      style={{ background: "var(--color-surface)", borderColor: "var(--color-rule)" }}
+    >
+      <div className="px-5 h-16 flex items-center shrink-0">
+        <Wordmark />
+      </div>
+      <nav className="flex-1 overflow-y-auto px-2 pb-4" aria-label="Main">
+        {NAV_GROUPS.map((g) => (
+          <GroupList key={g.id} group={g} path={path} />
+        ))}
+      </nav>
+      <div className="shrink-0 border-t px-2 py-3 flex flex-col gap-2" style={{ borderColor: "var(--color-rule)" }}>
+        {/* A background prediction run, visible from every page. */}
+        <div className="px-1 empty:hidden">
+          <PredictJobPill />
+        </div>
+        <SignOutButton />
+      </div>
+    </aside>
+  );
+}
+
+/* ───────────────────────────── phone top bar ───────────────────────────── */
+
+export function MobileTopBar() {
+  const path = usePathname();
+  const router = useRouter();
+  if (isChromeless(path)) return null;
+
+  const group = activeGroup(NAV_GROUPS, path);
+  const detail = isDetailRoute(NAV_GROUPS, path);
+  const activeHref = group ? activeItemHref(group.items, path) : null;
+  const showStrip = !!group && group.items.length > 1 && !detail;
 
   return (
     <header
-      className="sticky top-0 z-50 border-b"
+      className="md:hidden sticky top-0 z-50 border-b"
       style={{
         background: "var(--color-surface)",
         borderColor: "var(--color-rule)",
+        paddingTop: "env(safe-area-inset-top)",
       }}
     >
-      <div className="max-w-5xl mx-auto px-4 flex items-center gap-8 h-14">
-        {/* Wordmark */}
-        <Link
-          href="/"
-          onClick={() => setMobileOpen(false)}
-          className="flex-shrink-0 no-underline"
-        >
-          <span
-            className="font-display text-xl font-semibold leading-none"
-            style={{ color: "var(--color-ink)" }}
-          >
-            The Reading Ledger
-          </span>
-        </Link>
-
-        {/* Desktop nav sections — collapse to a menu on small screens */}
-        <nav className="hidden md:flex items-center gap-1 flex-wrap">
-          {sections.map((section) =>
-            isDropdown(section) ? (
-              <NavSection key={section.label} section={section} currentPath={path} />
-            ) : (
-              <NavLink
-                key={section.label}
-                href={section.href}
-                label={section.label}
-                currentPath={path}
-              />
-            )
-          )}
-        </nav>
-
-        {/* Right-hand cluster. The three items share ONE ml-auto container rather
-            than each carrying their own, because which of them renders varies
-            (the pill only while a run is in flight, Sign out only on the hosted
-            build, the toggle only on mobile) and per-item auto margins break
-            whenever the leading one disappears. */}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* A background prediction run, visible from every page. */}
-          <PredictJobPill />
-
-          {/* Sign out (hosted multi-tenant build only) */}
-          {AUTH_CONFIGURED && (
-            <button
-              onClick={signOut}
-              className="hidden md:inline-flex px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
-              style={{ color: "var(--color-muted)" }}
-            >
-              Sign out
-            </button>
-          )}
-
-          {/* Mobile menu toggle */}
+      <div className="h-12 px-4 flex items-center gap-2">
+        {detail ? (
           <button
-            onClick={() => setMobileOpen((o) => !o)}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-            className="md:hidden -mr-2 flex items-center justify-center rounded-md p-2"
-            style={{ color: "var(--color-ink)" }}
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="-ml-2 flex items-center gap-0.5 rounded-md py-1.5 pl-1 pr-2 text-sm font-medium"
+            style={{ color: "var(--color-sage)" }}
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d={mobileOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"}
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            {group?.label ?? "Back"}
           </button>
+        ) : group ? (
+          <span className="font-display text-lg font-semibold leading-none" style={{ color: "var(--color-ink)" }}>
+            {group.label}
+          </span>
+        ) : (
+          <Wordmark />
+        )}
+        <div className="ml-auto min-w-0 flex items-center">
+          <PredictJobPill />
         </div>
       </div>
 
-      {/* Mobile menu panel */}
-      {mobileOpen && (
+      {showStrip && (
         <nav
-          className="md:hidden border-t max-h-[calc(100vh-3.5rem)] overflow-y-auto"
-          style={{
-            background: "var(--color-surface)",
-            borderColor: "var(--color-rule)",
-          }}
+          aria-label={`${group.label} pages`}
+          className="px-4 pb-2 flex gap-1 overflow-x-auto"
+          style={{ scrollbarWidth: "none" }}
         >
-          <div className="max-w-5xl mx-auto px-4 py-2 flex flex-col">
-            {sections.map((section) =>
-              isDropdown(section) ? (
-                <div key={section.label} className="py-1">
-                  <div
-                    className="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider"
-                    style={{ color: "var(--color-faint)" }}
-                  >
-                    {section.label}
-                  </div>
-                  {section.items.map((item) => (
-                    <MobileNavLink
-                      key={item.href}
-                      href={item.href}
-                      label={item.label}
-                      currentPath={path}
-                      forceActive={item.href === activeItemHref(section.items, path)}
-                      onNavigate={() => setMobileOpen(false)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <MobileNavLink
-                  key={section.label}
-                  href={section.href}
-                  label={section.label}
-                  currentPath={path}
-                  onNavigate={() => setMobileOpen(false)}
-                  standalone
-                />
-              )
-            )}
-            {AUTH_CONFIGURED && (
-              <button
-                onClick={() => {
-                  setMobileOpen(false);
-                  signOut();
-                }}
-                className="mt-1 text-left rounded-md py-3 px-2 text-sm font-medium transition-colors"
-                style={{ color: "var(--color-muted)" }}
-              >
-                Sign out
-              </button>
-            )}
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--color-surface-2)" }}>
+            {group.items.map((item) => {
+              const active = item.href === activeHref;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className="px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap no-underline transition-colors"
+                  style={{
+                    background: active ? "var(--color-surface)" : "transparent",
+                    color: active ? "var(--color-sage)" : "var(--color-muted)",
+                    boxShadow: active ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
         </nav>
       )}
     </header>
+  );
+}
+
+/* ───────────────────────────── phone tab bar ───────────────────────────── */
+
+/** The last page visited in each group, so a tab returns you where you were
+ *  (in-memory only — it resets on reload, which is fine for a nav nicety). */
+const lastInGroup: Record<string, string> = {};
+
+function TabButton({
+  label,
+  icon,
+  active,
+  href,
+  onClick,
+}: {
+  label: string;
+  icon: IconName;
+  active: boolean;
+  href?: string;
+  onClick?: () => void;
+}) {
+  const cls = "flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium no-underline";
+  const style = { color: active ? "var(--color-sage)" : "var(--color-muted)" };
+  const body = (
+    <>
+      <Icon name={icon} size={22} />
+      {label}
+    </>
+  );
+  return href ? (
+    <Link href={href} onClick={onClick} className={cls} style={style} aria-current={active ? "page" : undefined}>
+      {body}
+    </Link>
+  ) : (
+    <button onClick={onClick} className={cls} style={style} aria-expanded={active}>
+      {body}
+    </button>
+  );
+}
+
+export function TabBar() {
+  const path = usePathname();
+  // The sheet is open only on the path it was opened from, so ANY navigation
+  // (a row tap, browser Back) closes it without a state-syncing effect.
+  const [moreOpenAt, setMoreOpenAt] = useState<string | null>(null);
+  const moreOpen = moreOpenAt === path;
+  const setMoreOpen = (open: boolean) => setMoreOpenAt(open ? path : null);
+  const group = activeGroup(NAV_GROUPS, path);
+
+  // Remember where the reader is inside each group.
+  useEffect(() => {
+    if (group) lastInGroup[group.id] = path;
+  }, [group, path]);
+
+  // Close the sheet on Escape; lock page scroll while it is open.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMoreOpenAt(null);
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [moreOpen]);
+
+  if (isChromeless(path)) return null;
+
+  const moreActive = moreOpen || (!!group && !group.tab);
+
+  return (
+    <>
+      {moreOpen && (
+        <div className="md:hidden fixed inset-0 z-[55]" role="dialog" aria-modal="true" aria-label="More">
+          <button
+            aria-label="Close"
+            className="absolute inset-0 w-full h-full cursor-default"
+            style={{ background: "rgba(28,25,23,0.35)" }}
+            onClick={() => setMoreOpen(false)}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t max-h-[80vh] overflow-y-auto px-2 pt-2"
+            style={{
+              background: "var(--color-surface)",
+              borderColor: "var(--color-rule)",
+              paddingBottom: "calc(4.5rem + env(safe-area-inset-bottom))",
+            }}
+          >
+            <div className="mx-auto mb-1 mt-1 h-1 w-10 rounded-full" style={{ background: "var(--color-rule)" }} />
+            {MORE_GROUPS.map((g) => (
+              <GroupList key={g.id} group={g} path={path} onNavigate={() => setMoreOpen(false)} />
+            ))}
+            <div className="mt-3 border-t pt-2" style={{ borderColor: "var(--color-rule)" }}>
+              <SignOutButton onClick={() => setMoreOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <nav
+        aria-label="Main"
+        className="md:hidden fixed inset-x-0 bottom-0 z-[56] border-t"
+        style={{
+          background: "var(--color-surface)",
+          borderColor: "var(--color-rule)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${TAB_GROUPS.length + 1}, minmax(0, 1fr))` }}
+        >
+          {TAB_GROUPS.map((g) => {
+            const active = !moreOpen && group?.id === g.id;
+            // Tapping the tab you're on pops back to the group's root, like a
+            // native tab bar; otherwise it returns to where you left off.
+            const href = active ? g.items[0].href : lastInGroup[g.id] ?? g.items[0].href;
+            return <TabButton key={g.id} label={g.label} icon={g.icon} active={active} href={href} />;
+          })}
+          <TabButton label="More" icon="more" active={moreActive} onClick={() => setMoreOpen(!moreOpen)} />
+        </div>
+      </nav>
+    </>
   );
 }

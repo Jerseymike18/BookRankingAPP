@@ -432,7 +432,7 @@ export function PredictJobBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed z-[60] left-4 right-4 bottom-4 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-sm rounded-xl px-4 py-3 shadow-lg"
+      className="fixed z-[60] left-4 right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] sm:left-auto sm:right-6 sm:max-w-sm md:bottom-6 rounded-xl px-4 py-3 shadow-lg"
       style={{
         background: "var(--color-surface)",
         border: "1px solid var(--color-sage)",
