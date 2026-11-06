@@ -4,7 +4,8 @@
  * APP SHELL CHROME — the navigation that makes the Ledger read as an app rather
  * than a website. Three pieces, all fed by `nav-config.ts`:
  *
- *   <Sidebar />      desktop (md+): persistent left rail, every group expanded.
+ *   <DesktopTopBar /> desktop (md+): slim top bar — wordmark, section tabs, a
+ *                    More menu — with the section's page tabs underneath.
  *   <MobileTopBar /> phone (<md): compact title bar (+ Back on detail routes) and
  *                    a sub-tab strip for the active group's sibling pages.
  *   <TabBar />       phone (<md): fixed bottom tab bar, one tab per primary group
@@ -201,44 +202,24 @@ function SignOutButton({ onClick }: { onClick?: () => void }) {
   );
 }
 
-/* ───────────────────────────── desktop sidebar ───────────────────────────── */
-
-export function Sidebar() {
-  const path = usePathname();
-  if (isChromeless(path)) return null;
-  return (
-    <aside
-      className="app-chrome hidden md:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r"
-      style={{ background: "var(--color-surface)", borderColor: "var(--color-rule)" }}
-    >
-      <div className="px-5 h-16 flex items-center shrink-0">
-        <Wordmark />
-      </div>
-      <nav className="flex-1 overflow-y-auto px-2 pb-4" aria-label="Main">
-        {NAV_GROUPS.map((g) => (
-          <GroupList key={g.id} group={g} path={path} />
-        ))}
-      </nav>
-      <div className="shrink-0 border-t px-2 py-3 flex flex-col gap-2" style={{ borderColor: "var(--color-rule)" }}>
-        {/* A background prediction run, visible from every page. */}
-        <div className="px-1 empty:hidden">
-          <PredictJobPill />
-        </div>
-        <SignOutButton />
-      </div>
-    </aside>
-  );
-}
-
 /* ───────────────────────────── phone top bar ───────────────────────────── */
 
 /** The active group's sibling pages as a native-style segmented tab strip:
  *  full-width, equal tabs with an underline on the active one. Groups with
  *  more pages than fit (For Nerds) scroll sideways, keeping the active tab in
  *  view. */
-function SectionTabs({ group, activeHref }: { group: NavGroup; activeHref: string | null }) {
+function SectionTabs({
+  group,
+  activeHref,
+  desktop = false,
+}: {
+  group: NavGroup;
+  activeHref: string | null;
+  /** Desktop top bar: left-aligned tabs with full labels, no own rule. */
+  desktop?: boolean;
+}) {
   const activeRef = useRef<HTMLAnchorElement>(null);
-  const scrolls = group.items.length > 4;
+  const scrolls = !desktop && group.items.length > 4;
 
   useEffect(() => {
     if (scrolls) activeRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
@@ -247,7 +228,7 @@ function SectionTabs({ group, activeHref }: { group: NavGroup; activeHref: strin
   return (
     <nav
       aria-label={`${group.label} pages`}
-      className={`flex border-b ${scrolls ? "overflow-x-auto" : ""}`}
+      className={desktop ? "flex gap-1" : `flex border-b ${scrolls ? "overflow-x-auto" : ""}`}
       style={{ borderColor: "var(--color-rule)", scrollbarWidth: "none" }}
     >
       {group.items.map((item) => {
@@ -259,11 +240,11 @@ function SectionTabs({ group, activeHref }: { group: NavGroup; activeHref: strin
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={`relative flex items-center justify-center h-11 text-sm font-medium whitespace-nowrap no-underline transition-colors ${
-              scrolls ? "flex-none px-4" : "flex-1 min-w-0 px-1"
+              desktop || scrolls ? "flex-none px-4" : "flex-1 min-w-0 px-1"
             }`}
             style={{ color: active ? "var(--color-sage)" : "var(--color-muted)" }}
           >
-            {item.short ?? item.label}
+            {desktop ? item.label : item.short ?? item.label}
             <span
               aria-hidden="true"
               className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full transition-opacity"
@@ -379,6 +360,23 @@ function TabButton({
 const scrollByPath: Record<string, number> = {};
 let pendingRestore: { path: string; y: number } | null = null;
 let restoring = false;
+
+/** Where a primary tab points and what tapping it does — shared by the phone
+ *  tab bar and the desktop top bar. Tapping the tab you're on scrolls to the
+ *  top (or pops to the section root); switching tabs returns to the last page
+ *  and scroll position you left that section at. */
+function tabLink(g: NavGroup, active: boolean, path: string) {
+  const href = active ? g.items[0].href : lastInGroup[g.id] ?? g.items[0].href;
+  const onClick = (e: React.MouseEvent) => {
+    if (active && path === href) {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else if (!active) {
+      pendingRestore = { path: href, y: scrollByPath[href] ?? 0 };
+    }
+  };
+  return { href, onClick, scroll: active };
+}
 
 function useTabScrollMemory(path: string) {
   // Record the current page's offset as the reader scrolls.
@@ -504,25 +502,16 @@ export function TabBar() {
             const active = !moreOpen && group?.id === g.id;
             // Tapping the tab you're on pops back to the group's root, like a
             // native tab bar; otherwise it returns to where you left off.
-            const href = active ? g.items[0].href : lastInGroup[g.id] ?? g.items[0].href;
-            const onClick = (e: React.MouseEvent) => {
-              if (active && path === href) {
-                // Already at this tab's root: tapping it again scrolls to the top.
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              } else if (!active) {
-                pendingRestore = { path: href, y: scrollByPath[href] ?? 0 };
-              }
-            };
+            const t = tabLink(g, active, path);
             return (
               <TabButton
                 key={g.id}
                 label={g.label}
                 icon={g.icon}
                 active={active}
-                href={href}
-                onClick={onClick}
-                scroll={active}
+                href={t.href}
+                onClick={t.onClick}
+                scroll={t.scroll}
               />
             );
           })}
@@ -530,6 +519,134 @@ export function TabBar() {
         </div>
       </nav>
     </>
+  );
+}
+
+/* ───────────────────────────── desktop top bar ───────────────────────────── */
+
+/** Desktop (md+) navigation: one slim bar across the top — wordmark, the
+ *  primary sections as tabs, a More menu for the rest — with the current
+ *  section's pages as tabs underneath (or Back on a detail route). Content
+ *  keeps the full width; phones use the bottom tab bar instead. */
+export function DesktopTopBar() {
+  const path = usePathname();
+  const router = useRouter();
+  // Open only on the path it was opened from, so any navigation closes it.
+  const [moreAt, setMoreAt] = useState<string | null>(null);
+  const moreOpen = moreAt === path;
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreAt(null);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMoreAt(null);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
+
+  if (isChromeless(path)) return null;
+
+  const group = activeGroup(NAV_GROUPS, path);
+  const detail = isDetailRoute(NAV_GROUPS, path);
+  const activeHref = group ? activeItemHref(group.items, path) : null;
+  const moreActive = moreOpen || (!!group && !group.tab);
+  const showSub = detail || (!!group && group.items.length > 1);
+
+  const tabStyle = (active: boolean) => ({
+    color: active ? "var(--color-sage)" : "var(--color-muted)",
+    background: active ? "var(--color-sage-light)" : "transparent",
+  });
+  const tabCls = "flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium no-underline transition-colors";
+
+  return (
+    <header
+      className="app-chrome hidden md:block sticky top-0 z-50 border-b"
+      style={{ background: "var(--color-surface)", borderColor: "var(--color-rule)" }}
+    >
+      <div className="max-w-5xl mx-auto px-8 h-14 flex items-center gap-4">
+        <Wordmark />
+        <nav aria-label="Main" className="ml-auto flex items-center gap-1">
+          {TAB_GROUPS.map((g) => {
+            const active = group?.id === g.id;
+            const t = tabLink(g, active, path);
+            return (
+              <Link
+                key={g.id}
+                href={t.href}
+                scroll={t.scroll}
+                onClick={t.onClick}
+                aria-current={active ? "page" : undefined}
+                aria-label={g.label}
+                title={g.label}
+                className={tabCls}
+                style={tabStyle(active)}
+              >
+                <Icon name={g.icon} size={18} />
+                {/* Icons only on tablet widths, where five labels + the wordmark don't fit. */}
+                <span className="hidden lg:inline">{g.label}</span>
+              </Link>
+            );
+          })}
+          <div ref={moreRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMoreAt(moreOpen ? null : path)}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              aria-label="More"
+              title="More"
+              className={tabCls}
+              style={tabStyle(moreActive)}
+            >
+              <Icon name="more" size={18} />
+              <span className="hidden lg:inline">More</span>
+            </button>
+            {moreOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-64 rounded-xl p-2 max-h-[70vh] overflow-y-auto"
+                style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card-hover)" }}
+              >
+                {MORE_GROUPS.map((g) => (
+                  <GroupList key={g.id} group={g} path={path} onNavigate={() => setMoreAt(null)} />
+                ))}
+                <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--color-rule)" }}>
+                  <SignOutButton onClick={() => setMoreAt(null)} />
+                </div>
+              </div>
+            )}
+          </div>
+        </nav>
+        <div className="empty:hidden">
+          <PredictJobPill />
+        </div>
+      </div>
+
+      {showSub && (
+        <div className="max-w-5xl mx-auto px-8">
+          {detail ? (
+            <button
+              onClick={() => router.back()}
+              className="-ml-2 flex items-center gap-0.5 rounded-md h-10 pl-1 pr-2 text-sm font-medium"
+              style={{ color: "var(--color-sage)" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {group?.label ?? "Back"}
+            </button>
+          ) : (
+            <SectionTabs group={group!} activeHref={activeHref} desktop />
+          )}
+        </div>
+      )}
+    </header>
   );
 }
 

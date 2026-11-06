@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lora, Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar, MobileTopBar, TabBar, AddBookFab } from "@/components/Nav";
+import { DesktopTopBar, MobileTopBar, TabBar, AddBookFab } from "@/components/Nav";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import { PredictJobsProvider } from "@/lib/predict-jobs";
 import { PredictJobBanner } from "@/components/PredictJobStatus";
@@ -78,22 +78,17 @@ export default function RootLayout({
             pill, and the banner announces the finish from whatever page the
             reader has wandered to. Inert (and free) until a run is started. */}
         <PredictJobsProvider>
-          {/* App shell: a persistent sidebar on desktop; on phones a compact
-              top bar + fixed bottom tab bar (see components/Nav.tsx). The main
-              column carries bottom padding on phones so content clears the
-              tab bar and the home indicator. */}
-          {/* overflow-x-clip on <main> (clip, not hidden, so sticky still works):
-              one over-wide row must never widen the page — on iOS a wider page
-              shifts the layout viewport and drags the fixed tab bar with it. */}
-          <div className="flex-1 md:flex">
-            <Sidebar />
-            <div className="flex-1 min-w-0 flex flex-col">
-              <MobileTopBar />
-              <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-24">
-                {children}
-              </main>
-            </div>
-          </div>
+          {/* App shell: a slim top bar on desktop; on phones a compact top bar +
+              fixed bottom tab bar (see components/Nav.tsx). The main column
+              carries bottom padding on phones so content clears the tab bar
+              and the home indicator. overflow-x-clip on <main> (clip, not
+              hidden, so sticky still works): one over-wide row must never
+              widen the page — on iOS that drags the fixed tab bar with it. */}
+          <DesktopTopBar />
+          <MobileTopBar />
+          <main className="flex-1 max-w-5xl mx-auto w-full min-w-0 overflow-x-clip pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(9rem+env(safe-area-inset-bottom))] md:px-8 md:pt-8 md:pb-24">
+            {children}
+          </main>
           <TabBar />
           <AddBookFab />
           {modal}
