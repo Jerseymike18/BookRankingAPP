@@ -9,6 +9,7 @@ import { PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Nonfiction schema: 12 components across 5 categories (2026 redesign; mirrors
  *    nonfiction_engine.NONFICTION_CATEGORY_ORDER + the DB component→category map). ── */
@@ -920,8 +921,6 @@ export default function NonfictionReadQueueClient({
     else { setSortField(field); setSortDir("desc"); }
   }
 
-  const remaining = recommendations.length - deletedTitles.size;
-
   return (
     <div>
       {/* Header */}
@@ -929,24 +928,14 @@ export default function NonfictionReadQueueClient({
         <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
           Nonfiction Read Queue
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {remaining} book{remaining !== 1 ? "s" : ""} in your to-read list · {initialQueue.length} in your ordered queue
-        </p>
       </div>
 
       {/* Tab bar — the Queue tab is an editor, hidden on a read-only deploy. */}
-      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
-        {(ro ? (["list"] as const) : (["list", "queue"] as const)).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{ background: tab === t ? "var(--color-sage)" : "transparent", color: tab === t ? "#fff" : "var(--color-muted)" }}
-          >
-            {t === "list" ? "To-Read" : "Queue"}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={ro ? [{ id: "list", label: "To-Read" }] : [{ id: "list", label: "To-Read" }, { id: "queue", label: "Queue" }]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {!ro && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
@@ -968,9 +957,6 @@ export default function NonfictionReadQueueClient({
                 </button>
               )}
             </div>
-            <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-              Dial up the moods you want — the list re-ranks to match. All at 0 falls back to predicted-rank order.
-            </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {NF_MOOD_NAMES.map((name) => (
                 <MoodInput key={name} name={name} value={moodWeights[name] ?? 0} onChange={(v) => setMood(name, v)} />

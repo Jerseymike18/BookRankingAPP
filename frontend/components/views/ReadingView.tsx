@@ -7,6 +7,7 @@ import type { ColDef } from "@/components/SortableTable";
 import { seriesLabel } from "@/lib/format";
 import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -17,27 +18,7 @@ function SubTabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void
     { id: "stats", label: "Stats" },
     { id: "status", label: "Status" },
   ];
-  return (
-    <div
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
-    >
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => onChange(id)}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background: active === id ? "var(--color-surface)" : "transparent",
-            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
-            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
 /* ── Stat card ────────────────────────────────────────────────────────────── */
@@ -185,12 +166,6 @@ function StatsTab({ stats, kind, books }: { stats: ReadingStatsResponse; kind: B
             getRowKey={(r) => r.genre}
             scrollX={hasCats}
           />
-          {hasCats && (
-            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-              Story, Char, Aes, Theme, and WB are the average weighted score per category (0–10).
-              WB (Worldbuilding) is averaged over only the books that scored it, so realist genres show “—”.
-            </p>
-          )}
         </>
       )}
 
@@ -371,9 +346,6 @@ function ReadingSingle({
         >
           Reading
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {stats.summary.total_books} books rated
-        </p>
       </div>
 
       <SubTabs active={tab} onChange={setTab} />

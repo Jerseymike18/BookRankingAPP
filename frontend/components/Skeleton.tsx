@@ -120,16 +120,16 @@ export function PageSkeleton({
   );
 }
 
-/** Placeholder matching the TypeToggle / SubTabs pill bar. */
+/** Placeholder matching the TypeToggle / SegmentedTabs underline bar. */
 export function SkeletonToggle({ tabs = 3 }: { tabs?: number }) {
   return (
     <div
       aria-hidden
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
+      className="flex gap-6 mb-6 px-4 h-10 items-center border-b"
+      style={{ borderColor: "var(--color-rule)" }}
     >
       {Array.from({ length: tabs }, (_, i) => (
-        <Skeleton key={i} w="4.5rem" h="1.75rem" radius="0.5rem" />
+        <Skeleton key={i} w="4.5rem" h="0.875rem" radius="0.25rem" />
       ))}
     </div>
   );

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { CombinedStatsResponse, CombinedRankRow, TypeSummary, BookKind } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 // Tier spine colours (the existing design tokens, shared with TierLadder).
 const TIER_COLORS: Record<string, string> = {
@@ -119,9 +120,6 @@ export default function StatsClient({
         <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
           Stats
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Fiction + Nonfiction combined · {totals.total_books} books
-        </p>
       </div>
 
       {/* Top-line totals */}
@@ -145,9 +143,6 @@ export default function StatsClient({
       <div className="rounded-xl p-4" style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}>
         <TierRow label="Fiction" counts={tier_distribution.fiction} order={tier_distribution.tier_order} />
         <TierRow label="Nonfiction" counts={tier_distribution.nonfiction} order={tier_distribution.tier_order} />
-        <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-          Shown per type because the bases differ: fiction tiers are banded by WA, nonfiction by Total Average.
-        </p>
       </div>
 
       {/* Combined cross-type ranking (by WA). Suppressed on the merged /stats
@@ -156,27 +151,7 @@ export default function StatsClient({
       {showRanking && (
         <>
           <SectionHeading>All books · ranked by WA</SectionHeading>
-          <p className="text-sm mb-3" style={{ color: "var(--color-muted)" }}>
-            Ranked by WA (the weighted score), which sits on the same 0–10 scale for both types.
-            Fiction and nonfiction weight their categories differently but share that basis; Total
-            Average is shown alongside.
-          </p>
-          <div className="flex gap-1 mb-4 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-            {TYPE_TABS.map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setTypeFilter(id)}
-                className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-                style={{
-                  background: typeFilter === id ? "var(--color-surface)" : "transparent",
-                  color: typeFilter === id ? "var(--color-sage)" : "var(--color-muted)",
-                  boxShadow: typeFilter === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedTabs tabs={TYPE_TABS} value={typeFilter} onChange={setTypeFilter} className="mb-4" />
           <SortableTable
             columns={RANK_COLS}
             data={ranking}

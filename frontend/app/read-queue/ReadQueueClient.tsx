@@ -10,6 +10,7 @@ import type { RecommendationMetadataPayload } from "@/lib/api";
 import { seriesLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -1425,31 +1426,15 @@ export default function ReadQueueClient({
         <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
           Read Queue
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {recommendations.length - deletedTitles.size} book{(recommendations.length - deletedTitles.size) !== 1 ? "s" : ""} in your to-read list · {initialQueue.length} in your ordered queue
-        </p>
       </div>
 
       {/* Tab bar — the Queue tab is an editor (reorder/remove/add), so it's
           hidden on a read-only deploy; Mood Scores stays as a view. */}
-      <div
-        className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
-      >
-        {(ro ? (["mood"] as const) : (["mood", "queue"] as const)).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{
-              background: tab === t ? "var(--color-sage)" : "transparent",
-              color: tab === t ? "#fff" : "var(--color-muted)",
-            }}
-          >
-            {t === "mood" ? "Mood Scores" : "Queue"}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={ro ? [{ id: "mood", label: "Mood Scores" }] : [{ id: "mood", label: "Mood Scores" }, { id: "queue", label: "Queue" }]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {!ro && tab === "queue" && <QueueTab initialQueue={initialQueue} recommendations={recommendations} />}
 
@@ -1483,9 +1468,6 @@ export default function ReadQueueClient({
                 </button>
               )}
             </div>
-            <p className="text-xs mb-4" style={{ color: "var(--color-muted)" }}>
-              Dial up the moods you want — results re-rank to match. All at 0 falls back to predicted-rank order.
-            </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {MOOD_NAMES.map((name) => (
                 <MoodInput

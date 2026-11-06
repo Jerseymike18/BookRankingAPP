@@ -5,6 +5,7 @@ import Link from "next/link";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import type { EngineParameters, EngineValidation } from "@/lib/types";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── formatting ─────────────────────────────────────────────────────────── */
 const f2 = (v: number) => v.toFixed(2);
@@ -106,27 +107,7 @@ function ViewTabs({ active, onChange }: { active: View; onChange: (v: View) => v
     { id: "simple", label: "Plain English" },
     { id: "technical", label: "Technical" },
   ];
-  return (
-    <div
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
-    >
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => onChange(id)}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background: active === id ? "var(--color-surface)" : "transparent",
-            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
-            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
 /* ── prediction-flow spine (connected stage cards) ──────────────────────── */

@@ -10,6 +10,7 @@ import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SkeletonCardList } from "@/components/Skeleton";
+import { SegmentedTabs, KIND_TABS } from "@/components/SegmentedTabs";
 
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
@@ -951,30 +952,10 @@ export default function PredictClient({
         >
           Book Prediction
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {kind === "nonfiction"
-            ? "Discover nonfiction books — or name a single book — then let your engine score and rank them."
-            : "Ask the LLM to discover candidates — or name a single book — then let your engine score and rank them."}
-        </p>
       </div>
 
       {/* Fiction / Nonfiction toggle */}
-      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => setKind(k)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
-            style={{
-              background: kind === k ? "var(--color-surface)" : "transparent",
-              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs tabs={KIND_TABS} value={kind} onChange={setKind} className="mb-8" />
 
       {/* key={kind} remounts the flow when the toggle flips. The two kinds' RUNS
           can no longer leak into each other regardless (the provider keys them

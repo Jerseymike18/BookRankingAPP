@@ -410,10 +410,6 @@ export default function GenrePredictClient() {
         >
           Genre Prediction
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Which genres your own ratings actually favour — and where the engine has been
-          wrong about you.
-        </p>
       </div>
 
       <GenreRecommender

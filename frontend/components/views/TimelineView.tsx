@@ -354,7 +354,6 @@ function TimelineSingle({
     );
   }
 
-  const totalBooks = data.rows.reduce((s, r) => s + r.books, 0);
   const months = data.months ?? [];
   const hasMonths = months.length > 0;
   const monthsHaveWords = months.some((m) => m.total_words != null);
@@ -368,9 +367,6 @@ function TimelineSingle({
         >
           Timeline
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {totalBooks} books across {data.rows.length} year{data.rows.length !== 1 ? "s" : ""} · how your reading and rating shift over time
-        </p>
       </div>
 
       {/* By year */}
@@ -392,9 +388,6 @@ function TimelineSingle({
       </h2>
       {hasMonths ? (
         <>
-          <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-            {months.length} month{months.length !== 1 ? "s" : ""} with a recorded read date · newest first
-          </p>
           <MonthlyTable months={months} categories={data.categories} />
           <BarChart
             bars={months.map((m) => ({ label: monthAxis(m), value: m.books }))}

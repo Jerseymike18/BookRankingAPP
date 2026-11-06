@@ -11,6 +11,7 @@ import { useSortable, SortableTable, SortableTh } from "@/components/SortableTab
 import type { ColDef } from "@/components/SortableTable";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -842,27 +843,7 @@ function SubTabs({
   active: YearTab;
   onChange: (t: YearTab) => void;
 }) {
-  return (
-    <div
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
-    >
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => onChange(id)}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background: active === id ? "var(--color-surface)" : "transparent",
-            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
-            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
 /* ── Per-type rankings (full table, one track) ────────────────────────────
@@ -991,10 +972,6 @@ function PerTypeRankings({
   return (
     <div>
       {/* Filters summary — the page title + type toggle live in the wrapper. */}
-      <p className="text-sm mb-6" style={{ color: "var(--color-muted)" }}>
-        {books.length} books rated · click a column header to sort · ⌄ on a category expands it into
-        its components · click a row to expand scores
-      </p>
 
       {/* Year sub-tabs (fiction only — nonfiction books have no year tabs) */}
       {kind === "fiction" && yearTabs.length > 0 && (
@@ -1284,10 +1261,6 @@ const COMBINED_COLS: ColDef<CombinedRankRow>[] = [
 function CombinedRankings({ rows }: { rows: CombinedRankRow[] }) {
   return (
     <div>
-      <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        {rows.length} books · fiction + nonfiction ranked by WA, the weighted score (0–10 for both
-        tracks). Total Average is shown alongside. Pick a single type for full category detail.
-      </p>
       <SortableTable
         columns={COMBINED_COLS}
         data={rows}

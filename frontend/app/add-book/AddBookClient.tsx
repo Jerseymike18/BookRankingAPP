@@ -14,6 +14,7 @@ import {
   scoredCount,
   writeAddBookDraft,
 } from "@/lib/add-book-draft";
+import { SegmentedTabs, KIND_TABS } from "@/components/SegmentedTabs";
 
 function fmtDelta(d: number): string {
   return `${d >= 0 ? "+" : ""}${d.toFixed(2)}`;
@@ -566,22 +567,7 @@ export default function AddBookClient({
       </Link>
 
       {/* Fiction / Nonfiction toggle — drives the component set + target table */}
-      <div className="flex gap-1 mb-8 p-1 rounded-xl inline-flex" style={{ background: "var(--color-surface-2)" }}>
-        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => changeKind(k)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
-            style={{
-              background: kind === k ? "var(--color-surface)" : "transparent",
-              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs tabs={KIND_TABS} value={kind} onChange={changeKind} className="mb-8" />
 
       {/* ── Lookup panel ───────────────────────────────────────────────────── */}
       <section

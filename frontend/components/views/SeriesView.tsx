@@ -8,6 +8,7 @@ import { useSortable, SortableTh } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { setSeriesComplete } from "@/lib/api";
 import { useReadOnly } from "@/lib/readonly-context";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -18,27 +19,7 @@ function SubTabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void
     { id: "rankings", label: "Series Rankings" },
     { id: "tiers", label: "Series Tier List" },
   ];
-  return (
-    <div
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
-    >
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => onChange(id)}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background: active === id ? "var(--color-surface)" : "transparent",
-            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
-            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
 /* ── Genre filter ─────────────────────────────────────────────────────────── */
@@ -294,20 +275,6 @@ function RankingsTab({
 
   return (
     <div>
-      <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        {scored ? (
-          <>
-            Ranked by a series score — the average WA of its books, adjusted for the
-            things an average can&apos;t see: whether even its weakest volume is
-            excellent (Consistency), whether it produced a standout (Peak), and
-            whether it stuck the landing (Finale) — plus a small charge if it
-            hasn&apos;t ended yet. Length earns nothing on its own.
-            Click a series to see its breakdown; click a column header to sort.
-          </>
-        ) : (
-          <>Ranked by average WA with a length adjustment. Click a column header to sort.</>
-        )}
-      </p>
       <GenreFilter genres={genres} active={genre} onChange={setGenre} />
       <p className="text-xs mb-3" style={{ color: "var(--color-faint)" }}>{sorted.length} series</p>
       <div style={{ overflowX: "auto" }}>
@@ -402,21 +369,11 @@ function TiersTab({ data, emptyMsg }: { data: SeriesTiersResponse; emptyMsg: str
     return <p className="text-sm" style={{ color: "var(--color-muted)" }}>{emptyMsg}</p>;
   }
 
-  const visibleCount = Object.values(itemsByTier).reduce((n, arr) => n + arr.length, 0);
-
-  const summaryLine = data.tier_order
-    .filter((t) => (itemsByTier[t]?.length ?? 0) > 0)
-    .map((t) => `${t}: ${itemsByTier[t].length}`)
-    .join("  ·  ");
-
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
         <GenreFilter genres={genres} active={genre} onChange={setGenre} />
       </div>
-      <p className="text-sm mb-4" style={{ color: "var(--color-muted)" }}>
-        {visibleCount} series{summaryLine ? ` · ${summaryLine}` : ""}
-      </p>
       <TierLadder tierOrder={data.tier_order} itemsByTier={itemsByTier} />
     </div>
   );
@@ -448,9 +405,6 @@ function SeriesSingle({
         >
           Series
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {seriesData.series.length} series tracked
-        </p>
       </div>
 
       <SubTabs active={tab} onChange={setTab} />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import WeightsClient from "./WeightsClient";
 import type { EffectiveWeights, BookKind } from "@/lib/types";
+import { SegmentedTabs, KIND_TABS } from "@/components/SegmentedTabs";
 
 /** Header + Fiction/Nonfiction toggle around the per-track editor. The editor is
  *  remounted (`key={kind}`) on toggle so its slider state re-seeds cleanly from
@@ -34,25 +35,7 @@ export default function WeightsPageClient({
       </div>
 
       {/* Fiction / Nonfiction toggle */}
-      <div
-        className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-        style={{ background: "var(--color-surface-2)" }}
-      >
-        {(["fiction", "nonfiction"] as BookKind[]).map((k) => (
-          <button
-            key={k}
-            onClick={() => setKind(k)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize"
-            style={{
-              background: kind === k ? "var(--color-surface)" : "transparent",
-              color: kind === k ? "var(--color-sage)" : "var(--color-muted)",
-              boxShadow: kind === k ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs tabs={KIND_TABS} value={kind} onChange={setKind} className="mb-6" />
 
       <WeightsClient key={kind} initial={payloads[kind]} kind={kind} />
     </div>

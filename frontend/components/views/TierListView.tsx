@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import type { TiersResponse, TierBook, BookKind } from "@/lib/types";
 import { TierLadder, type TierItem } from "@/components/TierLadder";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -19,27 +20,7 @@ function SubTabs({
   active: YearTab;
   onChange: (t: YearTab) => void;
 }) {
-  return (
-    <div
-      className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
-      style={{ background: "var(--color-surface-2)" }}
-    >
-      {tabs.map(({ id, label }) => (
-        <button
-          key={id}
-          onClick={() => onChange(id)}
-          className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          style={{
-            background: active === id ? "var(--color-surface)" : "transparent",
-            color: active === id ? "var(--color-sage)" : "var(--color-muted)",
-            boxShadow: active === id ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
-          }}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
 }
 
 /* ── Single-track tier list ───────────────────────────────────────────────── */
@@ -71,7 +52,7 @@ function TierListSingle({
     return byYear[Number(yearTab)] ?? allData;
   }, [yearTab, allData, byYear]);
 
-  const { books, tier_counts, tier_order } = activeData;
+  const { books, tier_order } = activeData;
 
   const itemsByTier = useMemo(() => {
     // Defined inside the memo, not in the render body: out there it was a new
@@ -102,11 +83,6 @@ function TierListSingle({
     return map;
   }, [books, tier_order, kind]);
 
-  const summaryLine = tier_order
-    .filter((t) => tier_counts[t] > 0)
-    .map((t) => `${t}: ${tier_counts[t]}`)
-    .join("  ·  ");
-
   const handleYearTab = useCallback((t: YearTab) => setYearTab(t), []);
 
   return (
@@ -118,9 +94,6 @@ function TierListSingle({
         >
           Tier List
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          {books.length} books · {summaryLine}
-        </p>
       </div>
 
       {yearTabs.length > 0 && (

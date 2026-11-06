@@ -16,6 +16,7 @@ import TierListView from "@/components/views/TierListView";
 import StatsClient from "@/app/stats/StatsClient";
 import ReadQueueTypeSwitch from "@/app/read-queue/ReadQueueTypeSwitch";
 import ExportLibraryButton from "@/components/ExportLibraryButton";
+import { SegmentedTabs } from "@/components/SegmentedTabs";
 
 const TABS = ["rankings", "tiers", "queue", "stats"] as const;
 type Tab = (typeof TABS)[number];
@@ -66,25 +67,11 @@ export default function ProfileClient({
         </p>
       </div>
 
-      {/* Sub-tab bar (reuses the sage-pill pattern used across the app) */}
-      <div
-        className="flex gap-1 mb-6 p-1 rounded-xl w-fit flex-wrap"
-        style={{ background: "var(--color-surface)", border: "1px solid var(--color-rule)" }}
-      >
-        {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-            style={{
-              background: tab === t ? "var(--color-sage)" : "transparent",
-              color: tab === t ? "#fff" : "var(--color-muted)",
-            }}
-          >
-            {TAB_LABEL[t]}
-          </button>
-        ))}
-      </div>
+      <SegmentedTabs
+        tabs={TABS.map((t) => ({ id: t, label: TAB_LABEL[t] }))}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* Everything below renders READ-ONLY: the reused interactive components
           (RankingsView, the read-queue clients) hide their edit/mutation UI
