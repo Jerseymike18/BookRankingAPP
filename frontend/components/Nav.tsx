@@ -207,7 +207,7 @@ export function Sidebar() {
   if (isChromeless(path)) return null;
   return (
     <aside
-      className="hidden md:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r"
+      className="app-chrome hidden md:flex flex-col w-60 shrink-0 sticky top-0 h-screen border-r"
       style={{ background: "var(--color-surface)", borderColor: "var(--color-rule)" }}
     >
       <div className="px-5 h-16 flex items-center shrink-0">
@@ -291,8 +291,13 @@ export function MobileTopBar() {
 
   return (
     <header
-      className="md:hidden sticky top-0 z-50"
-      style={{ background: "var(--color-surface)", paddingTop: "env(safe-area-inset-top)" }}
+      className="app-chrome md:hidden sticky top-0 z-50"
+      style={{
+        background: "var(--color-surface)",
+        paddingTop: "env(safe-area-inset-top)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       {detail && (
         <div className="h-11 px-4 flex items-center border-b" style={{ borderColor: "var(--color-rule)" }}>
@@ -330,12 +335,15 @@ function TabButton({
   active,
   href,
   onClick,
+  scroll = true,
 }: {
   label: string;
   icon: IconName;
   active: boolean;
   href?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
+  /** Passed to Link: false when the tab restores its own scroll position. */
+  scroll?: boolean;
 }) {
   const cls = "flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium no-underline";
   const style = { color: active ? "var(--color-sage)" : "var(--color-muted)" };
@@ -346,7 +354,14 @@ function TabButton({
     </>
   );
   return href ? (
-    <Link href={href} onClick={onClick} className={cls} style={style} aria-current={active ? "page" : undefined}>
+    <Link
+      href={href}
+      scroll={scroll}
+      onClick={onClick}
+      className={cls}
+      style={style}
+      aria-current={active ? "page" : undefined}
+    >
       {body}
     </Link>
   ) : (
@@ -354,6 +369,58 @@ function TabButton({
       {body}
     </button>
   );
+}
+
+/* Per-page scroll memory for the tab bar, like a native tab bar: switching
+   tabs returns each one to where you left it. In-memory only (resets on
+   reload). `pendingRestore` is captured at tap time — before the new page can
+   clamp window.scrollY and overwrite the saved value. */
+const scrollByPath: Record<string, number> = {};
+let pendingRestore: { path: string; y: number } | null = null;
+let restoring = false;
+
+function useTabScrollMemory(path: string) {
+  // Record the current page's offset as the reader scrolls.
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (restoring || raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        scrollByPath[path] = window.scrollY;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [path]);
+
+  // After a tab switch lands, restore that page's offset. The page may still be
+  // streaming in, so wait (up to ~1s) until it is tall enough to scroll there.
+  useEffect(() => {
+    const target = pendingRestore;
+    if (!target || target.path !== path) return;
+    pendingRestore = null;
+    restoring = true;
+    let tries = 0;
+    let raf = 0;
+    const step = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max >= target.y || tries++ > 60) {
+        window.scrollTo(0, Math.max(0, Math.min(target.y, max)));
+        restoring = false;
+      } else {
+        raf = requestAnimationFrame(step);
+      }
+    };
+    step();
+    return () => {
+      cancelAnimationFrame(raf);
+      restoring = false;
+    };
+  }, [path]);
 }
 
 export function TabBar() {
@@ -365,10 +432,11 @@ export function TabBar() {
   const setMoreOpen = (open: boolean) => setMoreOpenAt(open ? path : null);
   const group = activeGroup(NAV_GROUPS, path);
 
-  // Remember where the reader is inside each group.
+  // Remember where the reader is inside each group, and how far down each page.
   useEffect(() => {
     if (group) lastInGroup[group.id] = path;
   }, [group, path]);
+  useTabScrollMemory(path);
 
   // Close the sheet on Escape; lock page scroll while it is open.
   useEffect(() => {
@@ -398,7 +466,7 @@ export function TabBar() {
             onClick={() => setMoreOpen(false)}
           />
           <div
-            className="absolute inset-x-0 bottom-0 rounded-t-2xl border-t max-h-[80vh] overflow-y-auto px-2 pt-2"
+            className="app-chrome absolute inset-x-0 bottom-0 rounded-t-2xl border-t max-h-[80vh] overflow-y-auto overscroll-contain px-2 pt-2"
             style={{
               background: "var(--color-surface)",
               borderColor: "var(--color-rule)",
@@ -418,11 +486,13 @@ export function TabBar() {
 
       <nav
         aria-label="Main"
-        className="md:hidden fixed inset-x-0 bottom-0 z-[56] border-t"
+        className="app-chrome md:hidden fixed inset-x-0 bottom-0 z-[56] border-t"
         style={{
           background: "var(--color-surface)",
           borderColor: "var(--color-rule)",
           paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
         }}
       >
         <div
@@ -434,7 +504,26 @@ export function TabBar() {
             // Tapping the tab you're on pops back to the group's root, like a
             // native tab bar; otherwise it returns to where you left off.
             const href = active ? g.items[0].href : lastInGroup[g.id] ?? g.items[0].href;
-            return <TabButton key={g.id} label={g.label} icon={g.icon} active={active} href={href} />;
+            const onClick = (e: React.MouseEvent) => {
+              if (active && path === href) {
+                // Already at this tab's root: tapping it again scrolls to the top.
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else if (!active) {
+                pendingRestore = { path: href, y: scrollByPath[href] ?? 0 };
+              }
+            };
+            return (
+              <TabButton
+                key={g.id}
+                label={g.label}
+                icon={g.icon}
+                active={active}
+                href={href}
+                onClick={onClick}
+                scroll={active}
+              />
+            );
           })}
           <TabButton label="More" icon="more" active={moreActive} onClick={() => setMoreOpen(!moreOpen)} />
         </div>

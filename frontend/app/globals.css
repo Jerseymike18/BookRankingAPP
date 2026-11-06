@@ -95,6 +95,33 @@ h1, h2, h3, h4 {
   button, button:not(:disabled):active { transition: none; transform: none; }
 }
 
+/* ── App feel: the installed (home-screen) app ─────────────────────────────
+   Only when launched standalone, so the browser site keeps normal behaviour:
+   - no rubber-band bounce / pull-to-refresh on the page (scroll areas inside
+     still scroll; their overscroll stops at their own edge);
+   - the shell's chrome (tab bar, top bar, sidebar) can't be text-selected or
+     long-pressed into a link preview. */
+html { background-color: var(--color-ground); }
+@media (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+  .app-chrome, .app-chrome a, .app-chrome button {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+/* iOS zooms the page in when a field under 16px takes focus — the most
+   website-like thing a form can do on a phone. Touch screens get 16px fields;
+   desktop keeps the compact text-sm size. Unlayered + !important on purpose:
+   it has to beat the text-sm utility on every input. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* ── WA Badge ── circular score pill in sage green ─────────────────────── */
 .wa-badge {
   display: inline-flex;

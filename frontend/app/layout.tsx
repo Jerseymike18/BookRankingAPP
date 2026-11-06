@@ -49,6 +49,10 @@ export const metadata: Metadata = {
 // background — so the browser/OS chrome blends into the header.
 export const viewport: Viewport = {
   themeColor: "#FFFFFF",
+  // Edge-to-edge on notched phones: the page draws under the status bar / home
+  // indicator area and the shell pads itself with env(safe-area-inset-*) (top
+  // bar, tab bar, main column) — the installed app no longer sits in a box.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -74,7 +78,7 @@ export default function RootLayout({
             <Sidebar />
             <div className="flex-1 min-w-0 flex flex-col">
               <MobileTopBar />
-              <main className="flex-1 max-w-5xl mx-auto w-full px-4 pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
+              <main className="flex-1 max-w-5xl mx-auto w-full pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:px-8 md:py-8">
                 {children}
               </main>
             </div>
