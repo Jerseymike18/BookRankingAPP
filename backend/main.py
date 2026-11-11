@@ -3764,6 +3764,73 @@ def delete_reading_checkpoint(checkpoint_id: str,
     return {"ok": True}
 
 
+@app.get("/api/reading/checkpoints/finished")
+def get_finished_checkpoints(kind: Literal["fiction", "nonfiction"] = "fiction",
+                             user_id: str = Depends(auth.get_current_user_id)):
+    """Mid-book reviews vs the outcome: every FINISHED book this reader logged
+    checkpoints on, with its final WA (live from the engine, so it follows later
+    rating edits — the same choice the Track Record makes) and, for fiction, the
+    frozen predicted WA from delta_log (one authoritative row per finished book
+    via delta_log_view.visible_rows — never a re-predict audit row).
+
+    READ-ONLY presentation: copies numbers, computes no new math. A book is
+    finished when fiction `books.status='finished'` / nonfiction
+    `nonfiction_books.status='finished'`. Newest-logged book first."""
+    by_title = db_write.get_all_checkpoints(kind, user_id=user_id)
+    if not by_title:
+        return {"books": []}
+
+    final, meta, pred = {}, {}, {}
+    if kind == "fiction":
+        eng_books = _get_engine(user_id)[0]
+        con = db_backend.connect(db_write.DB, readonly=True)
+        try:
+            finished = {(r[0] or "").strip().lower() for r in con.execute(
+                "SELECT title FROM books WHERE user_id=? AND status=?",
+                (user_id, "finished")).fetchall()}
+            rows = con.execute(
+                "SELECT id, title, pred_wa, tag, logged_at FROM delta_log "
+                "WHERE user_id=? ORDER BY id DESC", (user_id,)).fetchall()
+        finally:
+            con.close()
+        entries = [dict(zip(["id", "title", "pred_wa", "tag", "logged_at"], r)) for r in rows]
+        for e in delta_log_view.visible_rows(entries, finished, db_write.DELTA_BACKFILL_MARKER):
+            if e.get("pred_wa") is not None:
+                pred[(e["title"] or "").strip().lower()] = round(float(e["pred_wa"]), 2)
+    else:
+        eng_books = _get_nf_engine(user_id)[0]
+        con = db_backend.connect(db_write.DB, readonly=True)
+        try:
+            finished = {(r[0] or "").strip().lower() for r in con.execute(
+                "SELECT title FROM nonfiction_books WHERE user_id=? AND status=?",
+                (user_id, "finished")).fetchall()}
+        finally:
+            con.close()
+
+    for _, row in eng_books.iterrows():
+        k = str(row.get("Book") or "").strip().lower()
+        if k not in finished or k not in by_title:
+            continue
+        try:
+            wa = float(row["WA"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if wa != wa:                       # NaN — no usable final score
+            continue
+        final[k] = round(wa, 2)
+        meta[k] = {"title": str(row["Book"]).strip(), "author": str(row.get("Author") or ""),
+                   "genre": str(row.get("Genre") or "")}
+
+    out = []
+    for k, cps in by_title.items():
+        if k not in final:
+            continue
+        out.append({**meta[k], "final_wa": final[k], "predicted_wa": pred.get(k),
+                    "checkpoints": cps})
+    out.sort(key=lambda b: max(c["created_at"] for c in b["checkpoints"]), reverse=True)
+    return {"books": out}
+
+
 class SetYearRequest(BaseModel):
     title: str
     year: int

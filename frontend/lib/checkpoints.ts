@@ -4,7 +4,7 @@
  * different measures, so this only places the gut score against the served 80%
  * band as a rough read — it is never a forecast test and never feeds anything. */
 
-import type { ReadingCheckpoint, StatusSlot } from "./types";
+import type { FinishedCheckpointBook, ReadingCheckpoint, StatusSlot } from "./types";
 
 export type CheckpointPlacement = "above" | "within" | "below";
 
@@ -46,4 +46,50 @@ export function parseGutScore(raw: string): number | null {
   if (raw.trim() === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 && n <= 10 ? Math.round(n * 10) / 10 : null;
+}
+
+/** The checkpoint furthest into the book (latest logged on a tie) — the
+ *  reader's last word before finishing. Null for an empty list. */
+export function latestCheckpoint(cps: ReadingCheckpoint[]): ReadingCheckpoint | null {
+  return sortCheckpoints(cps)[0] ?? null;
+}
+
+export interface GutVsFinalSummary {
+  /** Finished books with at least one checkpoint. */
+  books: number;
+  /** Mean |latest gut − final WA| over all those books. */
+  gutMae: number | null;
+  /** Books that also carry a frozen prediction, and the two MAEs on exactly
+   *  that subset — so the comparison is like for like. */
+  paired: number;
+  pairedGutMae: number | null;
+  pairedPredMae: number | null;
+}
+
+const mean = (xs: number[]) =>
+  xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 100) / 100 : null;
+
+/** Presentation-only summary: how close the last gut score landed to the
+ *  final WA, and (on the books that have one) how close the prediction did. */
+export function summarizeGutVsFinal(books: FinishedCheckpointBook[]): GutVsFinalSummary {
+  const gut: number[] = [];
+  const pairedGut: number[] = [];
+  const pairedPred: number[] = [];
+  for (const b of books) {
+    const last = latestCheckpoint(b.checkpoints);
+    if (!last) continue;
+    const g = Math.abs(last.gut_score - b.final_wa);
+    gut.push(g);
+    if (b.predicted_wa != null) {
+      pairedGut.push(g);
+      pairedPred.push(Math.abs(b.predicted_wa - b.final_wa));
+    }
+  }
+  return {
+    books: gut.length,
+    gutMae: mean(gut),
+    paired: pairedGut.length,
+    pairedGutMae: mean(pairedGut),
+    pairedPredMae: mean(pairedPred),
+  };
 }

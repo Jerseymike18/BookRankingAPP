@@ -6,14 +6,15 @@
  * a rough read; a single gut number is not a WA, and the copy says so. */
 
 import { useEffect, useState } from "react";
-import type { BookKind, ReadingCheckpoint, StatusSlot } from "@/lib/types";
-import { addCheckpoint, deleteCheckpoint, fetchCheckpoints } from "@/lib/api";
+import type { BookKind, FinishedCheckpointBook, ReadingCheckpoint, StatusSlot } from "@/lib/types";
+import { addCheckpoint, deleteCheckpoint, fetchCheckpoints, fetchFinishedCheckpoints } from "@/lib/api";
 import {
   gapFromWa,
   parseGutScore,
   parseProgress,
   placeAgainstBand,
   sortCheckpoints,
+  summarizeGutVsFinal,
   type CheckpointPlacement,
 } from "@/lib/checkpoints";
 
@@ -196,6 +197,90 @@ export function MidBookReviews({ slot, kind }: { slot: StatusSlot; kind: BookKin
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+/* ── Mid-book vs final ────────────────────────────────────────────────────────
+ * After a book is finished: each checkpoint's gut score against the book's
+ * final WA (and, for fiction, the frozen prediction). Renders nothing until a
+ * finished book has at least one checkpoint. */
+
+function signed(n: number) {
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}`;
+}
+
+export function FinishedMidBookReviews({ kind }: { kind: BookKind }) {
+  const [books, setBooks] = useState<FinishedCheckpointBook[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    fetchFinishedCheckpoints(kind)
+      .then((b) => { if (live) setBooks(b); })
+      .catch(() => { if (live) setBooks([]); });   // a side card: fail quiet, never block the tab
+    return () => { live = false; };
+  }, [kind]);
+
+  if (!books || books.length === 0) return null;
+  const sum = summarizeGutVsFinal(books);
+
+  return (
+    <div
+      className="rounded-xl p-5 flex flex-col gap-4 sm:col-span-3"
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+    >
+      <div>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
+          Mid-book vs final
+        </span>
+        <p className="text-sm mt-1" style={{ color: "var(--color-ink)" }}>
+          {sum.gutMae != null && (
+            <>Your last gut score landed {sum.gutMae.toFixed(2)} from the final WA on average
+              {" "}({sum.books} book{sum.books !== 1 ? "s" : ""}).</>
+          )}
+          {sum.paired > 0 && sum.pairedGutMae != null && sum.pairedPredMae != null && (
+            <>{" "}On the {sum.paired} with a logged prediction: gut {sum.pairedGutMae.toFixed(2)},
+              {" "}prediction {sum.pairedPredMae.toFixed(2)}.</>
+          )}
+        </p>
+        <p className="text-xs mt-1" style={{ color: "var(--color-faint)" }}>
+          Average distance, lower is closer. A handful of books is too few to say which guide is better.
+        </p>
+      </div>
+
+      <ul className="flex flex-col divide-y" style={{ borderColor: "var(--color-rule)" }}>
+        {books.map((b) => (
+          <li key={b.title} className="py-3 flex flex-col gap-2" style={{ borderColor: "var(--color-rule)" }}>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-display font-bold leading-tight truncate" style={{ color: "var(--color-ink)" }}>
+                  {b.title}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                  {[b.author, b.genre].filter(Boolean).join(" · ")}
+                  {b.predicted_wa != null && (
+                    <span style={{ color: "var(--color-faint)" }}>
+                      {" "}· predicted {b.predicted_wa.toFixed(2)} ({signed(b.predicted_wa - b.final_wa)})
+                    </span>
+                  )}
+                </p>
+              </div>
+              <span className="wa-badge shrink-0" title="Final WA">{b.final_wa.toFixed(2)}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[...b.checkpoints].sort((x, y) => x.progress_pct - y.progress_pct).map((cp) => (
+                <div key={cp.id} className="comp-tile" style={{ minWidth: "4.5rem" }} title={cp.note ?? undefined}>
+                  <span className="comp-label">{cp.progress_pct}%</span>
+                  <span className="comp-value">{cp.gut_score.toFixed(1)}</span>
+                  <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+                    {signed(cp.gut_score - b.final_wa)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

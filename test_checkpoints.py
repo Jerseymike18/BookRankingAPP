@@ -177,6 +177,55 @@ def main():
             finally:
                 bm.app.dependency_overrides.pop(auth.get_current_user_id, None)
 
+            print("\nCHECKPOINTS — mid-book vs final (finished books)")
+            # A finished book with a Delta Log row: plant checkpoints on it
+            # directly (it is no longer the current read, so add_checkpoint
+            # would rightly refuse) — this is the state a finish leaves behind.
+            dl = c.get("/api/delta-log").json()["entries"]
+            target = dl[0] if dl else None
+            r = c.get("/api/reading/checkpoints/finished", params={"kind": "fiction"})
+            check("finished: the current read is NOT listed (not finished)",
+                  r.status_code == 200
+                  and all(b["title"].lower() != cur.lower() for b in r.json()["books"]),
+                  str([b["title"] for b in r.json().get("books", [])]))
+            if target:
+                con = sqlite3.connect(tmpdb)
+                con.executemany(
+                    "INSERT INTO reading_checkpoints (id, user_id, kind, title, progress_pct, "
+                    "gut_score, note, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                    [("fin-a", SEED, "fiction", target["title"], 30, 6.0, None, "2026-01-01T00:00:00+00:00"),
+                     ("fin-b", SEED, "fiction", target["title"], 85, 8.0, "late", "2026-01-02T00:00:00+00:00"),
+                     ("fin-c", SEED, "fiction", "Never Finished Zzz", 50, 5.0, None, "2026-01-03T00:00:00+00:00")])
+                con.commit(); con.close()
+                books_now = {b["title"].strip().lower(): b for b in c.get("/api/books").json()["books"]}
+                fb = c.get("/api/reading/checkpoints/finished", params={"kind": "fiction"}).json()["books"]
+                hit = [b for b in fb if b["title"].strip().lower() == target["title"].strip().lower()]
+                check("finished: the finished book is listed with both checkpoints",
+                      len(hit) == 1 and [x["progress_pct"] for x in hit[0]["checkpoints"]] == [30, 85],
+                      str(hit and hit[0]["checkpoints"]))
+                if hit:
+                    live_wa = books_now.get(target["title"].strip().lower(), {}).get("wa")
+                    check("finished: final_wa is the live WA from /api/books",
+                          live_wa is not None and abs(hit[0]["final_wa"] - live_wa) < 0.006,
+                          f"{hit[0]['final_wa']} vs {live_wa}")
+                    check("finished: predicted_wa is the Delta Log's frozen prediction",
+                          hit[0]["predicted_wa"] is not None
+                          and abs(hit[0]["predicted_wa"] - target["pred_wa"]) < 0.006,
+                          f"{hit[0]['predicted_wa']} vs {target['pred_wa']}")
+                check("finished: checkpoints on a book never finished are not listed",
+                      all(b["title"] != "Never Finished Zzz" for b in fb))
+                bm.app.dependency_overrides[auth.get_current_user_id] = lambda: OTHER
+                try:
+                    check("finished: other user sees none of it",
+                          c.get("/api/reading/checkpoints/finished",
+                                params={"kind": "fiction"}).json()["books"] == [])
+                finally:
+                    bm.app.dependency_overrides.pop(auth.get_current_user_id, None)
+            if nf:
+                r = c.get("/api/reading/checkpoints/finished", params={"kind": "nonfiction"})
+                check("finished nonfiction: a currently-reading book is not listed",
+                      r.status_code == 200 and r.json()["books"] == [], r.text[:120])
+
             check("API owner: DELETE own checkpoint → 200",
                   c.delete(f"/api/reading/checkpoints/{new_id}").status_code == 200)
             check("API owner: DELETE again → 404",

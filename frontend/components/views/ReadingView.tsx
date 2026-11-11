@@ -9,7 +9,7 @@ import { seriesLabel } from "@/lib/format";
 import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
-import { MidBookReviews } from "@/components/MidBookReviews";
+import { FinishedMidBookReviews, MidBookReviews } from "@/components/MidBookReviews";
 import { useReadOnly } from "@/lib/readonly-context";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
@@ -326,6 +326,7 @@ function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: Book
       {status.currently_reading && !readOnly && (
         <MidBookReviews slot={status.currently_reading} kind={kind} />
       )}
+      {!readOnly && <FinishedMidBookReviews kind={kind} />}
     </div>
   );
 }

@@ -840,6 +840,32 @@ def get_checkpoints(kind, title, user_id=None):
             for r in rows]
 
 
+def get_all_checkpoints(kind, user_id=None):
+    """Every checkpoint this tenant has for `kind`, as {normalized_title: [rows]}
+    with each book's rows oldest first. The key is strip().lower() — the same
+    normalization delta_log_view uses — so callers can join on finished books.
+    Returns {} for an unknown kind."""
+    if kind not in CHECKPOINT_KINDS:
+        return {}
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_checkpoints()
+    con = db_backend.connect(DB, readonly=True)        # SELECT only
+    try:
+        rows = con.execute(
+            "SELECT id, kind, title, progress_pct, gut_score, note, created_at "
+            "FROM reading_checkpoints WHERE user_id=? AND kind=? "
+            "ORDER BY created_at, progress_pct",
+            (uid, kind)).fetchall()
+    finally:
+        con.close()
+    out = {}
+    for r in rows:
+        out.setdefault((r[2] or "").strip().lower(), []).append(
+            {"id": r[0], "kind": r[1], "title": r[2], "progress_pct": int(r[3]),
+             "gut_score": float(r[4]), "note": r[5], "created_at": r[6]})
+    return out
+
+
 def delete_checkpoint(checkpoint_id, user_id=None):
     """Delete one of this tenant's checkpoints. Returns True if a row was
     removed, False if no such checkpoint belongs to this user."""

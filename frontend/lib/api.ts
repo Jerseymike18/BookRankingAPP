@@ -16,6 +16,7 @@ import type {
   ReadingStatsResponse,
   ReadingStatusResponse,
   ReadingCheckpoint,
+  FinishedCheckpointBook,
   SeriesResponse,
   SeriesTiersResponse,
   TimelineResponse,
@@ -387,6 +388,13 @@ export async function fetchCheckpoints(kind: BookKind, title: string): Promise<R
   const res = await apiFetch(`${API}/api/reading/checkpoints?${q}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   return (await res.json()).checkpoints;
+}
+
+export async function fetchFinishedCheckpoints(kind: BookKind): Promise<FinishedCheckpointBook[]> {
+  if (STATIC) return [];
+  const res = await apiFetch(`${API}/api/reading/checkpoints/finished?kind=${kind}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return (await res.json()).books;
 }
 
 export async function addCheckpoint(payload: {

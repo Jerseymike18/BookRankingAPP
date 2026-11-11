@@ -430,6 +430,18 @@ export interface ReadingCheckpoint {
   created_at: string;
 }
 
+/** A finished book with mid-book checkpoints, against how it actually landed.
+ *  final_wa is the live WA; predicted_wa is the frozen delta_log prediction
+ *  (fiction only, null when none was logged). */
+export interface FinishedCheckpointBook {
+  title: string;
+  author: string;
+  genre: string;
+  final_wa: number;
+  predicted_wa: number | null;
+  checkpoints: ReadingCheckpoint[];
+}
+
 export interface ReadingStatusResponse {
   last_read: StatusSlot | null;
   currently_reading: StatusSlot | null;
