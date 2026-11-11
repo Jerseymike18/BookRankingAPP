@@ -9,6 +9,8 @@ import { seriesLabel } from "@/lib/format";
 import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { MidBookReviews } from "@/components/MidBookReviews";
+import { useReadOnly } from "@/lib/readonly-context";
 
 /* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
 
@@ -308,6 +310,9 @@ function SlotCard({
 }
 
 function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: BookKind }) {
+  // Checkpoints are a private journal: hidden on read-only deploys and on
+  // another reader's public profile (a write there would hit the VIEWER's account).
+  const readOnly = useReadOnly();
   return (
     <div className="grid sm:grid-cols-3 gap-4">
       <SlotCard label="Last Read" slot={status.last_read} predicted={false} kind={kind} />
@@ -318,6 +323,9 @@ function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: Book
         kind={kind}
       />
       <SlotCard label="Reading Next" slot={status.reading_next} predicted={true} kind={kind} />
+      {status.currently_reading && !readOnly && (
+        <MidBookReviews slot={status.currently_reading} kind={kind} />
+      )}
     </div>
   );
 }

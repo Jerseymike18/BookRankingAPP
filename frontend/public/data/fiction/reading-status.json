@@ -10,12 +10,16 @@
     },
     "genre": "Science Fiction (Hard)",
     "has_prediction": true,
+    "interval_label": "some author data",
+    "interval_stale": false,
     "rank": 38,
     "series": "Remembrance of Earth's Past",
     "series_number": 3,
     "title": "Death's End",
     "total": 143,
-    "wa": 8.5
+    "wa": 8.5,
+    "wa_high": 9.36,
+    "wa_low": 7.63
   },
   "last_read": {
     "author": "Liu Cixin",
@@ -46,11 +50,15 @@
     },
     "genre": "Science Fiction (Soft)",
     "has_prediction": true,
+    "interval_label": "genre only",
+    "interval_stale": false,
     "rank": 73,
     "series": "Dune",
     "series_number": 1,
     "title": "Dune",
     "total": 143,
-    "wa": 7.76
+    "wa": 7.76,
+    "wa_high": 9.1,
+    "wa_low": 6.42
   }
 }

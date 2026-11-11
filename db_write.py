@@ -708,6 +708,159 @@ def set_series_complete(series, complete, user_id=None):
     return True
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Mid-book reviews (reading checkpoints) — owner-authorized schema addition
+# (2026-11-11). A checkpoint is a quick note logged WHILE reading: how far in,
+# a single 0–10 gut score, an optional note. Several per book form a journal.
+#
+# DISPLAY ONLY. Nothing here feeds WA, the correction ladder, re-prediction or
+# delta_log — the engine never reads this table. A gut score is a different
+# measure from WA, so it is shown beside the prediction, never folded into it.
+#
+# Keyed by (user_id, kind, title), not by a recommendation/book row id, so the
+# journal survives a fiction rec turning into a rated `books` row on finish.
+# A NEW checkpoint is accepted only for the reader's CURRENT book (fiction:
+# position 1 of read_queue; nonfiction: status='currently-reading') so a typo
+# can't create an orphan journal. Deleting needs only ownership. Ids are
+# Python-side uuid4 hex (same portability dodge as import_staging).
+CHECKPOINT_KINDS = ("fiction", "nonfiction")
+CHECKPOINT_NOTE_MAX = 2000
+
+_checkpoints_ensured = False
+
+
+def _ensure_checkpoints():
+    global _checkpoints_ensured
+    if _checkpoints_ensured:
+        return
+    con = _connect()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS reading_checkpoints (
+            id           TEXT NOT NULL PRIMARY KEY,
+            user_id      TEXT NOT NULL,
+            kind         TEXT NOT NULL,
+            title        TEXT NOT NULL,
+            progress_pct INTEGER NOT NULL,
+            gut_score    REAL NOT NULL,
+            note         TEXT,
+            created_at   TEXT NOT NULL
+        )""")
+    con.commit()
+    con.close()
+    _checkpoints_ensured = True
+
+
+def _current_read_title(con, uid, kind):
+    """The reader's current book title for `kind`, or None."""
+    if kind == "fiction":
+        row = con.execute(
+            "SELECT title FROM read_queue WHERE user_id=? ORDER BY position LIMIT 1",
+            (uid,)).fetchone()
+    else:
+        row = con.execute(
+            "SELECT title FROM nonfiction_books "
+            "WHERE status='currently-reading' AND user_id=? LIMIT 1",
+            (uid,)).fetchone()
+    return (row[0] or "").strip() if row else None
+
+
+def add_checkpoint(kind, title, progress_pct, gut_score, note=None, user_id=None):
+    """Log one mid-book checkpoint for the reader's current book. Validates kind,
+    progress (integer 0–100), gut score (0–10, stored to one decimal) and note
+    length, and that `title` IS the current read for that kind. Returns the new
+    checkpoint dict on success, None otherwise (reason printed with ✗)."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_checkpoints()
+    con = _connect()
+    try:
+        if kind not in CHECKPOINT_KINDS:
+            raise ValidationError(f"Kind '{kind}' is invalid. Valid: {list(CHECKPOINT_KINDS)}.")
+        t = str(title or "").strip()
+        if not t:
+            raise ValidationError("Title is required.")
+        try:
+            pct = int(progress_pct)
+        except (TypeError, ValueError):
+            raise ValidationError("Progress must be a whole number from 0 to 100.")
+        if isinstance(progress_pct, float) and progress_pct != pct:
+            raise ValidationError("Progress must be a whole number from 0 to 100.")
+        if not 0 <= pct <= 100:
+            raise ValidationError("Progress must be from 0 to 100.")
+        try:
+            score = float(gut_score)
+        except (TypeError, ValueError):
+            raise ValidationError("Gut score must be a number from 0 to 10.")
+        if not math.isfinite(score) or not 0 <= score <= 10:
+            raise ValidationError("Gut score must be from 0 to 10.")
+        score = round(score, 1)
+        n = (str(note).strip() if note is not None else "") or None
+        if n and len(n) > CHECKPOINT_NOTE_MAX:
+            raise ValidationError(f"Note is too long (max {CHECKPOINT_NOTE_MAX} characters).")
+        current = _current_read_title(con, uid, kind)
+        if not current or current.lower() != t.lower():
+            raise ValidationError(f"'{t}' is not your current {kind} read.")
+        _backup_once()
+        cid = uuid.uuid4().hex
+        created = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+        con.execute(
+            "INSERT INTO reading_checkpoints "
+            "(id, user_id, kind, title, progress_pct, gut_score, note, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (cid, uid, kind, current, pct, score, n, created))
+        con.commit()
+        print(f"  ✓ Checkpoint logged for '{current}' at {pct}%.")
+        return {"id": cid, "kind": kind, "title": current, "progress_pct": pct,
+                "gut_score": score, "note": n, "created_at": created}
+    except ValidationError as e:
+        con.rollback()
+        print(f"  ✗ {e}")
+        return None
+    finally:
+        con.close()
+
+
+def get_checkpoints(kind, title, user_id=None):
+    """This tenant's checkpoints for one book (case-insensitive title match),
+    oldest first. Returns [] for an unknown kind."""
+    if kind not in CHECKPOINT_KINDS:
+        return []
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_checkpoints()
+    con = db_backend.connect(DB, readonly=True)        # SELECT only
+    try:
+        rows = con.execute(
+            "SELECT id, kind, title, progress_pct, gut_score, note, created_at "
+            "FROM reading_checkpoints WHERE user_id=? AND kind=? "
+            "AND LOWER(TRIM(title))=LOWER(TRIM(?)) ORDER BY created_at, progress_pct",
+            (uid, kind, str(title or ""))).fetchall()
+    finally:
+        con.close()
+    return [{"id": r[0], "kind": r[1], "title": r[2], "progress_pct": int(r[3]),
+             "gut_score": float(r[4]), "note": r[5], "created_at": r[6]}
+            for r in rows]
+
+
+def delete_checkpoint(checkpoint_id, user_id=None):
+    """Delete one of this tenant's checkpoints. Returns True if a row was
+    removed, False if no such checkpoint belongs to this user."""
+    uid = user_id or db_backend.DEFAULT_USER_ID
+    _ensure_checkpoints()
+    con = _connect()
+    try:
+        hit = con.execute(
+            "SELECT 1 FROM reading_checkpoints WHERE id=? AND user_id=?",
+            (str(checkpoint_id or ""), uid)).fetchone()
+        if hit is None:
+            return False
+        _backup_once()
+        con.execute("DELETE FROM reading_checkpoints WHERE id=? AND user_id=?",
+                    (str(checkpoint_id), uid))
+        con.commit()
+    finally:
+        con.close()
+    return True
+
+
 def set_component_corrections(version, constants, blend_weight, *, active=True,
                               source_tag=None, engine_hash=None, n_books=None,
                               decision=None, note=None):
@@ -1214,6 +1367,7 @@ _ensure_component_corrections()
 _ensure_weight_overrides()
 _ensure_score_anchors()
 _ensure_series_meta()
+_ensure_checkpoints()
 
 
 def _valid_genres(con, uid=None):

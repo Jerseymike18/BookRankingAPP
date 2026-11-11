@@ -50,8 +50,8 @@ os.chdir(PROJECT_ROOT)  # books.db is resolved relative to cwd
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, AfterValidator
-from typing import Optional, Annotated
+from pydantic import BaseModel, AfterValidator, Field
+from typing import Optional, Annotated, Literal
 
 import pandas as pd
 import numpy as np
@@ -3655,7 +3655,7 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
         wa = _cold_adjust_rec_wa(wa, words, series_number, author, genre_str,
                                  n_author, n_genre, cold_term)
         predicted_rank = int((rated_wa > wa).sum() + 1)
-        return {
+        slot = {
             "title": title,
             "author": (author or "").strip(),
             "genre": genre_str,
@@ -3667,6 +3667,18 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
             "total": total_rated,
             "category_avgs": category_avgs,
         }
+        # The served 80% conformal band — the SAME interval_for call the
+        # read-queue makes (same-author analog count). Omitted when no residual
+        # table is loaded; a width is never invented. The mid-book checkpoint
+        # view draws the reader's gut scores against it.
+        iv = _intervals.interval_for(_RESIDUALS, n_author, _ENGINE_HASH)
+        if iv is not None:
+            hw = iv["half_width"]
+            slot["wa_low"] = round(max(0.0, wa - hw), 2)
+            slot["wa_high"] = round(min(10.0, wa + hw), 2)
+            slot["interval_label"] = iv["bucket_label"]
+            slot["interval_stale"] = iv["stale"]
+        return slot
 
     currently_reading = _slot_from_rec(queue_titles[0]) if len(queue_titles) >= 1 else None
     reading_next = _slot_from_rec(queue_titles[1]) if len(queue_titles) >= 2 else None
@@ -3708,6 +3720,48 @@ def get_reading_status(user_id: str = Depends(auth.get_current_user_id),
         "currently_reading": currently_reading,
         "reading_next": reading_next,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MID-BOOK REVIEWS (reading checkpoints) — display only, never fed to the engine
+# ─────────────────────────────────────────────────────────────────────────────
+
+class CheckpointRequest(BaseModel):
+    kind: Literal["fiction", "nonfiction"]
+    title: str = Field(..., max_length=500)
+    progress_pct: int = Field(..., ge=0, le=100)
+    gut_score: float = Field(..., ge=0, le=10)
+    note: Optional[str] = Field(None, max_length=db_write.CHECKPOINT_NOTE_MAX)
+
+
+@app.get("/api/reading/checkpoints")
+def get_reading_checkpoints(kind: Literal["fiction", "nonfiction"], title: str,
+                            user_id: str = Depends(auth.get_current_user_id)):
+    """This reader's mid-book checkpoints for one book, oldest first."""
+    return {"checkpoints": db_write.get_checkpoints(kind, title, user_id=user_id)}
+
+
+@app.post("/api/reading/checkpoints")
+def post_reading_checkpoint(req: CheckpointRequest,
+                            user_id: str = Depends(auth.get_current_user_id)):
+    """Log a checkpoint for the reader's CURRENT book. No engine invalidation:
+    the engine never reads checkpoints."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        cp = db_write.add_checkpoint(req.kind, req.title, req.progress_pct,
+                                     req.gut_score, req.note, user_id=user_id)
+    if cp is None:
+        msg = buf.getvalue().replace("✗", "").strip()
+        raise HTTPException(status_code=422, detail=msg or "Could not log checkpoint.")
+    return {"ok": True, "checkpoint": cp}
+
+
+@app.delete("/api/reading/checkpoints/{checkpoint_id}")
+def delete_reading_checkpoint(checkpoint_id: str,
+                              user_id: str = Depends(auth.get_current_user_id)):
+    if not db_write.delete_checkpoint(checkpoint_id, user_id=user_id):
+        raise HTTPException(status_code=404, detail="Checkpoint not found.")
+    return {"ok": True}
 
 
 class SetYearRequest(BaseModel):

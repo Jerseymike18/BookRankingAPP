@@ -411,6 +411,23 @@ export interface StatusSlot {
   rank: number | null;
   total: number;
   category_avgs: Record<string, number>;
+  /** The served 80% conformal band (fiction predictions only; omitted when no
+   *  residual table is loaded — never invented). */
+  wa_low?: number;
+  wa_high?: number;
+  interval_label?: string;
+  interval_stale?: boolean;
+}
+
+/** A mid-book review: logged while reading, display only (never fed to the engine). */
+export interface ReadingCheckpoint {
+  id: string;
+  kind: BookKind;
+  title: string;
+  progress_pct: number;
+  gut_score: number;
+  note: string | null;
+  created_at: string;
 }
 
 export interface ReadingStatusResponse {

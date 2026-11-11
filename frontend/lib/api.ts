@@ -15,6 +15,7 @@ import type {
   TiersResponse,
   ReadingStatsResponse,
   ReadingStatusResponse,
+  ReadingCheckpoint,
   SeriesResponse,
   SeriesTiersResponse,
   TimelineResponse,
@@ -375,6 +376,46 @@ export async function deleteBook(
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail ?? `API error ${res.status}`);
   return data;
+}
+
+/* ── Mid-book reviews (reading checkpoints) ─────────────────────────────── */
+/* Live backend only: the static showcase has no checkpoints, so reads return []. */
+
+export async function fetchCheckpoints(kind: BookKind, title: string): Promise<ReadingCheckpoint[]> {
+  if (STATIC) return [];
+  const q = new URLSearchParams({ kind, title });
+  const res = await apiFetch(`${API}/api/reading/checkpoints?${q}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  return (await res.json()).checkpoints;
+}
+
+export async function addCheckpoint(payload: {
+  kind: BookKind;
+  title: string;
+  progress_pct: number;
+  gut_score: number;
+  note?: string | null;
+}): Promise<ReadingCheckpoint> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/reading/checkpoints`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : `API error ${res.status}`);
+  return data.checkpoint;
+}
+
+export async function deleteCheckpoint(id: string): Promise<void> {
+  assertWritable();
+  const res = await apiFetch(`${API}/api/reading/checkpoints/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(typeof data.detail === "string" ? data.detail : `API error ${res.status}`);
+  }
 }
 
 export async function lookupBook(title: string, authorHint?: string): Promise<LookupResult> {
