@@ -339,18 +339,55 @@ than refusing. Respond with ONLY a JSON object — no prose, no markdown:
     return blurb, keywords
 
 
+def top_core_drivers(genre, gw, gcw, n=2):
+    """The reader's top-`n` "Core Drivers" for a genre: the components carrying the
+    most effective weight (category weight x within-category weight) in that
+    genre's (per-tenant) weight tables. Presentation only — it orders existing
+    weights for the blurb prompt and computes no score. Returns [] when the genre
+    has no weights."""
+    cats = (gw or {}).get(genre, {}) or {}
+    comps = (gcw or {}).get(genre, {}) or {}
+    eff = []
+    for cat, cw in comps.items():
+        cat_w = float(cats.get(cat, 0) or 0)
+        for comp, w in (cw or {}).items():
+            e = cat_w * float(w or 0)
+            if e > 0:
+                eff.append((e, comp))
+    eff.sort(key=lambda t: -t[0])
+    return [c for _, c in eff[:n]]
+
+
+# The house blurb structure, shown to the model verbatim as the reference example
+# (owner-chosen 2026-11-12).
+HOUSE_BLURB_EXAMPLE = (
+    "Cuttlefish's mega-serial fuses Lovecraftian cosmic horror with a Victorian-era "
+    "setting and one of the most lauded magic systems in modern fantasy — the "
+    "Sequence/Pathway ladder — driving a mystery-laced plot and famously-earned "
+    "ending, the user's two top Core Drivers. Closest shelf analog is The Picture of "
+    "Dorian Gray crossed with Erikson-tier worldbuilding density, though LotM's "
+    "strength is structural ingenuity rather than literary depth. Confidence caveat: "
+    "Prose is the highest-risk component — this is translated Chinese web fiction, "
+    "and the Gothic aesthetic carries structural weight that may limit the overall "
+    "appeal regardless of how brilliant the plotting is."
+)
+
+
 def generate_rich_blurb(client, title, author, genre, corrected_scores, wa, ci,
-                        n_genre, n_author, read_books, model=rm.MODEL):
+                        n_genre, n_author, read_books, model=rm.MODEL,
+                        core_drivers=None):
     """Produce a rich, opinionated recommendation blurb in the calibrated house
     style, used for predicted books that will be saved to recommendations.
 
-    The house style (4 beats, ~4 sentences, plain prose — no markdown):
-      1. Positioning + plot hook — what this book IS and its core premise.
-      2. "Closest analog: <BookA> for <reason> + <BookB> for <reason>." — the
-         analogs MUST be books the reader has actually read (from read_books).
-      3. A thematic line — "A meditation on ..." / "An exploration of ...".
-      4. "Confidence caveat: <Component> (predicted X.X) is highest-risk — ..."
-         naming the single shakiest component and a plausible range.
+    The house style (3 sentences, plain prose — no markdown), per
+    HOUSE_BLURB_EXAMPLE:
+      1. "<Author>'s <form> fuses <A> with <B> ... driving <C> and <D>, the user's
+         two top Core Drivers." — positioning + hook, tied to the reader's two
+         highest-weighted components for the genre (`core_drivers`).
+      2. "Closest shelf analog is <Book> crossed with <Book / shelf quality>,
+         though <title>'s strength is <X> rather than <Y>." — analogs MUST come
+         from the reader's library (read_books).
+      3. "Confidence caveat: <Component> is the highest-risk component — <why>."
 
     read_books is a list of (title, author, genre) tuples — the reader's rated
     library, the ONLY allowed source for analogs. corrected_scores is the 14
@@ -361,6 +398,15 @@ def generate_rich_blurb(client, title, author, genre, corrected_scores, wa, ci,
     # Compact library list for analog selection (title — author, genre).
     lib_lines = "\n".join(f"  {t} — {a} ({g})" for (t, a, g) in read_books)
     half = (ci[1] - wa) if ci and ci[1] is not None else 0.5
+    # "Depth"/"Depth2" are ambiguous to a model; name them by category.
+    _label = {"Depth": "Character Depth", "Depth2": "Worldbuilding Depth"}
+    drivers = [_label.get(d, d) for d in (core_drivers or []) if d][:2]
+    if len(drivers) == 2:
+        driver_line = (f"THE READER'S TWO TOP CORE DRIVERS for {genre}: {drivers[0]} "
+                       f"and {drivers[1]} (the most heavily weighted components).")
+    else:
+        driver_line = ("THE READER'S TWO TOP CORE DRIVERS: pick the two components "
+                       "this reader most weights for the genre (Plot and Ending by default).")
 
     prompt = f'''You write calibrated, opinionated book-recommendation blurbs for ONE reader,
 in a precise house style. Write the blurb for a predicted (not-yet-read) book.
@@ -374,25 +420,37 @@ Predicted Weighted Average: {wa:.2f}  (≈80% interval ±{half:.2f})
 Grounding: {n_author} book(s) by this author and {n_genre} in this genre are
 already in the reader's library, so confidence is {"high" if (n_author + n_genre) >= 4 else "modest"}.
 
+{driver_line}
+
 THE READER'S RATED LIBRARY (the ONLY books you may cite as analogs — never
 invent titles or cite books not on this list):
 {lib_lines}
 
-Write ONE blurb of about 3-5 sentences, plain prose (no markdown, no line
-breaks), following this exact four-beat structure:
-1. Positioning + plot hook: what the book is and its core premise.
-2. "Closest analog: <Book A> for <specific reason> + <Book B> for <specific
-   reason>." — both books MUST come from the reader's library above.
-3. A thematic line beginning "A meditation on" or "An exploration of".
-4. "Confidence caveat: <Component> (predicted <score>) is highest-risk — <one
-   clause on why, with a plausible numeric range>." Pick the single component
-   you are least certain about and justify it from the book's content.
+Write ONE blurb of exactly three sentences, plain prose (no markdown, no line
+breaks), matching the structure, voice and length of this reference blurb:
 
-Describe the book QUALITATIVELY: do NOT state the overall weighted-average number,
-a numeric rank, or the book's position in the reader's library ("Nth of M", "ranks
-41st", "out of 129"). Those are shown as live, always-current fields elsewhere; a
-number frozen into the blurb goes stale as the library grows and must never reflect
-another reader's library. (Per-component predicted scores in beat 4 are fine.)
+"{HOUSE_BLURB_EXAMPLE}"
+
+The three sentences:
+1. "<Author>'s <form, e.g. mega-serial / debut / series closer / doorstopper>
+   fuses <element> with <element> ... driving <how the book delivers the first
+   Core Driver> and <the second>, the user's two top Core Drivers." Name what the
+   book IS and its signature hook, and tie it to the two Core Drivers above (use
+   the phrase "the user's two top Core Drivers"). If the book is weak on one of
+   them, say so honestly inside the same sentence rather than overselling.
+2. "Closest shelf analog is <Book A> crossed with <Book B, or a shelf author's
+   signature quality such as 'Erikson-tier worldbuilding density'>, though
+   <title or short form>'s strength is <X> rather than <Y>." Book A (and Book B
+   or the author named) MUST come from the reader's library above.
+3. "Confidence caveat: <Component> is the highest-risk component — <one
+   specific, content-based reason>." Pick the single component you are least
+   certain about; use the component's exact name.
+
+Describe the book QUALITATIVELY: state NO numbers from the model — no weighted
+average, no component scores, no ranges, no numeric rank, and no position in the
+reader's library ("Nth of M", "ranks 41st", "out of 129"). Those are shown as live,
+always-current fields elsewhere; a number frozen into the blurb goes stale as the
+library grows and must never reflect another reader's library.
 
 Respond with ONLY a JSON object — no prose, no markdown:
 {{"blurb": "..."}}'''
