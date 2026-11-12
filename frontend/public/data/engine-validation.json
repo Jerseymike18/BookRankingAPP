@@ -10,7 +10,7 @@
   },
   "provenance": {
     "backtest_generated_at": "2026-09-07T18:56:05-04:00",
-    "current_engine_hash": "sha256:cc961faf1fc9a51f",
+    "current_engine_hash": "sha256:6d116356cc597c7e",
     "engine_hash": "sha256:c12adfb15c04adcd",
     "git_head": "c363b2184194",
     "stale": true

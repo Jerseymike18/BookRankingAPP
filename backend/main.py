@@ -4848,7 +4848,9 @@ def _enrich_recommendation(req: "SaveRecommendationRequest", user_id: str):
             rich = _rp.generate_rich_blurb(
                 client, req.title, req.author, genre,
                 req.scores, wa, ci, n_genre, n_author, read_books,
-                core_drivers=_rp.top_core_drivers(genre, gw_e, gcw_e),
+                analogs=_rp.closest_shelf_analogs(req.scores, books_e,
+                                                  exclude_title=req.title,
+                                                  genre=genre),
             )
             if rich:
                 blurb = rich

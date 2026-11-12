@@ -339,32 +339,60 @@ than refusing. Respond with ONLY a JSON object — no prose, no markdown:
     return blurb, keywords
 
 
-def top_core_drivers(genre, gw, gcw, n=2):
-    """The reader's top-`n` "Core Drivers" for a genre: the components carrying the
-    most effective weight (category weight x within-category weight) in that
-    genre's (per-tenant) weight tables. Presentation only — it orders existing
-    weights for the blurb prompt and computes no score. Returns [] when the genre
-    has no weights."""
-    cats = (gw or {}).get(genre, {}) or {}
-    comps = (gcw or {}).get(genre, {}) or {}
-    eff = []
-    for cat, cw in comps.items():
-        cat_w = float(cats.get(cat, 0) or 0)
-        for comp, w in (cw or {}).items():
-            e = cat_w * float(w or 0)
-            if e > 0:
-                eff.append((e, comp))
-    eff.sort(key=lambda t: -t[0])
-    return [c for _, c in eff[:n]]
+# Closest shelf analog — MEASURED, not chosen by the model. The analog is the
+# rated book whose 14 stored component scores sit nearest the predicted ones:
+# mean absolute difference over the components BOTH books have scored (a stored
+# 0 = "not scored", e.g. masked worldbuilding, so it is skipped rather than
+# compared). Presentation only — it reads stored scores and computes no WA.
+ANALOG_MIN_SHARED = 8   # need at least this many co-scored components to compare
+
+
+def closest_shelf_analogs(pred_scores, books_df, k=2, exclude_title=None,
+                          genre=None):
+    """Return up to `k` nearest rated books as dicts {title, author, genre,
+    distance, shared, higher, lower}: `distance` is the mean |Δ| over co-scored
+    components, `higher`/`lower` the two components where the predicted book
+    sits most above / below that analog (to ground the blurb's "though" clause).
+
+    Same genre first (owner's choice, 2026-11-12): when `genre` is given, rated
+    books in that genre fill the slots in distance order before any other genre
+    is considered, so a book is compared with its own kind; other genres only
+    fill slots the genre can't. Returns [] when nothing comparable exists."""
+    comps = [c for c in LIVE
+             if (pred_scores.get(c) or 0) > 0 and c in books_df.columns]
+    ex = (exclude_title or "").strip().lower()
+    out = []
+    for _, r in books_df.iterrows():
+        if ex and str(r["Book"]).strip().lower() == ex:
+            continue
+        diffs = {}
+        for c in comps:
+            v = r[c]
+            if v is None or v != v or float(v) <= 0:   # None / NaN / not scored
+                continue
+            diffs[c] = float(pred_scores[c]) - float(v)
+        if len(diffs) < ANALOG_MIN_SHARED:
+            continue
+        dist = sum(abs(d) for d in diffs.values()) / len(diffs)
+        ranked = sorted(diffs.items(), key=lambda t: t[1])
+        out.append({"title": str(r["Book"]), "author": str(r["Author"]),
+                    "genre": str(r["Genre"]), "distance": dist,
+                    "shared": len(diffs),
+                    "higher": [c for c, d in reversed(ranked[-2:]) if d > 0],
+                    "lower": [c for c, d in ranked[:2] if d < 0]})
+    g = (genre or "").strip()
+    out.sort(key=lambda a: (bool(g) and a["genre"] != g, a["distance"], a["title"]))
+    return out[:k]
 
 
 # The house blurb structure, shown to the model verbatim as the reference example
-# (owner-chosen 2026-11-12).
+# (owner-chosen 2026-11-12; the "Core Drivers" clause was dropped the same day —
+# it named the same two components for every book in a genre).
 HOUSE_BLURB_EXAMPLE = (
     "Cuttlefish's mega-serial fuses Lovecraftian cosmic horror with a Victorian-era "
     "setting and one of the most lauded magic systems in modern fantasy — the "
-    "Sequence/Pathway ladder — driving a mystery-laced plot and famously-earned "
-    "ending, the user's two top Core Drivers. Closest shelf analog is The Picture of "
+    "Sequence/Pathway ladder — driving a mystery-laced Plot and famously-earned "
+    "Ending. Closest shelf analog is The Picture of "
     "Dorian Gray crossed with Erikson-tier worldbuilding density, though LotM's "
     "strength is structural ingenuity rather than literary depth. Confidence caveat: "
     "Prose is the highest-risk component — this is translated Chinese web fiction, "
@@ -375,38 +403,57 @@ HOUSE_BLURB_EXAMPLE = (
 
 def generate_rich_blurb(client, title, author, genre, corrected_scores, wa, ci,
                         n_genre, n_author, read_books, model=rm.MODEL,
-                        core_drivers=None):
+                        analogs=None):
     """Produce a rich, opinionated recommendation blurb in the calibrated house
     style, used for predicted books that will be saved to recommendations.
 
     The house style (3 sentences, plain prose — no markdown), per
     HOUSE_BLURB_EXAMPLE:
-      1. "<Author>'s <form> fuses <A> with <B> ... driving <C> and <D>, the user's
-         two top Core Drivers." — positioning + hook, tied to the reader's two
-         highest-weighted components for the genre (`core_drivers`).
+      1. "<Author>'s <form> fuses <A> with <B> ... driving <C> and <D>." —
+         positioning + hook: what the book is and what it delivers best.
       2. "Closest shelf analog is <Book> crossed with <Book / shelf quality>,
-         though <title>'s strength is <X> rather than <Y>." — analogs MUST come
-         from the reader's library (read_books).
+         though <title>'s strength is <X> rather than <Y>." — when `analogs`
+         (closest_shelf_analogs) is given, Book A and Book B ARE those measured
+         nearest books; otherwise the model picks from read_books.
       3. "Confidence caveat: <Component> is the highest-risk component — <why>."
 
     read_books is a list of (title, author, genre) tuples — the reader's rated
     library, the ONLY allowed source for analogs. corrected_scores is the 14
     predicted components; wa/ci frame the confidence. Never raises — returns ""
     on failure so the caller can fall back to the plain research blurb."""
-    score_lines = "\n".join(f"  {c}: {corrected_scores[c]:.1f}"
+    # "Depth"/"Depth2" are ambiguous to a model (and "Depth2" leaks into prose);
+    # name them by category everywhere the prompt shows a component.
+    _label = {"Depth": "Character Depth", "Depth2": "Worldbuilding Depth"}
+    score_lines = "\n".join(f"  {_label.get(c, c)}: {corrected_scores[c]:.1f}"
                             for c in LIVE if c in corrected_scores)
     # Compact library list for analog selection (title — author, genre).
     lib_lines = "\n".join(f"  {t} — {a} ({g})" for (t, a, g) in read_books)
     half = (ci[1] - wa) if ci and ci[1] is not None else 0.5
-    # "Depth"/"Depth2" are ambiguous to a model; name them by category.
-    _label = {"Depth": "Character Depth", "Depth2": "Worldbuilding Depth"}
-    drivers = [_label.get(d, d) for d in (core_drivers or []) if d][:2]
-    if len(drivers) == 2:
-        driver_line = (f"THE READER'S TWO TOP CORE DRIVERS for {genre}: {drivers[0]} "
-                       f"and {drivers[1]} (the most heavily weighted components).")
+    s1_rule = '''1. "<Author>'s <form, e.g. mega-serial / debut / series closer / doorstopper>
+   fuses <element> with <element> ... driving <what this book does best> and
+   <its second strength>." Name what the book IS, its signature hook, and the two
+   things it most distinctively delivers — specific to THIS book, not generic
+   praise for its genre.'''
+
+    if analogs:
+        def _fmt(a):
+            hi = ", ".join(_label.get(c, c) for c in a["higher"]) or "nothing notable"
+            lo = ", ".join(_label.get(c, c) for c in a["lower"]) or "nothing notable"
+            return (f'"{a["title"]}" by {a["author"]} ({a["genre"]}) — the predicted '
+                    f'book scores higher on {hi}; lower on {lo}')
+        lines = [f"  Book A (closest): {_fmt(analogs[0])}"]
+        if len(analogs) > 1:
+            lines.append(f"  Book B (second closest): {_fmt(analogs[1])}")
+        analog_block = ("MEASURED CLOSEST SHELF ANALOGS — the rated books whose component "
+                        "scores are nearest this prediction. You MUST use exactly these in "
+                        "sentence 2 (Book A first, then Book B), and ground the \"though\" "
+                        "clause in the score differences listed:\n" + "\n".join(lines))
+        analog_rule = ('Book A and Book B are the measured analogs given above — use those '
+                       'exact titles, in that order; do not substitute other books.')
     else:
-        driver_line = ("THE READER'S TWO TOP CORE DRIVERS: pick the two components "
-                       "this reader most weights for the genre (Plot and Ending by default).")
+        analog_block = ""
+        analog_rule = ("Book A (and Book B or the author named) MUST come from the "
+                       "reader's library above.")
 
     prompt = f'''You write calibrated, opinionated book-recommendation blurbs for ONE reader,
 in a precise house style. Write the blurb for a predicted (not-yet-read) book.
@@ -420,7 +467,7 @@ Predicted Weighted Average: {wa:.2f}  (≈80% interval ±{half:.2f})
 Grounding: {n_author} book(s) by this author and {n_genre} in this genre are
 already in the reader's library, so confidence is {"high" if (n_author + n_genre) >= 4 else "modest"}.
 
-{driver_line}
+{analog_block}
 
 THE READER'S RATED LIBRARY (the ONLY books you may cite as analogs — never
 invent titles or cite books not on this list):
@@ -432,19 +479,22 @@ breaks), matching the structure, voice and length of this reference blurb:
 "{HOUSE_BLURB_EXAMPLE}"
 
 The three sentences:
-1. "<Author>'s <form, e.g. mega-serial / debut / series closer / doorstopper>
-   fuses <element> with <element> ... driving <how the book delivers the first
-   Core Driver> and <the second>, the user's two top Core Drivers." Name what the
-   book IS and its signature hook, and tie it to the two Core Drivers above (use
-   the phrase "the user's two top Core Drivers"). If the book is weak on one of
-   them, say so honestly inside the same sentence rather than overselling.
+{s1_rule}
 2. "Closest shelf analog is <Book A> crossed with <Book B, or a shelf author's
    signature quality such as 'Erikson-tier worldbuilding density'>, though
-   <title or short form>'s strength is <X> rather than <Y>." Book A (and Book B
-   or the author named) MUST come from the reader's library above.
+   <title or short form>'s strength is <X> rather than <Y>." {analog_rule}
 3. "Confidence caveat: <Component> is the highest-risk component — <one
    specific, content-based reason>." Pick the single component you are least
    certain about; use the component's exact name.
+
+COMPONENT NAMES: whenever the blurb refers to one of the reader's 14 scored
+components, write its exact capitalized name so it reads as a reference to that
+component: Plot, Entertainment, Action, Ending, Character Depth, Emotional
+Impact, Motivations, Prose, Narration, Insights, Thought-Provokingness,
+Worldbuilding Depth, Integration, Originality (e.g. "a mystery-laced Plot",
+"thin Worldbuilding Depth", "rather than Action"). Prefer naming the component
+itself over a synonym ("Character Depth", not "psychological depth") when that is
+what you mean. Leave ordinary words lowercase when they are not about a component.
 
 Describe the book QUALITATIVELY: state NO numbers from the model — no weighted
 average, no component scores, no ranges, no numeric rank, and no position in the
