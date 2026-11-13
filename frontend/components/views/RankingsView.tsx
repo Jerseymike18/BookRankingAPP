@@ -13,6 +13,7 @@ import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
+import { tierTint, positionsInGroups } from "@/lib/tier-tint";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -24,6 +25,16 @@ function spineClass(wa: number): string {
   if (wa >= 5.5) return "spine-c";
   if (wa >= 4.5) return "spine-d";
   return "spine-f";
+}
+
+/* Ranking rows shade like the tier ladder: each row tints in its band's spine
+   hue by its WA position inside that band (stable under any column sort). Rows
+   carry muted secondary text, so they use a lighter 22→6% range than the
+   ladder's boxes — that keeps the author line ≥ ~4:1 in both themes. */
+const ROW_TINT_MAX = 22;
+const ROW_TINT_MIN = 6;
+function spineColor(cls: string): string {
+  return `var(--color-${cls})`;
 }
 
 /** A missing/null score renders as an empty box, not 0, so the edit form can
@@ -839,6 +850,13 @@ function BookMobileList<T>({
   const showSortVal = !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
   // Open short; the reader expands into the full library on request.
   const { visible, ...limit } = useRowLimit(items);
+  const bandPos = useMemo(
+    () =>
+      positionsInGroups(
+        items.map(({ book, key }) => ({ key, group: spineClass(primaryScore(book)), score: primaryScore(book) })),
+      ),
+    [items],
+  );
   return (
     <div>
       <MobileSortBar cols={cols} sortState={sortState} onSort={onSort} />
@@ -860,6 +878,12 @@ function BookMobileList<T>({
                 key={key}
                 className={spineClass(primaryScore(book))}
                 style={{
+                  background: (() => {
+                    const p = bandPos.get(key);
+                    return p
+                      ? tierTint(spineColor(spineClass(primaryScore(book))), p.index, p.count, ROW_TINT_MAX, ROW_TINT_MIN)
+                      : undefined;
+                  })(),
                   borderLeftWidth: 3,
                   borderLeftStyle: "solid",
                   borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
@@ -917,7 +941,7 @@ function BookMobileList<T>({
                   </svg>
                 </button>
                 {isExpanded && (
-                  <div style={{ borderTop: "1px solid var(--color-rule)" }}>
+                  <div style={{ borderTop: "1px solid var(--color-rule)", background: "var(--color-surface)" }}>
                     <BookExpandedPanel
                       book={book}
                       categoryOrder={categoryOrder}

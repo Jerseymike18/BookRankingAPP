@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { tierTint } from "@/lib/tier-tint";
 
 const TIER_COLORS: Record<string, string> = {
   "S+": "var(--color-spine-sp)",
@@ -12,17 +13,10 @@ const TIER_COLORS: Record<string, string> = {
   "F":  "var(--color-spine-f)",
 };
 
-/* Each tier's boxes shade in that tier's own hue, deepest for its best book and
-   fading toward the surface for its lowest — items arrive sorted best-first.
-   Presentation only: the position is the existing sort order, nothing is
-   recomputed. Kept within 12–40% so ink text stays readable in both themes. */
+/* Boxes shade in their tier's hue (lib/tier-tint); items arrive best-first.
+   Boxes carry ink text only, so they take the deeper 40→12% range. */
 const TINT_MAX = 40;
 const TINT_MIN = 12;
-function tintAt(color: string, index: number, count: number): string {
-  const t = count > 1 ? index / (count - 1) : 0;
-  const pct = Math.round(TINT_MAX - (TINT_MAX - TINT_MIN) * t);
-  return `color-mix(in srgb, ${color} ${pct}%, var(--color-surface))`;
-}
 
 export interface TierItem {
   label: string;
@@ -188,7 +182,7 @@ function TierRow({
               height: 50,
               width: 144,
               padding: "0 10px",
-              background: tintAt(color, i, items.length),
+              background: tierTint(color, i, items.length, TINT_MAX, TINT_MIN),
               border: `1px solid color-mix(in srgb, ${color} 45%, var(--color-rule))`,
               borderRadius: 6,
               display: "flex",
