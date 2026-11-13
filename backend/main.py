@@ -1835,6 +1835,41 @@ def _library_tier(kind: str, books, title: str) -> dict:
     return {"tier": tier, "tier_index": index, "tier_count": int(len(same))}
 
 
+def _tier_lookup(books, score_col: str, band):
+    """score -> the tier (+ slot) an unread book with that score would take in the
+    library today, for scoring many books against one library (the read queue).
+
+    Adding one book to the library and banding the result (what _preview_tier
+    does) gives a label for each sorted position that depends only on the
+    cohort size and how many rows clear the S+ line. So the engine's `band` runs
+    TWICE — once with the extra row above the S+ line, once below — and each
+    book's tier is read off by its position (rated books scoring strictly above
+    it). Same answer as _preview_tier per book, without ~N banding calls."""
+    lib = (books[["Book", score_col]].dropna(subset=[score_col])
+           if len(books) else pd.DataFrame(columns=["Book", score_col]))
+    vals = lib[score_col].to_numpy(dtype=float)
+    if len(vals) == 0:
+        return lambda score: None
+
+    def labels_with(extra: float) -> list:
+        df = pd.concat([lib, pd.DataFrame([{"Book": _PREVIEW_ROW, score_col: extra}])],
+                       ignore_index=True)
+        return list(band(df, score_col, 9.5)["Tier"])
+
+    by_flag = {True: labels_with(10.0), False: labels_with(-1.0)}
+
+    def tier_of(score: float) -> Optional[dict]:
+        if score != score:
+            return None
+        labels = by_flag[bool(score >= 9.5)]
+        k = int((vals > score).sum())
+        tier = labels[k]
+        first = labels.index(tier)
+        return {"tier": tier, "tier_index": k - first, "tier_count": labels.count(tier)}
+
+    return tier_of
+
+
 class PreviewWARequest(BaseModel):
     genre: Optional[str] = None
     # Partial scores while the reader types: unscored components are simply absent
@@ -2929,6 +2964,10 @@ def get_read_queue(blurbs: bool = True,
     ).fetchall()
     con.close()
 
+    # Where each predicted WA would land in the Tier List today (presentation of
+    # the served `wa`; the banding is the engine's, see _tier_lookup).
+    tier_of = _tier_lookup(books, "WA", views_mod.tier_bands)
+
     result = []
     for r in rows:
         title, author, genre, series, series_number, words, blurb, keywords = r[:8]
@@ -2968,6 +3007,7 @@ def get_read_queue(blurbs: bool = True,
             "predicted_rank": predicted_rank,
             "category_avgs": category_avgs,
         }
+        rec.update(tier_of(wa) or {})
         if blurbs:
             rec["blurb"] = blurb or ""
         # Honest 80% prediction interval — the SAME density-bucketed LOO residual
@@ -4638,6 +4678,12 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
     ).fetchall()
     con.close()
 
+    # Where each book would land in the nonfiction Tier List today. That list bands
+    # on nonfiction_engine.total_average (plain component means), so the tier is
+    # keyed off the same function — not the weighted `total_average` field below.
+    tier_of = _tier_lookup(bt, "Total Average", nfe.tier_bands)
+    nf_cat_comps = books.attrs.get("category_components", {})
+
     result = []
     for r in rows:
         title, author, genre, series, series_number, words, blurb, keywords = r[:8]
@@ -4669,6 +4715,7 @@ def get_nf_read_queue(user_id: str = Depends(auth.get_current_user_id)):
             rec["wa_high"] = round(min(10.0, wa + hw), 4)
             rec["upside"] = round(min(10.0, wa + UPSIDE_FRAC * hw), 4)
             rec["interval_label"] = f"directional · n={hw_n}"
+        rec.update(tier_of(nfe.total_average(comp_vals, nf_cat_comps)) or {})
         result.append(rec)
     result.sort(key=lambda b: (b["wa"] is not None, b["wa"] or 0.0), reverse=True)
     return {"recommendations": result, "genres": []}

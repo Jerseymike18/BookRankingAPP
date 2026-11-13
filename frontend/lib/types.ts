@@ -315,6 +315,10 @@ export interface Recommendation {
   components: Record<string, number | null>;
   wa: number;
   predicted_rank: number;
+  /** Where this predicted score would land in the Tier List today (server-banded). */
+  tier?: string;
+  tier_index?: number;
+  tier_count?: number;
   category_avgs: Record<string, number>;
   // Honest 80% prediction interval around the (shrunk) point estimate, keyed by
   // same-author analog density. Optional: absent when no residual table is loaded.
@@ -347,6 +351,10 @@ export interface NonfictionRecommendation {
   wa: number | null;
   total_average: number | null;
   predicted_rank: number | null;
+  /** Where this predicted score would land in the Tier List today (server-banded). */
+  tier?: string;
+  tier_index?: number;
+  tier_count?: number;
   // DIRECTIONAL 80% band + upside around the predicted WA (mirrors the fiction
   // Recommendation fields). Small-sample conformal — labeled directional — and
   // omitted when the nonfiction library is too small to fit one.

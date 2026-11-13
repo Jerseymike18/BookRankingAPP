@@ -136,6 +136,29 @@ def main():
             ntiers = {b["title"]: b for b in c.get("/api/nonfiction/tiers").json()["books"]}
             check("nf add: standing tier = the nonfiction Tier List's tier",
                   bool(st) and st.get("tier") == ntiers["Standing Test NF"]["tier"], str(st))
+            print("\nSTANDING — read-queue tiers")
+            import views as views_mod
+            import nonfiction_engine as nfe
+            for path, kind in (("/api/read-queue?blurbs=0", "fiction"), ("/api/nonfiction/read-queue", "nonfiction")):
+                recs = c.get(path).json()["recommendations"]
+                if kind == "fiction":
+                    lib, col, band = bm._get_engine(None)[0], "WA", views_mod.tier_bands
+                    score = lambda r: r["wa"]
+                else:
+                    nb = bm._get_nf_engine(None)[0]
+                    lib, col, band = nfe.add_total_average(nb), "Total Average", nfe.tier_bands
+                    cc = nb.attrs.get("category_components", {})
+                    score = lambda r, cc=cc: nfe.total_average(r["components"], cc)
+                vals = lib[col].dropna().to_numpy()
+                checked = [r for r in recs if r.get("tier") is not None
+                           and not (abs(vals - score(r)) < 1e-4).any()]   # skip 4-dp ties
+                bad = [r["title"] for r in checked
+                       if {k: r[k] for k in ("tier", "tier_index", "tier_count")}
+                       != bm._preview_tier(lib, col, score(r), band, None)]
+                check(f"{kind} read queue: every book carries a tier",
+                      all(r.get("tier") for r in recs if r.get("wa") is not None))
+                check(f"{kind} read queue: tier + slot = a fresh banding of that book",
+                      not bad and len(checked) > 0, f"{len(bad)} mismatches, e.g. {bad[:3]}")
     finally:
         os.chdir(orig_cwd)
         db_write.DB = orig_db

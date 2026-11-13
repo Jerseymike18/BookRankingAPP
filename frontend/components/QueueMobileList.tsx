@@ -3,6 +3,7 @@
 import { seriesLabel } from "@/lib/format";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
 import Glyph from "./Glyph";
+import { tierCircleStyle } from "@/lib/tier-tint";
 
 /**
  * QUEUE LIST — the Read Queue results at every screen size (fiction and
@@ -20,6 +21,10 @@ type QueueRec = {
   series_number?: number | string | null;
   genre: string;
   wa: number | null;
+  /** Server-banded tier the predicted score would take today (colours the circle). */
+  tier?: string;
+  tier_index?: number;
+  tier_count?: number;
 };
 
 export function QueueMobileList<F extends string, R extends QueueRec, I extends { rec: R }>({
@@ -92,7 +97,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                 <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                   {i + 1}
                 </span>
-                <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{rec.wa != null ? rec.wa.toFixed(2) : "—"}</span>
+                <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!" style={tierCircleStyle(rec)}>{rec.wa != null ? rec.wa.toFixed(2) : "—"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
                     {rec.title}
