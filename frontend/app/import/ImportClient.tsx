@@ -13,6 +13,7 @@ import {
   addBook,
   addNonfictionBook,
 } from "@/lib/api";
+import type { BookStanding } from "@/lib/api";
 import type {
   ImportStagingRow,
   ImportUploadResult,
@@ -21,6 +22,7 @@ import type {
 } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
 import { StandingPreview } from "@/components/StandingPreview";
+import { tierButtonStyle } from "@/lib/tier-tint";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 import Glyph from "@/components/Glyph";
@@ -247,6 +249,10 @@ function RankCard({
   const categories = COMPONENT_CATEGORIES_BY_KIND[kind];
   const genres = kind === "fiction" ? fictionGenres : nonfictionGenres;
   const parsedScores = useMemo(() => parseScores(scores), [scores]);
+  // The live preview's standing tints the card's add button with the tier the
+  // book would land in (sage until it has a score).
+  const [liveStanding, setLiveStanding] = useState<BookStanding | null>(null);
+  const addButtonStyle = tierButtonStyle(Object.keys(parsedScores).length > 0 ? liveStanding : null);
   const requiredComps = useMemo(
     () => Object.values(categories).flat().filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c)),
     [categories, kind],
@@ -365,7 +371,7 @@ function RankCard({
 
       <div className="pt-4" style={{ borderTop: "1px solid var(--color-rule)" }}>
         <ScoreGrid categories={categories} scores={scores} onChange={(c, v) => setScores((p) => ({ ...p, [c]: v }))} kind={kind} />
-        <StandingPreview kind={kind} genre={genre} scores={parsedScores} required={requiredComps} />
+        <StandingPreview kind={kind} genre={genre} scores={parsedScores} required={requiredComps} onStanding={setLiveStanding} />
       </div>
 
       {error && <div className="rounded-lg px-4 py-3 text-sm mt-4" style={errorBox}>{error}</div>}
@@ -373,7 +379,7 @@ function RankCard({
       <div className="flex items-center gap-3 mt-5">
         <button onClick={save} disabled={saving}
           className="px-5 py-2.5 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-          style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}>
+          style={addButtonStyle}>
           {saving ? "Adding…" : "Add to library & next"}
         </button>
         <button onClick={() => onSkip(row.id)} disabled={saving}
