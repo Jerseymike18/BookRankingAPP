@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect, useTransition } from 
 import { useRouter } from "next/navigation";
 import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
 import type { BookMetadataPayload } from "@/lib/api";
-import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow } from "@/lib/types";
+import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow, TiersResponse } from "@/lib/types";
 import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { useSortable, MobileSortBar } from "@/components/SortableTable";
@@ -13,7 +13,7 @@ import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
-import { tierTint, positionsInGroups } from "@/lib/tier-tint";
+import { tierTint, positionsInGroups, buildTierIndex, tierSpineClass, type TierIndex, type TierPos } from "@/lib/tier-tint";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -36,6 +36,14 @@ const ROW_TINT_MIN = 6;
 function spineColor(cls: string): string {
   return `var(--color-${cls})`;
 }
+
+/** The server tier payloads this view bands rows by (same shape the Tier List takes). */
+export type RankingsTiers = {
+  fiction: { allData: TiersResponse; byYear: Record<number, TiersResponse> };
+  nonfiction: { allData: TiersResponse };
+};
+/** One track's lookups: the all-years cohort plus one per year read. */
+type TrackTierIndex = { all: TierIndex; byYear: Record<string, TierIndex> };
 
 /** A missing/null score renders as an empty box, not 0, so the edit form can
  * distinguish "no value yet" from a real 0. */
@@ -831,6 +839,7 @@ function BookMobileList<T>({
   refreshing,
   sortRows,
   typeLabel = false,
+  tierPosOf,
 }: {
   items: BookListItem[];
   cols: ColDef<T>[];
@@ -845,6 +854,9 @@ function BookMobileList<T>({
   sortRows?: T[];
   /** Show Fiction / Nonfiction in the subtitle (the All view). */
   typeLabel?: boolean;
+  /** The book's server tier + position in it (the Tier List's banding). When
+   *  absent the row falls back to the fixed-WA-cutoff bands. */
+  tierPosOf?: (item: BookListItem) => TierPos | undefined;
 }) {
   const sortCol = cols.find((c) => c.key === sortState.key);
   const showSortVal = !!sortCol && sortCol.type === "numeric" && sortCol.key !== primaryKey;
@@ -869,21 +881,23 @@ function BookMobileList<T>({
           className="rounded-xl overflow-hidden"
           style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
         >
-          {visible.map(({ book, kind, categoryOrder, key }, i) => {
+          {visible.map((item, i) => {
+            const { book, kind, categoryOrder, key } = item;
             const isExpanded = expandedKey === key;
+            const tierPos = tierPosOf?.(item);
+            const tierCls = tierPos ? tierSpineClass(tierPos.tier) : undefined;
+            const cls = tierCls ?? spineClass(primaryScore(book));
+            const pos = tierCls ? tierPos : bandPos.get(key);
             const row = (sortRows ? sortRows[i] : book) as T;
             const sortVal = showSortVal ? Number(sortCol!.getValue(row) ?? 0) : 0;
             return (
               <li
                 key={key}
-                className={spineClass(primaryScore(book))}
+                className={cls}
                 style={{
-                  background: (() => {
-                    const p = bandPos.get(key);
-                    return p
-                      ? tierTint(spineColor(spineClass(primaryScore(book))), p.index, p.count, ROW_TINT_MAX, ROW_TINT_MIN)
-                      : undefined;
-                  })(),
+                  background: pos
+                    ? tierTint(spineColor(cls), pos.index, pos.count, ROW_TINT_MAX, ROW_TINT_MIN)
+                    : undefined,
                   borderLeftWidth: 3,
                   borderLeftStyle: "solid",
                   borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
@@ -901,7 +915,12 @@ function BookMobileList<T>({
                   >
                     {i + 1}
                   </span>
-                  <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{primaryScore(book).toFixed(2)}</span>
+                  <span
+                    className="wa-badge w-9! h-9! sm:w-11! sm:h-11!"
+                    style={{ background: spineColor(cls), color: `var(--color-on-${cls})` }}
+                  >
+                    {primaryScore(book).toFixed(2)}
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span
                       className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words"
@@ -971,9 +990,11 @@ function BookMobileList<T>({
 function PerTypeRankings({
   data,
   kind = "fiction",
+  tierIndex,
 }: {
   data: BooksResponse;
   kind?: BookKind;
+  tierIndex?: TrackTierIndex;
 }) {
   const { books, genres, category_order } = data;
   const router = useRouter();
@@ -1067,6 +1088,16 @@ function PerTypeRankings({
     setSearch(e.target.value);
   }, []);
 
+  // Band by the cohort the year tab shows — the same per-year tiers the Tier List uses.
+  const activeTierIndex = useMemo(
+    () => (!tierIndex ? undefined : yearTab === "all" ? tierIndex.all : tierIndex.byYear[yearTab] ?? tierIndex.all),
+    [tierIndex, yearTab],
+  );
+  const tierPosOf = useCallback(
+    (item: BookListItem) => activeTierIndex?.[item.book.title],
+    [activeTierIndex],
+  );
+
   const handleYearTab = useCallback((t: YearTab) => {
     setYearTab(t);
     setGenreFilter("All genres");
@@ -1150,6 +1181,7 @@ function PerTypeRankings({
           desktop table expands into. */}
       <BookMobileList
         items={sorted.map((book) => ({ book, kind, categoryOrder: category_order, key: book.title }))}
+        tierPosOf={tierPosOf}
         cols={cols}
         sortState={sortState}
         onSort={handleSort}
@@ -1196,7 +1228,9 @@ function CombinedRankings({
   rows,
   fiction,
   nonfiction,
+  tierIndex,
 }: {
+  tierIndex?: { fiction: TierIndex; nonfiction: TierIndex };
   rows: CombinedRankRow[];
   fiction: BooksResponse;
   nonfiction: BooksResponse;
@@ -1288,6 +1322,7 @@ function CombinedRankings({
 
       <BookMobileList
         items={sorted}
+        tierPosOf={(item) => tierIndex?.[item.kind][item.book.title]}
         cols={COMBINED_COLS}
         sortRows={sorted}
         sortState={sortState}
@@ -1314,10 +1349,13 @@ export default function RankingsView({
   combined,
   initialType = "all",
   embedded = false,
+  tiers,
 }: {
   fiction: BooksResponse;
   nonfiction: BooksResponse;
   combined: CombinedRankRow[];
+  /** Server tier payloads; rows band + shade by them when given. */
+  tiers?: RankingsTiers;
   initialType?: TypeScope;
   // When true, drop the standalone "Rankings" <h1> — the host page (the merged
   // /stats page) supplies its own section heading above this view.
@@ -1325,6 +1363,18 @@ export default function RankingsView({
 }) {
   const [type, setType] = useState<TypeScope>(initialType);
   const isNon = type === "nonfiction";
+  const tierIndex = useMemo(() => {
+    if (!tiers) return undefined;
+    const f = tiers.fiction, n = tiers.nonfiction.allData;
+    const fiction: TrackTierIndex = {
+      all: buildTierIndex(f.allData.books, f.allData.tier_order, "fiction"),
+      byYear: Object.fromEntries(
+        Object.entries(f.byYear).map(([y, d]) => [y, buildTierIndex(d.books, d.tier_order, "fiction")]),
+      ),
+    };
+    const nonfiction: TrackTierIndex = { all: buildTierIndex(n.books, n.tier_order, "nonfiction"), byYear: {} };
+    return { fiction, nonfiction };
+  }, [tiers]);
   return (
     <div>
       {!embedded && (
@@ -1337,9 +1387,18 @@ export default function RankingsView({
       )}
       <TypeToggle value={type} onChange={setType} includeAll />
       {type === "all" ? (
-        <CombinedRankings rows={combined} fiction={fiction} nonfiction={nonfiction} />
+        <CombinedRankings
+          rows={combined}
+          fiction={fiction}
+          nonfiction={nonfiction}
+          tierIndex={tierIndex && { fiction: tierIndex.fiction.all, nonfiction: tierIndex.nonfiction.all }}
+        />
       ) : (
-        <PerTypeRankings data={isNon ? nonfiction : fiction} kind={isNon ? "nonfiction" : "fiction"} />
+        <PerTypeRankings
+          data={isNon ? nonfiction : fiction}
+          kind={isNon ? "nonfiction" : "fiction"}
+          tierIndex={tierIndex?.[isNon ? "nonfiction" : "fiction"]}
+        />
       )}
     </div>
   );

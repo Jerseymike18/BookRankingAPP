@@ -1,4 +1,5 @@
-import { fetchBooks, fetchStats } from "@/lib/api";
+import { fetchBooks, fetchStats, fetchTiers } from "@/lib/api";
+import { loadFictionTiers } from "@/lib/tiers-load";
 import { getServerAccessToken } from "@/lib/supabase/server";
 import { parseTypeScope } from "@/lib/scope";
 import StatsClient from "./StatsClient";
@@ -19,10 +20,13 @@ export default async function StatsPage({
 }) {
   const token = await getServerAccessToken();
   const { type } = await searchParams;
-  const [fiction, nonfiction, stats] = await Promise.all([
+  // Tiers ride along so the rankings band each book exactly as the Tier List does.
+  const [fiction, nonfiction, stats, fictionTiers, nonfictionTiers] = await Promise.all([
     fetchBooks("fiction", token),
     fetchBooks("nonfiction", token),
     fetchStats(token),
+    loadFictionTiers(token),
+    fetchTiers(undefined, "nonfiction", token),
   ]);
   return (
     <div>
@@ -41,6 +45,7 @@ export default async function StatsPage({
           fiction={fiction}
           nonfiction={nonfiction}
           combined={stats.combined_ranking}
+          tiers={{ fiction: fictionTiers, nonfiction: { allData: nonfictionTiers } }}
           initialType={parseTypeScope(type, "all", true)}
         />
       </section>

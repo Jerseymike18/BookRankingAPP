@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tierTint, positionsInGroups } from "../lib/tier-tint";
+import { tierTint, positionsInGroups, buildTierIndex, tierSpineClass } from "../lib/tier-tint";
 
 describe("tierTint", () => {
   it("runs from max at the tier's best book to min at its lowest", () => {
@@ -24,5 +24,44 @@ describe("positionsInGroups", () => {
     expect(p.get("d")).toEqual({ index: 1, count: 3 });
     expect(p.get("a")).toEqual({ index: 2, count: 3 });
     expect(p.get("b")).toEqual({ index: 0, count: 1 });
+  });
+});
+
+
+describe("buildTierIndex", () => {
+  const order = ["S+", "S", "A"];
+  it("uses the server's tier label and orders within it best-first, as the Tier List does", () => {
+    const idx = buildTierIndex(
+      [
+        { title: "x", tier: "S", wa: 8.7 },
+        { title: "y", tier: "S", wa: 9.1 },
+        // A server tier wins over WA: a 9.6 that the cohort put in S stays S.
+        { title: "z", tier: "S", wa: 9.6 },
+        { title: "w", tier: "A", wa: 8.0 },
+      ],
+      order,
+      "fiction",
+    );
+    expect(idx.z).toEqual({ tier: "S", index: 0, count: 3 });
+    expect(idx.y).toEqual({ tier: "S", index: 1, count: 3 });
+    expect(idx.x).toEqual({ tier: "S", index: 2, count: 3 });
+    expect(idx.w).toEqual({ tier: "A", index: 0, count: 1 });
+  });
+  it("orders nonfiction by Total Average, like the nonfiction Tier List", () => {
+    const idx = buildTierIndex(
+      [
+        { title: "a", tier: "S", wa: 9.0, total_average: 8.1 },
+        { title: "b", tier: "S", wa: 8.5, total_average: 8.9 },
+      ],
+      order,
+      "nonfiction",
+    );
+    expect(idx.b.index).toBe(0);
+    expect(idx.a.index).toBe(1);
+  });
+  it("maps tier labels to spine classes", () => {
+    expect(tierSpineClass("S+")).toBe("spine-sp");
+    expect(tierSpineClass("F")).toBe("spine-f");
+    expect(tierSpineClass("?")).toBeUndefined();
   });
 });

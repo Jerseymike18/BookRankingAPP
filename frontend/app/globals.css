@@ -61,6 +61,15 @@
   --color-info-border:    #93C5FD;
   /* Text/icons on a sage (or other solid accent) fill. */
   --color-on-accent:      #FFFFFF;
+  /* Text on a solid tier-spine fill (the tier-coloured WA badge): whichever of
+     the palette's white / ink reads better on that spine colour. */
+  --color-on-spine-sp:    #FFFFFF;
+  --color-on-spine-s:     #FFFFFF;
+  --color-on-spine-a:     #1A1714;
+  --color-on-spine-b:     #1A1714;
+  --color-on-spine-c:     #1A1714;
+  --color-on-spine-d:     #1A1714;
+  --color-on-spine-f:     #1A1714;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -96,6 +105,10 @@
     --color-info:           #93C5FD;
     --color-info-bg:        #172437;
     --color-info-border:    #2D4A75;
+
+    --color-on-spine-sp:    #1A1714;
+    --color-on-spine-s:     #1A1714;
+    --color-on-spine-f:     #FFFFFF;
 
     --shadow-card:       0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px rgba(0, 0, 0, 0.3);
     --shadow-card-hover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 2px 4px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.4);

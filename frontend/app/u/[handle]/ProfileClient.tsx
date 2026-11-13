@@ -82,6 +82,7 @@ export default function ProfileClient({
             fiction={fictionBooks}
             nonfiction={nonfictionBooks}
             combined={combined}
+            tiers={{ fiction: fictionTiers, nonfiction: nonfictionTiers }}
             initialType="all"
           />
         )}
