@@ -22,6 +22,7 @@ import type {
 import { componentLabel } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
+import Glyph from "@/components/Glyph";
 
 type Phase = "loading" | "upload" | "review" | "committed" | "rank";
 type Kind = "fiction" | "nonfiction";
@@ -213,10 +214,10 @@ function RowCard({
       <button
         onClick={() => onDrop(row.id)}
         aria-label="Remove from import"
-        className="shrink-0 px-2 py-1 rounded-md text-xs font-medium transition-colors"
+        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md transition-colors"
         style={{ color: "var(--color-muted)", border: "1px solid var(--color-rule)" }}
       >
-        ✗
+        <Glyph name="close" size={12} />
       </button>
     </div>
   );

@@ -327,12 +327,14 @@ function TabButton({
   /** Passed to Link: false when the tab restores its own scroll position. */
   scroll?: boolean;
 }) {
-  const cls = "flex flex-col items-center justify-center gap-0.5 h-14 text-[11px] font-medium no-underline";
+  const cls = "flex flex-col items-center justify-center gap-0.5 h-14 min-w-0 px-0.5 text-[11px] font-medium no-underline";
   const style = { color: active ? "var(--color-sage)" : "var(--color-muted)" };
   const body = (
     <>
       <Icon name={icon} size={22} />
-      {label}
+      {/* One centred line: on the narrowest phones a long label truncates
+          instead of wrapping into a left-aligned second line. */}
+      <span className="block max-w-full truncate text-center leading-tight">{label}</span>
     </>
   );
   return href ? (
@@ -562,7 +564,7 @@ export function DesktopTopBar() {
     color: active ? "var(--color-sage)" : "var(--color-muted)",
     background: active ? "var(--color-sage-light)" : "transparent",
   });
-  const tabCls = "flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium no-underline transition-colors";
+  const tabCls = "flex items-center justify-center gap-1.5 px-3 h-9 rounded-lg text-sm font-medium no-underline transition-colors";
 
   return (
     <header

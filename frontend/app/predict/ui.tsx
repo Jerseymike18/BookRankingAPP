@@ -10,6 +10,7 @@
  */
 
 import React from "react";
+import Glyph from "@/components/Glyph";
 
 export const inputStyle: React.CSSProperties = {
   background: "var(--color-surface-2)",
@@ -109,8 +110,8 @@ export function ErrorBox({
     >
       <span className="flex-1">{message}</span>
       {onDismiss && (
-        <button onClick={onDismiss} aria-label="Dismiss" className="flex-shrink-0 leading-none">
-          ✕
+        <button onClick={onDismiss} aria-label="Dismiss" className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 -mr-1 rounded">
+          <Glyph name="close" size={12} />
         </button>
       )}
     </div>

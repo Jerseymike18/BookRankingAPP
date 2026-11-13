@@ -11,6 +11,7 @@ import type { ColDef } from "@/components/SortableTable";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SkeletonCardList } from "@/components/Skeleton";
 import { SegmentedTabs, KIND_TABS } from "@/components/SegmentedTabs";
+import Glyph from "@/components/Glyph";
 
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
@@ -231,9 +232,9 @@ function PredictFlow({
           <button
             onClick={() => jobs.dismissInterrupted(kind)}
             aria-label="Dismiss"
-            className="flex-shrink-0 text-sm leading-none"
+            className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 -mr-1 rounded"
           >
-            ✕
+            <Glyph name="close" size={12} />
           </button>
         </div>
       )}
@@ -253,9 +254,9 @@ function PredictFlow({
           <button
             onClick={() => jobs.dismissCancelled(kind)}
             aria-label="Dismiss"
-            className="flex-shrink-0 text-sm leading-none"
+            className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 -mr-1 rounded"
           >
-            ✕
+            <Glyph name="close" size={12} />
           </button>
         </div>
       )}
@@ -691,12 +692,12 @@ function ScoredCard({
               e.stopPropagation();
               onRemove();
             }}
-            className="flex-shrink-0 text-base leading-none px-1.5 py-0.5 rounded-md"
+            className="flex-shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md"
             style={{ color: "var(--color-faint)" }}
             title="Remove — don't save this book"
             aria-label={`Remove ${result.title}`}
           >
-            ✕
+            <Glyph name="close" size={14} />
           </button>
         )}
       </div>

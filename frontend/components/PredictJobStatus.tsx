@@ -35,6 +35,7 @@ import {
   type NotifyState,
 } from "@/lib/notify";
 import type { BookKind } from "@/lib/types";
+import Glyph from "./Glyph";
 
 /** What a busy run is doing, phrased for a one-line pill. Ordered by which phase
  *  the reader most needs to see: an explicit count beats a vague "working". */
@@ -132,10 +133,10 @@ export function PredictJobPill() {
           onClick={stopOne}
           aria-label="Stop this prediction"
           title="Stop making further calls. Anything already done is kept; a call already in flight may still finish on the server."
-          className="px-1.5 py-0.5 text-xs leading-none rounded"
+          className="inline-flex items-center justify-center w-6 h-6 rounded"
           style={{ color: "var(--color-sage)" }}
         >
-          ✕
+          <Glyph name="close" size={12} />
         </button>
       )}
     </span>
@@ -470,10 +471,10 @@ export function PredictJobBanner() {
         <button
           onClick={jobs.dismissNotice}
           aria-label="Dismiss"
-          className="flex-shrink-0 -mt-1 -mr-1 p-1 text-sm leading-none"
+          className="flex-shrink-0 -mt-1 -mr-1 inline-flex items-center justify-center w-6 h-6 rounded"
           style={{ color: "var(--color-faint)" }}
         >
-          ✕
+          <Glyph name="close" size={12} />
         </button>
       </div>
     </div>

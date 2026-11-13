@@ -2,6 +2,7 @@
 
 import { seriesLabel } from "@/lib/format";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
+import Glyph from "./Glyph";
 
 /**
  * QUEUE LIST — the Read Queue results at every screen size (fiction and
@@ -68,10 +69,10 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
           type="button"
           onClick={() => onSort(sortField)}
           aria-label={sortDir === "desc" ? "Sorted high to low — tap to flip" : "Sorted low to high — tap to flip"}
-          className="px-2.5 py-1.5 rounded-lg text-sm font-medium"
+          className="inline-flex items-center justify-center w-9 self-stretch rounded-lg"
           style={{ background: "var(--color-surface-2)", color: "var(--color-sage)" }}
         >
-          {sortDir === "desc" ? "↓" : "↑"}
+          <Glyph name={sortDir === "desc" ? "arrow-down" : "arrow-up"} size={16} strokeWidth={2.25} />
         </button>
       </div>
 

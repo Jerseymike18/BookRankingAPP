@@ -12,6 +12,7 @@ import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { QueueMobileList } from "@/components/QueueMobileList";
+import Glyph from "@/components/Glyph";
 
 /* ── Mood engine constants (mirrors app.py MOODS exactly) ──────────────── */
 const MOOD_COMPONENTS: Record<string, string[]> = {
@@ -86,11 +87,11 @@ function MoodInput({
           <button
             onClick={() => onChange(Math.max(0, value - 1))}
             disabled={value === 0}
-            className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold leading-none disabled:opacity-30"
+            className="w-6 h-6 rounded flex items-center justify-center disabled:opacity-30"
             style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}
             aria-label={`Decrease ${name}`}
           >
-            −
+            <Glyph name="minus" size={12} />
           </button>
           <span
             className="w-5 text-center text-sm font-bold tabular-nums"
@@ -101,11 +102,11 @@ function MoodInput({
           <button
             onClick={() => onChange(Math.min(5, value + 1))}
             disabled={value === 5}
-            className="w-6 h-6 rounded flex items-center justify-center text-sm font-bold leading-none disabled:opacity-30"
+            className="w-6 h-6 rounded flex items-center justify-center disabled:opacity-30"
             style={{ background: "var(--color-surface-2)", color: "var(--color-ink)", border: "1px solid var(--color-rule)" }}
             aria-label={`Increase ${name}`}
           >
-            +
+            <Glyph name="plus" size={12} />
           </button>
         </div>
       </div>
@@ -903,7 +904,7 @@ function QueueCard({
         {/* Remove */}
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-base font-bold leading-none transition-colors"
+          className="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center transition-colors"
           style={{
             background: "var(--color-surface-2)",
             color: "var(--color-muted)",
@@ -913,7 +914,7 @@ function QueueCard({
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-danger)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-muted)"; }}
         >
-          ×
+          <Glyph name="close" size={12} />
         </button>
       </div>
 

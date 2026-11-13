@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
+import Glyph from "./Glyph";
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -167,10 +168,10 @@ export function MobileSortBar({ cols, sortState, onSort, className = "mb-3" }: {
         type="button"
         onClick={() => onSort(sortState.key)}
         aria-label={sortState.dir === "desc" ? "Sorted high to low — tap to flip" : "Sorted low to high — tap to flip"}
-        className="px-2.5 py-1.5 rounded-lg text-sm font-medium"
+        className="inline-flex items-center justify-center w-9 self-stretch rounded-lg"
         style={{ background: "var(--color-surface-2)", color: "var(--color-sage)" }}
       >
-        {sortState.dir === "desc" ? "↓" : "↑"}
+        <Glyph name={sortState.dir === "desc" ? "arrow-down" : "arrow-up"} size={16} strokeWidth={2.25} />
       </button>
     </div>
   );
