@@ -7,7 +7,7 @@ import { saveQueue, generateRecommendationMeta, addSeriesToQueue, deleteRecommen
 import { usePredictJobs, queueRepredictKey } from "@/lib/predict-jobs";
 import { PredictNotifyPrompt } from "@/components/PredictJobStatus";
 import type { RecommendationMetadataPayload } from "@/lib/api";
-import { seriesLabel } from "@/lib/format";
+import { seriesLabel, componentLabel } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -600,7 +600,7 @@ function RecExpandedPanel({
                 Biggest moves:{" "}
                 {repredictReport.drivers
                   .filter((d) => Math.abs(d.delta) >= 0.01)
-                  .map((d) => `${d.component} ${d.delta >= 0 ? "+" : ""}${d.delta.toFixed(2)}`)
+                  .map((d) => `${componentLabel(d.component)} ${d.delta >= 0 ? "+" : ""}${d.delta.toFixed(2)}`)
                   .join(" · ") || "none"}
               </p>
             )}
@@ -676,7 +676,7 @@ function ComponentScores({ components }: { components: Record<string, number | n
                 const v = components[comp];
                 return (
                   <div key={comp} className="comp-tile">
-                    <span className="comp-label">{comp}</span>
+                    <span className="comp-label">{componentLabel(comp)}</span>
                     <span className="comp-value">
                       {isUnscored(v) ? "—" : v.toFixed(1)}
                     </span>

@@ -14,16 +14,23 @@ export function seriesLabel(
 }
 
 /**
- * Display label for a component score. The 2026 nonfiction schema keeps stable
- * DB / weight-table keys ("Entertainment", "Insights") but shows friendlier
- * names in the UI ("Enjoyment", "Insight"). Fiction is unchanged. `kind` is a
- * plain string so this stays dependency-free (a BookKind is assignable to it).
+ * Display label for a component score. Both schemas keep stable DB /
+ * weight-table keys but may show friendlier names in the UI: nonfiction
+ * "Entertainment"/"Insights" read "Enjoyment"/"Insight", and fiction
+ * "Narration" reads "Voice" (owner rename 2026-11-13 — the stored key and every
+ * rating under it are unchanged). `kind` is a plain string so this stays
+ * dependency-free (a BookKind is assignable to it).
  */
+const FICTION_COMPONENT_LABELS: Record<string, string> = {
+  Narration: "Voice",
+};
+
 const NF_COMPONENT_LABELS: Record<string, string> = {
   Entertainment: "Enjoyment",
   Insights: "Insight",
 };
 
 export function componentLabel(comp: string, kind: string = "fiction"): string {
-  return kind === "nonfiction" ? NF_COMPONENT_LABELS[comp] ?? comp : comp;
+  const labels = kind === "nonfiction" ? NF_COMPONENT_LABELS : FICTION_COMPONENT_LABELS;
+  return labels[comp] ?? comp;
 }

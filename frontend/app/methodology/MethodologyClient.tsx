@@ -6,6 +6,7 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import type { EngineParameters, EngineValidation } from "@/lib/types";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
+import { componentLabel } from "@/lib/format";
 
 /* ── formatting ─────────────────────────────────────────────────────────── */
 const f2 = (v: number) => v.toFixed(2);
@@ -234,7 +235,7 @@ function GenreWeights({ params }: { params: EngineParameters }) {
                   <td className="px-3 py-1.5 text-right tabular-nums font-mono" style={{ color: ci === 0 ? "var(--color-ink)" : "transparent" }}>
                     {ci === 0 ? wt(catW[cat.category]) : "·"}
                   </td>
-                  <td className="px-3 py-1.5" style={{ color: "var(--color-muted)" }}>{comp}</td>
+                  <td className="px-3 py-1.5" style={{ color: "var(--color-muted)" }}>{componentLabel(comp)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums font-mono" style={{ color: "var(--color-ink)" }}>
                     {wt(compW[cat.category]?.[comp])}
                   </td>

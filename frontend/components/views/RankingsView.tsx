@@ -721,7 +721,7 @@ const CAT_ABBREV: Record<string, string> = {
 const COMP_ABBREV: Record<string, string> = {
   Entertainment: "Enter", Enjoyment: "Enjoy", "Emotional Impact": "Emotion",
   Motivations: "Motive", "Thought-Provokingness": "Thought", Depth2: "Depth",
-  Originality: "Orig", Integration: "Integr", Narration: "Narr",
+  Originality: "Orig", Integration: "Integr",
   Informativeness: "Info", Argumentation: "Argument",
 };
 

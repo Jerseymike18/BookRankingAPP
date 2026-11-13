@@ -217,7 +217,7 @@ COMPONENT_DEFS = {
     "Emotional Impact": "Emotional resonance of the characters/story.",
     "Motivations": "Believability and richness of character motivations.",
     "Prose": "Sentence-level writing quality.",
-    "Narration": "Narrative voice / POV handling.",
+    "Narration": "Voice — the distinctiveness and control of the narrative voice (tone, POV handling). 9-10: an unmistakable voice that is part of why you'd recommend the book (e.g. Pratchett, Le Guin, Rothfuss's Kvothe); 6-8: assured and consistent, with some flavor, but not memorable on its own; 3-5: generic or flat, or the tone wobbles (jokes that undercut the stakes, uneven POV switches); 1-2: grating or actively distracting.",
     "Insights": "Quality of ideas and observations.",
     "Thought-Provokingness": "How much it makes the reader think.",
     "Depth2": "Worldbuilding depth/lore richness (if applicable).",

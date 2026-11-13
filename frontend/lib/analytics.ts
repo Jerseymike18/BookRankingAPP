@@ -44,7 +44,7 @@ export const COMPONENTS: ComponentDef[] = [
   { name: "Emotional Impact", category: "Character", abbr: "Emo" },
   { name: "Motivations", category: "Character", abbr: "Motv" },
   { name: "Prose", category: "Aesthetics", abbr: "Pros" },
-  { name: "Narration", category: "Aesthetics", abbr: "Narr" },
+  { name: "Narration", category: "Aesthetics", abbr: "Voic" }, // shown as "Voice" (componentLabel)
   { name: "Insights", category: "Theme", abbr: "Inst" },
   { name: "Thought-Provokingness", category: "Theme", abbr: "ThtP" },
   { name: "Depth2", category: "Worldbuilding", abbr: "Dpt2" },

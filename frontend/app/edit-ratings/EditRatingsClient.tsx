@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { fetchBookScores, editRating } from "@/lib/api";
 import type { BooksResponse, CategoryComponents } from "@/lib/types";
-import { seriesLabel } from "@/lib/format";
+import { seriesLabel, componentLabel } from "@/lib/format";
 import { Skeleton } from "@/components/Skeleton";
 
 const inputStyle: React.CSSProperties = {
@@ -72,7 +72,7 @@ function ScoreGrid({
               {Object.keys(comps).map((comp) => (
                 <div key={comp}>
                   <label className="block text-xs mb-1" style={{ color: "var(--color-muted)" }}>
-                    {comp}
+                    {componentLabel(comp)}
                   </label>
                   <input
                     type="number"

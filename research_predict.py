@@ -490,7 +490,7 @@ The three sentences:
 COMPONENT NAMES: whenever the blurb refers to one of the reader's 14 scored
 components, write its exact capitalized name so it reads as a reference to that
 component: Plot, Entertainment, Action, Ending, Character Depth, Emotional
-Impact, Motivations, Prose, Narration, Insights, Thought-Provokingness,
+Impact, Motivations, Prose, Voice, Insights, Thought-Provokingness,
 Worldbuilding Depth, Integration, Originality (e.g. "a mystery-laced Plot",
 "thin Worldbuilding Depth", "rather than Action"). Prefer naming the component
 itself over a synonym ("Character Depth", not "psychological depth") when that is

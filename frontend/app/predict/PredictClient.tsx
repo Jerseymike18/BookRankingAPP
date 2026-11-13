@@ -12,6 +12,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { SkeletonCardList } from "@/components/Skeleton";
 import { SegmentedTabs, KIND_TABS } from "@/components/SegmentedTabs";
 import Glyph from "@/components/Glyph";
+import { componentLabel } from "@/lib/format";
 
 /* ── Candidate table columns ─────────────────────────────────────────────── */
 
@@ -95,9 +96,11 @@ function isUnscored(v: number | null | undefined): v is null | undefined {
 function ComponentGrid({
   components,
   categoryOrder,
+  kind,
 }: {
   components: ResearchResult["components"];
   categoryOrder: string[];
+  kind: BookKind;
 }) {
   return (
     <div className="space-y-4">
@@ -124,7 +127,7 @@ function ComponentGrid({
             >
               {Object.entries(comps).map(([comp, val]) => (
                 <div key={comp} className="comp-tile">
-                  <span className="comp-label">{comp}</span>
+                  <span className="comp-label">{componentLabel(comp, kind)}</span>
                   <span className="comp-value">
                     {isUnscored(val) ? "—" : val.toFixed(2)}
                   </span>
@@ -478,6 +481,7 @@ function PredictFlow({
               primaryScore={config.primaryScore(r)}
               showGroundingBadge={config.showGroundingBadge}
               categoryOrder={r.category_order?.length ? r.category_order : categoryOrder}
+              kind={kind}
               onRemove={() => jobs.removeBook(kind, r.title)}
               saveMsg={saveResults[r.title]}
               refining={refiningTitles.has(r.title)}
@@ -554,6 +558,7 @@ function ScoredCard({
   primaryScore,
   showGroundingBadge,
   categoryOrder,
+  kind,
   onRemove,
   saveMsg,
   refining,
@@ -571,6 +576,7 @@ function ScoredCard({
    *  note instead (no grounding/interval signal is available for it). */
   showGroundingBadge: boolean;
   categoryOrder: string[];
+  kind: BookKind;
   onRemove: () => void;
   saveMsg?: string;
   refining?: boolean;
@@ -766,7 +772,7 @@ function ScoredCard({
             {showGroundingBadge && " — less reliable than the grounding signal above."}
           </p>
 
-          <ComponentGrid components={result.components} categoryOrder={categoryOrder} />
+          <ComponentGrid components={result.components} categoryOrder={categoryOrder} kind={kind} />
 
           {result.blurb && (
             <p className="text-sm italic" style={{ color: "var(--color-muted)" }}>

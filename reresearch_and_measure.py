@@ -81,7 +81,8 @@ RICH_DEFS = {
     "Emotional Impact": "How emotionally resonant the characters and story are.",
     "Motivations": "Believability and richness of character motivations — why characters do what they do.",
     "Prose": "Sentence-level writing quality and craft.",
-    "Narration": "Narrative voice and POV handling.",
+    # Displayed as "Voice" (owner rename 2026-11-13); the JSON/DB key stays "Narration".
+    "Narration": "Voice — the distinctiveness and control of the narrative voice (tone, POV handling). 9-10: an unmistakable voice that is part of why you'd recommend the book (e.g. Pratchett, Le Guin, Rothfuss's Kvothe); 6-8: assured and consistent, with some flavor, but not memorable on its own; 3-5: generic or flat, or the tone wobbles (jokes that undercut the stakes, uneven POV switches); 1-2: grating or actively distracting.",
     "Insights": "Quality and depth of the book's ideas and observations.",
     "Thought-Provokingness": "How much the book makes you think — lingering questions, reframing.",
     "Depth2": "Worldbuilding depth — lore richness and texture of the setting. Correlates strongly with your overall rating.",

@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import type { EffectiveWeights, BookKind } from "@/lib/types";
 import Glyph from "@/components/Glyph";
+import { componentLabel } from "@/lib/format";
 
 /* ── Working model ──────────────────────────────────────────────────────────
    Weights are TYPED (not dragged). Each box holds a raw STRING (so it can be
@@ -590,7 +591,7 @@ export default function WeightsClient({
                             {c.components.map((comp) => (
                               <NumberRow
                                 key={comp}
-                                label={comp}
+                                label={componentLabel(comp, kind)}
                                 value={c.raw[comp] ?? ""}
                                 pct={pctOf(c.raw, comp)}
                                 onChange={(v) =>

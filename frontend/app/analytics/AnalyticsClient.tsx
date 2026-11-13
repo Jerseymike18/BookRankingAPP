@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { Book } from "@/lib/types";
+import { componentLabel } from "@/lib/format";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import {
@@ -479,7 +480,7 @@ function Heatmap({ data }: { data: CoMovement }) {
               style={{ fill: cellColor(r) }}
               onMouseMove={(e) =>
                 show(e, [
-                  `${labels[i].name} × ${labels[j].name}`,
+                  `${componentLabel(labels[i].name)} × ${componentLabel(labels[j].name)}`,
                   i === j ? "self" : r != null ? `r = ${f2(r)}` : "r = —",
                 ])
               }
@@ -610,7 +611,7 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
       </Caption>
       {enoughForCorr ? (
         <Panel label="Component correlation with WA">
-          <HBarRanking rows={fingerprint.map((r) => ({ label: r.comp.name, value: r.r }))} color="var(--color-sage)" format={f2} />
+          <HBarRanking rows={fingerprint.map((r) => ({ label: componentLabel(r.comp.name), value: r.r }))} color="var(--color-sage)" format={f2} />
         </Panel>
       ) : (
         <NotEnough n={filtered.length} />
@@ -625,7 +626,7 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
       {enoughForCorr ? (
         <>
           <Panel label="Component standard deviation">
-            <HBarRanking rows={discrimination.map((r) => ({ label: r.comp.name, value: r.sd }))} color="var(--color-spine-d)" format={f2} />
+            <HBarRanking rows={discrimination.map((r) => ({ label: componentLabel(r.comp.name), value: r.sd }))} color="var(--color-spine-d)" format={f2} />
           </Panel>
           <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
             The three Worldbuilding components (Depth2 / Integration / Originality) sit high partly

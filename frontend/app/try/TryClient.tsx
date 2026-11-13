@@ -5,6 +5,7 @@ import Link from "next/link";
 import { demoPredict } from "@/lib/api";
 import type { DemoPrediction, ResearchResult } from "@/lib/types";
 import { ProgressBar } from "@/components/ProgressBar";
+import { componentLabel } from "@/lib/format";
 import { Skeleton } from "@/components/Skeleton";
 
 // The static public showcase has no backend to answer /api/demo/predict, so the
@@ -99,7 +100,7 @@ function ComponentGrid({
             <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(5rem, 1fr))" }}>
               {Object.entries(comps).map(([comp, val]) => (
                 <div key={comp} className="comp-tile">
-                  <span className="comp-label">{comp}</span>
+                  <span className="comp-label">{componentLabel(comp)}</span>
                   <span className="comp-value">{isUnscored(val) ? "—" : val.toFixed(2)}</span>
                 </div>
               ))}
