@@ -107,7 +107,7 @@ export function tierNoticeStyle(s: TierStandingLike): CSSProperties {
 /** A solid action button in the book's tier fill (its tier's best-book shade,
  *  so it reads as the strongest colour on the page) with white text; sage when
  *  there's no tier yet. */
-export function tierButtonStyle(s: TierStandingLike): CSSProperties {
+export function tierButtonStyle(s: TierStandingLike | TierPos): CSSProperties {
   const cls = s?.tier ? tierSpineClass(s.tier) : undefined;
   if (!cls) return { background: "var(--color-sage)", color: "var(--color-on-accent)" };
   return {

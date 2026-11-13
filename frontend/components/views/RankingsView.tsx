@@ -13,7 +13,7 @@ import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
-import { tierBadgeFill, positionsInGroups, buildTierIndex, tierSpineClass, tierCircleStyle, tierNoticeStyle, type TierIndex, type TierPos } from "@/lib/tier-tint";
+import { tierBadgeFill, positionsInGroups, buildTierIndex, tierSpineClass, tierCircleStyle, tierNoticeStyle, tierButtonStyle, type TierIndex, type TierPos } from "@/lib/tier-tint";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -403,6 +403,7 @@ function BookExpandedPanel({
   onRefresh,
   refreshing,
   onClose,
+  currentTier = null,
 }: {
   book: Book;
   categoryOrder: string[];
@@ -411,6 +412,8 @@ function BookExpandedPanel({
   /** True while the post-save refetch is still in flight (see onRefresh). */
   refreshing: boolean;
   onClose: () => void;
+  /** The book's tier + slot as the Tier List has it (tints the solid buttons). */
+  currentTier?: TierPos | null;
 }) {
   const ro = useReadOnly();
   const [mode, setMode] = useState<CardMode>("view");
@@ -602,7 +605,7 @@ function BookExpandedPanel({
             <button
               onClick={enterEdit}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
+              style={tierButtonStyle(currentTier)}
             >
               Edit scores
             </button>
@@ -659,7 +662,7 @@ function BookExpandedPanel({
               onClick={handleSave}
               disabled={saving}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
+              style={tierButtonStyle(preview ?? currentTier)}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -711,7 +714,7 @@ function BookExpandedPanel({
               onClick={handleSaveMeta}
               disabled={saving}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-colors"
-              style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
+              style={tierButtonStyle(currentTier)}
             >
               {saving ? "Saving…" : "Save metadata"}
             </button>
@@ -994,6 +997,7 @@ function BookMobileList<T>({
                       onRefresh={onRefresh}
                       refreshing={refreshing}
                       onClose={() => setExpandedKey(null)}
+                      currentTier={tierCls ? tierPos : null}
                     />
                   </div>
                 )}
