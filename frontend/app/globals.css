@@ -19,10 +19,11 @@
   --color-sage-light:  #DDF3E6;
   --color-sage-hover:  #156B45;
 
-  /* Spine colors by WA tier */
-  --color-spine-sp:    #0B6E4F;
+  /* Spine colors by WA tier — one distinct hue per tier (2026-11-13: S+ moved
+     off green to violet and A to lime so S+/S/A no longer read as three greens). */
+  --color-spine-sp:    #7B3FA0;
   --color-spine-s:     #1C8355;
-  --color-spine-a:     #5DBB63;
+  --color-spine-a:     #8DB63C;
   --color-spine-b:     #F2B134;
   --color-spine-c:     #EE7B4A;
   --color-spine-d:     #5B8DEF;
@@ -78,9 +79,9 @@
     --color-sage-light:  #163325;
     --color-sage-hover:  #3DBA80;
 
-    --color-spine-sp:    #3BC48A;
+    --color-spine-sp:    #A56CD0;
     --color-spine-s:     #2FA36E;
-    --color-spine-a:     #7CC86A;
+    --color-spine-a:     #A3CC55;
     --color-spine-b:     #F2B134;
     --color-spine-c:     #EE7B4A;
     --color-spine-d:     #6E9BF2;

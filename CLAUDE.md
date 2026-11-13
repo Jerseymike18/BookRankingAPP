@@ -67,8 +67,8 @@ Thought-Provokingness) · **Worldbuilding** (Depth2, Integration, Originality).
   plus per-user overrides). Everything sorts by WA.
 - **Total Average** = unweighted mean of the five category averages — tier bands and series.
 - **Tier bands:** S+ fixed at Total Average ≥ 9.5 (≥ 9.0 for series); the rest split
-  S/A/B/C/D/F by percentile (~9/15/25/25/15/10%). Spine colors: S+ #0B6E4F · S #1C8355 ·
-  A #5DBB63 · B #F2B134 · C #EE7B4A · D #5B8DEF · F #B9AFA6.
+  S/A/B/C/D/F by percentile (~9/15/25/25/15/10%). Spine colors: S+ #7B3FA0 · S #1C8355 ·
+  A #8DB63C · B #F2B134 · C #EE7B4A · D #5B8DEF · F #B9AFA6.
 - **Stored 0 = "not scored"** (rendered "—"; masked to NaN in Total Average).
 - **Nonfiction** is a separate 12-component / 5-category schema with no Worldbuilding and no
   correction layer.
