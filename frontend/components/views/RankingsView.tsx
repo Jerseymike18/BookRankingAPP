@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { editRating, deleteBook, fetchValidGenres, updateBookMetadata } from "@/lib/api";
+import { editRating, deleteBook, fetchValidGenres, updateBookMetadata, previewBookStanding, type BookStanding } from "@/lib/api";
 import type { BookMetadataPayload } from "@/lib/api";
 import type { BooksResponse, Book, CategoryComponents, BookKind, CombinedRankRow, TiersResponse } from "@/lib/types";
-import { seriesLabel, componentLabel } from "@/lib/format";
+import { seriesLabel, componentLabel, standingText } from "@/lib/format";
 import { useReadOnly } from "@/lib/readonly-context";
 import { useSortable, MobileSortBar } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
@@ -13,7 +13,7 @@ import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
-import { tierBadgeFill, positionsInGroups, buildTierIndex, tierSpineClass, type TierIndex, type TierPos } from "@/lib/tier-tint";
+import { tierBadgeFill, positionsInGroups, buildTierIndex, tierSpineClass, tierCircleStyle, tierNoticeStyle, type TierIndex, type TierPos } from "@/lib/tier-tint";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -421,6 +421,29 @@ function BookExpandedPanel({
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  // While editing scores: the server's preview of the book with these edits
+  // (WA, rank, tier — its saved row left out of the comparison), which also
+  // colours the "Saved" notice. Blank boxes mean "leave unchanged", so the
+  // preview overlays the edits on the book's current scores, as the save does.
+  const [preview, setPreview] = useState<BookStanding | null>(null);
+  const [savedStanding, setSavedStanding] = useState<BookStanding | null>(null);
+  const editedScores = useMemo(() => {
+    const current: Record<string, number> = {};
+    for (const comps of Object.values(book.components)) {
+      for (const [c, v] of Object.entries(comps)) if (v != null) current[c] = v;
+    }
+    return { ...current, ...buildChangedScores(scores) };
+  }, [book.components, scores]);
+  useEffect(() => {
+    if (mode !== "edit") return;
+    const ctl = new AbortController();
+    const t = setTimeout(() => {
+      previewBookStanding(kind, book.genre, editedScores, ctl.signal, book.title)
+        .then((p) => { if (!ctl.signal.aborted) setPreview(p); })
+        .catch(() => { /* best-effort preview */ });
+    }, 300);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [mode, kind, book.genre, book.title, editedScores]);
 
   // Load the valid-genre list once we enter metadata editing, so the genre
   // dropdown is constrained to real genres (a typo can't be submitted).
@@ -453,6 +476,7 @@ function BookExpandedPanel({
   }
 
   async function handleSaveMeta() {
+    setSavedStanding(null);
     const payload = buildMetaPayload(book, metaForm);
     if (Object.keys(payload).length === 0) {
       setActionError("No metadata changes to save.");
@@ -483,6 +507,7 @@ function BookExpandedPanel({
     setActionError(null);
     try {
       await editRating(book.title, payload, kind);
+      setSavedStanding(preview);
       setSaveSuccess(true);
       setMode("view");
       onRefresh();
@@ -561,15 +586,10 @@ function BookExpandedPanel({
 
       {/* ── Save success banner ── */}
       {saveSuccess && mode === "view" && (
-        <div
-          className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{
-            background: "var(--color-sage-light)",
-            color: "var(--color-sage)",
-            border: "1px solid var(--color-sage)",
-          }}
-        >
-          Saved. Rankings are refreshing…
+        <div className="rounded-lg px-4 py-3 text-sm mb-4" role="status" style={tierNoticeStyle(savedStanding)}>
+          {savedStanding
+            ? `Saved — ${standingText(savedStanding)}${savedStanding.tier ? ` · ${savedStanding.tier} tier` : ""}. Rankings are refreshing…`
+            : "Saved. Rankings are refreshing…"}
         </div>
       )}
 
@@ -625,6 +645,15 @@ function BookExpandedPanel({
               setScores((prev) => ({ ...prev, [comp]: val }))
             }
           />
+          {preview && (
+            <div className="mt-4 flex items-center gap-3" aria-live="polite">
+              <span className="wa-badge" style={tierCircleStyle(preview)}>{preview.wa.toFixed(2)}</span>
+              <p className="text-sm" style={{ color: "var(--color-ink)" }}>
+                With these scores: WA · would rank #{preview.rank} of {preview.of}
+                {preview.tier ? ` · ${preview.tier} tier` : ""}
+              </p>
+            </div>
+          )}
           <div className="flex gap-3 mt-5">
             <button
               onClick={handleSave}

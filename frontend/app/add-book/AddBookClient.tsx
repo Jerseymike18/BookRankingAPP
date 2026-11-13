@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, previewBookStanding, type BookStanding } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel, standingText } from "@/lib/format";
-import { tierBadgeFill, tierSpineClass } from "@/lib/tier-tint";
+import { tierCircleStyle, tierNoticeStyle } from "@/lib/tier-tint";
 import { ProgressBar } from "@/components/ProgressBar";
 
 import {
@@ -209,37 +209,6 @@ function parseScores(raw: Record<string, string>): Record<string, number> {
     parsed[comp] = Math.min(10, Math.max(0, v));
   }
   return parsed;
-}
-
-/** The preview circle wears the tier it would land in, shaded by its slot in
- *  that tier — the same fill and white text as the Rankings circles. Falls back
- *  to the plain sage badge when the server sent no tier. */
-function previewCircleStyle(p: BookStanding): React.CSSProperties | undefined {
-  const cls = p.tier ? tierSpineClass(p.tier) : undefined;
-  if (!cls) return undefined;
-  return {
-    background: tierBadgeFill(cls, p.tier_index ?? 0, p.tier_count ?? 1),
-    color: "var(--color-on-accent)",
-    fontWeight: 800,
-    textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
-  };
-}
-
-/** The "added" notice wears the saved book's tier colour (its slot in the tier
- *  sets the shade), with white text like the circles; plain sage otherwise. */
-function addedNoticeStyle(s: BookStanding | null): React.CSSProperties {
-  const cls = s?.tier ? tierSpineClass(s.tier) : undefined;
-  if (!s || !cls) {
-    return { background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" };
-  }
-  return {
-    background: tierBadgeFill(cls, s.tier_index ?? 0, s.tier_count ?? 1),
-    color: "var(--color-on-accent)",
-    fontWeight: 600,
-    textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
-    border: "1px solid transparent",
-  };
 }
 
 /** The "added" notice, naming the new book's WA and rank when the server has them. */
@@ -822,7 +791,7 @@ export default function AddBookClient({
           <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} kind={kind} />
           {previewCount > 0 && preview && (
             <div className="mt-4 flex items-center gap-3" aria-live="polite">
-              <span className="wa-badge" style={previewCircleStyle(preview)}>{preview.wa.toFixed(2)}</span>
+              <span className="wa-badge" style={tierCircleStyle(preview)}>{preview.wa.toFixed(2)}</span>
               <div className="min-w-0">
                 <p className="text-sm" style={{ color: "var(--color-ink)" }}>
                   {requiredScored < requiredComps.length ? "WA so far" : "WA"} · would rank #{preview.rank} of {preview.of}
@@ -848,7 +817,7 @@ export default function AddBookClient({
       )}
       {saveSuccess && (
         <div className="rounded-lg px-4 py-3 text-sm mb-4" role="status"
-          style={addedNoticeStyle(savedStanding)}>
+          style={tierNoticeStyle(savedStanding)}>
           {saveSuccess}
         </div>
       )}

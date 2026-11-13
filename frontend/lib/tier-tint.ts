@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * The tier fill (rankings WA circle, tier-list box) for a book at `index` of
  * `count` in its tier: --circle-hi-<spine> for the tier's best book, blending to
@@ -66,4 +68,38 @@ const SPINE_CLASS: Record<string, string> = {
 /** The `.spine-*` class for a tier label (undefined for an unknown label). */
 export function tierSpineClass(tier: string): string | undefined {
   return SPINE_CLASS[tier];
+}
+
+/* ── Tier-coloured surfaces for a book's standing ──────────────────────────
+   Shared by Add a Book and the Rankings score editor. `standing` carries the
+   server's tier + slot (preview or saved); without a tier these fall back to
+   the plain sage look. */
+type TierStandingLike = { tier?: string; tier_index?: number; tier_count?: number } | null | undefined;
+
+/** A WA circle in the book's tier fill with white numbers (undefined → sage). */
+export function tierCircleStyle(s: TierStandingLike): CSSProperties | undefined {
+  const cls = s?.tier ? tierSpineClass(s.tier) : undefined;
+  if (!s || !cls) return undefined;
+  return {
+    background: tierBadgeFill(cls, s.tier_index ?? 0, s.tier_count ?? 1),
+    color: "var(--color-on-accent)",
+    fontWeight: 800,
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
+  };
+}
+
+/** A success notice in the book's tier fill with white semibold text. */
+export function tierNoticeStyle(s: TierStandingLike): CSSProperties {
+  const cls = s?.tier ? tierSpineClass(s.tier) : undefined;
+  if (!s || !cls) {
+    return { background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" };
+  }
+  return {
+    background: tierBadgeFill(cls, s.tier_index ?? 0, s.tier_count ?? 1),
+    color: "var(--color-on-accent)",
+    fontWeight: 600,
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+    border: "1px solid transparent",
+  };
 }

@@ -323,12 +323,14 @@ export async function previewBookStanding(
   genre: string,
   scores: Record<string, number>,
   signal?: AbortSignal,
+  /** Re-rating an existing book: its saved row is left out of the comparison. */
+  title?: string,
 ): Promise<BookStanding | null> {
   if (STATIC) return null;
   const res = await apiFetch(`${base(kind)}/books/preview`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ genre, scores }),
+    body: JSON.stringify({ genre, scores, title }),
     signal,
   });
   if (!res.ok) return null;
