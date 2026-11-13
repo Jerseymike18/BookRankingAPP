@@ -72,6 +72,20 @@ def main():
                 check("preview `of` counts the library plus this book", p["of"] == len(lib),
                       f"{p['of']} vs {len(lib)}")
 
+                # Tier: the preview must land the book exactly where the Tier List
+                # (all-years cohort) has it — same label, same slot inside the tier.
+                tiers = c.get(f"{base}/tiers").json()["books"]
+                tscore = (lambda b: b.get("total_average") or 0) if kind == "nonfiction" else (lambda b: b["wa"])
+                tref = next(b for b in tiers if b["title"] == ref["title"])
+                peers = sorted([b for b in tiers if b["tier"] == tref["tier"]], key=tscore, reverse=True)
+                check("preview tier = the Tier List's tier for this book", p.get("tier") == tref["tier"],
+                      f"{p.get('tier')} vs {tref['tier']}")
+                check("preview tier_count = that tier's size", p.get("tier_count") == len(peers),
+                      f"{p.get('tier_count')} vs {len(peers)}")
+                check("preview tier_index = the book's slot in the tier",
+                      p.get("tier_index") == [b["title"] for b in peers].index(ref["title"]),
+                      f"{p.get('tier_index')}")
+
                 half = dict(list(scores.items())[: len(scores) // 2])
                 r = c.post(f"{base}/books/preview", json={"genre": ref["genre"], "scores": half})
                 check("partial preview: 200 and no higher than the full WA",

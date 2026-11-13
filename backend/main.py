@@ -1795,6 +1795,27 @@ def _saved_standing(kind: str, title: str, user_id: str) -> Optional[dict]:
         return None
 
 
+_PREVIEW_ROW = "\x00__preview__"
+
+
+def _preview_tier(books, score_col: str, score: float, band, exclude_title: Optional[str]) -> dict:
+    """The tier an in-progress book would land in today, and its position inside
+    that tier — the same banding and in-tier order the Tier List shows (all-years
+    cohort). `band` is the engine's own tier function (views.tier_bands for
+    fiction on WA, nonfiction_engine.tier_bands on Total Average); this only
+    appends the preview row and reads its label back."""
+    pool = books
+    if exclude_title and len(pool):
+        pool = pool[pool["Book"].str.strip().str.lower() != exclude_title.strip().lower()]
+    df = pool[["Book", score_col]].dropna(subset=[score_col]) if len(pool) else pd.DataFrame(columns=["Book", score_col])
+    df = pd.concat([df, pd.DataFrame([{"Book": _PREVIEW_ROW, score_col: float(score)}])], ignore_index=True)
+    tiered = band(df, score_col, 9.5)
+    tier = tiered.loc[tiered["Book"] == _PREVIEW_ROW, "Tier"].iloc[0]
+    same = tiered[tiered["Tier"] == tier].reset_index(drop=True)
+    index = int(same.index[same["Book"] == _PREVIEW_ROW][0])
+    return {"tier": tier, "tier_index": index, "tier_count": int(len(same))}
+
+
 class PreviewWARequest(BaseModel):
     genre: Optional[str] = None
     # Partial scores while the reader types: unscored components are simply absent
@@ -1823,7 +1844,9 @@ def preview_book_wa(req: PreviewWARequest, user_id: str = Depends(auth.get_curre
     books, gw, gcw = _get_engine(user_id)[:3]
     scores = _preview_scores(req.scores, list(db_write.FICTION_COMPONENTS))
     wa = _rp._wa_from_components(scores, (req.genre or "").strip(), gw, gcw)
-    return _rank_against(wa, books, exclude_title=req.title)
+    out = _rank_against(wa, books, exclude_title=req.title)
+    out.update(_preview_tier(books, "WA", wa, views_mod.tier_bands, req.title))
+    return out
 
 
 def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict,
@@ -4360,7 +4383,13 @@ def preview_nf_book_wa(req: PreviewWARequest, user_id: str = Depends(auth.get_cu
     books, gw, gcw = _get_nf_engine(user_id)
     scores = _preview_scores(req.scores, list(db_write.NONFICTION_COMPONENTS))
     wa, _ = nfe.wa_from_components(scores, req.genre or "Nonfiction", gw, gcw)
-    return _rank_against(wa, books, exclude_title=req.title)
+    out = _rank_against(wa, books, exclude_title=req.title)
+    # Nonfiction tiers band on Total Average (the nonfiction Tier List's score).
+    total = nfe.total_average(scores, books.attrs.get("category_components", {}))
+    if total == total and len(books):
+        out.update(_preview_tier(nfe.add_total_average(books), "Total Average", total,
+                                 nfe.tier_bands, req.title))
+    return out
 
 @app.post("/api/nonfiction/books/{title}/scores")
 def edit_nf_scores(title: str, req: NonfictionScoresRequest,
