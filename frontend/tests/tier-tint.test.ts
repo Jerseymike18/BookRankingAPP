@@ -60,5 +60,6 @@ describe("tierBadgeFill", () => {
     expect(tierBadgeFill("spine-s", 0, 4)).toBe("color-mix(in srgb, var(--badge-hi-spine-s) 100%, var(--badge-lo-spine-s))");
     expect(tierBadgeFill("spine-s", 3, 4)).toBe("color-mix(in srgb, var(--badge-hi-spine-s) 0%, var(--badge-lo-spine-s))");
     expect(tierBadgeFill("spine-a", 0, 1)).toContain("100%");
+    expect(tierBadgeFill("spine-b", 1, 3, "circle")).toBe("color-mix(in srgb, var(--circle-hi-spine-b) 50%, var(--circle-lo-spine-b))");
   });
 });

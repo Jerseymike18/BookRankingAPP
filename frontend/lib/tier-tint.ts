@@ -3,10 +3,15 @@
  * --badge-hi-<spine> for the tier's best book, blending to --badge-lo-<spine>
  * for its lowest (globals.css picks the fade direction per theme for contrast).
  */
-export function tierBadgeFill(spineCls: string, index: number, count: number): string {
+export function tierBadgeFill(
+  spineCls: string,
+  index: number,
+  count: number,
+  family: "badge" | "circle" = "badge",
+): string {
   const t = count > 1 ? Math.min(Math.max(index / (count - 1), 0), 1) : 0;
   const hiPct = Math.round(100 * (1 - t));
-  return `color-mix(in srgb, var(--badge-hi-${spineCls}) ${hiPct}%, var(--badge-lo-${spineCls}))`;
+  return `color-mix(in srgb, var(--${family}-hi-${spineCls}) ${hiPct}%, var(--${family}-lo-${spineCls}))`;
 }
 
 /**
