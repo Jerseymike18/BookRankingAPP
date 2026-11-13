@@ -13,9 +13,9 @@ const TIER_COLORS: Record<string, string> = {
   "F":  "var(--color-spine-f)",
 };
 
-/* Boxes are filled like the rankings WA badges (lib/tier-tint tierBadgeFill):
+/* Boxes are filled like the rankings WA circles (lib/tier-tint tierBadgeFill):
    the tier's colour, deepest for its best book (items arrive best-first), with
-   the per-tier text colour that keeps >= 4.5:1 at both ends of the shade. */
+   semibold white titles — the fills are tuned so white holds >= 3:1. */
 
 export interface TierItem {
   label: string;
@@ -195,7 +195,9 @@ function TierRow({
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: "0.78rem",
-                color: spine ? `var(--color-on-${spine})` : "var(--color-ink)",
+                color: spine ? "var(--color-on-accent)" : "var(--color-ink)",
+                fontWeight: spine ? 600 : undefined,
+                textShadow: spine ? "0 1px 2px rgba(0, 0, 0, 0.3)" : undefined,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",

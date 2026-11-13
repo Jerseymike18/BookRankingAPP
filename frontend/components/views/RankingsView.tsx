@@ -909,9 +909,10 @@ function BookMobileList<T>({
                   <span
                     className="wa-badge w-9! h-9! sm:w-11! sm:h-11!"
                     style={{
-                      background: tierBadgeFill(cls, pos?.index ?? 0, pos?.count ?? 1, "circle"),
+                      background: tierBadgeFill(cls, pos?.index ?? 0, pos?.count ?? 1),
                       color: "var(--color-on-accent)",
-                      textShadow: "0 1px 2px rgba(0, 0, 0, 0.25)",
+                      fontWeight: 800,
+                      textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
                       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
                     }}
                   >

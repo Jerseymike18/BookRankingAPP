@@ -61,35 +61,8 @@
   --color-info-border:    #93C5FD;
   /* Text/icons on a sage (or other solid accent) fill. */
   --color-on-accent:      #FFFFFF;
-  /* Text on a solid tier-spine fill (the tier-coloured WA badge): whichever of
-     the palette's white / ink reads better on that spine colour. */
-  --color-on-spine-sp:    #FFFFFF;
-  --color-on-spine-s:     #FFFFFF;
-  --color-on-spine-a:     #1A1714;
-  --color-on-spine-b:     #1A1714;
-  --color-on-spine-c:     #1A1714;
-  --color-on-spine-d:     #1A1714;
-  --color-on-spine-f:     #1A1714;
-  /* Tier-coloured WA badge shading: a badge fades from --badge-hi (its tier's
-     best book) to --badge-lo (its lowest). The fade runs AWAY from the badge's
-     text colour — darker under white text, lighter under ink — so the text never
-     loses contrast against the plain spine colour. Derived from the spine
-     tokens; no new colours. */
-  --badge-hi-spine-sp: color-mix(in srgb, var(--color-spine-sp) 85%, #000000);
-  --badge-lo-spine-sp: var(--color-spine-sp);
-  --badge-hi-spine-s: color-mix(in srgb, var(--color-spine-s) 85%, #000000);
-  --badge-lo-spine-s: var(--color-spine-s);
-  --badge-hi-spine-a: var(--color-spine-a);
-  --badge-lo-spine-a: color-mix(in srgb, var(--color-spine-a) 80%, #FFFFFF);
-  --badge-hi-spine-b: var(--color-spine-b);
-  --badge-lo-spine-b: color-mix(in srgb, var(--color-spine-b) 80%, #FFFFFF);
-  --badge-hi-spine-c: var(--color-spine-c);
-  --badge-lo-spine-c: color-mix(in srgb, var(--color-spine-c) 80%, #FFFFFF);
-  --badge-hi-spine-d: var(--color-spine-d);
-  --badge-lo-spine-d: color-mix(in srgb, var(--color-spine-d) 80%, #FFFFFF);
-  --badge-hi-spine-f: var(--color-spine-f);
-  --badge-lo-spine-f: color-mix(in srgb, var(--color-spine-f) 80%, #FFFFFF);
-  /* Rankings WA circles carry WHITE numbers on every tier (owner, 2026-11-13).
+  /* Tier fills — the rankings WA circles AND the tier-list boxes. Both carry
+     WHITE text on every tier (owner, 2026-11-13).
      Their fill keeps the tier hue but the lighter spines are mixed with just
      enough black for white to reach >= 3:1 at the circle's lightest (its tier's
      lowest book); the best book's circle is 12 points deeper still. */
@@ -143,15 +116,6 @@
     --color-info-bg:        #172437;
     --color-info-border:    #2D4A75;
 
-    --color-on-spine-sp:    #1A1714;
-    --color-on-spine-s:     #1A1714;
-    --color-on-spine-f:     #FFFFFF;
-    --badge-hi-spine-sp: var(--color-spine-sp);
-    --badge-lo-spine-sp: color-mix(in srgb, var(--color-spine-sp) 80%, #FFFFFF);
-    --badge-hi-spine-s: var(--color-spine-s);
-    --badge-lo-spine-s: color-mix(in srgb, var(--color-spine-s) 80%, #FFFFFF);
-    --badge-hi-spine-f: color-mix(in srgb, var(--color-spine-f) 85%, #000000);
-    --badge-lo-spine-f: var(--color-spine-f);
     --circle-hi-spine-sp: color-mix(in srgb, var(--color-spine-sp) 88%, #000000);
     --circle-lo-spine-sp: var(--color-spine-sp);
     --circle-hi-spine-s: color-mix(in srgb, var(--color-spine-s) 88%, #000000);

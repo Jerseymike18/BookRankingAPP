@@ -1,17 +1,13 @@
 /**
- * A tier-coloured WA badge's fill for a book at `index` of `count` in its tier:
- * --badge-hi-<spine> for the tier's best book, blending to --badge-lo-<spine>
- * for its lowest (globals.css picks the fade direction per theme for contrast).
+ * The tier fill (rankings WA circle, tier-list box) for a book at `index` of
+ * `count` in its tier: --circle-hi-<spine> for the tier's best book, blending to
+ * --circle-lo-<spine> for its lowest. Both are tuned in globals.css so white
+ * text holds >= 3:1 across the whole range.
  */
-export function tierBadgeFill(
-  spineCls: string,
-  index: number,
-  count: number,
-  family: "badge" | "circle" = "badge",
-): string {
+export function tierBadgeFill(spineCls: string, index: number, count: number): string {
   const t = count > 1 ? Math.min(Math.max(index / (count - 1), 0), 1) : 0;
   const hiPct = Math.round(100 * (1 - t));
-  return `color-mix(in srgb, var(--${family}-hi-${spineCls}) ${hiPct}%, var(--${family}-lo-${spineCls}))`;
+  return `color-mix(in srgb, var(--circle-hi-${spineCls}) ${hiPct}%, var(--circle-lo-${spineCls}))`;
 }
 
 /**
