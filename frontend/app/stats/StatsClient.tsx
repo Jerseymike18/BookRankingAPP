@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { CombinedStatsResponse, CombinedRankRow, TypeSummary, BookKind } from "@/lib/types";
+import type { CombinedStatsResponse, CombinedRankRow, BookKind } from "@/lib/types";
 import { SortableTable } from "@/components/SortableTable";
 import type { ColDef } from "@/components/SortableTable";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
@@ -77,7 +77,7 @@ function SplitBar({ fiction, nonfiction }: { fiction: number; nonfiction: number
 
 /** One track's tier counts as a stacked bar in the tier spine colours, with
  *  the counts listed underneath. */
-function TierBar({ label, counts, order }: { label: string; counts: Record<string, number>; order: string[] }) {
+function TierBar({ label, counts, order, avgWA }: { label: string; counts: Record<string, number>; order: string[]; avgWA: number | null }) {
   const tiers = order.filter((t) => (counts[t] ?? 0) > 0);
   const total = tiers.reduce((n, t) => n + counts[t], 0);
   if (total === 0) return null;
@@ -85,7 +85,9 @@ function TierBar({ label, counts, order }: { label: string; counts: Record<strin
     <div className="mb-4 last:mb-0">
       <div className="flex items-baseline justify-between mb-1.5">
         <span className="text-sm font-medium" style={{ color: "var(--color-ink)" }}>{label}</span>
-        <span className="text-xs" style={{ color: "var(--color-faint)" }}>{total} books</span>
+        <span className="text-xs tabular-nums" style={{ color: "var(--color-faint)" }}>
+          {total} books{avgWA != null && <> · avg WA <span style={{ color: "var(--color-ink)" }}>{avgWA.toFixed(2)}</span></>}
+        </span>
       </div>
       <div className="flex h-3 rounded-full overflow-hidden gap-px" style={{ background: "var(--color-surface-2)" }}>
         {tiers.map((t) => (
@@ -137,58 +139,6 @@ function YearChart({ rows }: { rows: { year: number; fiction: number; nonfiction
   );
 }
 
-/** One track's headline numbers. */
-function TypeCard({ title, color, s }: { title: string; color: string; s: TypeSummary }) {
-  return (
-    <div className="rounded-2xl p-4" style={tileStyle}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-        <span className="font-display text-base font-semibold" style={{ color: "var(--color-ink)" }}>{title}</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          ["Books", `${s.books}`],
-          ["Avg WA", s.avg_wa != null ? s.avg_wa.toFixed(2) : "—"],
-          ["Words", fmtWords(s.total_words)],
-        ].map(([l, v]) => (
-          <div key={l}>
-            <div className="text-[11px]" style={{ color: "var(--color-muted)" }}>{l}</div>
-            <div className="font-display text-xl font-bold tabular-nums" style={{ color: "var(--color-ink)" }}>{v}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** The top of the combined WA leaderboard. */
-function TopBooks({ rows }: { rows: CombinedRankRow[] }) {
-  const top = [...rows].sort((a, b) => (b.wa ?? 0) - (a.wa ?? 0)).slice(0, 5);
-  if (top.length === 0) return null;
-  return (
-    <ul className="rounded-2xl overflow-hidden" style={tileStyle}>
-      {top.map((r, i) => (
-        <li
-          key={`${r.type}:${r.title}`}
-          className="flex items-center gap-3 px-4 py-3"
-          style={{ borderTop: i === 0 ? "none" : "1px solid var(--color-rule)" }}
-        >
-          <span className="w-4 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>{i + 1}</span>
-          <span className="wa-badge">{r.wa != null ? r.wa.toFixed(2) : "—"}</span>
-          <span className="min-w-0 flex-1">
-            <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
-              {r.title}
-            </span>
-            <span className="block text-xs mt-0.5 truncate" style={{ color: "var(--color-muted)" }}>
-              {r.author} · {r.type === "nonfiction" ? "Nonfiction" : "Fiction"}
-            </span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 const TYPE_TABS: { id: "all" | BookKind; label: string }[] = [
   { id: "all", label: "All" },
   { id: "fiction", label: "Fiction" },
@@ -215,7 +165,7 @@ export default function StatsClient({
   data: CombinedStatsResponse;
   /** Which part to render. The /stats page splits the dashboard around its
    *  Rankings list: "header" (title + headline tiles) above it, "details"
-   *  (top rated, tiers, per-year chart, by-type cards) below it. "all" — the
+   *  (tiers, per-year chart) below it. "all" — the
    *  public-profile Stats tab — renders everything in one piece. */
   section?: "all" | "header" | "details";
   // The cross-type "all books" table. On by default (the public-profile Stats
@@ -259,7 +209,11 @@ export default function StatsClient({
         >
           <SplitBar fiction={totals.fiction_books} nonfiction={totals.nonfiction_books} />
         </StatTile>
-        <StatTile label="Words read" value={fmtWords(totals.total_words)} />
+        <StatTile
+          label="Words read"
+          value={fmtWords(totals.total_words)}
+          foot={`${fmtWords(by_type.fiction.total_words)} fiction · ${fmtWords(by_type.nonfiction.total_words)} nonfiction`}
+        />
         <StatTile
           label={thisYear ? `Read in ${thisYear.year}` : "This year"}
           value={thisYear ? `${thisYear.books}` : "—"}
@@ -275,18 +229,11 @@ export default function StatsClient({
 
       {details && (
       <>
-      <div className="grid lg:grid-cols-2 gap-x-6">
-        <div>
-          <SectionHeading>Top rated</SectionHeading>
-          <TopBooks rows={combined_ranking} />
-        </div>
-        <div>
-          <SectionHeading>Tiers</SectionHeading>
-          <div className="rounded-2xl p-4" style={tileStyle}>
-            <TierBar label="Fiction" counts={tier_distribution.fiction} order={tier_distribution.tier_order} />
-            <TierBar label="Nonfiction" counts={tier_distribution.nonfiction} order={tier_distribution.tier_order} />
-          </div>
-        </div>
+      {/* Each track once: its tier mix, book count and average WA. */}
+      <SectionHeading>Tiers</SectionHeading>
+      <div className="rounded-2xl p-4" style={tileStyle}>
+        <TierBar label="Fiction" counts={tier_distribution.fiction} order={tier_distribution.tier_order} avgWA={by_type.fiction.avg_wa} />
+        <TierBar label="Nonfiction" counts={tier_distribution.nonfiction} order={tier_distribution.tier_order} avgWA={by_type.nonfiction.avg_wa} />
       </div>
 
       {per_year.length > 0 && (
@@ -295,12 +242,6 @@ export default function StatsClient({
           <YearChart rows={per_year} />
         </>
       )}
-
-      <SectionHeading>By type</SectionHeading>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <TypeCard title="Fiction" color={FICTION_COLOR} s={by_type.fiction} />
-        <TypeCard title="Nonfiction" color={NONFICTION_COLOR} s={by_type.nonfiction} />
-      </div>
       </>
       )}
 

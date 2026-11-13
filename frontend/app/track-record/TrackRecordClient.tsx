@@ -264,11 +264,11 @@ export default function TrackRecordClient({ data }: { data: TrackRecord | null }
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-        <Stat label="Your MAE" value={f3(headline.wa_mae)} note="corrected prediction" />
+      {/* Only what the headline doesn't already say: its error and book count
+          are stated above, so the tiles carry just the two comparison points. */}
+      <div className="grid grid-cols-2 gap-3 mt-4">
         <Stat label="Raw MAE" value={hasRaw ? f3(headline.raw_wa_mae as number) : "—"} note={hasRaw ? "research only, uncorrected" : "not enough rows with correction"} />
         <Stat label="Naïve baseline" value={f3(headline.naive_wa_mae)} note="predict your average" />
-        <Stat label="Your books" value={String(headline.n_books)} note="finished + predicted" />
       </div>
 
       {/* ── Rolling curve ── */}

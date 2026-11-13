@@ -16,81 +16,6 @@ function monthAxis(m: TimelineMonthRow): string {
   return `${MONTHS[m.month - 1] ?? m.month} '${String(m.year).slice(2)}`;
 }
 
-/* ── Mini bar chart (SVG) ─────────────────────────────────────────────────── */
-
-type Bar = { label: string; value: number };
-
-function BarChart({
-  bars,
-  label,
-  color = "var(--color-sage)",
-  barW = 40,
-  gap = 12,
-  fmt,
-}: {
-  bars: Bar[];
-  label: string;
-  color?: string;
-  barW?: number;
-  gap?: number;
-  fmt?: (v: number) => string;
-}) {
-  const values = bars.map((b) => b.value);
-  const max = Math.max(...values, 1);
-  const h = 120;
-  const totalW = bars.length * (barW + gap);
-
-  return (
-    <div className="mb-8">
-      <h3
-        className="font-display font-semibold text-base mb-3"
-        style={{ color: "var(--color-ink)" }}
-      >
-        {label}
-      </h3>
-      <div style={{ overflowX: "auto" }}>
-        <svg width={totalW} height={h + 36} style={{ display: "block" }}>
-          {bars.map((bar, i) => {
-            const val = bar.value;
-            const barH = Math.round((val / max) * h);
-            const x = i * (barW + gap);
-            return (
-              <g key={`${bar.label}-${i}`}>
-                <rect
-                  x={x}
-                  y={h - barH}
-                  width={barW}
-                  height={barH}
-                  rx={4}
-                  fill={color}
-                  opacity={0.85}
-                />
-                <text
-                  x={x + barW / 2}
-                  y={h - barH - 4}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fill="var(--color-muted)"
-                >
-                  {fmt ? fmt(val) : Number.isInteger(val) ? val : val.toFixed(1)}
-                </text>
-                <text
-                  x={x + barW / 2}
-                  y={h + 20}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fill="var(--color-faint)"
-                >
-                  {bar.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-    </div>
-  );
-}
 
 /* ── Mini line chart (SVG) ────────────────────────────────────────────────── */
 
@@ -356,7 +281,6 @@ function TimelineSingle({
 
   const months = data.months ?? [];
   const hasMonths = months.length > 0;
-  const monthsHaveWords = months.some((m) => m.total_words != null);
 
   return (
     <div>
@@ -373,9 +297,10 @@ function TimelineSingle({
       <h2 className="font-display text-xl font-semibold mb-4" style={{ color: "var(--color-ink)" }}>
         By year
       </h2>
+      {/* The table carries the exact figures (books, avg WA, category averages,
+          words); the line chart is the one picture of how the categories trend.
+          Bar charts that only restated table columns were dropped. */}
       <TimelineTable rows={data.rows} categories={data.categories} />
-      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.books }))} label="Books per year" />
-      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.avg_wa ?? 0 }))} label="Average WA per year" color="var(--color-sage)" fmt={num} />
       <LineChart
         points={data.rows.map((r) => ({ ...r, label: String(r.year) }))}
         categories={data.categories}
@@ -389,30 +314,6 @@ function TimelineSingle({
       {hasMonths ? (
         <>
           <MonthlyTable months={months} categories={data.categories} />
-          <BarChart
-            bars={months.map((m) => ({ label: monthAxis(m), value: m.books }))}
-            label="Books per month"
-            barW={34}
-            gap={16}
-          />
-          {monthsHaveWords && (
-            <BarChart
-              bars={months.map((m) => ({ label: monthAxis(m), value: m.total_words ?? 0 }))}
-              label="Words read per month"
-              color="var(--color-spine-b)"
-              barW={34}
-              gap={16}
-              fmt={fmtWords}
-            />
-          )}
-          <BarChart
-            bars={months.map((m) => ({ label: monthAxis(m), value: m.avg_wa ?? 0 }))}
-            label="Average WA per month"
-            color="var(--color-sage)"
-            fmt={num}
-            barW={34}
-            gap={16}
-          />
           <LineChart
             points={months.map((m) => ({ ...m, label: monthAxis(m) }))}
             categories={data.categories}

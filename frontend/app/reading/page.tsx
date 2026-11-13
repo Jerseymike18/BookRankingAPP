@@ -1,4 +1,4 @@
-import { fetchReadingStats, fetchReadingStatus, fetchBooks } from "@/lib/api";
+import { fetchReadingStatus } from "@/lib/api";
 import { getServerAccessToken } from "@/lib/supabase/server";
 import { parseTypeScope } from "@/lib/scope";
 import ReadingView from "@/components/views/ReadingView";
@@ -15,17 +15,14 @@ export default async function ReadingPage({
 }) {
   const token = await getServerAccessToken();
   const { type } = await searchParams;
-  const [fStats, fStatus, fBooks, nStats, nStatus] = await Promise.all([
-    fetchReadingStats("fiction", token),
+  const [fStatus, nStatus] = await Promise.all([
     fetchReadingStatus("fiction", token),
-    fetchBooks("fiction", token),
-    fetchReadingStats("nonfiction", token),
     fetchReadingStatus("nonfiction", token),
   ]);
   return (
     <ReadingView
-      fiction={{ stats: fStats, status: fStatus, books: fBooks.books }}
-      nonfiction={{ stats: nStats, status: nStatus }}
+      fiction={{ status: fStatus }}
+      nonfiction={{ status: nStatus }}
       initialType={parseTypeScope(type, "fiction", false)}
     />
   );

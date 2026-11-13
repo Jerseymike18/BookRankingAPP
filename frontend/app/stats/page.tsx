@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 // The merged Stats + Rankings page. Headline tiles lead, the Fiction /
 // Nonfiction / All rankings follow under "Rankings", and the deeper summaries
-// (top rated, tiers, books per year, by type) sit at the bottom. StatsClient's own cross-type table is suppressed here
+// (tiers, books per year) sit at the bottom. StatsClient's own cross-type table is suppressed here
 // (showRanking={false}) so the leaderboard isn't rendered twice. The former
 // /rankings route redirects here (see next.config.ts), seeding the ranking
 // table's type toggle via ?type=; #rankings jumps straight to the tables.
@@ -27,7 +27,7 @@ export default async function StatsPage({
   return (
     <div>
       {/* Title + headline tiles, then the Rankings list, then the deeper
-          summaries (top rated, tiers, per-year chart, by type) at the bottom. */}
+          summaries (tiers, per-year chart) at the bottom. */}
       <StatsClient data={stats} showRanking={false} section="header" />
       <section id="rankings" className="scroll-mt-24">
         <h2

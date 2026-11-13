@@ -1,188 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import type { ReadingStatsResponse, ReadingStatusResponse, StatusSlot, PerYearRow, GenreRow, AuthorRow, BookKind, Book } from "@/lib/types";
-import { SortableTable } from "@/components/SortableTable";
-import type { ColDef } from "@/components/SortableTable";
+import type { ReadingStatusResponse, StatusSlot, BookKind } from "@/lib/types";
 import { seriesLabel } from "@/lib/format";
-import { CATEGORIES, categoryAverages, type Category } from "@/lib/analytics";
 import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
-import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { FinishedMidBookReviews, MidBookReviews } from "@/components/MidBookReviews";
 import { useReadOnly } from "@/lib/readonly-context";
-
-/* ── Sub-tab bar ──────────────────────────────────────────────────────────── */
-
-type Tab = "stats" | "status";
-
-function SubTabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "stats", label: "Stats" },
-    { id: "status", label: "Status" },
-  ];
-  return <SegmentedTabs tabs={tabs} value={active} onChange={onChange} />;
-}
-
-/* ── Stat card ────────────────────────────────────────────────────────────── */
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="rounded-xl p-4 flex flex-col gap-1"
-      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
-    >
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--color-muted)" }}>
-        {label}
-      </span>
-      <span className="font-display text-2xl font-bold" style={{ color: "var(--color-ink)" }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="font-display text-lg font-semibold mt-8 mb-3" style={{ color: "var(--color-ink)" }}>
-      {children}
-    </h3>
-  );
-}
-
-function fmtWords(w: number | null) {
-  if (!w) return "—";
-  if (w >= 1_000_000) return `${(w / 1_000_000).toFixed(1)}M`;
-  if (w >= 1_000) return `${Math.round(w / 1_000)}K`;
-  return `${w}`;
-}
-
-const PER_YEAR_COLS: ColDef<PerYearRow>[] = [
-  { key: "year",              label: "Year",          type: "numeric", getValue: (r) => r.year,              align: "left" },
-  { key: "books",             label: "Books",         type: "numeric", getValue: (r) => r.books },
-  { key: "avg_wa",            label: "Avg WA",        type: "numeric", getValue: (r) => r.avg_wa,            formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
-  { key: "avg_total_average", label: "Avg Total Avg", type: "numeric", getValue: (r) => r.avg_total_average, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
-  { key: "avg_words",         label: "Avg Words",     type: "numeric", getValue: (r) => r.avg_words,         formatter: (v) => fmtWords(v as number | null) },
-];
-
-const BY_GENRE_COLS: ColDef<GenreRow>[] = [
-  { key: "genre",             label: "Genre",         type: "string",  getValue: (r) => r.genre },
-  { key: "books",             label: "Books",         type: "numeric", getValue: (r) => r.books },
-  { key: "avg_wa",            label: "Avg WA",        type: "numeric", getValue: (r) => r.avg_wa,            formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
-  { key: "avg_total_average", label: "Avg Total Avg", type: "numeric", getValue: (r) => r.avg_total_average, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
-  { key: "avg_words",         label: "Avg Words",     type: "numeric", getValue: (r) => r.avg_words,         formatter: (v) => fmtWords(v as number | null) },
-];
-
-const BY_AUTHOR_COLS: ColDef<AuthorRow>[] = [
-  { key: "author", label: "Author", type: "string",  getValue: (r) => r.author },
-  { key: "books",  label: "Books",  type: "numeric", getValue: (r) => r.books },
-  { key: "avg_wa", label: "Avg WA", type: "numeric", getValue: (r) => r.avg_wa, formatter: (v) => v != null ? Number(v).toFixed(2) : "—" },
-];
-
-/* ── Category-average columns (fiction only, derived client-side from books) ──
-   The reading-stats endpoint (views.reading_stats) is read-only and doesn't
-   carry per-category averages, so we compute them here from the live /api/books
-   payload — the same source of truth, grouped by genre / author. */
-
-const CAT_ABBR: Record<Category, string> = {
-  Story: "Story", Character: "Char", Aesthetics: "Aes", Theme: "Theme", Worldbuilding: "WB",
-};
-
-function groupByKey<T>(items: T[], keyOf: (t: T) => string): Map<string, T[]> {
-  const m = new Map<string, T[]>();
-  for (const it of items) {
-    const k = keyOf(it);
-    const arr = m.get(k);
-    if (arr) arr.push(it);
-    else m.set(k, [it]);
-  }
-  return m;
-}
-
-/** One ColDef per category, reading the pre-grouped averages by row key. */
-function catCols<T>(
-  keyOf: (r: T) => string,
-  lookup: Map<string, Record<Category, number | null>>,
-): ColDef<T>[] {
-  return CATEGORIES.map((cat): ColDef<T> => ({
-    key: `cat_${cat}`,
-    label: CAT_ABBR[cat],
-    type: "numeric",
-    getValue: (r) => lookup.get(keyOf(r))?.[cat] ?? null,
-    formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
-  }));
-}
-
-/* ── Stats tab ────────────────────────────────────────────────────────────── */
-
-function StatsTab({ stats, kind, books }: { stats: ReadingStatsResponse; kind: BookKind; books?: Book[] }) {
-  const { summary, per_year, by_genre, by_author } = stats;
-
-  // Fiction gets per-category averages (Story/Char/Aes/Theme/WB) folded into the
-  // by-genre and by-author tables, computed live from the books payload.
-  const hasCats = kind === "fiction" && !!books && books.length > 0;
-
-  const { genreCols, authorCols } = useMemo(() => {
-    if (!hasCats || !books) return { genreCols: BY_GENRE_COLS, authorCols: BY_AUTHOR_COLS };
-    const genreAvgs = new Map(
-      [...groupByKey(books, (b) => b.genre)].map(([k, bs]) => [k, categoryAverages(bs)] as const)
-    );
-    const authorAvgs = new Map(
-      [...groupByKey(books, (b) => b.author)].map(([k, bs]) => [k, categoryAverages(bs)] as const)
-    );
-    return {
-      // Genre: slot the 5 category columns in just before the trailing "Avg Words".
-      genreCols: [
-        ...BY_GENRE_COLS.slice(0, -1),
-        ...catCols<GenreRow>((r) => r.genre, genreAvgs),
-        BY_GENRE_COLS[BY_GENRE_COLS.length - 1],
-      ],
-      // Author: append the 5 category columns after "Avg WA".
-      authorCols: [...BY_AUTHOR_COLS, ...catCols<AuthorRow>((r) => r.author, authorAvgs)],
-    };
-  }, [hasCats, books]);
-
-  return (
-    <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-        <StatCard label="Total books" value={`${summary.total_books}`} />
-        <StatCard label="Avg WA" value={summary.avg_wa != null ? summary.avg_wa.toFixed(2) : "—"} />
-        <StatCard label="Avg Total Avg" value={summary.avg_total_average != null ? summary.avg_total_average.toFixed(2) : "—"} />
-        <StatCard label="Avg word count" value={fmtWords(summary.avg_words)} />
-      </div>
-
-      <SectionHeading>Per year</SectionHeading>
-      <SortableTable
-        columns={PER_YEAR_COLS}
-        data={per_year}
-        defaultSort={{ key: "year", dir: "desc" }}
-        getRowKey={(r) => String(r.year)}
-      />
-
-      {kind === "fiction" && (
-        <>
-          <SectionHeading>By genre</SectionHeading>
-          <SortableTable
-            columns={genreCols}
-            data={by_genre}
-            defaultSort={{ key: "books", dir: "desc" }}
-            getRowKey={(r) => r.genre}
-            scrollX={hasCats}
-          />
-        </>
-      )}
-
-      <SectionHeading>By author</SectionHeading>
-      <SortableTable
-        columns={authorCols}
-        data={by_author}
-        defaultSort={{ key: "books", dir: "desc" }}
-        getRowKey={(r) => r.author}
-        scrollX={hasCats}
-      />
-    </div>
-  );
-}
 
 /* ── Status tab ───────────────────────────────────────────────────────────── */
 
@@ -333,20 +157,10 @@ function StatusTab({ status, kind }: { status: ReadingStatusResponse; kind: Book
 
 /* ── Main export ──────────────────────────────────────────────────────────── */
 
-function ReadingSingle({
-  stats,
-  status,
-  kind = "fiction",
-  books,
-}: {
-  stats: ReadingStatsResponse;
-  status: ReadingStatusResponse;
-  kind?: BookKind;
-  /** Fiction only: live books payload, used to derive per-category averages. */
-  books?: Book[];
-}) {
-  const [tab, setTab] = useState<Tab>("stats");
-
+/* The page is reading STATUS only — last read, current read, next up. The
+   library numbers it used to repeat live once each elsewhere: totals on Stats,
+   per-year on Timeline, per-genre and per-author in Taste Lab. */
+function ReadingSingle({ status, kind = "fiction" }: { status: ReadingStatusResponse; kind?: BookKind }) {
   return (
     <div>
       <div className="mb-6">
@@ -357,14 +171,7 @@ function ReadingSingle({
           Reading
         </h1>
       </div>
-
-      <SubTabs active={tab} onChange={setTab} />
-
-      {tab === "stats" ? (
-        <StatsTab stats={stats} kind={kind} books={books} />
-      ) : (
-        <StatusTab status={status} kind={kind} />
-      )}
+      <StatusTab status={status} kind={kind} />
     </div>
   );
 }
@@ -379,8 +186,8 @@ export default function ReadingView({
   nonfiction,
   initialType = "fiction",
 }: {
-  fiction: { stats: ReadingStatsResponse; status: ReadingStatusResponse; books?: Book[] };
-  nonfiction: { stats: ReadingStatsResponse; status: ReadingStatusResponse };
+  fiction: { status: ReadingStatusResponse };
+  nonfiction: { status: ReadingStatusResponse };
   initialType?: TypeScope;
 }) {
   const [type, setType] = useState<TypeScope>(initialType === "nonfiction" ? "nonfiction" : "fiction");
@@ -389,9 +196,9 @@ export default function ReadingView({
     <div>
       <TypeToggle value={isNon ? "nonfiction" : "fiction"} onChange={setType} includeAll={false} />
       {isNon ? (
-        <ReadingSingle stats={nonfiction.stats} status={nonfiction.status} kind="nonfiction" />
+        <ReadingSingle status={nonfiction.status} kind="nonfiction" />
       ) : (
-        <ReadingSingle stats={fiction.stats} status={fiction.status} kind="fiction" books={fiction.books} />
+        <ReadingSingle status={fiction.status} kind="fiction" />
       )}
     </div>
   );
