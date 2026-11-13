@@ -556,7 +556,7 @@ export default function AddBookClient({
         <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
           {kind === "nonfiction"
             ? "Scores are 0–10 across Substance / Reasoning / Exposition / Aesthetics / Impact (12 components)."
-            : "Scores are 0–10. Worldbuilding components (Depth2 / Integration / Originality) may be left blank for realist genres."}
+            : "Scores are 0–10. Worldbuilding components (World Depth / Integration / Originality) may be left blank for realist genres."}
         </p>
       </div>
 

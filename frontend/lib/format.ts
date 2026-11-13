@@ -17,12 +17,15 @@ export function seriesLabel(
  * Display label for a component score. Both schemas keep stable DB /
  * weight-table keys but may show friendlier names in the UI: nonfiction
  * "Entertainment"/"Insights" read "Enjoyment"/"Insight", and fiction
- * "Narration" reads "Voice" (owner rename 2026-11-13 — the stored key and every
- * rating under it are unchanged). `kind` is a plain string so this stays
+ * "Narration" reads "Voice" and "Depth2" reads "World Depth" (owner renames
+ * 2026-11-13 — the stored keys and every rating under them are unchanged). `kind` is a plain string so this stays
  * dependency-free (a BookKind is assignable to it).
  */
 const FICTION_COMPONENT_LABELS: Record<string, string> = {
   Narration: "Voice",
+  // Worldbuilding's depth component is stored as "Depth2" (Character already
+  // owns "Depth"); "World Depth" keeps the two distinct in flat lists.
+  Depth2: "World Depth",
 };
 
 const NF_COMPONENT_LABELS: Record<string, string> = {

@@ -47,7 +47,7 @@ export const COMPONENTS: ComponentDef[] = [
   { name: "Narration", category: "Aesthetics", abbr: "Voic" }, // shown as "Voice" (componentLabel)
   { name: "Insights", category: "Theme", abbr: "Inst" },
   { name: "Thought-Provokingness", category: "Theme", abbr: "ThtP" },
-  { name: "Depth2", category: "Worldbuilding", abbr: "Dpt2" },
+  { name: "Depth2", category: "Worldbuilding", abbr: "WDep" }, // shown as "World Depth"
   { name: "Integration", category: "Worldbuilding", abbr: "Intg" },
   { name: "Originality", category: "Worldbuilding", abbr: "Orig" },
 ];

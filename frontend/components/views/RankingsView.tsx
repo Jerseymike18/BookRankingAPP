@@ -762,7 +762,7 @@ const CAT_ABBREV: Record<string, string> = {
 // renders in full; the header carries the full name as a tooltip either way.
 const COMP_ABBREV: Record<string, string> = {
   Entertainment: "Enter", Enjoyment: "Enjoy", "Emotional Impact": "Emotion",
-  Motivations: "Motive", "Thought-Provokingness": "Thought", Depth2: "Depth",
+  Motivations: "Motive", "Thought-Provokingness": "Thought",
   Originality: "Orig", Integration: "Integr",
   Informativeness: "Info", Argumentation: "Argument",
 };

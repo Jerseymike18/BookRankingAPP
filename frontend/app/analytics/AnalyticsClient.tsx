@@ -629,7 +629,7 @@ export default function AnalyticsClient({ books }: { books: Book[] }) {
             <HBarRanking rows={discrimination.map((r) => ({ label: componentLabel(r.comp.name), value: r.sd }))} color="var(--color-spine-d)" format={f2} />
           </Panel>
           <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-            The three Worldbuilding components (Depth2 / Integration / Originality) sit high partly
+            The three Worldbuilding components (World Depth / Integration / Originality) sit high partly
             because Worldbuilding is only scored for some genres — so their spread is genre-mix, not
             just opinion.
           </p>
