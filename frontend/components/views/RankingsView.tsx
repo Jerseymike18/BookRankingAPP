@@ -757,6 +757,7 @@ function buildCols(
     {
       key: "wa", label: "WA",
       type: "numeric", getValue: (b) => primaryScore(b), align: "right",
+      formatter: (v) => (v != null ? Number(v).toFixed(2) : "—"),
     },
     ...categoryOrder.flatMap((cat): ColDef<Book>[] => {
       const catCol: ColDef<Book> = {
@@ -871,7 +872,7 @@ function BookMobileList<T>({
                   >
                     {i + 1}
                   </span>
-                  <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{primaryScore(book).toFixed(1)}</span>
+                  <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{primaryScore(book).toFixed(2)}</span>
                   <span className="min-w-0 flex-1">
                     <span
                       className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words"
@@ -1153,7 +1154,7 @@ type CombinedItem = {
 
 const COMBINED_COLS: ColDef<CombinedItem>[] = [
   { key: "title", label: "Book", type: "string", getValue: (r) => r.book.title, align: "left" },
-  { key: "wa", label: "WA", type: "numeric", getValue: (r) => primaryScore(r.book), align: "right" },
+  { key: "wa", label: "WA", type: "numeric", getValue: (r) => primaryScore(r.book), align: "right", formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
   { key: "total_average", label: "Total Avg", type: "numeric", getValue: (r) => r.total_average ?? 0, align: "right" },
   { key: "type", label: "Type", type: "string", getValue: (r) => r.kind, align: "left" },
   { key: "genre", label: "Genre", type: "string", getValue: (r) => r.book.genre, align: "left" },

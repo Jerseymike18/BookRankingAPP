@@ -77,14 +77,14 @@ const TERM_KEYS = ["consistency", "peak", "finale", "unfinished", "evidence"] as
 const COLS: ColDef<SeriesEntry>[] = [
   { key: "series",      label: "Series",      type: "string",  getValue: (s) => s.series,      align: "left"  },
   { key: "books",       label: "n",           type: "numeric", getValue: (s) => s.books,       align: "right" },
-  { key: "avg_wa",      label: "Avg WA",      type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
+  { key: "avg_wa",      label: "Avg WA",      type: "numeric", getValue: (s) => s.avg_wa,      align: "right", formatter: (v) => num(v as number | null) },
   { key: "consistency", label: "Consistency", type: "numeric", getValue: (s) => s.consistency ?? 0, align: "right" },
   { key: "peak",        label: "Peak",        type: "numeric", getValue: (s) => s.peak ?? 0,   align: "right" },
   { key: "finale",      label: "Finale",      type: "numeric", getValue: (s) => s.finale ?? 0, align: "right" },
   { key: "unfinished",  label: "Unfinished",  type: "numeric", getValue: (s) => s.unfinished ?? 0, align: "right" },
   { key: "evidence",    label: "Evidence",    type: "numeric", getValue: (s) => s.evidence ?? 0, align: "right" },
   { key: "adjustment",  label: "Net ±",       type: "numeric", getValue: adjustment,           align: "right" },
-  { key: "adjusted_wa", label: "Score",       type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
+  { key: "adjusted_wa", label: "Score",       type: "numeric", getValue: (s) => s.adjusted_wa, align: "right", formatter: (v) => num(v as number | null) },
 ];
 
 /* ── small presentational pieces ──────────────────────────────────────────── */
@@ -382,7 +382,7 @@ export default function SeriesBreakdownClient({
                       );
                     })}
                     <td className="px-3 py-2.5 text-right" style={{ color: tone(adj), fontVariantNumeric: "tabular-nums" }}>{signed(adj)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", fontVariantNumeric: "tabular-nums" }}>{num(s.adjusted_wa, 3)}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--color-sage)", fontVariantNumeric: "tabular-nums" }}>{num(s.adjusted_wa)}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         <AdjustmentBar value={adj} max={maxAdj} />

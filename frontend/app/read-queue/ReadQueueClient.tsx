@@ -38,7 +38,7 @@ function formatWords(words: number | null): string | null {
  *  point WA is a shrunk expected value; this shows the calibrated spread. */
 function formatInterval(rec: Recommendation): string | null {
   if (rec.wa_low == null || rec.wa_high == null) return null;
-  return `${rec.wa_low.toFixed(1)}–${rec.wa_high.toFixed(1)}`;
+  return `${rec.wa_low.toFixed(2)}–${rec.wa_high.toFixed(2)}`;
 }
 
 function moodScoreFor(rec: Recommendation, active: Record<string, number>): number | null {
@@ -319,7 +319,7 @@ function RecExpandedPanel({
           Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong>
           {rec.wa_low != null && rec.wa_high != null && (
             <span style={{ color: "var(--color-faint)" }}>
-              {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
+              {" "}· 80% likely {rec.wa_low.toFixed(2)}–{rec.wa_high.toFixed(2)}
               {rec.interval_label ? ` (${rec.interval_label})` : ""}
               {/* The payload has always carried this and this page never showed it,
                   so a band calibrated against a superseded engine read here as if
@@ -758,7 +758,7 @@ function QueueExpandedPanel({ rec }: { rec: Recommendation }) {
           Predicted WA: <strong style={{ color: "var(--color-ink)" }}>{rec.wa.toFixed(2)}</strong>
           {rec.wa_low != null && rec.wa_high != null && (
             <span style={{ color: "var(--color-faint)" }}>
-              {" "}· 80% likely {rec.wa_low.toFixed(1)}–{rec.wa_high.toFixed(1)}
+              {" "}· 80% likely {rec.wa_low.toFixed(2)}–{rec.wa_high.toFixed(2)}
               {rec.interval_label ? ` (${rec.interval_label})` : ""}
               {/* The payload has always carried this and this page never showed it,
                   so a band calibrated against a superseded engine read here as if

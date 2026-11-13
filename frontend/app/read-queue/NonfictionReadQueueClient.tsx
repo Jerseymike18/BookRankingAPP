@@ -52,7 +52,7 @@ function formatWords(words: number | null): string | null {
 /** The directional prediction range "6.2–9.5", or null when no interval is present. */
 function formatInterval(rec: NonfictionRecommendation): string | null {
   if (rec.wa_low == null || rec.wa_high == null) return null;
-  return `${rec.wa_low.toFixed(1)}–${rec.wa_high.toFixed(1)}`;
+  return `${rec.wa_low.toFixed(2)}–${rec.wa_high.toFixed(2)}`;
 }
 
 /** Weighted mean of a book's component scores over the active mood components

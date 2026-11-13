@@ -149,9 +149,9 @@ function ResultCard({ result }: { result: ResearchResult }) {
         {/* Empirical 80% interval from leave-one-out residuals at this data density */}
         {result.wa_low != null && result.wa_high != null && (
           <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-            <strong>{result.wa.toFixed(1)}</strong>{" "}
+            <strong>{result.wa.toFixed(2)}</strong>{" "}
             <span style={{ color: "var(--color-muted)" }}>
-              ({result.wa_low.toFixed(1)}–{result.wa_high.toFixed(1)}, 80% interval)
+              ({result.wa_low.toFixed(2)}–{result.wa_high.toFixed(2)}, 80% interval)
             </span>
             {result.bucket_label && (
               <span style={{ color: "var(--color-faint)" }}>

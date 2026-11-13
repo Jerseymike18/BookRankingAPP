@@ -92,7 +92,7 @@ export function QueueMobileList<F extends string, R extends QueueRec, I extends 
                 <span className="w-5 shrink-0 text-right font-display italic text-sm" style={{ color: "var(--color-faint)" }}>
                   {i + 1}
                 </span>
-                <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{rec.wa != null ? rec.wa.toFixed(1) : "—"}</span>
+                <span className="wa-badge w-9! h-9! sm:w-11! sm:h-11!">{rec.wa != null ? rec.wa.toFixed(2) : "—"}</span>
                 <span className="min-w-0 flex-1">
                   <span className="font-display font-semibold text-sm leading-snug line-clamp-2 break-words" style={{ color: "var(--color-ink)" }}>
                     {rec.title}

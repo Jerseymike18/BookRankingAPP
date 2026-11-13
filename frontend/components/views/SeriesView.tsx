@@ -67,8 +67,8 @@ const SERIES_COLS: ColDef<SeriesEntry>[] = [
   { key: "author",      label: "Author",  type: "string",  getValue: (s) => s.author,      align: "left"  },
   { key: "genre",       label: "Genre",   type: "string",  getValue: (s) => s.genre,       align: "left"  },
   { key: "books",       label: "Books",   type: "numeric", getValue: (s) => s.books,       align: "right" },
-  { key: "adjusted_wa", label: "Score",   type: "numeric", getValue: (s) => s.adjusted_wa, align: "right" },
-  { key: "avg_wa",      label: "Avg WA",  type: "numeric", getValue: (s) => s.avg_wa,      align: "right" },
+  { key: "adjusted_wa", label: "Score",   type: "numeric", getValue: (s) => s.adjusted_wa, align: "right", formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
+  { key: "avg_wa",      label: "Avg WA",  type: "numeric", getValue: (s) => s.avg_wa,      align: "right", formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
   { key: "adjustment",  label: "±",       type: "numeric", getValue: adjustment,           align: "right" },
 ];
 

@@ -320,7 +320,7 @@ function MonthlyTable({ months, categories }: { months: TimelineMonthRow[]; cate
                 ))}
                 <td className="px-3 py-2.5 whitespace-nowrap" style={{ color: "var(--color-ink)" }}>
                   {typeof r.top_book === "string"
-                    ? <>{r.top_book}{typeof r.top_wa === "number" && <span style={{ color: "var(--color-sage)" }}> {r.top_wa.toFixed(1)}</span>}</>
+                    ? <>{r.top_book}{typeof r.top_wa === "number" && <span style={{ color: "var(--color-sage)" }}> {r.top_wa.toFixed(2)}</span>}</>
                     : "—"}
                 </td>
               </tr>
@@ -375,7 +375,7 @@ function TimelineSingle({
       </h2>
       <TimelineTable rows={data.rows} categories={data.categories} />
       <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.books }))} label="Books per year" />
-      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.avg_wa ?? 0 }))} label="Average WA per year" color="var(--color-sage)" />
+      <BarChart bars={data.rows.map((r) => ({ label: String(r.year), value: r.avg_wa ?? 0 }))} label="Average WA per year" color="var(--color-sage)" fmt={num} />
       <LineChart
         points={data.rows.map((r) => ({ ...r, label: String(r.year) }))}
         categories={data.categories}
@@ -409,6 +409,7 @@ function TimelineSingle({
             bars={months.map((m) => ({ label: monthAxis(m), value: m.avg_wa ?? 0 }))}
             label="Average WA per month"
             color="var(--color-sage)"
+            fmt={num}
             barW={34}
             gap={16}
           />
