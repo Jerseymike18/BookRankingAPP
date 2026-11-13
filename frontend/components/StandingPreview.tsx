@@ -21,6 +21,7 @@ export function StandingPreview({
   scores,
   required,
   title,
+  onStanding,
 }: {
   kind: BookKind;
   /** Fiction genre (ignored for nonfiction). */
@@ -31,6 +32,8 @@ export function StandingPreview({
   required: string[];
   /** An existing title to leave out of the rank pool, if any. */
   title?: string;
+  /** Told each time a new preview arrives (e.g. to tint the page's buttons). */
+  onStanding?: (s: BookStanding | null) => void;
 }) {
   const [preview, setPreview] = useState<BookStanding | null>(null);
   const count = Object.keys(scores).length;
@@ -41,11 +44,11 @@ export function StandingPreview({
     const ctl = new AbortController();
     const t = setTimeout(() => {
       previewBookStanding(kind, previewGenre, scores, ctl.signal, title)
-        .then((p) => { if (!ctl.signal.aborted) setPreview(p); })
+        .then((p) => { if (!ctl.signal.aborted) { setPreview(p); onStanding?.(p); } })
         .catch(() => { /* best-effort: aborted or offline just shows nothing new */ });
     }, 300);
     return () => { clearTimeout(t); ctl.abort(); };
-  }, [kind, previewGenre, scores, count, title]);
+  }, [kind, previewGenre, scores, count, title, onStanding]);
 
   if (count === 0 || !preview) return null;
   const requiredScored = required.filter((c) => scores[c] !== undefined).length;

@@ -6,7 +6,7 @@ import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, type Book
 import { StandingPreview } from "@/components/StandingPreview";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel, standingText } from "@/lib/format";
-import { tierNoticeStyle } from "@/lib/tier-tint";
+import { tierNoticeStyle, tierButtonStyle } from "@/lib/tier-tint";
 import { ProgressBar } from "@/components/ProgressBar";
 
 import {
@@ -387,6 +387,9 @@ export default function AddBookClient({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  // The live preview's standing, so the page's buttons can wear the tier the
+  // book would land in (only while it has scores; sage otherwise).
+  const [liveStanding, setLiveStanding] = useState<BookStanding | null>(null);
   // The saved book's standing, so the "added" notice can wear its tier colour.
   const [savedStanding, setSavedStanding] = useState<BookStanding | null>(null);
 
@@ -464,6 +467,7 @@ export default function AddBookClient({
   }
 
   const previewScores = useMemo(() => parseScores(scores), [scores]);
+  const buttonStyle = tierButtonStyle(Object.keys(previewScores).length > 0 ? liveStanding : null);
   const requiredComps = useMemo(
     () => Object.values(categories).flat().filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c)),
     [categories, kind],
@@ -632,10 +636,7 @@ export default function AddBookClient({
               onClick={handleLookup}
               disabled={lookupLoading}
               className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
-              style={{
-                background: "var(--color-sage)",
-                color: "var(--color-on-accent)",
-              }}
+              style={buttonStyle}
             >
               {lookupLoading ? "Looking up…" : "Look up"}
             </button>
@@ -681,7 +682,7 @@ export default function AddBookClient({
               <button
                 onClick={applyLookup}
                 className="px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors"
-                style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
+                style={buttonStyle}
               >
                 ✓ Use this — fill the form
               </button>
@@ -773,7 +774,7 @@ export default function AddBookClient({
             Component scores
           </h3>
           <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} kind={kind} />
-          <StandingPreview kind={kind} genre={genre} scores={previewScores} required={requiredComps} />
+          <StandingPreview kind={kind} genre={genre} scores={previewScores} required={requiredComps} onStanding={setLiveStanding} />
         </div>
       </section>
 
@@ -809,7 +810,7 @@ export default function AddBookClient({
         onClick={handleSubmit}
         disabled={saving || !title.trim() || !author.trim()}
         className="px-6 py-3 rounded-xl font-semibold text-sm disabled:opacity-40 transition-colors"
-        style={{ background: "var(--color-sage)", color: "var(--color-on-accent)" }}
+        style={buttonStyle}
       >
         {saving ? "Adding…" : "Add book to ledger"}
       </button>
