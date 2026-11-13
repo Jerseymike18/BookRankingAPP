@@ -13,7 +13,7 @@ import { TypeToggle, type TypeScope } from "@/components/TypeToggle";
 import { ProgressBar } from "@/components/ProgressBar";
 import { SegmentedTabs } from "@/components/SegmentedTabs";
 import { useRowLimit, ShowMoreBar } from "@/components/ShowMore";
-import { tierTint, positionsInGroups, buildTierIndex, tierSpineClass, type TierIndex, type TierPos } from "@/lib/tier-tint";
+import { tierBadgeFill, positionsInGroups, buildTierIndex, tierSpineClass, type TierIndex, type TierPos } from "@/lib/tier-tint";
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -27,15 +27,9 @@ function spineClass(wa: number): string {
   return "spine-f";
 }
 
-/* Ranking rows shade like the tier ladder: each row tints in its band's spine
-   hue by its WA position inside that band (stable under any column sort). Rows
-   carry muted secondary text, so they use a lighter 22→6% range than the
-   ladder's boxes — that keeps the author line ≥ ~4:1 in both themes. */
-const ROW_TINT_MAX = 22;
-const ROW_TINT_MIN = 6;
-function spineColor(cls: string): string {
-  return `var(--color-${cls})`;
-}
+/* Ranking rows stay plain (tier shown by the left spine); the WA badge carries
+   the tier colour, shaded by the book's position inside its tier — deepest for
+   the tier's best book (stable under any column sort). */
 
 /** The server tier payloads this view bands rows by (same shape the Tier List takes). */
 export type RankingsTiers = {
@@ -895,9 +889,6 @@ function BookMobileList<T>({
                 key={key}
                 className={cls}
                 style={{
-                  background: pos
-                    ? tierTint(spineColor(cls), pos.index, pos.count, ROW_TINT_MAX, ROW_TINT_MIN)
-                    : undefined,
                   borderLeftWidth: 3,
                   borderLeftStyle: "solid",
                   borderTop: i === 0 ? "none" : "1px solid var(--color-rule)",
@@ -917,7 +908,11 @@ function BookMobileList<T>({
                   </span>
                   <span
                     className="wa-badge w-9! h-9! sm:w-11! sm:h-11!"
-                    style={{ background: spineColor(cls), color: `var(--color-on-${cls})` }}
+                    style={{
+                      background: pos ? tierBadgeFill(cls, pos.index, pos.count) : `var(--color-${cls})`,
+                      color: `var(--color-on-${cls})`,
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.25)",
+                    }}
                   >
                     {primaryScore(book).toFixed(2)}
                   </span>
@@ -960,7 +955,7 @@ function BookMobileList<T>({
                   </svg>
                 </button>
                 {isExpanded && (
-                  <div style={{ borderTop: "1px solid var(--color-rule)", background: "var(--color-surface)" }}>
+                  <div style={{ borderTop: "1px solid var(--color-rule)" }}>
                     <BookExpandedPanel
                       book={book}
                       categoryOrder={categoryOrder}

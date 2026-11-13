@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tierTint, positionsInGroups, buildTierIndex, tierSpineClass } from "../lib/tier-tint";
+import { tierTint, positionsInGroups, buildTierIndex, tierSpineClass, tierBadgeFill } from "../lib/tier-tint";
 
 describe("tierTint", () => {
   it("runs from max at the tier's best book to min at its lowest", () => {
@@ -63,5 +63,13 @@ describe("buildTierIndex", () => {
     expect(tierSpineClass("S+")).toBe("spine-sp");
     expect(tierSpineClass("F")).toBe("spine-f");
     expect(tierSpineClass("?")).toBeUndefined();
+  });
+});
+
+describe("tierBadgeFill", () => {
+  it("is the tier's hi shade for its best book and its lo shade for its lowest", () => {
+    expect(tierBadgeFill("spine-s", 0, 4)).toBe("color-mix(in srgb, var(--badge-hi-spine-s) 100%, var(--badge-lo-spine-s))");
+    expect(tierBadgeFill("spine-s", 3, 4)).toBe("color-mix(in srgb, var(--badge-hi-spine-s) 0%, var(--badge-lo-spine-s))");
+    expect(tierBadgeFill("spine-a", 0, 1)).toContain("100%");
   });
 });
