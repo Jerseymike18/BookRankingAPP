@@ -1155,7 +1155,7 @@ type CombinedItem = {
 const COMBINED_COLS: ColDef<CombinedItem>[] = [
   { key: "title", label: "Book", type: "string", getValue: (r) => r.book.title, align: "left" },
   { key: "wa", label: "WA", type: "numeric", getValue: (r) => primaryScore(r.book), align: "right", formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
-  { key: "total_average", label: "Total Avg", type: "numeric", getValue: (r) => r.total_average ?? 0, align: "right" },
+  { key: "total_average", label: "Total Avg", type: "numeric", getValue: (r) => r.total_average ?? 0, align: "right", formatter: (v) => (v != null ? Number(v).toFixed(2) : "—") },
   { key: "type", label: "Type", type: "string", getValue: (r) => r.kind, align: "left" },
   { key: "genre", label: "Genre", type: "string", getValue: (r) => r.book.genre, align: "left" },
 ];
