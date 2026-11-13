@@ -34,3 +34,8 @@ export function componentLabel(comp: string, kind: string = "fiction"): string {
   const labels = kind === "nonfiction" ? NF_COMPONENT_LABELS : FICTION_COMPONENT_LABELS;
   return labels[comp] ?? comp;
 }
+
+/** "WA 8.42 · #12 of 144" — a book's standing, for the add notice and preview. */
+export function standingText(s: { wa: number; rank: number; of: number }): string {
+  return `WA ${s.wa.toFixed(2)} · #${s.rank} of ${s.of}`;
+}

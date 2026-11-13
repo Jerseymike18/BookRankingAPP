@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
-import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent } from "@/lib/api";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, previewBookStanding, type BookStanding } from "@/lib/api";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
-import { componentLabel } from "@/lib/format";
+import { componentLabel, standingText } from "@/lib/format";
 import { ProgressBar } from "@/components/ProgressBar";
 
 import {
@@ -210,6 +210,13 @@ function parseScores(raw: Record<string, string>): Record<string, number> {
   return parsed;
 }
 
+/** The "added" notice, naming the new book's WA and rank when the server has them. */
+function addedMessage(title: string, standing?: BookStanding | null): string {
+  return standing
+    ? `Added "${title}" — ${standingText(standing)}.`
+    : `Added "${title}" to the ledger.`;
+}
+
 function ScoreGrid({
   categories,
   scores,
@@ -378,6 +385,10 @@ export default function AddBookClient({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  // Live standing while scores are typed in: the server's WA so far (unscored
+  // components skipped, exactly as a save rolls them up) and the rank it would
+  // take today. Debounced; each new keystroke aborts the previous request.
+  const [preview, setPreview] = useState<BookStanding | null>(null);
 
   // Background cohort re-prediction (fiction only): the add returns instantly and
   // we poll for the report. pollIdRef supersedes an in-flight poll if the user
@@ -452,6 +463,25 @@ export default function AddBookClient({
     setLookupError(null);
   }
 
+  const previewScores = useMemo(() => parseScores(scores), [scores]);
+  const requiredComps = useMemo(
+    () => Object.values(categories).flat().filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c)),
+    [categories, kind],
+  );
+  const previewCount = Object.keys(previewScores).length;
+  const requiredScored = requiredComps.filter((c) => previewScores[c] !== undefined).length;
+  const previewGenre = kind === "fiction" ? genre : "";
+  useEffect(() => {
+    if (previewCount === 0) return;
+    const ctl = new AbortController();
+    const t = setTimeout(() => {
+      previewBookStanding(kind, previewGenre, previewScores, ctl.signal)
+        .then((p) => { if (!ctl.signal.aborted) setPreview(p); })
+        .catch(() => { /* preview is best-effort; aborted or offline just shows nothing new */ });
+    }, 300);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [kind, previewGenre, previewScores, previewCount]);
+
   async function handleSubmit() {
     // A new book must have every required rating (worldbuilding is optional
     // for fiction; nonfiction has no optional components). Empty boxes are
@@ -483,10 +513,10 @@ export default function AddBookClient({
       let handle: RepredictHandle | null = null;
       if (kind === "nonfiction") {
         const result = await addNonfictionBook(common);
-        setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+        setSaveSuccess(addedMessage(submittedTitle, result.standing));
       } else {
         const result = await addBook({ ...common, genre });
-        setSaveSuccess(result.message || `Added "${submittedTitle}" to the ledger.`);
+        setSaveSuccess(addedMessage(submittedTitle, result.standing));
         handle = result.repredict ?? null;
       }
 
@@ -753,6 +783,21 @@ export default function AddBookClient({
             Component scores
           </h3>
           <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} kind={kind} />
+          {previewCount > 0 && preview && (
+            <div className="mt-4 flex items-center gap-3" aria-live="polite">
+              <span className="wa-badge">{preview.wa.toFixed(2)}</span>
+              <div className="min-w-0">
+                <p className="text-sm" style={{ color: "var(--color-ink)" }}>
+                  {requiredScored < requiredComps.length ? "WA so far" : "WA"} · would rank #{preview.rank} of {preview.of}
+                </p>
+                {requiredScored < requiredComps.length && (
+                  <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
+                    {requiredScored} of {requiredComps.length} scored — blank components count as 0 until you fill them in
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

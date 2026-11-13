@@ -294,11 +294,40 @@ export interface AddBookPayload {
   read_month?: number; // 1-12
 }
 
+/** A book's WA and rank by WA in its library (`of` books, itself included). */
+export interface BookStanding {
+  wa: number;
+  rank: number;
+  of: number;
+}
+
 export interface AddBookResult {
   ok: boolean;
   message: string;
   // Present for fiction adds: a handle for the background cohort re-prediction.
   repredict?: RepredictHandle | null;
+  /** The new book's WA + rank, read off the rebuilt library (null if unavailable). */
+  standing?: BookStanding | null;
+}
+
+/** WA so far for an in-progress rating (unscored components skipped, as the
+ *  engine does) and where it would rank today. Read-only; null in the static
+ *  snapshot, which has no backend. */
+export async function previewBookStanding(
+  kind: BookKind,
+  genre: string,
+  scores: Record<string, number>,
+  signal?: AbortSignal,
+): Promise<BookStanding | null> {
+  if (STATIC) return null;
+  const res = await apiFetch(`${base(kind)}/books/preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ genre, scores }),
+    signal,
+  });
+  if (!res.ok) return null;
+  return res.json();
 }
 
 export async function addBook(payload: AddBookPayload): Promise<AddBookResult> {
@@ -338,7 +367,7 @@ export interface AddNonfictionBookPayload {
 
 export async function addNonfictionBook(
   payload: AddNonfictionBookPayload
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; message: string; standing?: BookStanding | null }> {
   assertWritable();
   const res = await apiFetch(`${base("nonfiction")}/books`, {
     method: "POST",

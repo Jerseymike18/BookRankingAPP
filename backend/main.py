@@ -1757,7 +1757,73 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
             _run_repredict, token, req.title, req.author, req.genre, req.scores, user_id)
         repredict = {"status": "running", "token": token, "trigger": req.title}
 
-    return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict}
+    return {"ok": True, "message": out.replace("✓", "").strip(), "repredict": repredict,
+            "standing": _saved_standing("fiction", req.title, user_id)}
+
+
+# ---------------------------------------------------------------------------
+# A book's standing (WA + rank) — for the "added" notice and the live preview.
+# Read-only: WA comes from the engine (the rebuilt books frame after a save, or
+# the reference roll-ups research_predict._wa_from_components /
+# nonfiction_engine.wa_from_components for a preview); nothing is re-derived here.
+# Rank = 1 + books with a strictly higher WA, the same WA ordering Rankings uses
+# for both tracks.
+# ---------------------------------------------------------------------------
+def _rank_against(wa: float, books, exclude_title: Optional[str] = None) -> dict:
+    pool = books
+    if exclude_title and len(pool):
+        pool = pool[pool["Book"].str.strip().str.lower() != exclude_title.strip().lower()]
+    was = pool["WA"].dropna() if len(pool) else []
+    higher = int((was > wa).sum()) if len(pool) else 0
+    return {"wa": round(float(wa), 4), "rank": higher + 1, "of": int(len(was)) + 1}
+
+
+def _saved_standing(kind: str, title: str, user_id: str) -> Optional[dict]:
+    """WA + rank of a just-saved book, read off the freshly rebuilt engine. Best
+    effort: None if the book can't be found (the save itself already succeeded)."""
+    try:
+        books = (_get_nf_engine(user_id) if kind == "nonfiction" else _get_engine(user_id))[0]
+        match = books[books["Book"].str.strip().str.lower() == title.strip().lower()]
+        if match.empty or match.iloc[0]["WA"] != match.iloc[0]["WA"]:
+            return None
+        wa = float(match.iloc[0]["WA"])
+        out = _rank_against(wa, books, exclude_title=title)
+        out["of"] = int(books["WA"].notna().sum())
+        return out
+    except Exception:
+        log.exception("standing not computed for %r (the add itself succeeded)", title)
+        return None
+
+
+class PreviewWARequest(BaseModel):
+    genre: Optional[str] = None
+    # Partial scores while the reader types: unscored components are simply absent
+    # (or null) and the engine's roll-up skips them, exactly as it does for a save.
+    scores: dict[str, Optional[float]]
+    title: Optional[str] = None  # excluded from the rank pool (re-rating an existing title)
+
+
+def _preview_scores(scores: dict, allowed: list) -> dict:
+    clean = {}
+    for c, v in scores.items():
+        if c not in allowed or v is None:
+            continue
+        if not (0 <= float(v) <= 10):
+            raise HTTPException(status_code=422, detail=f"{c} must be between 0 and 10.")
+        clean[c] = float(v)
+    return clean
+
+
+@app.post("/api/books/preview")
+def preview_book_wa(req: PreviewWARequest, user_id: str = Depends(auth.get_current_user_id)):
+    """WA so far for an in-progress fiction rating + where it would rank today.
+    Read-only; nothing is saved."""
+    if _rp is None:
+        raise HTTPException(status_code=503, detail="Preview unavailable.")
+    books, gw, gcw = _get_engine(user_id)[:3]
+    scores = _preview_scores(req.scores, list(db_write.FICTION_COMPONENTS))
+    wa = _rp._wa_from_components(scores, (req.genre or "").strip(), gw, gcw)
+    return _rank_against(wa, books, exclude_title=req.title)
 
 
 def _run_repredict(token: str, title: str, author: str, genre: str, scores: dict,
@@ -4279,12 +4345,22 @@ def add_nf_book(req: NonfictionAddRequest,
     if not ok or "✗" in out:
         raise HTTPException(status_code=422, detail=out.replace("✗", "").strip() or "Could not add book.")
     _invalidate_nf_engine(user_id)
-    return {"ok": True, "message": out.replace("✓", "").strip()}
+    return {"ok": True, "message": out.replace("✓", "").strip(),
+            "standing": _saved_standing("nonfiction", req.title, user_id)}
 
 
 class NonfictionScoresRequest(BaseModel):
     scores: dict
 
+
+
+@app.post("/api/nonfiction/books/preview")
+def preview_nf_book_wa(req: PreviewWARequest, user_id: str = Depends(auth.get_current_user_id)):
+    """Nonfiction mirror of /api/books/preview (WA so far + rank today). Read-only."""
+    books, gw, gcw = _get_nf_engine(user_id)
+    scores = _preview_scores(req.scores, list(db_write.NONFICTION_COMPONENTS))
+    wa, _ = nfe.wa_from_components(scores, req.genre or "Nonfiction", gw, gcw)
+    return _rank_against(wa, books, exclude_title=req.title)
 
 @app.post("/api/nonfiction/books/{title}/scores")
 def edit_nf_scores(title: str, req: NonfictionScoresRequest,
