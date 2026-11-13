@@ -299,8 +299,8 @@ export interface BookStanding {
   wa: number;
   rank: number;
   of: number;
-  /** Preview only: the tier it would land in today (all-years cohort) and its
-   *  slot inside that tier — the Tier List's banding, computed server-side. */
+  /** The tier (all-years cohort) and the slot inside it — the Tier List's
+   *  banding, computed server-side. For a preview: where it would land today. */
   tier?: string;
   tier_index?: number;
   tier_count?: number;

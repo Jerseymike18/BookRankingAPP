@@ -111,6 +111,15 @@ def main():
                       st["rank"] == 1 + sum(1 for b in after.values() if b["wa"] > new["wa"]),
                       str(st))
                 check("standing `of` = library size", st["of"] == len(after), f"{st['of']} vs {len(after)}")
+                ttiers = c.get("/api/tiers").json()["books"]
+                tnew = next(b for b in ttiers if b["title"] == "Standing Test Book")
+                peers = sorted([b for b in ttiers if b["tier"] == tnew["tier"]], key=lambda b: b["wa"], reverse=True)
+                check("standing tier = the Tier List's tier for the new book", st.get("tier") == tnew["tier"],
+                      f"{st.get('tier')} vs {tnew['tier']}")
+                check("standing tier slot matches the Tier List",
+                      st.get("tier_count") == len(peers)
+                      and st.get("tier_index") == [b["title"] for b in peers].index("Standing Test Book"),
+                      str(st))
 
             print("\nSTANDING — nonfiction add returns WA + rank")
             nlib = c.get("/api/nonfiction/books").json()["books"]
@@ -124,6 +133,9 @@ def main():
             new = nafter.get("Standing Test NF")
             check("nf add: standing present and matches the library WA",
                   bool(st) and new is not None and abs(st["wa"] - new["wa"]) < 1e-3, str(st))
+            ntiers = {b["title"]: b for b in c.get("/api/nonfiction/tiers").json()["books"]}
+            check("nf add: standing tier = the nonfiction Tier List's tier",
+                  bool(st) and st.get("tier") == ntiers["Standing Test NF"]["tier"], str(st))
     finally:
         os.chdir(orig_cwd)
         db_write.DB = orig_db

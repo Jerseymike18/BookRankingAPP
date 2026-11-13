@@ -226,6 +226,22 @@ function previewCircleStyle(p: BookStanding): React.CSSProperties | undefined {
   };
 }
 
+/** The "added" notice wears the saved book's tier colour (its slot in the tier
+ *  sets the shade), with white text like the circles; plain sage otherwise. */
+function addedNoticeStyle(s: BookStanding | null): React.CSSProperties {
+  const cls = s?.tier ? tierSpineClass(s.tier) : undefined;
+  if (!s || !cls) {
+    return { background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" };
+  }
+  return {
+    background: tierBadgeFill(cls, s.tier_index ?? 0, s.tier_count ?? 1),
+    color: "var(--color-on-accent)",
+    fontWeight: 600,
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+    border: "1px solid transparent",
+  };
+}
+
 /** The "added" notice, naming the new book's WA and rank when the server has them. */
 function addedMessage(title: string, standing?: BookStanding | null): string {
   return standing
@@ -405,6 +421,8 @@ export default function AddBookClient({
   // components skipped, exactly as a save rolls them up) and the rank it would
   // take today. Debounced; each new keystroke aborts the previous request.
   const [preview, setPreview] = useState<BookStanding | null>(null);
+  // The saved book's standing, so the "added" notice can wear its tier colour.
+  const [savedStanding, setSavedStanding] = useState<BookStanding | null>(null);
 
   // Background cohort re-prediction (fiction only): the add returns instantly and
   // we poll for the report. pollIdRef supersedes an in-flight poll if the user
@@ -514,6 +532,7 @@ export default function AddBookClient({
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(null);
+    setSavedStanding(null);
     try {
       const common = {
         title,
@@ -530,9 +549,11 @@ export default function AddBookClient({
       if (kind === "nonfiction") {
         const result = await addNonfictionBook(common);
         setSaveSuccess(addedMessage(submittedTitle, result.standing));
+        setSavedStanding(result.standing ?? null);
       } else {
         const result = await addBook({ ...common, genre });
         setSaveSuccess(addedMessage(submittedTitle, result.standing));
+        setSavedStanding(result.standing ?? null);
         handle = result.repredict ?? null;
       }
 
@@ -826,8 +847,8 @@ export default function AddBookClient({
         </div>
       )}
       {saveSuccess && (
-        <div className="rounded-lg px-4 py-3 text-sm mb-4"
-          style={{ background: "var(--color-sage-light)", color: "var(--color-sage)", border: "1px solid var(--color-sage)" }}>
+        <div className="rounded-lg px-4 py-3 text-sm mb-4" role="status"
+          style={addedNoticeStyle(savedStanding)}>
           {saveSuccess}
         </div>
       )}

@@ -1789,6 +1789,10 @@ def _saved_standing(kind: str, title: str, user_id: str) -> Optional[dict]:
         wa = float(match.iloc[0]["WA"])
         out = _rank_against(wa, books, exclude_title=title)
         out["of"] = int(books["WA"].notna().sum())
+        try:
+            out.update(_library_tier(kind, books, title))
+        except Exception:
+            log.exception("tier not computed for %r (the add itself succeeded)", title)
         return out
     except Exception:
         log.exception("standing not computed for %r (the add itself succeeded)", title)
@@ -1813,6 +1817,21 @@ def _preview_tier(books, score_col: str, score: float, band, exclude_title: Opti
     tier = tiered.loc[tiered["Book"] == _PREVIEW_ROW, "Tier"].iloc[0]
     same = tiered[tiered["Tier"] == tier].reset_index(drop=True)
     index = int(same.index[same["Book"] == _PREVIEW_ROW][0])
+    return {"tier": tier, "tier_index": index, "tier_count": int(len(same))}
+
+
+def _library_tier(kind: str, books, title: str) -> dict:
+    """A saved book's tier (all-years cohort) and its slot inside that tier, via
+    the engine's own banding — exactly what the Tier List shows for it."""
+    if kind == "nonfiction":
+        df, col, band = nfe.add_total_average(books), "Total Average", nfe.tier_bands
+    else:
+        df, col, band = books, "WA", views_mod.tier_bands
+    tiered = band(df[["Book", col]].dropna(subset=[col]), col, 9.5)
+    key = tiered["Book"].str.strip().str.lower()
+    tier = tiered.loc[key == title.strip().lower(), "Tier"].iloc[0]
+    same = tiered[tiered["Tier"] == tier].reset_index(drop=True)
+    index = int(same.index[same["Book"].str.strip().str.lower() == title.strip().lower()][0])
     return {"tier": tier, "tier_index": index, "tier_count": int(len(same))}
 
 
