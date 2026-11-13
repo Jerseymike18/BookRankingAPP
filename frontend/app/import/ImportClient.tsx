@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   importGoodreads,
   fetchImportStaging,
@@ -20,6 +20,7 @@ import type {
   BookKind,
 } from "@/lib/types";
 import { componentLabel } from "@/lib/format";
+import { StandingPreview } from "@/components/StandingPreview";
 import { ProgressBar } from "@/components/ProgressBar";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 import Glyph from "@/components/Glyph";
@@ -245,6 +246,11 @@ function RankCard({
 
   const categories = COMPONENT_CATEGORIES_BY_KIND[kind];
   const genres = kind === "fiction" ? fictionGenres : nonfictionGenres;
+  const parsedScores = useMemo(() => parseScores(scores), [scores]);
+  const requiredComps = useMemo(
+    () => Object.values(categories).flat().filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c)),
+    [categories, kind],
+  );
 
   function changeKind(k: Kind) {
     setKind(k);
@@ -359,6 +365,7 @@ function RankCard({
 
       <div className="pt-4" style={{ borderTop: "1px solid var(--color-rule)" }}>
         <ScoreGrid categories={categories} scores={scores} onChange={(c, v) => setScores((p) => ({ ...p, [c]: v }))} kind={kind} />
+        <StandingPreview kind={kind} genre={genre} scores={parsedScores} required={requiredComps} />
       </div>
 
       {error && <div className="rounded-lg px-4 py-3 text-sm mt-4" style={errorBox}>{error}</div>}

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, previewBookStanding, type BookStanding } from "@/lib/api";
+import { lookupBook, addBook, addNonfictionBook, fetchRepredictRecent, type BookStanding } from "@/lib/api";
+import { StandingPreview } from "@/components/StandingPreview";
 import type { LookupResult, BookKind, RepredictReport, RepredictHandle } from "@/lib/types";
 import { componentLabel, standingText } from "@/lib/format";
-import { tierCircleStyle, tierNoticeStyle } from "@/lib/tier-tint";
+import { tierNoticeStyle } from "@/lib/tier-tint";
 import { ProgressBar } from "@/components/ProgressBar";
 
 import {
@@ -386,10 +387,6 @@ export default function AddBookClient({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
-  // Live standing while scores are typed in: the server's WA so far (unscored
-  // components skipped, exactly as a save rolls them up) and the rank it would
-  // take today. Debounced; each new keystroke aborts the previous request.
-  const [preview, setPreview] = useState<BookStanding | null>(null);
   // The saved book's standing, so the "added" notice can wear its tier colour.
   const [savedStanding, setSavedStanding] = useState<BookStanding | null>(null);
 
@@ -471,19 +468,6 @@ export default function AddBookClient({
     () => Object.values(categories).flat().filter((c) => !OPTIONAL_COMPONENTS_BY_KIND[kind].has(c)),
     [categories, kind],
   );
-  const previewCount = Object.keys(previewScores).length;
-  const requiredScored = requiredComps.filter((c) => previewScores[c] !== undefined).length;
-  const previewGenre = kind === "fiction" ? genre : "";
-  useEffect(() => {
-    if (previewCount === 0) return;
-    const ctl = new AbortController();
-    const t = setTimeout(() => {
-      previewBookStanding(kind, previewGenre, previewScores, ctl.signal)
-        .then((p) => { if (!ctl.signal.aborted) setPreview(p); })
-        .catch(() => { /* preview is best-effort; aborted or offline just shows nothing new */ });
-    }, 300);
-    return () => { clearTimeout(t); ctl.abort(); };
-  }, [kind, previewGenre, previewScores, previewCount]);
 
   async function handleSubmit() {
     // A new book must have every required rating (worldbuilding is optional
@@ -789,22 +773,7 @@ export default function AddBookClient({
             Component scores
           </h3>
           <ScoreGrid categories={categories} scores={scores} onChange={handleScoreChange} kind={kind} />
-          {previewCount > 0 && preview && (
-            <div className="mt-4 flex items-center gap-3" aria-live="polite">
-              <span className="wa-badge" style={tierCircleStyle(preview)}>{preview.wa.toFixed(2)}</span>
-              <div className="min-w-0">
-                <p className="text-sm" style={{ color: "var(--color-ink)" }}>
-                  {requiredScored < requiredComps.length ? "WA so far" : "WA"} · would rank #{preview.rank} of {preview.of}
-                  {preview.tier ? ` · ${preview.tier} tier` : ""}
-                </p>
-                {requiredScored < requiredComps.length && (
-                  <p className="text-xs mt-0.5" style={{ color: "var(--color-muted)" }}>
-                    {requiredScored} of {requiredComps.length} scored — blank components count as 0 until you fill them in
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
+          <StandingPreview kind={kind} genre={genre} scores={previewScores} required={requiredComps} />
         </div>
       </section>
 
