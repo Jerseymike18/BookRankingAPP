@@ -9,11 +9,11 @@
     "raw_wa_mae": 0.7779
   },
   "provenance": {
-    "backtest_generated_at": "2026-09-07T18:56:05-04:00",
+    "backtest_generated_at": "2026-11-13T14:35:13-05:00",
     "current_engine_hash": "sha256:8ac694adec440527",
-    "engine_hash": "sha256:c12adfb15c04adcd",
-    "git_head": "c363b2184194",
-    "stale": true
+    "engine_hash": "sha256:8ac694adec440527",
+    "git_head": "40cbe6b9fd7a",
+    "stale": false
   },
   "served_coverage": {
     "measured": 0.8425,

@@ -27,9 +27,9 @@
     "decision": "retire",
     "version": "v2_opus_retired_2026-07-05"
   },
-  "engine_hash": "sha256:c12adfb15c04adcd",
-  "generated_at": "2026-09-07T18:56:05-04:00",
-  "git_head": "c363b218419475696b94e97fa87e77891b10c413",
+  "engine_hash": "sha256:8ac694adec440527",
+  "generated_at": "2026-11-13T14:35:13-05:00",
+  "git_head": "40cbe6b9fd7a8afb8ef115d6ef2cccec9442eb35",
   "interval_note": "per-variant interval is the engine's +/-1.645*resid_sd, not the served conformal interval",
   "leakage_inventory": {
     "author_genre_correction_pairs": "neutralised in honest (pool), LEAKY in leaky (full library)",

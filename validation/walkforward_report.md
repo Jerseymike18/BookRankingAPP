@@ -1,6 +1,6 @@
 # Walk-Forward Backtest — Report
 
-Engine `sha256:c12adfb15c04adcd` · git `c363b2184194` · 127 folds over 143 books (burn-in 15) · skipped {'POOL_LT_BURN_IN': 15, 'SKIPPED_NO_CACHE': 1}.
+Engine `sha256:8ac694adec440527` · git `40cbe6b9fd7a` · 127 folds over 143 books (burn-in 15) · skipped {'POOL_LT_BURN_IN': 15, 'SKIPPED_NO_CACHE': 1}.
 
 Variants: **raw** = grounded research → WA, no correction · **honest** = *memory-only* vector, author+genre correction fit on the *past-only pool* (the pre-refine state) · **leaky** = correction fit on the *full library* (today's config; saw future books) · **hybrid** = the **LIVE served** input — memory correction (as honest) on the hybrid vector (memory + web-grounded overrides), i.e. what the app actually serves.
 
