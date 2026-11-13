@@ -763,6 +763,11 @@ function buildCols(
       const catCol: ColDef<Book> = {
         key: cat, label: CAT_ABBREV[cat] ?? cat, type: "numeric",
         getValue: (b) => (b.category_avgs ?? {})[cat] ?? 0, align: "right",
+        // Missing (e.g. no worldbuilding for this genre) stays "—", not "0.00".
+        formatter: (_v, b) => {
+          const v = (b.category_avgs ?? {})[cat];
+          return v != null ? v.toFixed(2) : "—";
+        },
       };
       if (!expanded.has(cat)) return [catCol];
       return [
