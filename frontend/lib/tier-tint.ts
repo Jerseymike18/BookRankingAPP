@@ -1,24 +1,4 @@
 /**
- * In-tier shading. A book's surface tints in its tier's own hue — deepest for
- * the tier's best book, fading toward the surface for its lowest. Presentation
- * only: the position comes from an existing best-first order, nothing is
- * recomputed. Callers pick the range to suit the text drawn on top (the tier
- * ladder carries ink only; ranking rows also carry muted secondary text, so
- * they use a lighter ceiling to keep that text readable).
- */
-export function tierTint(
-  color: string,
-  index: number,
-  count: number,
-  maxPct: number,
-  minPct: number,
-): string {
-  const t = count > 1 ? Math.min(Math.max(index / (count - 1), 0), 1) : 0;
-  const pct = Math.round(maxPct - (maxPct - minPct) * t);
-  return `color-mix(in srgb, ${color} ${pct}%, var(--color-surface))`;
-}
-
-/**
  * A tier-coloured WA badge's fill for a book at `index` of `count` in its tier:
  * --badge-hi-<spine> for the tier's best book, blending to --badge-lo-<spine>
  * for its lowest (globals.css picks the fade direction per theme for contrast).

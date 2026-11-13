@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { tierTint } from "@/lib/tier-tint";
+import { tierBadgeFill, tierSpineClass } from "@/lib/tier-tint";
 
 const TIER_COLORS: Record<string, string> = {
   "S+": "var(--color-spine-sp)",
@@ -13,10 +13,9 @@ const TIER_COLORS: Record<string, string> = {
   "F":  "var(--color-spine-f)",
 };
 
-/* Boxes shade in their tier's hue (lib/tier-tint); items arrive best-first.
-   Boxes carry ink text only, so they take the deeper 40→12% range. */
-const TINT_MAX = 40;
-const TINT_MIN = 12;
+/* Boxes are filled like the rankings WA badges (lib/tier-tint tierBadgeFill):
+   the tier's colour, deepest for its best book (items arrive best-first), with
+   the per-tier text colour that keeps >= 4.5:1 at both ends of the shade. */
 
 export interface TierItem {
   label: string;
@@ -126,6 +125,7 @@ function TierRow({
   onLeave: () => void;
 }) {
   const color = TIER_COLORS[tier] ?? "var(--color-faint)";
+  const spine = tierSpineClass(tier);
 
   return (
     <div
@@ -182,8 +182,8 @@ function TierRow({
               height: 50,
               width: 144,
               padding: "0 10px",
-              background: tierTint(color, i, items.length, TINT_MAX, TINT_MIN),
-              border: `1px solid color-mix(in srgb, ${color} 45%, var(--color-rule))`,
+              background: spine ? tierBadgeFill(spine, i, items.length) : "var(--color-surface-2)",
+              border: "1px solid transparent",
               borderRadius: 6,
               display: "flex",
               alignItems: "center",
@@ -195,7 +195,7 @@ function TierRow({
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: "0.78rem",
-                color: "var(--color-ink)",
+                color: spine ? `var(--color-on-${spine})` : "var(--color-ink)",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
