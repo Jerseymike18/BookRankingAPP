@@ -10,6 +10,7 @@ import {
   fetchWeights,
 } from "@/lib/api";
 import type { EffectiveWeights, BookKind } from "@/lib/types";
+import Glyph from "@/components/Glyph";
 
 /* ── Working model ──────────────────────────────────────────────────────────
    Weights are TYPED (not dragged). Each box holds a raw STRING (so it can be
@@ -555,7 +556,7 @@ export default function WeightsClient({
                     className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1"
                     style={{ color: "var(--color-muted)" }}
                   >
-                    <span>{open ? "▾" : "▸"}</span> Component weights
+                    <Glyph name={open ? "chevron-down" : "chevron-right"} size={12} strokeWidth={2.75} /> Component weights
                   </button>
                   {open && (
                     <div className="mt-3 space-y-4">

@@ -1,4 +1,5 @@
-/** Small stroke icons for icon-only buttons (close, +/−, sort direction).
+/** Small stroke icons for icon-only buttons (close, +/−, sort direction) and
+ *  disclosure chevrons.
  *
  *  Text glyphs like ✕ − + ↑ ↓ sit wherever the font puts them — on the
  *  baseline, with side bearings, and on iOS ✕ even falls back to another font —
@@ -7,7 +8,9 @@
  *  justify-center` button they are centred at every size. Same stroke style as
  *  the BottomSheet close button and the nav icons. */
 
-export type GlyphName = "close" | "plus" | "minus" | "arrow-up" | "arrow-down";
+export type GlyphName =
+  | "close" | "plus" | "minus" | "arrow-up" | "arrow-down"
+  | "chevron-down" | "chevron-up" | "chevron-right";
 
 const PATHS: Record<GlyphName, string> = {
   close: "M6 6l12 12M18 6L6 18",
@@ -15,6 +18,10 @@ const PATHS: Record<GlyphName, string> = {
   minus: "M5 12h14",
   "arrow-up": "M12 19V5M6 11l6-6 6 6",
   "arrow-down": "M12 5v14M6 13l6 6 6-6",
+  // Chevrons are centred on (12,12) so a rotate() spins them in place.
+  "chevron-down": "M5 8.5l7 7 7-7",
+  "chevron-up": "M5 15.5l7-7 7 7",
+  "chevron-right": "M8.5 5l7 7-7 7",
 };
 
 export default function Glyph({

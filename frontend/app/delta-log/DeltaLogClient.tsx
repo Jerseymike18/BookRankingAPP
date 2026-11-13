@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { fetchDeltaLog } from "@/lib/api";
 import type { DeltaLogResponse, DeltaLogEntry } from "@/lib/types";
 import { PageSkeleton, SkeletonTable } from "@/components/Skeleton";
+import Glyph from "@/components/Glyph";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -124,11 +125,12 @@ function EntryCard({
 
       {/* Toggle */}
       <button
-        className="text-xs mt-3"
+        className="text-xs mt-3 inline-flex items-center gap-1"
         style={{ color: "var(--color-sage)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? "Hide components ▲" : "Show components ▼"}
+        {open ? "Hide components" : "Show components"}
+        <Glyph name={open ? "chevron-up" : "chevron-down"} size={12} strokeWidth={2.75} />
       </button>
 
       {open && (
