@@ -31,8 +31,6 @@ const CANDIDATE_COLS: ColDef<Candidate>[] = [
     formatter: (v) => v ? <>{v}</> : <span style={{ color: "var(--color-faint)" }}>—</span> },
   { key: "series_number", label: "#", type: "numeric", getValue: (c) => c.series_number ?? null,
     formatter: (v) => (v === null || v === undefined) ? <span style={{ color: "var(--color-faint)" }}>—</span> : <>{v}</> },
-  { key: "status", label: "Status", type: "string", getValue: (c) => (c as Candidate).cached ? "cached" : "new",
-    sortable: false },
 ];
 
 /* ── Shared input styles ─────────────────────────────────────────────────── */
@@ -170,7 +168,7 @@ function PredictFlow({
   // belong with the view that renders them.
   const {
     request, requestLabel, candidates, genNote, genSources, genLoading, genError,
-    scored, scoringIdx, scoringDone, saveResults, saving, saveProgress,
+    scored, scoringCount, scoringDone, saveResults, saving, saveProgress,
     repredictErrors, interrupted, cancelled,
   } = run;
   // Clear a stale generation error on arrival.
@@ -179,11 +177,8 @@ function PredictFlow({
   // opposite ones. Results surviving navigation IS the feature. An error banner
   // surviving it is a bug: it reports a moment, the page cannot know that moment
   // has passed, and a reader who fixed the cause (topped up credits, reconnected)
-  // comes back to the app still insisting it is broken. Unmounting used to clear
-  // this for free; now it has to be done on purpose. Mount-only, so an error
+  // comes back to the app still insisting it is broken. Mount-only, so an error
   // raised while the reader is watching stays put.
-  // `dismissGenError` is a stable useCallback over a stable `patch`, so listing it
-  // is honest rather than a re-fire hazard — no ref dance needed.
   const { dismissGenError } = jobs;
   useEffect(() => {
     dismissGenError(kind);
@@ -193,9 +188,11 @@ function PredictFlow({
   // live (an abandoned loop would write into the new run), so the buttons that
   // start work say why instead of silently no-op-ing.
   const busy = isRunBusy(run);
+  const scoring = scoringCount !== null;
   const refiningTitles = useMemo(() => new Set(run.refining), [run.refining]);
   const repredictingTitles = useMemo(() => new Set(run.repredicting), [run.repredicting]);
   const removed = useMemo(() => new Set(run.removed), [run.removed]);
+  const scoredTitles = useMemo(() => new Set(scored.map((r) => r.title)), [scored]);
 
   const nCached = candidates?.filter((c) => c.cached).length ?? 0;
   const nNew = (candidates?.length ?? 0) - nCached;
@@ -215,17 +212,48 @@ function PredictFlow({
   const unrefined = kept.filter(
     (r) => r.hybrid_available && r.sourcing !== "hybrid" && !refiningTitles.has(r.title),
   );
-  // Grounding progress across the whole kept set — the denominator for the
-  // refine bar. A book already grounded when it was scored counts as done.
+  // Grounding progress across the whole kept set. A book already grounded when
+  // it was scored counts as done.
   const groundable = kept.filter((r) => r.hybrid_available || r.sourcing === "hybrid").length;
   const grounded = kept.filter((r) => r.sourcing === "hybrid").length;
+
+  // The candidate list only earns its space while there is something to do with
+  // it: trimming books before their call goes out. Once scoring has finished the
+  // ranked cards below say everything it did, so it folds to one line. A single
+  // named book never shows it at all — the card is the answer.
+  const multi = (candidates?.length ?? 0) > 1;
+  const showCandidateTable = !!candidates && multi && !scoringDone;
+  // A run a reload or Stop cut off before every candidate was scored.
+  const canRescore =
+    !busy && !!candidates && candidates.length > 0 &&
+    (scored.length === 0 || !!interrupted);
+
+  const candidateCols = useMemo<ColDef<Candidate>[]>(() => [
+    ...CANDIDATE_COLS,
+    { key: "status", label: "Status", type: "string", sortable: false,
+      getValue: (c) => scoredTitles.has(c.title) ? "scored" : c.cached ? "cached" : "new",
+      formatter: (v) => v === "scored"
+        ? <span style={{ color: "var(--color-sage)" }}>✓ scored</span>
+        : <span style={{ color: "var(--color-faint)" }}>{v}</span> },
+    { key: "remove", label: "", type: "string", sortable: false, getValue: () => "",
+      formatter: (_v, c) => (
+        <button
+          onClick={() => jobs.removeBook(kind, c.title)}
+          className="inline-flex items-center justify-center w-6 h-6 rounded-md"
+          style={{ color: "var(--color-faint)" }}
+          title={scoredTitles.has(c.title) ? "Remove — don't save this book" : "Skip — don't score this book"}
+          aria-label={`Remove ${c.title}`}
+        >
+          <Glyph name="close" size={12} />
+        </button>
+      ) },
+  ], [jobs, kind, scoredTitles]);
 
   return (
     <div className="space-y-6">
       {/* A run that was still in flight when the page reloaded. The scores
           already in hand were restored from the tab's snapshot; anything mid-call
-          died with the document. Say so plainly rather than presenting a
-          half-finished run as a finished one. */}
+          died with the document. */}
       {interrupted && (
         <div
           className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
@@ -281,6 +309,13 @@ function PredictFlow({
           style={{ ...inputStyle, minHeight: "4rem" }}
           value={request}
           onChange={(e) => jobs.setRequest(kind, e.target.value)}
+          onKeyDown={(e) => {
+            // ⌘/Ctrl+Enter predicts; plain Enter still makes a newline.
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              jobs.generate(kind);
+            }
+          }}
           placeholder={config.placeholder}
         />
         <p className="text-xs mt-2 mb-3" style={{ color: "var(--color-faint)" }}>
@@ -291,11 +326,17 @@ function PredictFlow({
             onClick={() => jobs.generate(kind)}
             disabled={busy || !request.trim()}
           >
-            {genLoading ? "Generating candidates…" : "Generate candidates"}
+            {genLoading ? "Finding books…" : scoring ? "Scoring…" : "Predict"}
           </SageButton>
-          {busy && !genLoading && (
-            <span className="text-xs" style={{ color: "var(--color-faint)" }}>
-              Finish or leave the current run first.
+          {busy ? (
+            !genLoading && !scoring && (
+              <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+                Finish or stop the current run first.
+              </span>
+            )
+          ) : (
+            <span className="text-xs hidden sm:inline" style={{ color: "var(--color-faint)" }}>
+              ⌘↵
             </span>
           )}
           {/* Opt in to the OS-level notification. It fires only while this tab is
@@ -304,16 +345,6 @@ function PredictFlow({
             <PredictNotifyToggle />
           </span>
         </div>
-        {genLoading && (
-          <>
-            <ProgressBar
-              className="mt-3"
-              label="Asking the model for candidates…"
-              hint="Usually a few seconds; longer when the request needs a web lookup for series order."
-            />
-            <StopButton onClick={() => jobs.cancelRun(kind)} className="mt-2" />
-          </>
-        )}
         {genError && (
           <div className="mt-3">
             <ErrorBox
@@ -324,7 +355,23 @@ function PredictFlow({
         )}
       </Card>
 
-      {/* Candidate list + confirm */}
+      {/* ONE progress strip for the whole run — finding, scoring, grounding,
+          saving — with one Stop. The phases run back to back, so a bar per phase
+          scattered down the page made the reader hunt for which one was moving. */}
+      <RunStrip
+        genLoading={genLoading}
+        scoringCount={scoringCount}
+        nCandidates={candidates?.length ?? 0}
+        nNew={nNew}
+        refiningCount={refiningCount}
+        grounded={grounded}
+        groundable={groundable}
+        repredictingCount={repredictingTitles.size}
+        saving={saving}
+        saveProgress={saveProgress}
+        onStop={() => jobs.cancelRun(kind)}
+      />
+
       {candidates && candidates.length === 0 && (
         <InfoBox message={genNote || "The model didn't return any fresh candidates — try rephrasing or widening the request."} />
       )}
@@ -333,17 +380,21 @@ function PredictFlow({
         <InfoBox message={genNote} />
       )}
 
-      {candidates && candidates.length > 0 && (
+      {showCandidateTable && (
         <Card>
           <p
-            className="font-semibold text-sm mb-3"
+            className="font-semibold text-sm mb-1"
             style={{ color: "var(--color-ink)" }}
           >
             Candidates for: <em>{requestLabel}</em>
           </p>
+          <p className="text-xs mb-3" style={{ color: "var(--color-muted)" }}>
+            {nCached} already researched (free) · {nNew} new ({config.newCostHint})
+            {scoring && " · ✕ one to skip it before its call goes out"}
+          </p>
           <SortableTable<Candidate>
-            columns={CANDIDATE_COLS}
-            data={candidates}
+            columns={candidateCols}
+            data={candidates.filter((c) => !removed.has(c.title))}
             defaultSort={{
               key: candidates.some((c) => c.series_number != null) ? "series_number" : "title",
               dir: "asc",
@@ -351,133 +402,58 @@ function PredictFlow({
             getRowKey={(c) => c.title}
             pinFirst={(c) => !!c.requested}
           />
-          <p className="text-xs mt-3" style={{ color: "var(--color-muted)" }}>
-            {nCached} already researched (free) · {nNew} new ({config.newCostHint})
-          </p>
-          {genSources.length > 0 && (
-            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-              Series data from Goodreads:{" "}
-              {genSources.slice(0, 3).map((u, i) => (
-                <span key={u}>
-                  {i > 0 ? " · " : ""}
-                  <a href={u} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
-                    {u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 48)}
-                  </a>
-                </span>
-              ))}
-            </p>
-          )}
-
-          {scoringIdx === null && !scoringDone && (
-            <div className="mt-4">
-              <SageButton onClick={() => jobs.score(kind)} disabled={busy}>
-                Confirm & score {candidates.length} candidate
-                {candidates.length !== 1 ? "s" : ""}
-              </SageButton>
-            </div>
-          )}
-
-          {scoringIdx !== null && (
-            <ProgressBar
-              className="mt-4"
-              value={scoringIdx + 1}
-              max={candidates.length}
-              label={`Scoring ${scoringIdx + 1} / ${candidates.length}: ${candidates[scoringIdx].title}`}
-              hint={
-                nNew > 0
-                  ? `${nNew} of these have never been researched — those calls are the slow ones.`
-                  : undefined
-              }
-            />
-          )}
-
-          {/* The run is owned by the root layout, not this page, so leaving is
-              genuinely safe — say so, since nothing on screen would suggest it. */}
-          {scoringIdx !== null && (
-            <div className="mt-2">
-              <StopButton
-                onClick={() => jobs.cancelRun(kind)}
-                label={`Stop — skip the remaining ${candidates.length - scoringIdx - 1}`}
-              />
-            </div>
-          )}
-
-          {scoringIdx !== null && (
-            <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
-              This keeps running if you switch tabs — the nav shows its progress and
-              you&rsquo;ll get a note here when it finishes.{" "}
-              <PredictNotifyPrompt />
-            </p>
-          )}
+          <SeriesSources sources={genSources} />
         </Card>
       )}
 
+      {/* Folded candidate summary once the cards below have taken over. */}
+      {candidates && candidates.length > 0 && !showCandidateTable && (
+        <div className="text-xs -mt-2" style={{ color: "var(--color-muted)" }}>
+          {multi ? <>{candidates.length} candidates for <em>{requestLabel}</em></> : <em>{requestLabel}</em>}
+          {" · "}{nCached} already researched
+          <SeriesSources sources={genSources} />
+        </div>
+      )}
+
+      {canRescore && (
+        <SageButton onClick={() => jobs.score(kind)}>
+          {scored.length > 0 ? "Score again" : `Score ${candidates!.length} candidate${candidates!.length !== 1 ? "s" : ""}`}
+        </SageButton>
+      )}
+
       {/* Scored results */}
-      {okScored.length > 0 && (
+      {(okScored.length > 0 || scoring) && (
         <div className="space-y-4">
-          <h2
-            className="font-display font-semibold text-lg"
-            style={{ color: "var(--color-ink)" }}
-          >
-            Discovered books — ranked by your predicted {config.primaryLabel}
-          </h2>
+          <div className="flex items-baseline gap-x-4 gap-y-1 flex-wrap">
+            <h2
+              className="font-display font-semibold text-lg"
+              style={{ color: "var(--color-ink)" }}
+            >
+              Ranked by your predicted {config.primaryLabel}
+            </h2>
+            {unrefined.length > 0 && (
+              <button
+                onClick={() => jobs.refineRemaining(kind, kept)}
+                className="text-xs underline"
+                style={{ color: "var(--color-sage)" }}
+                title={`The top ${EAGER_REFINE_K} are grounded automatically`}
+              >
+                Ground {refiningCount > 0 ? `${unrefined.length} more` : `all ${unrefined.length}`} with reviews
+              </button>
+            )}
+          </div>
           <p className="text-xs -mt-2" style={{ color: "var(--color-muted)" }}>
             {config.showGroundingBadge
-              ? "Grounding is the primary reliability signal. Strong = many genre books or ≥1 by this author. Model self-confidence shown separately as a secondary note."
+              ? "Scores update live as reviews come in. Open a card for its grounding, interval and components."
               : "Low-confidence estimates — the rated nonfiction library is still small. Treat these as rough until it grows."}
           </p>
-
-          {(refiningCount > 0 || unrefined.length > 0) && (
-            <div
-              className="rounded-lg px-4 py-2 text-xs flex items-center gap-x-4 gap-y-1 flex-wrap"
-              style={{
-                background: "var(--color-surface)",
-                boxShadow: "var(--shadow-card)",
-                color: "var(--color-muted)",
-              }}
-            >
-              {refiningCount > 0 && (
-                <span className="flex items-center gap-2">
-                  <span
-                    className="inline-block w-2 h-2 rounded-full animate-pulse"
-                    style={{ background: "var(--color-sage)" }}
-                  />
-                  Refining {refiningCount} with reviews — scores update live.
-                  <StopButton onClick={() => jobs.cancelRun(kind)} />
-                </span>
-              )}
-              {groundable > 0 && (
-                // Determinate across the whole result set rather than per batch:
-                // grounded ÷ groundable is stable whether the refine came from
-                // the eager top-K pass, one card, or "Refine all".
-                <ProgressBar
-                  className="w-full order-last"
-                  value={grounded}
-                  max={groundable}
-                  label={`${grounded} of ${groundable} grounded with reviews`}
-                />
-              )}
-              {unrefined.length > 0 && (
-                <button
-                  onClick={() => jobs.refineRemaining(kind, kept)}
-                  className="underline"
-                  style={{ color: "var(--color-sage)" }}
-                >
-                  Refine {refiningCount > 0 ? `${unrefined.length} more` : `all ${unrefined.length}`}
-                  {" "}with reviews
-                </button>
-              )}
-              <span style={{ color: "var(--color-faint)" }}>
-                Top {EAGER_REFINE_K} refined automatically · you can save anytime.
-              </span>
-            </div>
-          )}
 
           {kept.map((r, i) => (
             <ScoredCard
               key={r.title}
               result={r}
               rank={i + 1}
+              defaultOpen={!multi}
               primaryScore={config.primaryScore(r)}
               showGroundingBadge={config.showGroundingBadge}
               categoryOrder={r.category_order?.length ? r.category_order : categoryOrder}
@@ -492,10 +468,8 @@ function PredictFlow({
             />
           ))}
 
-          {/* The card currently being scored, as a placeholder — the results
-              list grows one card at a time, so this shows where the next one
-              lands instead of the list just sitting still. */}
-          {scoringIdx !== null && <SkeletonCardList cards={1} />}
+          {/* Where the next card lands while scoring is still running. */}
+          {scoring && <SkeletonCardList cards={1} />}
 
           {failedScored.length > 0 && (
             <div
@@ -507,7 +481,10 @@ function PredictFlow({
             </div>
           )}
 
-          {scoringDone && (
+          {/* Save is offered as soon as a card exists — waiting on the grounding
+              pass is optional, since a grounded score that lands after the save
+              would only matter to the card, and the reader can Re-predict. */}
+          {okScored.length > 0 && !scoring && (
             <div className="flex items-center gap-3 pt-2 flex-wrap">
               <p className="text-sm" style={{ color: "var(--color-muted)" }}>
                 {savable.length > 0
@@ -533,20 +510,107 @@ function PredictFlow({
               )}
             </div>
           )}
-
-          {saving && saveProgress.total > 0 && (
-            <>
-              <ProgressBar
-                value={saveProgress.done}
-                max={saveProgress.total}
-                label={`Saved ${saveProgress.done} / ${saveProgress.total}`}
-                hint="Each save writes the prediction and generates its blurb."
-              />
-              <StopButton onClick={() => jobs.cancelRun(kind)} className="mt-2" />
-            </>
-          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Series sources line ─────────────────────────────────────────────────── */
+
+function SeriesSources({ sources }: { sources: string[] }) {
+  if (sources.length === 0) return null;
+  return (
+    <p className="text-xs mt-2" style={{ color: "var(--color-faint)" }}>
+      Series data from Goodreads:{" "}
+      {sources.slice(0, 3).map((u, i) => (
+        <span key={u}>
+          {i > 0 ? " · " : ""}
+          <a href={u} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+            {u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 48)}
+          </a>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/* ── Run progress strip ──────────────────────────────────────────────────── */
+
+/** The one place a run reports progress. Shows whichever phase is live — they
+ *  run back to back (find → score → ground → save), with a re-predict possible
+ *  alongside — and one Stop that halts all of it (cancelRun covers the whole run). */
+function RunStrip({
+  genLoading, scoringCount, nCandidates, nNew,
+  refiningCount, grounded, groundable, repredictingCount,
+  saving, saveProgress, onStop,
+}: {
+  genLoading: boolean;
+  scoringCount: number | null;
+  nCandidates: number;
+  nNew: number;
+  refiningCount: number;
+  grounded: number;
+  groundable: number;
+  repredictingCount: number;
+  saving: boolean;
+  saveProgress: { done: number; total: number };
+  onStop: () => void;
+}) {
+  let bar: React.ReactNode = null;
+  if (genLoading) {
+    bar = (
+      <ProgressBar
+        label="Finding books…"
+        hint="Usually a few seconds; longer when the request needs a web lookup for series order."
+      />
+    );
+  } else if (scoringCount !== null) {
+    bar = (
+      <ProgressBar
+        value={scoringCount}
+        max={nCandidates}
+        label={`Scored ${scoringCount} of ${nCandidates}`}
+        hint={nNew > 0 ? `${nNew} never researched before — those are the slow ones. Several run at once.` : undefined}
+      />
+    );
+  } else if (saving && saveProgress.total > 0) {
+    bar = (
+      <ProgressBar
+        value={saveProgress.done}
+        max={saveProgress.total}
+        label={`Saved ${saveProgress.done} of ${saveProgress.total}`}
+        hint="Each save writes the prediction and generates its blurb."
+      />
+    );
+  } else if (refiningCount > 0) {
+    bar = (
+      <ProgressBar
+        value={groundable > 0 ? grounded : undefined}
+        max={groundable}
+        label={`Grounding with reviews · ${grounded} of ${groundable} done`}
+        hint="Scores already shown are usable — you can save now."
+      />
+    );
+  } else if (repredictingCount > 0) {
+    bar = <ProgressBar label={`Re-predicting ${repredictingCount} from scratch…`} />;
+  }
+  if (!bar) return null;
+  return (
+    <div
+      className="rounded-xl px-5 py-4 -mt-2"
+      style={{ background: "var(--color-surface)", boxShadow: "var(--shadow-card)" }}
+    >
+      {bar}
+      <div className="flex items-center gap-3 mt-2 flex-wrap">
+        <StopButton onClick={onStop} />
+        {/* The run is owned by the root layout, not this page, so leaving is
+            genuinely safe — say so, since nothing on screen would suggest it. */}
+        <span className="text-xs" style={{ color: "var(--color-faint)" }}>
+          Keeps running if you switch tabs.{" "}
+          <PredictNotifyPrompt />
+        </span>
+      </div>
     </div>
   );
 }
@@ -555,6 +619,7 @@ function PredictFlow({
 function ScoredCard({
   result,
   rank,
+  defaultOpen = false,
   primaryScore,
   showGroundingBadge,
   categoryOrder,
@@ -569,6 +634,9 @@ function ScoredCard({
 }: {
   result: ScoredCandidate;
   rank: number;
+  /** Open on first render — used when the run is a single named book, where the
+   *  detail IS the answer. */
+  defaultOpen?: boolean;
   /** The value shown in the badge + used for ranking: WA (fiction) or Total
    *  Average (nonfiction). */
   primaryScore: number;
@@ -587,7 +655,20 @@ function ScoredCard({
   onRepredict?: () => void;
   repredictError?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const canRefine = !!onRefine && result.hybrid_available && result.sourcing !== "hybrid" && !refining;
+
+  // One quiet status word in the header instead of buttons: the score in the
+  // badge is what the reader scans for, and the actions live one tap away in
+  // the open card. Work in flight still shows here so a changing badge is
+  // explained without opening anything.
+  const status = repredicting
+    ? { text: "re-predicting…", color: "var(--color-muted)", pulse: true }
+    : refining
+      ? { text: "grounding…", color: "var(--color-muted)", pulse: true }
+      : result.sourcing === "hybrid"
+        ? { text: "✓ reviews", color: "var(--color-sage)", pulse: false }
+        : null;
 
   return (
     <div
@@ -607,7 +688,7 @@ function ScoredCard({
           {rank}
         </span>
         <div
-          className="wa-badge flex-shrink-0"
+          className={`wa-badge flex-shrink-0${refining || repredicting ? " animate-pulse" : ""}`}
           style={{ width: "2.5rem", height: "2.5rem", fontSize: "0.75rem" }}
         >
           {primaryScore.toFixed(2)}
@@ -621,6 +702,14 @@ function ScoredCard({
           </p>
           <p className="text-sm truncate" style={{ color: "var(--color-muted)" }}>
             {result.author}
+            {status && (
+              <span
+                className={`sm:hidden ml-2 text-xs${status.pulse ? " animate-pulse" : ""}`}
+                style={{ color: status.color }}
+              >
+                {status.text}
+              </span>
+            )}
           </p>
         </div>
         <div className="hidden sm:flex flex-col items-end gap-1 flex-shrink-0">
@@ -629,57 +718,13 @@ function ScoredCard({
             rank ~{result.rank} of {result.total}
           </span>
         </div>
-        {result.sourcing === "hybrid" ? (
+        {status && (
           <span
-            className="text-xs flex-shrink-0 hidden sm:inline"
-            style={{ color: "var(--color-sage)" }}
-            title="Grounded with reader reviews"
+            className={`text-xs flex-shrink-0 hidden sm:inline${status.pulse ? " animate-pulse" : ""}`}
+            style={{ color: status.color }}
           >
-            ✓ reviews
+            {status.text}
           </span>
-        ) : refining ? (
-          <span
-            className="text-xs flex-shrink-0 animate-pulse"
-            style={{ color: "var(--color-muted)" }}
-          >
-            refining…
-          </span>
-        ) : result.hybrid_available && onRefine ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRefine();
-            }}
-            className="text-xs px-2 py-1 rounded-md flex-shrink-0"
-            style={{ border: "1px solid var(--color-rule)", color: "var(--color-sage)" }}
-            title="Ground this book's scores with reader reviews"
-          >
-            Refine
-          </button>
-        ) : null}
-
-        {/* Re-predict: the no-cache fresh look. Lives in the header BESIDE Refine
-            because that is where this page keeps its per-card actions — buried in
-            the expanded panel it may as well not exist. Distinct from Refine:
-            Refine is the one-time memory→grounded upgrade and disappears once a
-            book is grounded; this works on any card, at any time. */}
-        {onRepredict && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRepredict();
-            }}
-            disabled={repredicting}
-            className="text-xs px-2 py-1 rounded-md flex-shrink-0 disabled:opacity-60"
-            style={{
-              border: "1px solid var(--color-rule)",
-              color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
-              background: repredicting ? "var(--color-sage-light)" : "transparent",
-            }}
-            title="Ignore the cached research and predict this book again from scratch"
-          >
-            {repredicting ? "Re-predicting…" : "Re-predict"}
-          </button>
         )}
         <svg
           className="w-4 h-4 flex-shrink-0 transition-transform"
@@ -708,16 +753,6 @@ function ScoredCard({
         )}
       </div>
 
-      {/* Per-card work in flight. Sits under the header so it is visible whether
-          or not the card is expanded — a refine or re-predict rewrites the score
-          in the badge above it. */}
-      {(refining || repredicting) && (
-        <ProgressBar
-          className="px-5 pb-3"
-          label={repredicting ? "Predicting this book again from scratch…" : "Grounding with reader reviews…"}
-        />
-      )}
-
       {/* Expanded detail */}
       {open && (
         <div
@@ -727,12 +762,42 @@ function ScoredCard({
             background: "var(--color-ground)",
           }}
         >
-          <div className="flex gap-3 text-sm flex-wrap">
+          <div className="flex items-center gap-3 text-sm flex-wrap">
             {result.words && (
               <span style={{ color: "var(--color-muted)" }}>
                 ~{result.words.toLocaleString()} words
               </span>
             )}
+            {/* Per-card actions. Refine is the one-time memory→grounded upgrade
+                (most cards get it automatically — top K); Re-predict is the
+                no-cache fresh look and works on any card, at any time. */}
+            <span className="ml-auto flex gap-2">
+              {canRefine && (
+                <button
+                  onClick={onRefine}
+                  className="text-xs px-2 py-1 rounded-md"
+                  style={{ border: "1px solid var(--color-rule)", color: "var(--color-sage)" }}
+                  title="Ground this book's scores with reader reviews"
+                >
+                  Ground with reviews
+                </button>
+              )}
+              {onRepredict && (
+                <button
+                  onClick={onRepredict}
+                  disabled={repredicting}
+                  className="text-xs px-2 py-1 rounded-md disabled:opacity-60"
+                  style={{
+                    border: "1px solid var(--color-rule)",
+                    color: repredicting ? "var(--color-sage)" : "var(--color-muted)",
+                    background: repredicting ? "var(--color-sage-light)" : "transparent",
+                  }}
+                  title="Ignore the cached research and predict this book again from scratch"
+                >
+                  {repredicting ? "Re-predicting…" : "Re-predict"}
+                </button>
+              )}
+            </span>
           </div>
 
           {/* PRIMARY reliability: the grounding badge (fiction) or the honest
@@ -802,8 +867,7 @@ function ScoredCard({
         </div>
       )}
 
-      {/* Save result row — only appears once this book has been saved (opt-out model:
-          books save via the global button; the ✕ in the header removes unwanted ones). */}
+      {/* Save result row — only appears once this book has been saved. */}
       {saveMsg && (
         <div
           className="px-5 py-2"
@@ -823,6 +887,7 @@ function ScoredCard({
     </div>
   );
 }
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PER-KIND CONFIG — fiction and nonfiction share ONE flow component (PredictFlow);

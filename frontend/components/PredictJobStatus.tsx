@@ -40,8 +40,8 @@ import Glyph from "./Glyph";
 /** What a busy run is doing, phrased for a one-line pill. Ordered by which phase
  *  the reader most needs to see: an explicit count beats a vague "working". */
 function busyLabel(r: PredictRunState): string | null {
-  if (r.scoringIdx !== null && r.candidates) {
-    return `Scoring ${r.scoringIdx + 1}/${r.candidates.length}`;
+  if (r.scoringCount !== null && r.candidates) {
+    return `Scored ${r.scoringCount}/${r.candidates.length}`;
   }
   if (r.genLoading) return "Finding candidates";
   if (r.saving && r.saveProgress.total > 0) {

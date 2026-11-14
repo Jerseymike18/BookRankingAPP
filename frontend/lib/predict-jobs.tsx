@@ -117,6 +117,15 @@ export const EAGER_REFINE_K = 10;
    reported per-book, so a burst can't corrupt the batch. */
 const SAVE_CONCURRENCY = 8;
 
+/* Max candidates scored at once. Scoring used to be strictly one-at-a-time, so a
+   run of ten fresh titles waited for ten LLM calls back to back while refine and
+   save next to it already fanned out. These are the fast memory-only calls (no
+   web_search), so the Opus web_search throttling that capped REFINE_CONCURRENCY
+   does not apply as hard; 6 keeps a max-size run (DISCOVER_MAX=15) plus its eager
+   refines comfortably inside the shared `llm` bucket (40 calls / 60s). Cost per
+   run is unchanged — the same calls, just overlapped. */
+const SCORE_CONCURRENCY = 6;
+
 /* ── Run state ───────────────────────────────────────────────────────────── */
 
 export interface PredictRunState {
@@ -129,8 +138,10 @@ export interface PredictRunState {
   genLoading: boolean;
   genError: string | null;
   scored: ScoredCandidate[];
-  /** Which candidate is being scored right now, or null. */
-  scoringIdx: number | null;
+  /** How many candidates have finished scoring while a scoring pass is live;
+   *  null when no pass is running. Scoring is concurrent (SCORE_CONCURRENCY), so
+   *  there is no single "current" candidate any more — only a count. */
+  scoringCount: number | null;
   scoringDone: boolean;
   /** Titles being grounded-refined right now. */
   refining: string[];
@@ -157,7 +168,7 @@ const EMPTY_RUN: PredictRunState = {
   genLoading: false,
   genError: null,
   scored: [],
-  scoringIdx: null,
+  scoringCount: null,
   scoringDone: false,
   refining: [],
   repredicting: [],
@@ -178,7 +189,7 @@ const EMPTY_ALL: AllRuns = { fiction: EMPTY_RUN, nonfiction: EMPTY_RUN };
 export function isRunBusy(r: PredictRunState): boolean {
   return (
     r.genLoading ||
-    r.scoringIdx !== null ||
+    r.scoringCount !== null ||
     r.refining.length > 0 ||
     r.repredicting.length > 0 ||
     r.saving
@@ -568,7 +579,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       patch(kind, (r) => ({
         ...r,
         genLoading: false,
-        scoringIdx: null,
+        scoringCount: null,
         // Whatever was scored before the stop is a real result the reader can
         // still act on, so reveal the save step rather than hiding it.
         scoringDone: r.scored.length > 0 ? true : r.scoringDone,
@@ -628,46 +639,6 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [patch],
   );
 
-  /** Step 1 — ask the model for candidates. Clears the previous run for this kind. */
-  const generate = useCallback(
-    (kind: BookKind) => {
-      const request = runsRef.current[kind].request.trim();
-      // Refuse while this kind is still working. A run now outlives the page, so
-      // an overlapping Discover is no longer self-limiting the way it was when
-      // navigating away abandoned everything: the old scoring loop would keep
-      // writing its results into the freshly cleared run. One run per kind.
-      if (!request || isRunBusy(runsRef.current[kind]) || busyRef.current[kind]) return;
-      const signal = runSignal(kind);
-      patch(kind, (r) => ({
-        ...EMPTY_RUN,
-        request: r.request,
-        genLoading: true,
-      }));
-      void (async () => {
-        try {
-          const result = await PREDICT_RUNNERS[kind].discover(request, signal);
-          patch(kind, (r) => ({
-            ...r,
-            genLoading: false,
-            candidates: result.candidates,
-            requestLabel: result.request,
-            genNote: result.note ?? "",
-            genSources: result.sources ?? [],
-          }));
-        } catch (e: unknown) {
-          // A cancel is not a failure: cancelRun has already written the note.
-          if (isCancelled(e)) return;
-          patch(kind, (r) => ({
-            ...r,
-            genLoading: false,
-            genError: e instanceof Error ? e.message : "Generation failed.",
-          }));
-        }
-      })();
-    },
-    [patch, runSignal],
-  );
-
   /** Progressive grounded (hybrid) refine: re-score the given candidates with the
    *  web-grounded upgrade and swap each in place as it lands, up to
    *  REFINE_CONCURRENCY at once. Skips any already grounded, currently refining,
@@ -722,26 +693,24 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [patch, runSignal],
   );
 
-  /** Step 2 — score every candidate, then eagerly ground the top K. This whole
-   *  function is the "run": it is what the nav pill tracks and what the finish
-   *  banner announces, so the announcement fires exactly once, here, after the
-   *  eager grounding settles — never from the gap between the two phases. */
-  const score = useCallback(
-    (kind: BookKind) => {
-      const current = runsRef.current[kind];
-      const candidates = current.candidates;
-      if (!candidates || candidates.length === 0) return;
-      // Same one-run-per-kind rule as generate(). busyRef is checked as well as
-      // the state mirror because runsRef trails state by a commit, which a fast
-      // double-click can beat.
-      if (busyRef.current[kind] || isRunBusy(current)) return;
-      busyRef.current[kind] = true;
-      const signal = runSignal(kind);
+  /** Score a candidate list, then eagerly ground the top K. This is the body of a
+   *  "run": it is what the nav pill tracks and what the finish banner announces,
+   *  so the announcement fires exactly once, here, after the eager grounding
+   *  settles — never from the gap between the two phases.
+   *
+   *  Callers own the one-run-per-kind guard (busyRef) — generate() holds it across
+   *  discover AND this, so the two read as one run with no idle gap between them.
+   *
+   *  Concurrent (SCORE_CONCURRENCY), so cards land in finish order rather than
+   *  list order; the view sorts by predicted score anyway. A candidate the reader
+   *  ✕'d before its call went out is skipped, which is a real saving. */
+  const runScoring = useCallback(
+    async (kind: BookKind, candidates: Candidate[], signal: AbortSignal): Promise<void> => {
       patch(kind, (r) => ({
         ...r,
         scored: [],
         scoringDone: false,
-        scoringIdx: 0,
+        scoringCount: 0,
         cancelled: null,
         refining: [],
         removed: [],
@@ -749,70 +718,149 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         repredictErrors: {},
         interrupted: null,
       }));
-      void (async () => {
-        const results: ScoredCandidate[] = [];
+      const results: ScoredCandidate[] = [];
+      await mapPool(candidates, SCORE_CONCURRENCY, async (c) => {
+        // Checked per item: mapPool queues the rest behind the pool, so a Stop
+        // (or a ✕ on a still-queued candidate) must keep them from going out.
+        if (signal.aborted) return;
+        if (runsRef.current[kind].removed.includes(c.title)) {
+          patch(kind, (r) => ({ ...r, scoringCount: (r.scoringCount ?? 0) + 1 }));
+          return;
+        }
+        let res: ScoredCandidate;
         try {
-          for (let i = 0; i < candidates.length; i++) {
-            if (signal.aborted) return;   // stop BEFORE spending the next call
-            const c = candidates[i];
-            patch(kind, (r) => ({ ...r, scoringIdx: i }));
-            try {
-              results.push(await PREDICT_RUNNERS[kind].score(c, signal));
-            } catch (e: unknown) {
-              // A cancelled call is not a failed book — recording it as an error
-              // card would put a book the reader stopped into the failed bucket.
-              if (isCancelled(e)) return;
-              results.push({
-                title: c.title, author: c.author, genre: c.genre ?? "",
-                wa: 0, rank: 0, total: 0,
-                n_genre: 0, n_author: 0, conf: "?",
-                from_cache: false, words: null, series: "", series_number: null,
-                blurb: "", keywords: "",
-                components: {}, category_order: [],
-                genre_auto_detected: false,
-                error: e instanceof Error ? e.message : "Scoring failed",
-              });
-            }
-            const snapshot = [...results];
-            patch(kind, (r) => ({ ...r, scored: snapshot }));
-          }
-          patch(kind, (r) => ({ ...r, scoringIdx: null, scoringDone: true }));
+          res = await PREDICT_RUNNERS[kind].score(c, signal);
+        } catch (e: unknown) {
+          // A cancelled call is not a failed book — recording it as an error
+          // card would put a book the reader stopped into the failed bucket.
+          if (isCancelled(e) || signal.aborted) return;
+          res = {
+            title: c.title, author: c.author, genre: c.genre ?? "",
+            wa: 0, rank: 0, total: 0,
+            n_genre: 0, n_author: 0, conf: "?",
+            from_cache: false, words: null, series: "", series_number: null,
+            blurb: "", keywords: "",
+            components: {}, category_order: [],
+            genre_auto_detected: false,
+            error: e instanceof Error ? e.message : "Scoring failed",
+          };
+        }
+        if (signal.aborted) return;
+        results.push(res);
+        patch(kind, (r) => ({
+          ...r,
+          scored: [...r.scored, res],
+          scoringCount: (r.scoringCount ?? 0) + 1,
+        }));
+      });
+      if (signal.aborted) return;   // cancelRun already wrote the note + state
+      patch(kind, (r) => ({ ...r, scoringCount: null, scoringDone: true }));
 
-          const ok = results.filter((r) => !r.error);
-          // Eager pass (fiction only — nonfiction has no grounded upgrade):
-          // grounded-refine only the top few by predicted score; the rest refine
-          // on demand (per card, or "Refine all") so a large run doesn't fire N
-          // slow calls.
-          const alreadyGrounded = ok.filter((r) => r.sourcing === "hybrid").length;
-          const groundable = ok.filter(
-            (r) => r.hybrid_available || r.sourcing === "hybrid",
-          ).length;
-          let grounded = alreadyGrounded;
-          if (PREDICT_RUNNERS[kind].refine) {
-            const eager = [...ok]
-              .sort((a, b) => PREDICT_RUNNERS[kind].primaryScore(b) - PREDICT_RUNNERS[kind].primaryScore(a))
-              .slice(0, EAGER_REFINE_K);
-            grounded += await refineSet(kind, eager);
+      const ok = results.filter((r) => !r.error);
+      // Eager pass (fiction only — nonfiction has no grounded upgrade):
+      // grounded-refine only the top few by predicted score; the rest refine
+      // on demand (per card, or "Refine all") so a large run doesn't fire N
+      // slow calls.
+      const alreadyGrounded = ok.filter((r) => r.sourcing === "hybrid").length;
+      const groundable = ok.filter(
+        (r) => r.hybrid_available || r.sourcing === "hybrid",
+      ).length;
+      let grounded = alreadyGrounded;
+      if (PREDICT_RUNNERS[kind].refine) {
+        const removedNow = new Set(runsRef.current[kind].removed);
+        const eager = ok
+          .filter((r) => !removedNow.has(r.title))
+          .sort((a, b) => PREDICT_RUNNERS[kind].primaryScore(b) - PREDICT_RUNNERS[kind].primaryScore(a))
+          .slice(0, EAGER_REFINE_K);
+        grounded += await refineSet(kind, eager);
+      }
+      if (signal.aborted) return;
+      announce({
+        type: "run",
+        kind,
+        scored: ok.length,
+        failed: results.length - ok.length,
+        grounded,
+        groundable,
+      });
+    },
+    [patch, refineSet, announce],
+  );
+
+  /** Ask the model for candidates, then score them straight away. Clears the
+   *  previous run for this kind.
+   *
+   *  There used to be a confirm step between the two. It bought nothing: the
+   *  table it showed was the same list that scoring then streamed in, the cached
+   *  ones are free, and anything unwanted can be ✕'d while scoring runs (a queued
+   *  ✕ never makes its call). One press now carries a request to ranked cards —
+   *  which is also what makes a single named book a one-press prediction. */
+  const generate = useCallback(
+    (kind: BookKind) => {
+      const request = runsRef.current[kind].request.trim();
+      // Refuse while this kind is still working. A run outlives the page, so an
+      // overlapping Discover would have the old scoring loop write into the
+      // freshly cleared run. One run per kind. busyRef as well as the state
+      // mirror because runsRef trails state by a commit, which a fast
+      // double-press can beat.
+      if (!request || isRunBusy(runsRef.current[kind]) || busyRef.current[kind]) return;
+      busyRef.current[kind] = true;
+      const signal = runSignal(kind);
+      patch(kind, (r) => ({
+        ...EMPTY_RUN,
+        request: r.request,
+        genLoading: true,
+      }));
+      void (async () => {
+        try {
+          const result = await PREDICT_RUNNERS[kind].discover(request, signal);
+          if (signal.aborted) return;
+          patch(kind, (r) => ({
+            ...r,
+            genLoading: false,
+            candidates: result.candidates,
+            requestLabel: result.request,
+            genNote: result.note ?? "",
+            genSources: result.sources ?? [],
+          }));
+          if (result.candidates.length > 0) {
+            await runScoring(kind, result.candidates, signal);
           }
-          announce({
-            type: "run",
-            kind,
-            scored: ok.length,
-            failed: results.length - ok.length,
-            grounded,
-            groundable,
-          });
+        } catch (e: unknown) {
+          // A cancel is not a failure: cancelRun has already written the note.
+          if (isCancelled(e)) return;
+          patch(kind, (r) => ({
+            ...r,
+            genLoading: false,
+            genError: e instanceof Error ? e.message : "Generation failed.",
+          }));
         } finally {
-          busyRef.current[kind] = false;
-          // A cancelled run keeps the note cancelRun wrote and its partial
-          // results; scoringDone is already true there, set by the same call.
-          if (!signal.aborted) {
-            patch(kind, (r) => ({ ...r, scoringIdx: null, scoringDone: true }));
-          }
+          // Only when this run ended on its own. A stopped run's guard was already
+          // released by cancelRun, and the reader may have started a new run since
+          // — clearing it here would unlock that one mid-flight.
+          if (!signal.aborted) busyRef.current[kind] = false;
         }
       })();
     },
-    [patch, refineSet, announce, runSignal],
+    [patch, runSignal, runScoring],
+  );
+
+  /** Score the candidates already on screen again — the path for a run that a
+   *  reload or a Stop cut off before it finished. A fresh request goes through
+   *  generate(), which scores on its own. */
+  const score = useCallback(
+    (kind: BookKind) => {
+      const current = runsRef.current[kind];
+      const candidates = current.candidates;
+      if (!candidates || candidates.length === 0) return;
+      if (busyRef.current[kind] || isRunBusy(current)) return;
+      busyRef.current[kind] = true;
+      const signal = runSignal(kind);
+      void runScoring(kind, candidates, signal).finally(() => {
+        if (!signal.aborted) busyRef.current[kind] = false;   // see generate()
+      });
+    },
+    [runSignal, runScoring],
   );
 
   /** Refine one candidate on demand. No completion banner — the reader asked for
