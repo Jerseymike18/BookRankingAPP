@@ -32,6 +32,7 @@ import contextlib
 import json
 import re
 import sqlite3
+import unicodedata
 import datetime
 import logging
 import time
@@ -1654,6 +1655,48 @@ def get_book_scores(title: str, user_id: str = Depends(auth.get_current_user_id)
     }
 
 
+_TITLE_APOSTROPHES = re.compile("['\u2018\u2019\u02bc\u0060\u00b4]")
+_TITLE_NON_ALNUM = re.compile(r"[\W_]+")
+
+
+def _title_key(title: Optional[str]) -> str:
+    """Loose match key for pairing a finished book with its queue / TBR row.
+
+    The rated title is typed by hand, the queued one came from research, so the two
+    routinely differ in ways that don't change which book it is: case, apostrophe
+    style ("Death’s End" / "Death's End") or a dropped apostrophe ("Deaths End"),
+    punctuation ("Dune: Messiah" / "Dune Messiah") and spacing. Apostrophes are
+    deleted (so "Death's" == "Deaths"); every other run of non-alphanumerics is one
+    space. Words are never dropped, so a subtitle still makes it a different title."""
+    t = unicodedata.normalize("NFKC", title or "").casefold()
+    t = _TITLE_APOSTROPHES.sub("", t)
+    return _TITLE_NON_ALNUM.sub(" ", t).strip()
+
+
+def _find_rec_title(title: str, user_id: str, open_only: bool) -> Optional[str]:
+    """Exact stored title of the caller's recommendation matching `title`, or None.
+
+    An exact case-insensitive match wins; otherwise the newest row whose _title_key
+    matches. `open_only` restricts to done=0 (the TBR). Tenant-scoped."""
+    con = db_backend.connect(db_write.DB, readonly=True)
+    rows = con.execute(
+        "SELECT title FROM recommendations WHERE user_id=?"
+        + (" AND done=0" if open_only else "") + " ORDER BY id DESC",
+        (user_id,)).fetchall()
+    con.close()
+    want = (title or "").strip().lower()
+    for (t,) in rows:
+        if (t or "").strip().lower() == want:
+            return t
+    key = _title_key(title)
+    if not key:
+        return None
+    for (t,) in rows:
+        if _title_key(t) == key:
+            return t
+    return None
+
+
 class AddBookRequest(BaseModel):
     title: str
     genre: str
@@ -1696,38 +1739,37 @@ def add_book(req: AddBookRequest, background_tasks: BackgroundTasks,
         raise HTTPException(status_code=422, detail=msg or "Could not add book.")
 
     # Remove the finished book from the queue so slots advance automatically.
+    # Matched on _title_key, not exact text: a finish typed "Deaths End" or with a
+    # curly apostrophe must still clear the queued "Death's End".
     try:
         con = db_backend.connect(db_write.DB, readonly=True)
         current_queue = [t for (t,) in con.execute(
             "SELECT title FROM read_queue WHERE user_id=? ORDER BY position",
             (user_id,))]
         con.close()
-        title_lower = req.title.strip().lower()
-        new_queue = [t for t in current_queue
-                     if t.strip().lower() != title_lower]
+        key = _title_key(req.title)
+        new_queue = [t for t in current_queue if _title_key(t) != key]
         if len(new_queue) < len(current_queue):
-            db_write.update_queue(new_queue, user_id=user_id)
+            with contextlib.redirect_stdout(io.StringIO()):
+                db_write.update_queue(new_queue, user_id=user_id)
     except Exception:
-        pass  # dequeue failure is non-fatal; book was still added
+        # Non-fatal (the book was still added), but never silent: a stuck queue
+        # entry with nothing in the log is how this went unnoticed before.
+        log.exception("read_queue not updated after adding %r", req.title)
 
     # Mark the matching TBR recommendation done. A finished book that stays done=0
     # in recommendations is a data-lint ERROR (see scripts/lint_data.py), which
     # blocks the publish — so a finish must always flip its prediction row. The
-    # case-insensitive lookup mirrors _maybe_log_delta so it finds the same row;
-    # set_done is then called with that row's exact title. Non-fatal: a failure
+    # lookup is _find_rec_title, shared with _maybe_log_delta so both find the same
+    # row; set_done is then called with that row's exact title. Non-fatal: a failure
     # here never rolls back the successful add.
     try:
-        con = db_backend.connect(db_write.DB, readonly=True)
-        rec = con.execute(
-            "SELECT title FROM recommendations "
-            "WHERE LOWER(title)=LOWER(?) AND done=0 AND user_id=? ORDER BY id DESC LIMIT 1",
-            (req.title, user_id)).fetchone()
-        con.close()
-        if rec:
+        rec_title = _find_rec_title(req.title, user_id, open_only=True)
+        if rec_title:
             with contextlib.redirect_stdout(io.StringIO()):
-                db_write.set_done(rec[0], True, user_id=user_id)
+                db_write.set_done(rec_title, True, user_id=user_id)
     except Exception:
-        pass  # marking done is best-effort; the book was still added
+        log.exception("recommendation not marked done after adding %r", req.title)
 
     _invalidate_engine(user_id)
 
@@ -2103,13 +2145,16 @@ def repredict_recent(token: str, user_id: str = Depends(auth.get_current_user_id
 def _maybe_log_delta(title: str, act_scores: dict, user_id: str) -> None:
     """Check recommendations for a stored prediction and log delta if found.
     Tenant-scoped: only the caller's own prediction row is matched and logged."""
+    rec_title = _find_rec_title(title, user_id, open_only=False)
+    if rec_title is None:
+        return  # no prediction on record
     con = db_backend.connect(db_write.DB, readonly=True)
     row = con.execute(
         "SELECT genre, author, words, "
         + ", ".join(f'"{c}"' for c in db_write.FICTION_COMPONENTS)
-        + ' FROM recommendations WHERE LOWER(title)=LOWER(?) AND user_id=?'
+        + ' FROM recommendations WHERE title=? AND user_id=?'
         + ' ORDER BY id DESC LIMIT 1',
-        (title, user_id)
+        (rec_title, user_id)
     ).fetchone()
     con.close()
     if row is None:
