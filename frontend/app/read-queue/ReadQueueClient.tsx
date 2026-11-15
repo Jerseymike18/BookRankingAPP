@@ -137,6 +137,45 @@ function getRecSortValue(rec: Recommendation, moodScore: number | null, field: R
 
 /* ── Expandable row panel ─────────────────────────────────────────────── */
 
+/** A recommendation's blurb, pulled on demand.
+ *
+ *  The list is fetched without blurbs (they are ~40% of that payload), so a card
+ *  pulls its one blurb when it opens. `undefined` means "not loaded"; `""` means
+ *  "loaded, there isn't one" — the distinction is what keeps the Generate button
+ *  from flashing before the real answer arrives. Callers that DO ship blurbs
+ *  inline — the static snapshot, the public-profile view — hand us a string, so
+ *  this never fires for them (and must not: it would read the VIEWER's own
+ *  recommendations, not the profile owner's). Shared by the Recommendations and
+ *  Queue tabs so the two can't disagree about a book's blurb. */
+function useLazyBlurb(title: string, initial: string | undefined) {
+  const [blurb, setBlurb] = useState(initial);
+  const [loading, setLoading] = useState(initial === undefined);
+  useEffect(() => {
+    if (initial !== undefined) return;
+    let live = true;
+    fetchRecommendationBlurb(title)
+      .then((b) => { if (live) setBlurb(b); })
+      .catch(() => { if (live) setBlurb(""); })   // fall back to "no blurb yet"
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [title, initial]);
+  return { blurb, setBlurb, loading };
+}
+
+function BlurbBlock({ blurb }: { blurb: string | undefined }) {
+  if (!blurb) return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>
+        Blurb
+      </p>
+      <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
+        {blurb}
+      </p>
+    </div>
+  );
+}
+
 function RecExpandedPanel({
   rec,
   moodScore,
@@ -152,25 +191,8 @@ function RecExpandedPanel({
 }) {
   const ro = useReadOnly();
   const router = useRouter();
-  const [blurb, setBlurb] = useState(rec.blurb);
+  const { blurb, setBlurb, loading: blurbLoading } = useLazyBlurb(rec.title, rec.blurb);
   const [keywords, setKeywords] = useState(rec.keywords);
-  // The list is fetched without blurbs (they are ~40% of that payload and only ever
-  // shown here), so pull this book's one blurb when the card opens. `undefined` means
-  // "not loaded"; `""` means "loaded, there isn't one" — the distinction is what keeps
-  // the Generate button from flashing before the real answer arrives. Callers that DO
-  // ship blurbs inline — the static snapshot, the public-profile view — hand us a
-  // string, so this never fires for them (and must not: it would read the VIEWER's own
-  // recommendations, not the profile owner's).
-  const [blurbLoading, setBlurbLoading] = useState(rec.blurb === undefined);
-  useEffect(() => {
-    if (rec.blurb !== undefined) return;
-    let live = true;
-    fetchRecommendationBlurb(rec.title)
-      .then((b) => { if (live) setBlurb(b); })
-      .catch(() => { if (live) setBlurb(""); })   // fall back to "no blurb yet"
-      .finally(() => { if (live) setBlurbLoading(false); });
-    return () => { live = false; };
-  }, [rec.title, rec.blurb]);
   const [genError, setGenError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -340,17 +362,7 @@ function RecExpandedPanel({
         )}
       </div>
 
-      {/* Blurb */}
-      {blurb && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>
-            Blurb
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>
-            {blurb}
-          </p>
-        </div>
-      )}
+      <BlurbBlock blurb={blurb} />
 
       {/* Keywords */}
       {keywords && (
@@ -748,6 +760,7 @@ function FilterText({
 /* ── Queue tab ────────────────────────────────────────────────────────── */
 
 function QueueExpandedPanel({ rec }: { rec: Recommendation }) {
+  const { blurb, loading } = useLazyBlurb(rec.title, rec.blurb);
   return (
     <div
       className="px-5 py-4 space-y-4"
@@ -779,6 +792,15 @@ function QueueExpandedPanel({ rec }: { rec: Recommendation }) {
           <span style={{ color: "var(--color-faint)" }}>Series: {seriesLabel(rec.series, rec.series_number)}</span>
         )}
       </div>
+      {loading ? (
+        <p className="text-xs animate-pulse" style={{ color: "var(--color-faint)" }}>Loading blurb…</p>
+      ) : blurb ? (
+        <BlurbBlock blurb={blurb} />
+      ) : (
+        <p className="text-xs" style={{ color: "var(--color-faint)" }}>
+          No blurb yet — open this book on the Mood Scores tab to generate one.
+        </p>
+      )}
       <ComponentScores components={rec.components} />
     </div>
   );

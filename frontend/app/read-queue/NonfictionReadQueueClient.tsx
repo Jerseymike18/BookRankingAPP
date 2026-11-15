@@ -511,6 +511,15 @@ function QueueExpandedPanel({ rec }: { rec: NonfictionRecommendation }) {
           <span style={{ color: "var(--color-faint)" }}>Series: {seriesLabel(rec.series, rec.series_number)}</span>
         )}
       </div>
+      {/* Nonfiction ships blurbs inline with the list, so no fetch is needed. */}
+      {rec.blurb ? (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--color-muted)" }}>Blurb</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--color-ink)" }}>{rec.blurb}</p>
+        </div>
+      ) : (
+        <p className="text-xs" style={{ color: "var(--color-faint)" }}>No blurb yet.</p>
+      )}
       <ComponentScores components={rec.components} />
     </div>
   );
