@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePredictJobs, isRunBusy, EAGER_REFINE_K } from "@/lib/predict-jobs";
 import { PREDICT_RUNNERS } from "@/lib/predict-runners";
 import type { ResearchResult, ScoredCandidate, Candidate, BookKind } from "@/lib/types";
@@ -169,7 +170,7 @@ function PredictFlow({
   const {
     request, requestLabel, candidates, genNote, genSources, genLoading, genError,
     scored, scoringCount, scoringDone, saveResults, saving, saveProgress,
-    repredictErrors, interrupted, cancelled,
+    repredictErrors, interrupted, cancelled, savedNote,
   } = run;
   // Clear a stale generation error on arrival.
   //
@@ -284,6 +285,31 @@ function PredictFlow({
           <span className="flex-1">{cancelled}</span>
           <button
             onClick={() => jobs.dismissCancelled(kind)}
+            aria-label="Dismiss"
+            className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 -mr-1 rounded"
+          >
+            <Glyph name="close" size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* A save finished and its cards were cleared — they live on the read
+          queue now. Sage, like Stop: an outcome, not a problem. */}
+      {savedNote && (
+        <div
+          className="rounded-lg px-4 py-3 text-sm flex items-start gap-3"
+          style={{
+            background: "var(--color-sage-light)",
+            border: "1px solid var(--color-sage)",
+            color: "var(--color-sage)",
+          }}
+        >
+          <span className="flex-1">
+            {savedNote}{" "}
+            <Link href={config.queueHref} className="underline">Open it</Link>
+          </span>
+          <button
+            onClick={() => jobs.dismissSavedNote(kind)}
             aria-label="Dismiss"
             className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 -mr-1 rounded"
           >
@@ -583,7 +609,7 @@ function RunStrip({
         hint="Each save writes the prediction and generates its blurb."
       />
     );
-  } else if (refiningCount > 0) {
+  } else if (refiningCount > 0 && groundable > 0) {
     bar = (
       <ProgressBar
         value={groundable > 0 ? grounded : undefined}
@@ -923,6 +949,8 @@ interface PredictFlowConfig {
   newCostHint: string;
   savedNoun: string;       // "…will be saved to your {savedNoun}"
   saveButtonNoun: string;  // "Save N to {saveButtonNoun}"
+  /** Where a saved book lands — linked from the "added to your read queue" note. */
+  queueHref: string;
   /** Whether this kind has a grounded-refine path at all (fiction only). When
    *  false the refine banner and every per-card Refine affordance disappear. */
   hasRefine: boolean;
@@ -951,6 +979,7 @@ function makeFictionConfig(categoryOrder: string[]): PredictFlowConfig {
     newCostHint: "~1¢ and a few seconds each",
     savedNoun: "recommendations (TBR)",
     saveButtonNoun: "recommendations",
+    queueHref: "/read-queue",
     hasRefine: !!PREDICT_RUNNERS.fiction.refine,
     hasRepredict: !!PREDICT_RUNNERS.fiction.repredict,
   };
@@ -976,6 +1005,7 @@ function makeNonfictionConfig(categoryOrder: string[]): PredictFlowConfig {
     newCostHint: "one Opus call each",
     savedNoun: "nonfiction TBR",
     saveButtonNoun: "nonfiction TBR",
+    queueHref: "/read-queue?type=nonfiction",
     hasRefine: !!PREDICT_RUNNERS.nonfiction.refine,
     hasRepredict: !!PREDICT_RUNNERS.nonfiction.repredict,
   };

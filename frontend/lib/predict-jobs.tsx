@@ -157,6 +157,10 @@ export interface PredictRunState {
   /** Set when the reader pressed Stop. Distinct from `interrupted`: that is
    *  something that happened TO the run, this is something they chose. */
   cancelled: string | null;
+  /** Set when a Save finished and its books were cleared off the page. They are
+   *  on the read-queue now, so the cards have done their job — this one line is
+   *  what is left to say they landed. Not persisted: it reports a moment. */
+  savedNote: string | null;
 }
 
 const EMPTY_RUN: PredictRunState = {
@@ -179,6 +183,7 @@ const EMPTY_RUN: PredictRunState = {
   saveProgress: { done: 0, total: 0 },
   interrupted: null,
   cancelled: null,
+  savedNote: null,
 };
 
 type AllRuns = Record<BookKind, PredictRunState>;
@@ -295,6 +300,7 @@ interface PredictJobsValue {
   /** Stop everything in flight for this kind's Predict run. */
   cancelRun: (kind: BookKind) => void;
   dismissCancelled: (kind: BookKind) => void;
+  dismissSavedNote: (kind: BookKind) => void;
   /** Which kind the Predict page's toggle is showing. Held here rather than in
    *  the page so the finish banner can open the page on the kind that finished,
    *  and so the toggle choice survives navigation like everything else. */
@@ -594,6 +600,11 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     [patch],
   );
 
+  const dismissSavedNote = useCallback(
+    (kind: BookKind) => patch(kind, (r) => ({ ...r, savedNote: null })),
+    [patch],
+  );
+
   const dismissCancelled = useCallback(
     (kind: BookKind) => patch(kind, (r) => ({ ...r, cancelled: null })),
     [patch],
@@ -810,7 +821,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
         ...EMPTY_RUN,
         request: r.request,
         genLoading: true,
-      }));
+      }));   // EMPTY_RUN also drops a previous run's savedNote
       void (async () => {
         try {
           const result = await PREDICT_RUNNERS[kind].discover(request, signal);
@@ -1017,12 +1028,68 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
             saveProgress: { ...prev.saveProgress, done: prev.saveProgress.done + 1 },
           }));
         });
-        // Merge (don't replace) so an earlier batch's ✓ results survive a second save.
-        patch(kind, (prev) => ({
-          ...prev,
-          saving: false,
-          saveResults: { ...prev.saveResults, ...newResults },
-        }));
+        if (signal.aborted) {
+          // Stopped mid-save: keep everything on screen, merged (not replaced)
+          // so an earlier batch's ✓ results survive, and let the reader see
+          // which books made it before pressing Save again.
+          patch(kind, (prev) => ({
+            ...prev,
+            saving: false,
+            saveResults: { ...prev.saveResults, ...newResults },
+          }));
+          return;
+        }
+        // A saved book is on the read-queue now, so its card has done its job —
+        // clear it off. A book whose save FAILED stays, with its error, so the
+        // reader can retry it. When nothing is left to act on, the whole run is
+        // cleared (candidates, removed, failed-to-score) and the page is back to
+        // a fresh request box; the typed request is kept for a follow-up.
+        const savedTitles = new Set(
+          Object.entries(newResults)
+            .filter(([, msg]) => !msg.startsWith("Error"))
+            .map(([t]) => t),
+        );
+        const n = savedTitles.size;
+        const after = runsRef.current[kind];
+        const removedNow = new Set(after.removed);
+        const clearsAll = !after.scored.some(
+          (r) => !savedTitles.has(r.title) && !r.error && !removedNow.has(r.title),
+        );
+        if (clearsAll) {
+          // Nothing is left on the page, so grounding still queued for the
+          // cleared cards would be paid for and thrown away (the saved rows keep
+          // the scores they were saved with). Stop it quietly — this is not the
+          // reader's Stop, so no "Stopped" note.
+          runAbort.current[kind]?.abort();
+          runAbort.current[kind] = null;
+          refiningRef.current[kind].clear();
+        }
+        patch(kind, (prev) => {
+          const remaining = prev.scored.filter((r) => !savedTitles.has(r.title));
+          const removedSet = new Set(prev.removed);
+          const stillActionable = remaining.some(
+            (r) => !r.error && !removedSet.has(r.title),
+          );
+          const savedNote = n > 0
+            ? `Added ${n} book${n === 1 ? "" : "s"} to your read queue.`
+            : null;
+          if (!stillActionable) {
+            return {
+              ...EMPTY_RUN,
+              request: prev.request,
+              savedNote,
+            };
+          }
+          const saveResults = { ...prev.saveResults, ...newResults };
+          for (const t of savedTitles) delete saveResults[t];
+          return {
+            ...prev,
+            saving: false,
+            scored: remaining,
+            saveResults,
+            savedNote,
+          };
+        });
       })();
     },
     [patch, runSignal],
@@ -1128,6 +1195,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
       cancelQueueRepredict,
       cancelRun,
       dismissCancelled,
+      dismissSavedNote,
       activeKind,
       setActiveKind,
       notice,
@@ -1150,7 +1218,7 @@ export function PredictJobsProvider({ children }: { children: React.ReactNode })
     }),
     [
       runs, queueRepredicts, startQueueRepredict, clearQueueRepredict,
-      cancelQueueRepredict, cancelRun, dismissCancelled, activeKind, notice,
+      cancelQueueRepredict, cancelRun, dismissCancelled, dismissSavedNote, activeKind, notice,
       dismissNotice, setRequest, genreTab, patchGenreTab, requestFocusOnArrival,
       consumeArrivalFocus, dismissInterrupted, dismissGenError, generate, score, refineOne,
       refineRemaining, repredictOne, save, removeBook, restoreAll,
