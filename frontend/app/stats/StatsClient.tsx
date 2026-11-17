@@ -163,11 +163,11 @@ export default function StatsClient({
   section = "all",
 }: {
   data: CombinedStatsResponse;
-  /** Which part to render. The /stats page splits the dashboard around its
-   *  Rankings list: "header" (title + headline tiles) above it, "details"
-   *  (tiers, per-year chart) below it. "all" — the
-   *  public-profile Stats tab — renders everything in one piece. */
-  section?: "all" | "header" | "details";
+  /** Which part to render. "summary" (headline tiles + tiers, no title) is
+   *  the reader's own summary on /profile; "years" (the per-year chart) sits
+   *  under the Rankings list on /stats. "all" — the public-profile Stats tab —
+   *  renders everything in one piece, title included. */
+  section?: "all" | "summary" | "years";
   // The cross-type "all books" table. On by default (the public-profile Stats
   // tab keeps its own copy); the merged /stats page passes false because its
   // Rankings section below already renders this leaderboard.
@@ -187,19 +187,22 @@ export default function StatsClient({
     [combined_ranking, typeFilter]
   );
 
-  const header = section !== "details";
-  const details = section !== "header";
+  const all = section === "all";
+  const summary = all || section === "summary";
+  const years = all || section === "years";
 
   return (
     <div>
-      {header && (
-      <>
+      {all && (
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
           Stats
         </h1>
       </div>
+      )}
 
+      {summary && (
+      <>
       {/* Headline tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile
@@ -224,31 +227,27 @@ export default function StatsClient({
           value={totals.avg_total_average != null ? totals.avg_total_average.toFixed(2) : "—"}
         />
       </div>
-      </>
-      )}
 
-      {details && (
-      <>
       {/* Each track once: its tier mix, book count and average WA. */}
       <SectionHeading>Tiers</SectionHeading>
       <div className="rounded-2xl p-4" style={tileStyle}>
         <TierBar label="Fiction" counts={tier_distribution.fiction} order={tier_distribution.tier_order} avgWA={by_type.fiction.avg_wa} />
         <TierBar label="Nonfiction" counts={tier_distribution.nonfiction} order={tier_distribution.tier_order} avgWA={by_type.nonfiction.avg_wa} />
       </div>
+      </>
+      )}
 
-      {per_year.length > 0 && (
+      {years && per_year.length > 0 && (
         <>
           <SectionHeading>Books per year</SectionHeading>
           <YearChart rows={per_year} />
         </>
       )}
-      </>
-      )}
 
       {/* Combined cross-type ranking (by WA). Suppressed on the merged /stats
           page (showRanking={false}), where the Rankings section renders the same
           leaderboard; shown standalone e.g. on the public-profile Stats tab. */}
-      {showRanking && section === "all" && (
+      {showRanking && all && (
         <>
           <SectionHeading>All books · ranked by WA</SectionHeading>
           <SegmentedTabs tabs={TYPE_TABS} value={typeFilter} onChange={setTypeFilter} className="mb-4" />

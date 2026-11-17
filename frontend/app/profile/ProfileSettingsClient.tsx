@@ -6,7 +6,15 @@ import type { Profile } from "@/lib/types";
 import { saveMyProfile } from "@/lib/api";
 import ExportLibraryButton from "@/components/ExportLibraryButton";
 
-export default function ProfileSettingsClient({ initial }: { initial: Profile | null }) {
+export default function ProfileSettingsClient({
+  initial,
+  summary,
+}: {
+  initial: Profile | null;
+  /** The reader's own stats summary (headline tiles + tiers), rendered above
+   *  the handle settings. Server-rendered by the page and passed in. */
+  summary?: React.ReactNode;
+}) {
   const [handle, setHandle] = useState(initial?.handle ?? "");
   const [displayName, setDisplayName] = useState(initial?.display_name ?? "");
   const [isPublic, setIsPublic] = useState(initial?.is_public ?? false);
@@ -43,7 +51,7 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
   };
 
   return (
-    <div className="max-w-lg">
+    <div>
       <div className="mb-6">
         <h1
           className="font-display text-3xl font-bold leading-tight"
@@ -51,11 +59,18 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
         >
           My Profile
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--color-muted)" }}>
-          Claim a handle and choose whether other readers can browse your rankings and
-          to-read queue. Your profile is <strong>private</strong> until you make it public.
-        </p>
       </div>
+
+      {summary}
+
+      <div className="max-w-lg">
+      <h2 className="font-display text-lg font-semibold mt-8 mb-1" style={{ color: "var(--color-ink)" }}>
+        Public profile
+      </h2>
+      <p className="mb-4 text-sm" style={{ color: "var(--color-muted)" }}>
+        Claim a handle and choose whether other readers can browse your rankings and
+        to-read queue. Your profile is <strong>private</strong> until you make it public.
+      </p>
 
       <div className="space-y-4">
         <label className="block">
@@ -143,6 +158,7 @@ export default function ProfileSettingsClient({ initial }: { initial: Profile | 
           your own data is not a form of publishing it. */}
       <div className="mt-10">
         <ExportLibraryButton />
+      </div>
       </div>
     </div>
   );

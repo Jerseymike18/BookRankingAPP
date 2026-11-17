@@ -7,10 +7,10 @@ import RankingsView from "@/components/views/RankingsView";
 
 export const dynamic = "force-dynamic";
 
-// The merged Stats + Rankings page. Headline tiles lead, the Fiction /
-// Nonfiction / All rankings follow under "Rankings", and the deeper summaries
-// (tiers, books per year) sit at the bottom. StatsClient's own cross-type table is suppressed here
-// (showRanking={false}) so the leaderboard isn't rendered twice. The former
+// The merged Stats + Rankings page: the Fiction / Nonfiction / All rankings,
+// then the books-per-year chart. The headline tiles and tier summary live on
+// /profile (StatsClient section="summary"); this page renders only the chart
+// (section="years"), so the leaderboard isn't rendered twice. The former
 // /rankings route redirects here (see next.config.ts), seeding the ranking
 // table's type toggle via ?type=; #rankings jumps straight to the tables.
 export default async function StatsPage({
@@ -30,12 +30,14 @@ export default async function StatsPage({
   ]);
   return (
     <div>
-      {/* Title + headline tiles, then the Rankings list, then the deeper
-          summaries (tiers, per-year chart) at the bottom. */}
-      <StatsClient data={stats} showRanking={false} section="header" />
+      <div className="mb-6">
+        <h1 className="font-display text-3xl font-bold leading-tight" style={{ color: "var(--color-ink)" }}>
+          Stats
+        </h1>
+      </div>
       <section id="rankings" className="scroll-mt-24">
         <h2
-          className="font-display text-lg font-semibold mt-8 mb-3"
+          className="font-display text-lg font-semibold mb-3"
           style={{ color: "var(--color-ink)" }}
         >
           Rankings
@@ -49,7 +51,7 @@ export default async function StatsPage({
           initialType={parseTypeScope(type, "all", true)}
         />
       </section>
-      <StatsClient data={stats} showRanking={false} section="details" />
+      <StatsClient data={stats} section="years" />
     </div>
   );
 }
