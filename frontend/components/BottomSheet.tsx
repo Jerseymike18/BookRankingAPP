@@ -44,6 +44,20 @@ export default function BottomSheet({
     }, EXIT_MS);
   }, [router]);
 
+  // The sheet must open fully below the app's top bar, never with its top
+  // edge tucked behind it. Measure the visible sticky header(s) once on open
+  // (the page is scroll-locked, so it can't move) and cap the sheet there.
+  const [topGap, setTopGap] = useState<number | null>(null);
+  useEffect(() => {
+    let bottom = 0;
+    document.querySelectorAll<HTMLElement>("header.app-chrome").forEach((h) => {
+      const r = h.getBoundingClientRect();
+      if (r.height > 0) bottom = Math.max(bottom, r.bottom);
+    });
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot layout measurement
+    if (bottom > 0) setTopGap(Math.round(bottom + 8));
+  }, []);
+
   // Escape closes; lock the page behind the sheet from scrolling.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
@@ -90,9 +104,12 @@ export default function BottomSheet({
         style={{
           background: "var(--color-ground)",
           boxShadow: "0 -8px 30px rgba(26, 23, 20, 0.15)",
-          // Leave a strip above the sheet (more on notched phones) so its top edge
-          // and the close button never sit under the status bar.
-          maxHeight: "calc(100dvh - max(2.5rem, env(safe-area-inset-top) + 1rem))",
+          // Start below the top bar (measured above); before measuring / with no
+          // header, leave a strip that clears the status bar on notched phones.
+          maxHeight:
+            topGap != null
+              ? `calc(100dvh - ${topGap}px)`
+              : "calc(100dvh - max(2.5rem, env(safe-area-inset-top) + 1rem))",
           transform: dragY ? `translateY(${dragY}px)` : undefined,
           transition: !dragging && !closing ? "transform 180ms ease" : undefined,
         }}
